@@ -18,7 +18,6 @@
  */
 import { useI18n } from '@/i18n'
 import { View, Text } from '@tarojs/components'
-import LineIcon from '@/components/LineIcon'
 import { EmptyState } from '@/components/ScreenStates.taro'
 
 /** 目录里的一行(与共享屏 CourseDetailLesson 同信息结构 + 端内高亮态) */
@@ -139,17 +138,17 @@ export function LessonsSection({
               {lesson.title}
             </Text>
             {lesson.completed ? (
-              <Text className="ml-sm text-label text-[var(--color-success)]">
+              <Text className="ml-sm text-label text-[var(--color-success-deep-text)]">
                 {t('courseDetail.completed')}
               </Text>
-            ) : null}
-            {lesson.locked ? (
-              <LineIcon
-                name="lock"
-                size={28}
-                color="var(--color-muted-foreground)"
-                className="ml-sm"
-              />
+            ) : lesson.current ? (
+              <Text className="ml-sm text-label text-[var(--color-success-deep-text)]">
+                {t('courseDetail.learning')}
+              </Text>
+            ) : lesson.locked ? (
+              <Text className="ml-sm text-label text-[var(--color-success-deep-text)]">
+                {t('courseDetail.locked')}
+              </Text>
             ) : null}
           </View>
         ))

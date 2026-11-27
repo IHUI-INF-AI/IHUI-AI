@@ -166,7 +166,7 @@ function buildModelGroups(models: AiModel[], otherVendorLabel: string): ModelLis
 const AGENT_FETCH_LIMIT = 200
 const AGENT_PAGE_STEP = 24
 
-export function AgentScreen() {
+export function AgentScreen({ showTabBar = true }: { showTabBar?: boolean } = {}) {
   const { onNavigate } = useHostPorts()
   const { t } = useI18n()
   const { token, user } = useAuth()
@@ -374,7 +374,11 @@ export function AgentScreen() {
             (res.data.list ?? [])
               .filter((a) => Boolean(a.avatar))
               .slice(0, 5)
-              .map((a) => ({ img: resolveWebAssetUrl(a.avatar) ?? '', title: a.name, link: a.agentId })),
+              .map((a) => ({
+                img: resolveWebAssetUrl(a.avatar) ?? '',
+                title: a.name,
+                link: a.agentId,
+              })),
           )
         }
       } catch {
@@ -909,8 +913,8 @@ export function AgentScreen() {
         visible={searchOverlayVisible}
         onClose={() => setSearchOverlayVisible(false)}
       />
-      {/* 底部导航(对齐原 customTabBar 5 主 Tab) */}
-      <TabBar activeTab="aiShop" onChange={handleTabChange} />
+      {/* 底部导航(对齐原 customTabBar 5 主 Tab);小程序承载时传 showTabBar=false,避免与端内原生 tabBar 重影 */}
+      {showTabBar ? <TabBar activeTab="aiShop" onChange={handleTabChange} /> : null}
     </View>
   )
 }

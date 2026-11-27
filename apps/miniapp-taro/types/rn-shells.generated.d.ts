@@ -38,15 +38,6 @@ declare module '@rn-shells/ActivityScreen' {
   export const ActivityScreen: ComponentType<Record<string, unknown>>
 }
 
-declare module '@rn-shells/AddressesScreen' {
-  import type { ComponentType } from 'react'
-  /** 真相源 apps/mobile-rn/src/screens/AddressesScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
-  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
-  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
-  const Shell: ComponentType<Record<string, unknown>>
-  export default Shell
-}
-
 declare module '@rn-shells/AgentChatScreen' {
   import type { ComponentType } from 'react'
   /** 真相源 apps/mobile-rn/src/screens/AgentChatScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
@@ -61,6 +52,14 @@ declare module '@rn-shells/AgentCreateScreen' {
   // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
   // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
   export const AgentCreateScreen: ComponentType<Record<string, unknown>>
+}
+
+declare module '@rn-shells/AgentDetailScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 apps/mobile-rn/src/screens/AgentDetailScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const AgentDetailScreen: ComponentType<Record<string, unknown>>
 }
 
 declare module '@rn-shells/AgentEditScreen' {
@@ -85,6 +84,14 @@ declare module '@rn-shells/AgentReviewListScreen' {
   // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
   // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
   export const AgentReviewListScreen: ComponentType<Record<string, unknown>>
+}
+
+declare module '@rn-shells/AgentScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 apps/mobile-rn/src/screens/AgentScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const AgentScreen: ComponentType<Record<string, unknown>>
 }
 
 declare module '@rn-shells/AgentSettingScreen' {
@@ -430,15 +437,6 @@ declare module '@rn-shells/CloudRunsScreen' {
   export default Shell
 }
 
-declare module '@rn-shells/CommunityMainScreen' {
-  import type { ComponentType } from 'react'
-  /** 真相源 apps/mobile-rn/src/screens/CommunityMainScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
-  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
-  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
-  const Shell: ComponentType<Record<string, unknown>>
-  export default Shell
-}
-
 declare module '@rn-shells/ConnectedAccountsScreen' {
   import type { ComponentType } from 'react'
   /** 真相源 apps/mobile-rn/src/screens/ConnectedAccountsScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
@@ -494,6 +492,14 @@ declare module '@rn-shells/CourseCommentScreen' {
   // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
   // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
   export const CourseCommentScreen: ComponentType<Record<string, unknown>>
+}
+
+declare module '@rn-shells/CourseDetailScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 apps/mobile-rn/src/screens/CourseDetailScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const CourseDetailScreen: ComponentType<Record<string, unknown>>
 }
 
 declare module '@rn-shells/CourseEnrollScreen' {
@@ -559,23 +565,6 @@ declare module '@rn-shells/CustomerServiceScreen' {
   // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
   // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
   export const CustomerServiceScreen: ComponentType<Record<string, unknown>>
-}
-
-declare module '@rn-shells/DataRightsScreen' {
-  import type { ComponentType } from 'react'
-  /** 真相源 apps/mobile-rn/src/screens/DataRightsScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
-  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
-  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
-  const Shell: ComponentType<Record<string, unknown>>
-  export default Shell
-}
-
-declare module '@rn-shells/DeepResearchScreen' {
-  import type { ComponentType } from 'react'
-  /** 真相源 apps/mobile-rn/src/screens/DeepResearchScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
-  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
-  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
-  export const DeepResearchScreen: ComponentType<Record<string, unknown>>
 }
 
 declare module '@rn-shells/DeveloperScreen' {
@@ -810,15 +799,6 @@ declare module '@rn-shells/InviteScreen' {
   // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
   // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
   export const InviteScreen: ComponentType<Record<string, unknown>>
-}
-
-declare module '@rn-shells/InvoicesScreen' {
-  import type { ComponentType } from 'react'
-  /** 真相源 apps/mobile-rn/src/screens/InvoicesScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
-  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
-  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
-  const Shell: ComponentType<Record<string, unknown>>
-  export default Shell
 }
 
 declare module '@rn-shells/KnowledgeBaseListScreen' {
@@ -1062,15 +1042,6 @@ declare module '@rn-shells/ModelRecordScreen' {
   export default Shell
 }
 
-declare module '@rn-shells/ModelsPromptsScreen' {
-  import type { ComponentType } from 'react'
-  /** 真相源 apps/mobile-rn/src/screens/ModelsPromptsScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
-  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
-  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
-  const Shell: ComponentType<Record<string, unknown>>
-  export default Shell
-}
-
 declare module '@rn-shells/MoreCourseScreen' {
   import type { ComponentType } from 'react'
   /** 真相源 apps/mobile-rn/src/screens/MoreCourseScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
@@ -1104,15 +1075,6 @@ declare module '@rn-shells/MyLessonsScreen' {
   // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
   const Shell: ComponentType<Record<string, unknown>>
   export const MyLessonsScreen: ComponentType<Record<string, unknown>>
-  export default Shell
-}
-
-declare module '@rn-shells/MyPapersScreen' {
-  import type { ComponentType } from 'react'
-  /** 真相源 apps/mobile-rn/src/screens/MyPapersScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
-  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
-  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
-  const Shell: ComponentType<Record<string, unknown>>
   export default Shell
 }
 
@@ -1216,6 +1178,14 @@ declare module '@rn-shells/OrderLogScreen' {
   // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
   // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
   export const OrderLogScreen: ComponentType<Record<string, unknown>>
+}
+
+declare module '@rn-shells/OrderRefundScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 apps/mobile-rn/src/screens/OrderRefundScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const OrderRefundScreen: ComponentType<Record<string, unknown>>
 }
 
 declare module '@rn-shells/OrderScreen' {
@@ -1518,6 +1488,14 @@ declare module '@rn-shells/SettingsAccountScreen' {
   export const SettingsAccountScreen: ComponentType<Record<string, unknown>>
 }
 
+declare module '@rn-shells/ShareScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 apps/mobile-rn/src/screens/ShareScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const ShareScreen: ComponentType<Record<string, unknown>>
+}
+
 declare module '@rn-shells/SignUpScreen' {
   import type { ComponentType } from 'react'
   /** 真相源 apps/mobile-rn/src/screens/SignUpScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
@@ -1584,14 +1562,6 @@ declare module '@rn-shells/SubPackageIndexScreen' {
   // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
   // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
   export const SubPackageIndexScreen: ComponentType<Record<string, unknown>>
-}
-
-declare module '@rn-shells/SubagentsScreen' {
-  import type { ComponentType } from 'react'
-  /** 真相源 apps/mobile-rn/src/screens/SubagentsScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
-  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
-  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
-  export const SubagentsScreen: ComponentType<Record<string, unknown>>
 }
 
 declare module '@rn-shells/SubscriptionsScreen' {
@@ -1765,12 +1735,28 @@ declare module '@rn-shells/UserPublicScreen' {
   export default Shell
 }
 
+declare module '@rn-shells/VipCompareScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 apps/mobile-rn/src/screens/VipCompareScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const VipCompareScreen: ComponentType<Record<string, unknown>>
+}
+
 declare module '@rn-shells/VipLevelScreen' {
   import type { ComponentType } from 'react'
   /** 真相源 apps/mobile-rn/src/screens/VipLevelScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
   // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
   // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
   export const VipLevelScreen: ComponentType<Record<string, unknown>>
+}
+
+declare module '@rn-shells/VipScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 apps/mobile-rn/src/screens/VipScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const VipScreen: ComponentType<Record<string, unknown>>
 }
 
 declare module '@rn-shells/VipTraderScreen' {

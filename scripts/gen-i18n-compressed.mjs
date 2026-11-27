@@ -308,6 +308,7 @@ function carriedKeysOf() {
   const r = carriedKeysFromRepo(readers)
   carriedKeySet = {
     keys: r.keys,
+    templatePrefixes: r.templatePrefixes ?? new Set(),
     carriers: r.carriers.length,
     files: r.files.length,
     featureFiles: r.featureFiles,
@@ -341,7 +342,17 @@ function mergeCarried(base, locale, pinList, presentRels) {
     return { merged: base, carried: 'skipped', addedKeys: 0, rnLeafKeys: 0 }
   const rnPack = loadJsonRel(pinList, rel)
   const ks = carriedKeysOf()
-  const add = subsetMissing([base], ks.keys, rnPack)
+  // 动态模板键(`tStatic(`introducePopup.${seg}.title`)`)只能拿到前缀;
+  // 这些键按前缀在 RN 词包里整片展开,否则端内只补到前缀零散的少量键,弹窗仍露原始键。
+  const effectiveKeys = new Set(ks.keys)
+  if (ks.templatePrefixes?.size) {
+    for (const k of leafPairs(rnPack).keys()) {
+      for (const prefix of ks.templatePrefixes) {
+        if (k === prefix || k.startsWith(`${prefix}.`)) effectiveKeys.add(k)
+      }
+    }
+  }
+  const add = subsetMissing([base], effectiveKeys, rnPack)
   const merged = mergeMessages(base, add)
   // 硬红线机器化:承载层只许补缺 —— 两层里已有的叶子键一个都不许消失、也不许改值。
   // 若 subsetMissing 的口径被后人改坏(或某语的词包结构把标量盖成对象),这里当场 exit 2,

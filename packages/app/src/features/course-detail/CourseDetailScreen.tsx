@@ -74,6 +74,8 @@ export function CourseDetailScreen({
     )
   }
 
+  const safePrice = typeof item.price === 'number' && Number.isFinite(item.price) ? item.price : 0
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -98,12 +100,16 @@ export function CourseDetailScreen({
             {t('courseDetail.instructor')}：{item.instructor}
           </Text>
           <Text style={styles.cardMeta}>
-            {t('courseDetail.rating')}：{item.rating.toFixed(1)}
+            {t('courseDetail.rating')}：
+            {(typeof item.rating === 'number' && Number.isFinite(item.rating)
+              ? item.rating
+              : 0
+            ).toFixed(1)}
           </Text>
           <Text style={styles.cardDesc}>{item.description}</Text>
           <View style={styles.actionRow}>
             <Text style={styles.price}>
-              {item.isFree ? t('courseDetail.free') : `¥${item.price.toFixed(2)}`}
+              {item.isFree ? t('courseDetail.free') : `¥${safePrice.toFixed(2)}`}
             </Text>
             {item.isEnrolled ? (
               <View style={styles.enrolledBadge}>
@@ -118,7 +124,7 @@ export function CourseDetailScreen({
                 <Text style={styles.btnText}>
                   {item.isFree
                     ? t('learn.signUp')
-                    : t('courseDetail.pay', { amount: item.price.toFixed(2) })}
+                    : t('courseDetail.pay', { amount: safePrice.toFixed(2) })}
                 </Text>
               </TouchableOpacity>
             )}

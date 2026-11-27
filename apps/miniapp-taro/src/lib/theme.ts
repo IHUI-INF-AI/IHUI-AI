@@ -28,6 +28,11 @@ import { useDidShow } from '@tarojs/taro'
 export type ThemePreference = 'auto' | 'light' | 'dark'
 export type ResolvedTheme = 'light' | 'dark'
 
+/** 页面/窗口底色 —— 供根容器 inline 兜底(小程序分包里 `@theme` 变量可能不落在 page 上)。 */
+export function themeWindowBg(resolved: ResolvedTheme): string {
+  return THEME_CHROME[resolved].windowBg
+}
+
 /** settings/theme.tsx 共用同一 storage key(2026-09-03 起统一从本模块导入) */
 export const THEME_STORAGE_KEY = 'theme'
 /** 主题变化事件(eventCenter 广播,ThemeRoot 订阅) */

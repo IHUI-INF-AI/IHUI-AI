@@ -184,13 +184,27 @@ export function carriedKeys({ carriers, readFile: readFileRaw = null, readBatch:
     barrelOf: (file, spec, names) => (spec === '@ihui/rn-app' ? names.map((n) => barrel.named.get(n)).filter(Boolean) : null),
   })
   const keys = new Set()
+  /** `tStatic(`a.${...}`)` 这类模板键:静态前缀本身不是完整键,补键时须按前缀整片展开。 */
+  const templatePrefixes = new Set()
+  const addTextKeys = (text) => {
+    for (const k of extractTKeys(text)) keys.add(k)
+    // 裸字面量键表(`owner: 'vipScreen.plans.continuous'`)也必须认:
+    // extractTKeys 只看得到 `t('x')`,而 RN 壳大量把键登记在常量表/条件分支里,再由 t(KEY) 取。
+    for (const m of text.matchAll(/'([a-z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)'/g)) keys.add(m[1])
+    // 动态模板键:抽出 `${...}` 之前的稳定前缀(例 `introducePopup.${config.seg}.title`)。
+    // 只把前缀交给生成器,由它从 RN 词包展开该命名空间下的全部叶子键 —— 本文件不加载词包。
+    for (const m of text.matchAll(/tStatic\(\s*`([^`$]+)\$\{/g)) {
+      const prefix = m[1].replace(/[.\-]+$/, '')
+      if (prefix) templatePrefixes.add(prefix)
+    }
+  }
   // walk.files 可能是 Set 也可能是数组(闭包实现两处都在用),统一先摊平成数组再判空:
   // 写 `walk.files.size > 0` 在数组形态下永远是 false ⇒ keys 恒空 ⇒ C10 误判红。
   const walkList = Array.from(walk.files)
   const walkTexts = walkList.length > 0 ? readBatchSafe(walkList) : new Map()
-  for (const rel of walkList) for (const k of extractTKeys(walkTexts.get(rel) ?? '')) keys.add(k)
-  for (const c of carriers) for (const k of extractTKeys(c.text)) keys.add(k)
-  return { keys, files: [...walk.files], unresolved: walk.unresolved, walk }
+  for (const rel of walkList) addTextKeys(walkTexts.get(rel) ?? '')
+  for (const c of carriers) addTextKeys(c.text)
+  return { keys, templatePrefixes, files: [...walk.files], unresolved: walk.unresolved, walk }
 }
 
 /**

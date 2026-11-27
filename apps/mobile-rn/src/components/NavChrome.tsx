@@ -6,6 +6,7 @@ import type { ReactNode } from 'react'
 import { StyleSheet, View } from 'react-native'
 import { TAB_BAR_GAP_TOP_PX, TAB_BAR_MARGIN_H_PX } from '@ihui/shared/ui/tab-bar-spec'
 import { GLASS_BAR_CLIP, GLASS_BAR_SURFACE } from '../theme/glass-bar-surface'
+import { tokens } from '../theme/active-tokens'
 
 /**
  * 顶栏承载件 —— 全端唯一实现。
@@ -21,6 +22,11 @@ import { GLASS_BAR_CLIP, GLASS_BAR_SURFACE } from '../theme/glass-bar-surface'
  *
  * 状态栏 inset 带仍由 App.tsx 根 View 按路由取色;凡渲染 NavBar 的路由都应取
  * `tokens.surface.bg`(与页面壳同档),由 `tests/nav-chrome-route-parity.test.ts` 现读锁住。
+ *
+ * 小程序差异(2026-11-27 实拍):微信自定义导航栏页里,`rgba(255,255,255,0.6)` 的透明玻璃
+ * 在模拟器/端内合成到独立图层时按黑底混色,顶栏会整条发黑;页面根容器本身是 #F5F5F5。
+ * 小程序端改用同档不透明 surface.bg 作底,保留圆角/描边/阴影,视觉与 web/RN 玻璃面同色,
+ * 不再依赖端内可能缺失的 backdrop 合成。
  */
 export function NavChrome({ children }: { children: ReactNode }) {
   return (
@@ -30,9 +36,14 @@ export function NavChrome({ children }: { children: ReactNode }) {
   )
 }
 
+// 小程序宿主的判据用全局 wx,而不是 Platform.OS:Taro RN 兼容层把 OS 报成 ios/android,
+// 按 OS 判断会漏掉真机/模拟器上的小程序宿主。RN 端全局没有 wx,分支自然为 false。
+const MINIAPP_HOST = typeof (globalThis as { wx?: unknown }).wx !== 'undefined'
+
 const styles = StyleSheet.create({
   wrap: {
     ...GLASS_BAR_SURFACE,
+    ...(MINIAPP_HOST ? { backgroundColor: tokens.surface.bg } : null),
     marginHorizontal: TAB_BAR_MARGIN_H_PX,
     marginTop: TAB_BAR_GAP_TOP_PX,
     // 下投影必须越过后续屏体:正文是后挂的不透明兄弟层,仅靠 DOM 顺序会被它整片盖住。
