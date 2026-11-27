@@ -26553,7 +26553,10 @@
     "reply": "回覆",
     "notFound": "訊息不存在",
     "from": "來自",
-    "createdAt": "建立時間"
+    "createdAt": "建立時間",
+    "viewSession": "查看會話",
+    "copy": "複製",
+    "copied": "已複製"
   },
   "messageSystem": {
     "title": "系統訊息",

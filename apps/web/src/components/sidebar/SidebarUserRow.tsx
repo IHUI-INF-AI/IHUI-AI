@@ -45,9 +45,11 @@ import { Avatar } from '@/components/data/Avatar'
 import { Dropdown, Modal, type DropdownItem } from '@/components/feedback'
 import {
   NotificationCenter,
+  NoticeDetailDialog,
   type NoticeItem,
   type PendingDecisionView,
 } from '@/components/feature-center'
+import { buildNoticeDetail } from '@ihui/shared/notifications'
 import { LANGUAGES } from './nav-data'
 import {
   getActiveCurrency,
@@ -156,6 +158,13 @@ export function SidebarUserRow({
   const mounted = useMounted()
   const showAuthed = mounted && isAuthenticated
   const [msgOpen, setMsgOpen] = React.useState(false)
+  /** 2026-11-27 可视回归补:头像菜单必须受控关闭。
+   *  Radix DropdownMenu 默认 modal=true，点二级菜单条目后若菜单还开着，
+   *  它自己的遮罩会把刚打开的全文弹窗压成半透明且点不到。 */
+  const [menuOpen, setMenuOpen] = React.useState(false)
+  /** 2026-11-27 三端统一:点消息条目 = 打开全文弹窗(不再只标已读、也不是只有带深链的才跳走)。
+   *  二级菜单与通知中心共用这一个状态,弹窗内再给「复制 / 查看会话」。 */
+  const [detailNotice, setDetailNotice] = React.useState<NoticeItem | null>(null)
 
   // D193 决策收件箱装车链(2026-09-30):打开站内消息弹窗 → 只读取数 → 渲染"待我决策"区。
   // null = 未取数/取数中(整区隐藏);[] = 取数失败或确实为空(渲染空态,只读查询不打扰)。
@@ -245,13 +254,15 @@ export function SidebarUserRow({
     // G2 结果推送(2026-10-30):保留原始 type + 会话深链 —— WS 载荷的 data.sessionId
     // 经 shared 适配器透传到 payload,侧栏据此渲染「查看会话」。
     rawType: n.type,
-    sessionId: readNoticeSessionId(n.payload),
+    sessionId: readNoticeSessionId(n.payload ?? n.data),
   }))
 
-  /** 点「查看会话」:切到该会话 + 关弹窗 + 收起移动端侧栏(与待决策条目同一套收尾)。 */
+  /** 点「查看会话」:切到该会话 + 关弹窗 + 回首页聊天 + 收起移动端侧栏。 */
   const handleNoticeSessionLink = (sessionId: string) => {
     setConversationId(sessionId)
     setMsgOpen(false)
+    // 侧栏是全局壳:用户可能正停在 /settings 等非聊天页,只 setConversationId 会看起来"没反应"。
+    navigate('/')
     onCloseMobile()
   }
 
@@ -275,7 +286,8 @@ export function SidebarUserRow({
 
   // 2026-11-11 用户要求:悬停「站内消息」直接展开二级菜单显示消息内容,
   // 不必先点开完整通知弹窗。最多取最近 6 条(store 已是最新在前),
-  // 点击条目 = 标记已读 + 自动化终态通知直接深链回会话;底部「查看全部通知」进入完整通知中心。
+  // 点击条目 = 标记已读 + 打开全文弹窗(2026-11-27 用户口径:点消息必须能看到全文);
+  // 底部「查看全部通知」进入完整通知中心。
   // 2026-11-11 二次改:列表行按飞书消息列表样式 —— 圆形类型图标 + 加粗标题/灰色摘要 + 右侧时间与未读红点。
   const messagePreviewItems: DropdownItem[] = noticeItems.slice(0, 6).map((n) => {
     const Meta = NOTICE_META[n.type]
@@ -322,8 +334,11 @@ export function SidebarUserRow({
         </span>
       ),
       onSelect: () => {
+        // 先关头像菜单：DropdownMenu 的 modal 遮罩不能压住全文弹窗。
+        setMenuOpen(false)
         handleNoticeRead(n.id)
-        if (n.sessionId) handleNoticeSessionLink(n.sessionId)
+        // 二级菜单点击语义(2026-11-27 用户口径):就地看全文,不再"点一下只变已读"。
+        setDetailNotice(n)
       },
     }
   })
@@ -378,7 +393,10 @@ export function SidebarUserRow({
         itemClassName:
           'mt-1 justify-center rounded-none border-t border-stroke-default px-2.5 pt-2 text-label font-medium text-muted-foreground',
         label: t('messagesViewAll'),
-        onSelect: () => setMsgOpen(true),
+        onSelect: () => {
+          setMenuOpen(false)
+          setMsgOpen(true)
+        },
       },
     ],
   }
@@ -773,6 +791,8 @@ export function SidebarUserRow({
         className="min-w-[13.5rem]"
         items={showAuthed ? userMenuItems : guestMenuItems}
         trigger={showAuthed ? userTrigger : loginTrigger}
+        open={menuOpen}
+        onOpenChange={setMenuOpen}
       />
       {/* 站内消息弹窗(承继原 SidebarActions MessageCenter 的 PortalPanel):
           NotificationCenter 为"裸内容"组件,自带"通知中心"头部 + 全部已读 + max-h-60vh 滚动,
@@ -789,8 +809,36 @@ export function SidebarUserRow({
           pendingDecisions={pendingDecisions ?? undefined}
           onDecisionItemClick={handleDecisionItemClick}
           onSessionLinkClick={handleNoticeSessionLink}
+          // 通知中心行点击与二级菜单同义:标已读 + 打开全文弹窗(此前没传 ⇒ 点了等于空转)
+          onItemClick={(n) => {
+            handleNoticeRead(n.id)
+            setDetailNotice(n)
+          }}
         />
       </Modal>
+      {/* 站内消息全文弹窗:二级菜单 / 通知中心共用;数据投影三端共用 shared 的 buildNoticeDetail */}
+      <NoticeDetailDialog
+        detail={
+          detailNotice
+            ? buildNoticeDetail({
+                id: detailNotice.id,
+                title: detailNotice.title,
+                content: detailNotice.description,
+                // rawType 是原始通知类型(automation/system…);type 是视觉档,单独传给 level
+                type: detailNotice.rawType ?? detailNotice.type,
+                level: detailNotice.type,
+                createdAt: detailNotice.createdAt,
+                read: detailNotice.read,
+                sessionId: detailNotice.sessionId,
+              })
+            : null
+        }
+        onClose={() => setDetailNotice(null)}
+        onOpenSession={(sessionId) => {
+          setDetailNotice(null)
+          handleNoticeSessionLink(sessionId)
+        }}
+      />
     </div>
   )
 }

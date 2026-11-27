@@ -5444,7 +5444,10 @@
     "notFound": "消息不存在或已删除",
     "from": "发件人",
     "createdAt": "时间",
-    "loadFailed": "加载消息详情失败"
+    "viewSession": "查看会话",
+    "loadFailed": "加载消息详情失败",
+    "copy": "复制",
+    "copied": "已复制"
   },
   "messageDirect": {
     "empty": "暂无私信",
@@ -7042,7 +7045,9 @@
     "title": "消息",
     "type": {
       "course": "课程",
-      "order": "订单"
+      "order": "订单",
+      "social": "社交",
+      "system": "系统"
     }
   },
   "modelEdit": {

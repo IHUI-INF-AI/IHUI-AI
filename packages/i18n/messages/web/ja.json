@@ -26683,7 +26683,10 @@
     "reply": "返信",
     "notFound": "メッセージが見つかりません",
     "from": "送信者",
-    "createdAt": "作成日時"
+    "createdAt": "作成日時",
+    "viewSession": "会話を表示",
+    "copy": "コピー",
+    "copied": "コピー済み"
   },
   "messageSystem": {
     "title": "システムメッセージ",

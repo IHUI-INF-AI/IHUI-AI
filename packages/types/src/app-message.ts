@@ -28,6 +28,8 @@ export interface MessageCenterItem {
   /** 是否已读 */
   read: boolean
   createdAt: string
+  /** G2 自动化终态深链会话 id(通知 data jsonb 透传;无则不渲染「查看会话」) */
+  sessionId?: string
 }
 
 /** 消息中心会话列表项(对齐 Uniapp message 页聊天列表 chatList)
@@ -178,6 +180,45 @@ export interface MessageDetailScreenProps {
   error: string
   onReply: () => void
   onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/**
+ * 站内消息详情(通知条目口径,2026-11-27 三端统一)。
+ *
+ * 与上面的 MessageDetailData(edu_messages 站内信)是两套数据源:
+ * 通知详情不另开接口 —— 通知列表行本身就带全文 content,列表页只是 CSS 截断展示。
+ * 三端一律经 @ihui/shared/notifications 的 buildNoticeDetail 投影成本类型,禁止端内重写。
+ */
+export interface NoticeDetailData {
+  id: string
+  /** 标题;空标题已由共享投影按正文首行兜底 */
+  title: string
+  /** 全文正文(不截断) */
+  content: string
+  /** 原始通知类型(system / order / course / comment / follow / automation …) */
+  type: string
+  /** 视觉严重档(与列表行图标同源;各端拿不到时缺省 info) */
+  level?: 'info' | 'success' | 'warning' | 'error'
+  createdAt: string
+  read: boolean
+  /** G2 自动化等通知的可深链会话 id(读不到就是 null,不制造假入口) */
+  sessionId?: string | null
+}
+
+/**
+ * RN / 小程序共享的站内消息详情抽屉 props。
+ * 渲染与字段三端同源(同一份 packages/app 组件),平台只注入剪贴板与深链导航。
+ */
+export interface NoticeDetailSheetProps {
+  t: TFunction
+  visible: boolean
+  detail: NoticeDetailData | null
+  onClose: () => void
+  /** 复制消息(平台实现剪贴板);不传则复制按钮不渲染 */
+  onCopy?: (detail: NoticeDetailData) => void
+  /** 查看会话(detail.sessionId 存在时才渲染);不传则入口不渲染 */
+  onOpenSession?: (sessionId: string) => void
   colorScheme?: 'light' | 'dark'
 }
 

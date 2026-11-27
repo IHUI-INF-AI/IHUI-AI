@@ -2270,7 +2270,10 @@
     "notFound": "消息不存在或已删除",
     "from": "发件人",
     "createdAt": "时间",
-    "loadFailed": "加载消息详情失败"
+    "viewSession": "查看会话",
+    "loadFailed": "加载消息详情失败",
+    "copy": "复制",
+    "copied": "已复制"
   },
   "note": {
     "title": "我的笔记",

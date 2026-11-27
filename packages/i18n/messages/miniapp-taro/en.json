@@ -5441,7 +5441,10 @@
     "notFound": "Message not found or deleted",
     "from": "From",
     "createdAt": "Time",
-    "loadFailed": "Failed to load message"
+    "viewSession": "View conversation",
+    "loadFailed": "Failed to load message",
+    "copy": "Copy",
+    "copied": "Copied"
   },
   "messageDirect": {
     "empty": "No direct messages",
@@ -7039,7 +7042,9 @@
     "title": "Messages",
     "type": {
       "course": "Course",
-      "order": "Order"
+      "order": "Order",
+      "social": "Social",
+      "system": "System"
     }
   },
   "modelEdit": {

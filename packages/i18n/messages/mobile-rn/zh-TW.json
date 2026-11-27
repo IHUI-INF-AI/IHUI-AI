@@ -2270,7 +2270,10 @@
     "notFound": "訊息不存在或已刪除",
     "from": "寄件者",
     "createdAt": "時間",
-    "loadFailed": "載入訊息詳情失敗"
+    "viewSession": "查看會話",
+    "loadFailed": "載入訊息詳情失敗",
+    "copy": "複製",
+    "copied": "已複製"
   },
   "note": {
     "title": "我的筆記",

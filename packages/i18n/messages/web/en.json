@@ -26393,7 +26393,10 @@
     "reply": "Reply",
     "notFound": "Message not found",
     "from": "From",
-    "createdAt": "Created At"
+    "createdAt": "Created At",
+    "viewSession": "View conversation",
+    "copy": "Copy",
+    "copied": "Copied"
   },
   "messageSystem": {
     "title": "System Messages",

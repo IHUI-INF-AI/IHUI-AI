@@ -104,6 +104,13 @@ interface DropdownProps {
   align?: 'start' | 'center' | 'end'
   side?: 'top' | 'right' | 'bottom' | 'left'
   className?: string
+  /**
+   * 可选受控开合。默认不传时保持 Radix 非受控行为(现有调用点零影响)。
+   * 需要"点条目后立刻开另一个浮层(如消息全文弹窗)"的调用点必须受控关闭:
+   * DropdownMenu 默认 modal=true,若菜单不关,它自己的透明遮罩会把新弹窗压在下面。
+   */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
 export function Dropdown({
@@ -112,9 +119,11 @@ export function Dropdown({
   align = 'end',
   side = 'bottom',
   className,
+  open,
+  onOpenChange,
 }: DropdownProps) {
   return (
-    <DropdownMenu.Root>
+    <DropdownMenu.Root open={open} onOpenChange={onOpenChange}>
       <DropdownMenu.Trigger asChild>{trigger}</DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content

@@ -12,9 +12,18 @@ import {
   restoreNotification,
 } from '@ihui/api-client'
 import { apiFailureToError } from '@ihui/shared/utils'
-import type { NotificationItem, NotificationPartition } from '@ihui/types'
-import { NotificationListScreen as SharedNotificationListScreen } from '@ihui/rn-app'
+import {
+  buildNoticeDetail,
+  noticeDetailCopyText,
+  readNoticeSessionId,
+} from '@ihui/shared/notifications'
+import type { NoticeDetailData, NotificationItem, NotificationPartition } from '@ihui/types'
+import {
+  NotificationListScreen as SharedNotificationListScreen,
+  NoticeDetailSheet,
+} from '@ihui/rn-app'
 import type { NotificationListItem, NotificationRowStatus } from '@ihui/rn-app'
+import Clipboard from '@react-native-clipboard/clipboard'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -33,6 +42,8 @@ function toListItem(n: NotificationItem): NotificationListItem {
     read: n.isRead,
     archivedAt: n.archivedAt ?? null,
     createdAt: n.createdAt,
+    // G2 深链 id 与 Web 消息页同一读取口径(payload 来自 WS / data 来自 REST)
+    sessionId: readNoticeSessionId(n.payload ?? n.data) ?? undefined,
   }
 }
 
@@ -46,6 +57,8 @@ export function NotificationListScreen() {
   const [error, setError] = useState('')
   const [partition, setPartition] = useState<NotificationPartition>('active')
   const [rowStatus, setRowStatus] = useState<Record<string, NotificationRowStatus | undefined>>({})
+  /** 2026-11-27 三端统一:点通知行 = 打开全文抽屉(与消息中心/Web 同一份 NoticeDetailSheet) */
+  const [noticeDetail, setNoticeDetail] = useState<NoticeDetailData | null>(null)
 
   const load = useCallback(async () => {
     setError('')
@@ -96,10 +109,21 @@ export function NotificationListScreen() {
     await load()
   }
 
-  // 点击通知行 = 标已读(与 web NotificationFeed 点击即标已读同语义):
-  // 未读才发 PATCH /api/notifications/:id/read,成功后整表重拉刷新未读态;
-  // 失败如实透出,不假装已读(未读点保持亮)。
+  // 点击通知行 = 打开全文抽屉 + 未读标已读(2026-11-27 三端统一口径;
+  // 此前已读行点下去完全没有反馈,用户以为列表卡死)。
   const handlePressItem = async (item: NotificationListItem) => {
+    setNoticeDetail(
+      buildNoticeDetail({
+        id: item.id,
+        title: item.title,
+        content: item.content,
+        type: item.type,
+        level: 'info',
+        createdAt: item.createdAt,
+        read: true,
+        sessionId: item.sessionId ?? null,
+      }),
+    )
     if (item.read) return
     const res = await markNotificationRead(item.id)
     if (!res.success) {
@@ -110,25 +134,41 @@ export function NotificationListScreen() {
   }
 
   return (
-    <SharedNotificationListScreen
-      t={t}
-      items={items}
-      loading={loading}
-      refreshing={refreshing}
-      error={error}
-      onRefresh={() => {
-        setRefreshing(true)
-        void load()
-      }}
-      onPressItem={(item) => void handlePressItem(item)}
-      onBack={() => navigation.goBack()}
-      colorScheme={resolvedTheme}
-      partition={partition}
-      onPartitionChange={setPartition}
-      onArchive={(item) => void move(item, 'archived')}
-      onRestore={(item) => void move(item, 'active')}
-      rowStatus={rowStatus}
-    />
+    <>
+      <SharedNotificationListScreen
+        t={t}
+        items={items}
+        loading={loading}
+        refreshing={refreshing}
+        error={error}
+        onRefresh={() => {
+          setRefreshing(true)
+          void load()
+        }}
+        onPressItem={(item) => void handlePressItem(item)}
+        onBack={() => navigation.goBack()}
+        colorScheme={resolvedTheme}
+        partition={partition}
+        onPartitionChange={setPartition}
+        onArchive={(item) => void move(item, 'archived')}
+        onRestore={(item) => void move(item, 'active')}
+        rowStatus={rowStatus}
+      />
+      <NoticeDetailSheet
+        t={t}
+        visible={noticeDetail !== null}
+        detail={noticeDetail}
+        onClose={() => setNoticeDetail(null)}
+        onCopy={(detail) => {
+          Clipboard.setString(noticeDetailCopyText(detail))
+        }}
+        onOpenSession={(sessionId) => {
+          setNoticeDetail(null)
+          navigation.navigate('Chat', { conversationId: sessionId })
+        }}
+        colorScheme={resolvedTheme}
+      />
+    </>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

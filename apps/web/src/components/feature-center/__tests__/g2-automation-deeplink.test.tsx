@@ -24,10 +24,7 @@ import { transformWsNotification } from '@ihui/shared/notifications/ws-notificat
 import { NotificationCenter, type NoticeItem } from '../NotificationCenter'
 
 vi.mock('next-intl', () => ({
-  useTranslations:
-    (_ns: string) =>
-    (key: string) =>
-      key,
+  useTranslations: (_ns: string) => (key: string) => key,
 }))
 
 afterEach(cleanup)
@@ -98,7 +95,7 @@ describe('G2 NotificationCenter「查看会话」深链', () => {
     )
     const link = screen.getByTestId('notice-session-link')
     expect(link.getAttribute('data-session-id')).toBe('auto_7fc2')
-    expect(link.textContent).toBe('viewConversation')
+    expect(link.textContent).toBe('viewSession')
     fireEvent.click(link)
     expect(onSessionLinkClick).toHaveBeenCalledWith('auto_7fc2')
     expect(onItemClick).not.toHaveBeenCalled()

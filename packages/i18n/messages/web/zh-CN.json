@@ -26971,7 +26971,10 @@
     "reply": "回复",
     "notFound": "消息不存在",
     "from": "来自",
-    "createdAt": "创建时间"
+    "createdAt": "创建时间",
+    "viewSession": "查看会话",
+    "copy": "复制",
+    "copied": "已复制"
   },
   "messageSystem": {
     "title": "系统消息",

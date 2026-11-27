@@ -2270,7 +2270,10 @@
     "notFound": "Message not found or deleted",
     "from": "From",
     "createdAt": "Time",
-    "loadFailed": "Failed to load message"
+    "viewSession": "View conversation",
+    "loadFailed": "Failed to load message",
+    "copy": "Copy",
+    "copied": "Copied"
   },
   "note": {
     "title": "My Notes",

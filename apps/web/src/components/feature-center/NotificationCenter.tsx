@@ -56,8 +56,10 @@ export interface NotificationCenterProps {
   onSessionLinkClick?: (sessionId: string) => void
 }
 
-/** 消息类型视觉档:飞书式列表行左侧的圆形类型图标(底色 + 图标色)。 */
-const TYPE_META: Record<NoticeItem['type'], { icon: LucideIcon; tone: string }> = {
+/** 消息类型视觉档:飞书式列表行左侧的圆形类型图标(底色 + 图标色)。
+ *  2026-11-27 导出供 NoticeDetailDialog 复用 —— 详情头部与列表行必须同一套图标/色阶,
+ *  端内再抄一份就会在新增类型时漂移。 */
+export const NOTICE_TYPE_META: Record<NoticeItem['type'], { icon: LucideIcon; tone: string }> = {
   info: { icon: Info, tone: 'bg-primary/10 text-primary' },
   success: { icon: CheckCircle2, tone: 'bg-green-500/10 text-green-600 dark:text-green-400' },
   warning: { icon: AlertTriangle, tone: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400' },
@@ -76,6 +78,7 @@ export function NotificationCenter({
   onSessionLinkClick,
 }: NotificationCenterProps) {
   const t = useTranslations('nav')
+  const tm = useTranslations('messageDetail')
   const unreadCount = items.filter((n) => !n.read).length
 
   const decisionTypeLabel = (type: string) => {
@@ -182,7 +185,7 @@ export function NotificationCenter({
         ) : (
           <div className="space-y-0.5">
             {items.map((item) => {
-              const Meta = TYPE_META[item.type]
+              const Meta = NOTICE_TYPE_META[item.type]
               const Icon = Meta.icon
               return (
                 <div
@@ -241,7 +244,7 @@ export function NotificationCenter({
                         }}
                         className="mt-1 inline-flex items-center gap-0.5 rounded-md text-label font-medium text-primary hover:underline"
                       >
-                        {t('viewConversation')}
+                        {tm('viewSession')}
                         <ArrowUpRight className="h-3 w-3" />
                       </button>
                     )}

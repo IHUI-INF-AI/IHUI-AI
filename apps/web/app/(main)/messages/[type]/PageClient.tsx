@@ -12,11 +12,15 @@ import { Loader2, Bell, Heart, Star, MessageSquare, Users, Mail } from 'lucide-r
 import { apiOrThrow } from '@/lib/api'
 import { Avatar } from '@/components/data'
 import { cn } from '@/lib/utils'
-import type { NotificationItem } from '@ihui/types'
+import type { NotificationItem, NoticeDetailData } from '@ihui/types'
+import { buildNoticeDetail, readNoticeSessionId } from '@ihui/shared/notifications'
 import { BackButton } from '@/components/common'
 import { Button } from '@ihui/ui-react'
 import { AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
+import { NoticeDetailDialog } from '@/components/feature-center'
+import { useNavigateWithProgress } from '@/stores/navigation'
+import { useChatStore } from '@/stores/chat'
 
 type MessageType = 'notice' | 'like' | 'favorite' | 'comment' | 'fans' | 'private-letter'
 
@@ -75,6 +79,12 @@ interface UnifiedItem {
   avatar?: string | null
   isRead: boolean
   createdAt: string
+  /** 原始通知类型(通知类才有;私信会话没有) */
+  rawType?: string
+  /** 视觉严重档(与侧栏二级菜单同源;通知类暂按 info,后续跟随 NotificationCenter) */
+  level?: 'info' | 'success' | 'warning' | 'error'
+  /** G2 自动化等通知的可深链会话 id(读不到就是 null) */
+  sessionId?: string | null
 }
 
 export default function MessageTypePage() {
@@ -88,6 +98,10 @@ export default function MessageTypePage() {
   const tGate = useTranslations('chatHistory')
   const tc = useTranslations('common')
   const { allow } = useAuthGate()
+  const navigate = useNavigateWithProgress()
+  const setConversationId = useChatStore((s) => s.setConversationId)
+  /** 2026-11-27 三端统一:点通知行 = 打开全文弹窗(此前只发已读请求,点了看不到完整内容) */
+  const [detail, setDetail] = React.useState<NoticeDetailData | null>(null)
 
   const isValid = VALID_TYPES.includes(type)
   const isPrivateLetter = type === 'private-letter'
@@ -133,6 +147,9 @@ export default function MessageTypePage() {
           avatar: null,
           isRead: n.isRead,
           createdAt: n.createdAt,
+          rawType: n.type,
+          level: 'info',
+          sessionId: readNoticeSessionId(n.payload ?? n.data),
         }))
         const total = res.total ?? items.length
         return { items, hasMore: page * PAGE_SIZE < total }
@@ -201,7 +218,26 @@ export default function MessageTypePage() {
               <button
                 type="button"
                 onClick={() => {
+                  // 私信区是会话列表:点行进会话(与 RN/小程序同义),不在通知详情里伪造全文
+                  if (isPrivateLetter) {
+                    setConversationId(item.id)
+                    navigate('/')
+                    return
+                  }
                   if (!item.isRead) readMut.mutate(item.id)
+                  // 通知类:行点击 = 打开全文弹窗
+                  setDetail(
+                    buildNoticeDetail({
+                      id: item.id,
+                      title: item.title,
+                      content: item.content,
+                      type: item.rawType ?? 'system',
+                      level: item.level,
+                      createdAt: item.createdAt,
+                      read: true,
+                      sessionId: item.sessionId,
+                    }),
+                  )
                 }}
                 className={cn(
                   'flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
@@ -241,6 +277,17 @@ export default function MessageTypePage() {
           </Button>
         </div>
       )}
+
+      {/* 与侧栏二级菜单/通知中心同一个详情弹窗;深链会话走 chat store + 回主聊天页 */}
+      <NoticeDetailDialog
+        detail={detail}
+        onClose={() => setDetail(null)}
+        onOpenSession={(sessionId) => {
+          setDetail(null)
+          setConversationId(sessionId)
+          navigate('/')
+        }}
+      />
     </div>
   )
 }

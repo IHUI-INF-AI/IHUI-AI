@@ -205,7 +205,7 @@
 | `pages/favorites/index` ↔ FavoritesScreen | FavoritesScreen | ✅ | ✅ | 收藏 |
 | `pages/following/index` ↔ FollowScreen | FollowScreen | ✅ | ✅ | 2026-09-04 收尾轮：FollowingScreen 已并入 FollowScreen（双 Tab 超集），小程序由 following 页承接 |
 | `pages/subscriptions/index` ↔ SubscriptionsScreen | SubscriptionsScreen | ✅ | ✅ | 订阅管理（同页对应 `live/subscribe`） |
-| `pages/message/index` ↔ MessageCenterScreen | MessageCenterScreen | ✅ | ✅ | 消息中心 |
+| `pages/message/index` ↔ MessageCenterScreen | MessageCenterScreen | ✅ | ✅ | 消息中心（2026-11-27 站内消息全文三端统一：Web NoticeDetailDialog / RN·小程序共用 NoticeDetailSheet，点条目即看全文） |
 | `pages/circle/detail` ↔ CircleDetailScreen | CircleDetailScreen | ✅ | ✅ | 圈子详情（分包） |
 | `pages/circle/create` ↔ CircleCreateScreen | CircleCreateScreen | ✅ | ✅ | 创建圈子 |
 | `pages/circle/index` ↔ CircleIndexScreen | CircleIndexScreen | ✅ | ✅ | 圈子首页/列表（第 8 轮补齐 + linking 深链） |

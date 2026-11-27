@@ -58,6 +58,8 @@ export { NotificationListScreen } from './features/notification/NotificationList
 export { HistoryScreen } from './features/history/HistoryScreen'
 export { CertificateScreen } from './features/certificate/CertificateScreen'
 export { MessageCenterScreen } from './features/message-center/MessageCenterScreen'
+/** 2026-11-27 三端统一:站内消息全文抽屉,RN 与小程序共用同一份(Taro 侧直渲本组件) */
+export { NoticeDetailSheet } from './features/message-center/NoticeDetailSheet'
 /** 2026-11-06 门 6 还账:会话历史共享屏此前只走深路径,barrel 补出口供 RN 薄壳直取 */
 export { ConversationHistoryScreen } from './features/chat/ConversationHistoryScreen'
 export type { ConversationHistoryGroup } from './features/chat/ConversationHistoryScreen'

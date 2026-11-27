@@ -3,20 +3,31 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 // i18n-content-exempt-file: 多语言常量数据定义(label/title/description等选项值,内容体系定为中文单语,产品决策2026-11-15) until 2027-05-31
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
   deleteConversation,
   fetchApi,
-  listConversations,
-  markMessageRead,
+  markNotificationRead,
   setConversationPinned,
 } from '@ihui/api-client'
 import { togglePinnedItem } from '@ihui/shared/chat/conversation-pin'
+import {
+  buildNoticeDetail,
+  noticeDetailCopyText,
+  readNoticeSessionId,
+} from '@ihui/shared/notifications'
 import { MessageCenterScreen as SharedMessageCenterScreen } from '@ihui/rn-app/features/message-center/MessageCenterScreen'
-import type { MessageCenterItem, MessageConversationItem, MessageTab } from '@ihui/types'
+import { NoticeDetailSheet } from '@ihui/rn-app/features/message-center/NoticeDetailSheet'
+import type {
+  MessageCenterItem,
+  MessageConversationItem,
+  MessageTab,
+  NoticeDetailData,
+} from '@ihui/types'
+import Clipboard from '@react-native-clipboard/clipboard'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { useRefreshOnFocus } from '../hooks'
@@ -26,12 +37,73 @@ import { useHostPorts } from '../host/use-host-ports'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 interface MessagePage {
-  list: MessageCenterItem[]
+  list: NotificationRow[]
   total: number
 }
 
-/** 与 load / handleLoadMore 共用同一页大小;后端默认 20,显式下发避免两处口径漂移 */
-const PAGE_SIZE = 20
+/** GET /api/notifications 的行,与 Web 消息页 NotificationItem 同形。 */
+interface NotificationRow {
+  id: string
+  title?: string | null
+  content?: string | null
+  type?: string
+  isRead?: boolean
+  createdAt?: string
+  /** notifications.data / WS payload 透传(读 G2 深链 sessionId) */
+  payload?: unknown
+  data?: unknown
+}
+
+/** GET /api/messages/list 的行,与 Web 私信页同一投影。 */
+interface ConversationListRow {
+  id: string
+  title?: string
+  peerName?: string
+  lastMessage?: string
+  lastTime?: string
+  updatedAt?: string
+  unread?: number
+  pinned?: boolean
+  messages?: Array<{ content?: string }>
+}
+
+/** 与 Web messages/[type] PageClient 的 PAGE_SIZE 同一档 */
+const PAGE_SIZE = 10
+
+/**
+ * Web 侧栏 /messages/{notice,comment,fans} 的查询类型。
+ * like / favorite 在 Web 页被显式跳过(通知 enum 没有这两类,页面当空态,不发请求)。
+ * private-letter 不走通知接口。
+ */
+const NOTIFICATION_API_TYPE: Record<string, string> = {
+  notice: 'system',
+  comment: 'comment',
+  fans: 'follow',
+}
+
+function toCenterItem(row: NotificationRow, fallback: MessageTab): MessageCenterItem {
+  const title = (row.title && row.title.trim()) || (row.content ?? '').slice(0, 40)
+  return {
+    id: row.id,
+    type: (row.type || fallback) as MessageTab,
+    title,
+    content: row.content ?? '',
+    read: row.isRead === true,
+    createdAt: typeof row.createdAt === 'string' ? row.createdAt : '',
+    sessionId: readNoticeSessionId(row.payload ?? row.data) ?? undefined,
+  }
+}
+
+function notificationsUrl(tab: string, page: number): string | null {
+  const apiType = NOTIFICATION_API_TYPE[tab]
+  if (!apiType) return null
+  const qs = new URLSearchParams({
+    type: apiType,
+    page: String(page),
+    pageSize: String(PAGE_SIZE),
+  })
+  return `/api/notifications?${qs.toString()}`
+}
 
 /**
  * 对齐 Uniapp pagesA/message/index.vue(消息):
@@ -40,25 +112,7 @@ const PAGE_SIZE = 20
  *   (Uniapp 仅一层 navigation-bars;推送通知面板已由 RootNavigator 全局挂载,
  *   此处不再重复渲染局部 NotificationPanel)
  */
-const UNIAPP_TEXT: Record<string, string> = {
-  'messageCenter.title': '消息',
-  'messageCenter.empty': '暂无消息',
-}
-
-/** listConversations 返回项(对齐 @ihui/api-client ConversationDetail 字段) */
-interface ConversationItem {
-  id: string
-  title: string
-  lastMessage?: string
-  lastMessageAt?: string
-  updatedAt?: string
-  /** 未读数(对齐 Uniapp message 页 chat-item unreadCount;后端返回时透传,shared 据此渲染未读徽章) */
-  unread?: number
-  /** 是否置顶(chat_conversations.pinned;列表接口本就按置顶优先排序返回) */
-  pinned?: boolean
-}
-
-/** 时间格式化(对齐 Uniapp formatDateHistory 的 HH:mm 展示,跨天显示日期) */
+/** 时间格式化(当天 HH:mm,跨天月-日;展示用,不参与排序) */
 function formatConversationTime(input: string | undefined): string {
   if (!input) return ''
   const d = new Date(input)
@@ -79,7 +133,7 @@ export function MessageCenterScreen() {
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
   const [items, setItems] = useState<MessageCenterItem[]>([])
-  const [activeTab, setActiveTab] = useState<MessageTab>('system')
+  const [activeTab, setActiveTab] = useState<MessageTab>('notice')
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
@@ -87,57 +141,68 @@ export function MessageCenterScreen() {
   const [conversations, setConversations] = useState<MessageConversationItem[]>([])
   // 搜索关键词(对齐 Uniapp message/index.vue L23-41 搜索栏 searchKeyword)
   const [searchKeyword, setSearchKeyword] = useState('')
+  /** 2026-11-27 三端统一:点消息卡片 = 打开全文抽屉(不再把通知 id 丢给站内信详情页) */
+  const [noticeDetail, setNoticeDetail] = useState<NoticeDetailData | null>(null)
   // 站内消息分页(GET /api/messages 返回 { list, total },page/pageSize 已由 schema 声明)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [loadingMore, setLoadingMore] = useState(false)
 
-  // t 包装:Uniapp 对齐文案优先,其余回落 i18n
-  const uniappT = useCallback(
-    (key: string, params?: Record<string, string | number>) => UNIAPP_TEXT[key] ?? t(key, params),
+  const tabs = useMemo(
+    () => [
+      { key: 'notice', label: t('menu.notificationList') },
+      { key: 'comment', label: t('tagsPage.groupComment') },
+      { key: 'fans', label: t('follow.fans') },
+      { key: 'private-letter', label: t('messageDirect.title') },
+    ],
     [t],
   )
 
   const load = useCallback(async () => {
     setError('')
+    const noteUrl = notificationsUrl(activeTab, 1)
     try {
       const [msgRes, convRes] = await Promise.all([
-        fetchApi<MessagePage>(`/api/messages?type=${activeTab}&page=1&pageSize=${PAGE_SIZE}`),
-        listConversations({ page: 1, pageSize: 20 }),
+        noteUrl ? fetchApi<MessagePage>(noteUrl) : Promise.resolve(null),
+        fetchApi<{ list: ConversationListRow[] }>(
+          `/api/messages/list?page=1&pageSize=${PAGE_SIZE}`,
+        ),
       ])
-      if (!msgRes.success) throw new Error()
-      setItems(msgRes.data.list ?? [])
-      // total 是「加载更多」的唯一判据(后端 findEduMessages 同时回 list 与 total)
-      setTotal(msgRes.data.total ?? 0)
+      if (noteUrl) {
+        if (!msgRes || !msgRes.success) throw new Error()
+        setItems((msgRes.data.list ?? []).map((row) => toCenterItem(row, activeTab)))
+        setTotal(msgRes.data.total ?? 0)
+      } else {
+        setItems([])
+        setTotal(0)
+      }
       setPage(1)
-      // 会话列表(listConversations 返回 { conversations },字段 title/lastMessageAt/updatedAt)
+      // 会话列表与 Web /messages/private-letter 同源:GET /api/messages/list
       if (convRes.success && convRes.data) {
-        const convList: ConversationItem[] = Array.isArray(convRes.data.conversations)
-          ? (convRes.data.conversations as unknown as ConversationItem[])
+        const convList: ConversationListRow[] = Array.isArray(convRes.data.list)
+          ? convRes.data.list
           : []
         setConversations(
           convList.map((c) => ({
             id: c.id,
-            name: c.title || t('messageCenter.conversationFallback'),
-            lastMessage: c.lastMessage,
+            name: c.peerName || c.title || t('messageCenter.conversationFallback'),
+            lastMessage: c.lastMessage || c.messages?.[0]?.content,
             time:
-              (c.lastMessageAt ?? c.updatedAt)
-                ? formatConversationTime(c.lastMessageAt ?? c.updatedAt)
+              c.lastTime || c.updatedAt
+                ? formatConversationTime(c.lastTime ?? c.updatedAt)
                 : undefined,
-            // 未读数透传(对齐 Uniapp L198 unread-badge:unreadCount>0 显示红点;shared convUnread 渲染 99+ 截断)
-            unread: c.unread,
-            // 置顶态透传(D20 G-11):排序出口见 handleTogglePin
+            unread: typeof c.unread === 'number' ? c.unread : undefined,
             pinned: c.pinned === true,
           })),
         )
       }
     } catch {
-      setError(uniappT('messageCenter.loadFailed'))
+      setError(t('common.loadFailed'))
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [activeTab, uniappT, t])
+  }, [activeTab, t])
 
   useEffect(() => {
     setLoading(true)
@@ -151,10 +216,8 @@ export function MessageCenterScreen() {
     if (tab !== activeTab) setActiveTab(tab)
   }
 
-  // 点击消息卡片 → 消息详情(MessageDetail 路由在 RootStack,React Navigation 自动向上搜索)
-  const onPressItem = (item: MessageCenterItem) => {
-    navigation.navigate('MessageDetail', { id: item.id })
-  }
+  // 点击消息卡片 → 全文抽屉(共享 NoticeDetailSheet)。此前 navigate('MessageDetail',{id})
+  // 拿的是通知 id,详情页却查 edu_messages,两套 id 不同源 ⇒ 必然空/失败(2026-11-27 修复)。
 
   /**
    * 会话置顶/取消置顶(D20 G-11 端内接线):
@@ -172,12 +235,12 @@ export function MessageCenterScreen() {
         setConversations(outcome.items)
       } else {
         appAlert(
-          uniappT('messageCenter.title'),
+          t('messageCenter.title'),
           t(next ? 'messageCenter.pinFailed' : 'messageCenter.unpinFailed'),
         )
       }
     },
-    [conversations, uniappT, t],
+    [conversations, t],
   )
 
   // 搜索过滤(对齐 Uniapp message 页搜索:按名称/内容包含匹配,过滤当前会话与消息列表)
@@ -197,21 +260,42 @@ export function MessageCenterScreen() {
     : items
 
   /**
-   * 标记单条站内消息已读:网络出口 = @ihui/api-client markMessageRead
-   * (PUT /api/messages/:id/read,后端按 memberId 校验属主);成功后只回写真行,
-   * 失败 appAlert 显式喊出,不做「先翻 UI 再补请求」的假成功。
+   * 标记单条通知已读:与 Web 消息页同一出口 PATCH /api/notifications/:id/read。
    */
   const handleMarkRead = useCallback(
     async (item: MessageCenterItem) => {
       try {
-        const res = await markMessageRead(item.id)
+        const res = await markNotificationRead(item.id)
         if (!res.success) throw new Error()
         setItems((prev) => prev.map((it) => (it.id === item.id ? { ...it, read: true } : it)))
       } catch {
-        appAlert(uniappT('messageCenter.title'), t('common.failed'))
+        appAlert(t('messageCenter.title'), t('common.failed'))
       }
     },
-    [t, uniappT],
+    [t],
+  )
+
+  /**
+   * 打开消息全文(2026-11-27 三端统一口径):
+   * 未读先走同一已读出口,再投影成共享详情数据;不再 navigate('MessageDetail')。
+   */
+  const onPressItem = useCallback(
+    (item: MessageCenterItem) => {
+      if (!item.read) void handleMarkRead(item)
+      setNoticeDetail(
+        buildNoticeDetail({
+          id: item.id,
+          title: item.title,
+          content: item.content,
+          type: item.type,
+          level: 'info',
+          createdAt: item.createdAt,
+          read: true,
+          sessionId: item.sessionId ?? null,
+        }),
+      )
+    },
+    [handleMarkRead],
   )
 
   /**
@@ -221,7 +305,7 @@ export function MessageCenterScreen() {
    */
   const handleDeleteConversation = useCallback(
     (conv: MessageConversationItem) => {
-      appAlert(uniappT('messageCenter.title'), t('messageCenter.deleteConv'), [
+      appAlert(t('messageCenter.title'), t('messageCenter.deleteConv'), [
         { text: t('common.cancel'), style: 'cancel' },
         {
           text: t('common.confirm'),
@@ -233,30 +317,30 @@ export function MessageCenterScreen() {
                 if (!res.success) throw new Error()
                 setConversations((prev) => prev.filter((c) => c.id !== conv.id))
               } catch {
-                appAlert(uniappT('messageCenter.title'), t('common.failed'))
+                appAlert(t('messageCenter.title'), t('common.failed'))
               }
             })()
           },
         },
       ])
     },
-    [t, uniappT],
+    [t],
   )
 
   /**
-   * 加载下一页站内消息:GET /api/messages 本就分页(page/pageSize/total 均在 schema 内),
-   * 以 items.length < total 作 hasMore;按 id 去重防重入追加;失败喊出而不是静默吞掉。
+   * 加载下一页通知:GET /api/notifications(与 Web 消息页同一查询)。
+   * 私信 tab 没有通知分页。
    */
   const handleLoadMore = useCallback(async () => {
     if (loadingMore) return
+    const noteUrl = notificationsUrl(activeTab, page + 1)
+    if (!noteUrl) return
     const nextPage = page + 1
     setLoadingMore(true)
     try {
-      const res = await fetchApi<MessagePage>(
-        `/api/messages?type=${activeTab}&page=${nextPage}&pageSize=${PAGE_SIZE}`,
-      )
+      const res = await fetchApi<MessagePage>(noteUrl)
       if (!res.success) throw new Error()
-      const incoming = res.data.list ?? []
+      const incoming = (res.data.list ?? []).map((row) => toCenterItem(row, activeTab))
       setItems((prev) => {
         const seen = new Set(prev.map((it) => it.id))
         return [...prev, ...incoming.filter((it) => !seen.has(it.id))]
@@ -264,51 +348,77 @@ export function MessageCenterScreen() {
       setTotal(res.data.total ?? 0)
       setPage(nextPage)
     } catch {
-      appAlert(uniappT('messageCenter.title'), t('messageCenter.loadFailed'))
+      appAlert(t('messageCenter.title'), t('common.loadFailed'))
     } finally {
       setLoadingMore(false)
     }
-  }, [loadingMore, page, activeTab, t, uniappT])
+  }, [loadingMore, page, activeTab, t])
 
   const hasMore = total > 0 && items.length < total
 
   const { onToast } = useHostPorts()
 
   return (
-    <SharedMessageCenterScreen
-      t={uniappT}
-      items={filteredItems}
-      activeTab={activeTab}
-      onSelectTab={onSelectTab}
-      loading={loading}
-      refreshing={refreshing}
-      error={error}
-      onRefresh={() => {
-        setRefreshing(true)
-        void load()
-      }}
-      onPressItem={onPressItem}
-      conversations={filteredConversations}
-      onPressConversation={(conv) =>
-        navigation.navigate('MessageChat', { peerId: conv.id, name: conv.name })
-      }
-      onTogglePin={(conv) => void handleTogglePin(conv)}
-      onBack={() => navigation.goBack()}
-      colorScheme={resolvedTheme}
-      search={{
-        value: searchKeyword,
-        placeholder: t('messageCenter.searchPh'),
-        onChangeText: setSearchKeyword,
-      }}
-      onPressSettings={() => navigation.navigate('NotificationSettings')}
-      onMarkRead={(item) => void handleMarkRead(item)}
-      onDeleteConversation={handleDeleteConversation}
-      hasMore={hasMore}
-      loadingMore={loadingMore}
-      onLoadMore={() => void handleLoadMore()}
-      emptyText={keyword ? t('messageCenter.notFound') : undefined}
-      onToast={onToast}
-    />
+    <>
+      <SharedMessageCenterScreen
+        t={t}
+        items={filteredItems}
+        activeTab={activeTab}
+        onSelectTab={onSelectTab}
+        loading={loading}
+        refreshing={refreshing}
+        error={error}
+        onRefresh={() => {
+          setRefreshing(true)
+          void load()
+        }}
+        onPressItem={onPressItem}
+        conversations={filteredConversations}
+        onPressConversation={(conv) =>
+          navigation.navigate('Chat', { conversationId: conv.id, title: conv.name })
+        }
+        onTogglePin={(conv) => void handleTogglePin(conv)}
+        onBack={() => navigation.goBack()}
+        colorScheme={resolvedTheme}
+        tabs={tabs}
+        conversationsTab="private-letter"
+        search={{
+          value: searchKeyword,
+          placeholder: t('messageCenter.searchPh'),
+          onChangeText: setSearchKeyword,
+        }}
+        onPressSettings={() => navigation.navigate('NotificationSettings')}
+        onMarkRead={(item) => void handleMarkRead(item)}
+        onDeleteConversation={handleDeleteConversation}
+        hasMore={hasMore}
+        loadingMore={loadingMore}
+        onLoadMore={() => void handleLoadMore()}
+        emptyText={
+          keyword
+            ? t('messageCenter.notFound')
+            : activeTab === 'private-letter'
+              ? t('messageDirect.empty')
+              : undefined
+        }
+        onToast={onToast}
+      />
+      {/* 全文抽屉三端同源:RN 与小程序共用 packages/app 的 NoticeDetailSheet */}
+      <NoticeDetailSheet
+        t={t}
+        visible={noticeDetail !== null}
+        detail={noticeDetail}
+        onClose={() => setNoticeDetail(null)}
+        onCopy={(detail) => {
+          Clipboard.setString(noticeDetailCopyText(detail))
+        }}
+        // G2 深链与 Web「查看会话」同义:关闭抽屉后进对应会话(无 sessionId 时不渲染该按钮)
+        onOpenSession={(sessionId) => {
+          setNoticeDetail(null)
+          navigation.navigate('Chat', { conversationId: sessionId })
+        }}
+        colorScheme={resolvedTheme}
+      />
+    </>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

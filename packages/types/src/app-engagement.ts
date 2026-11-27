@@ -117,6 +117,8 @@ export interface NotificationListItem {
   /** D195 归档时刻:有值 = 已归档分区;缺省/null = 动态流。取自 @ihui/types 的同名字段。 */
   archivedAt?: string | null
   createdAt: string
+  /** G2 自动化终态深链会话 id(与 MessageCenterItem 同一口径) */
+  sessionId?: string
 }
 
 /** D195 行级状态:在飞/失败的回显,`pending` 为真时该行操作钮禁用(不叠第二次迁移)。 */

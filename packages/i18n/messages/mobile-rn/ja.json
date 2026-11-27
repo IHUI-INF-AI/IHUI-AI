@@ -2270,7 +2270,10 @@
     "notFound": "メッセージが見つからないか、削除されました",
     "from": "送信者",
     "createdAt": "時間",
-    "loadFailed": "メッセージ詳細の読み込みに失敗"
+    "viewSession": "会話を表示",
+    "loadFailed": "メッセージ詳細の読み込みに失敗",
+    "copy": "コピー",
+    "copied": "コピー済み"
   },
   "note": {
     "title": "マイノート",

@@ -18,13 +18,23 @@ const h = vi.hoisted(() => ({
   setConversationId: vi.fn(),
   openPanel: vi.fn(),
   onCloseMobile: vi.fn(),
+  hydrateNotifications: vi.fn(),
+  /** 每个用例可重置的静态通知快照;SidebarUserRow 从这里读消息二级菜单条目 */
+  notifications: [] as Array<{
+    id: string
+    title: string
+    content: string
+    type: string
+    isRead: boolean
+    createdAt: string
+    data?: { sessionId?: string }
+  }>,
 }))
 
 vi.mock('next-intl', () => ({
-  useTranslations:
-    (_ns: string) =>
-    (key: string) =>
-      key,
+  useTranslations: (_ns: string) => (key: string) => key,
+  // 2026-11-27 侧栏挂载 NoticeDetailDialog(详情弹窗)后取当前 locale 格式化时间
+  useLocale: () => 'zh-CN',
 }))
 
 vi.mock('@ihui/api-client', () => ({
@@ -129,7 +139,13 @@ vi.mock('@/stores/language', () => ({
 }))
 vi.mock('@/stores/notification', () => ({
   useNotificationStore: (sel: (s: Record<string, unknown>) => unknown) =>
-    sel({ notifications: [], unreadCount: 0, markAllAsRead: vi.fn() }),
+    sel({
+      notifications: h.notifications,
+      unreadCount: h.notifications.length,
+      markAllAsRead: vi.fn(),
+      markAsRead: vi.fn(),
+      hydrateNotifications: h.hydrateNotifications,
+    }),
 }))
 vi.mock('@/stores/chat', () => {
   const state = { conversationId: null as string | null, setConversationId: h.setConversationId }
@@ -187,6 +203,8 @@ describe('D193 SidebarUserRow 决策收件箱装车链', () => {
     h.setConversationId.mockReset()
     h.openPanel.mockReset()
     h.onCloseMobile.mockReset()
+    h.hydrateNotifications.mockReset()
+    h.notifications = []
   })
 
   it('打开站内消息弹窗即取数并渲染;点击条目切会话 + 开面板 + 关弹窗', async () => {
@@ -232,9 +250,7 @@ describe('D193 SidebarUserRow 决策收件箱装车链', () => {
     h.listPendingDecisions.mockResolvedValue({
       success: true,
       data: {
-        items: [
-          { id: 'eli_x', threadId: null, type: 'elicitation', summary: '', createdAt: null },
-        ],
+        items: [{ id: 'eli_x', threadId: null, type: 'elicitation', summary: '', createdAt: null }],
         total: 1,
       },
     })
@@ -244,6 +260,28 @@ describe('D193 SidebarUserRow 决策收件箱装车链', () => {
     fireEvent.click(screen.getByTestId('decision-inbox-item'))
     expect(h.setConversationId).not.toHaveBeenCalled()
     expect(h.openPanel).toHaveBeenCalledTimes(1)
+  })
+
+  it('站内消息二级菜单点条目 = 开全文弹窗(不再只标已读),无 sessionId 不造假入口', async () => {
+    h.notifications = [
+      {
+        id: 'n1',
+        title: '夜间巡检结果',
+        content: '第一段：巡检通过。\n\n第二段：完整正文必须保留空行。',
+        type: 'system',
+        isRead: false,
+        createdAt: '2026-11-27T12:00:00Z',
+      },
+    ]
+    render(<SidebarUserRow collapsed={false} onCloseMobile={h.onCloseMobile} />)
+
+    fireEvent.click(await screen.findByTestId('dd-notice-n1'))
+
+    expect(screen.getByText(/第一段：巡检通过/)).toBeTruthy()
+    expect(screen.getByText(/第二段：完整正文必须保留空行/)).toBeTruthy()
+    // 没带 sessionId 的消息只给全文与复制,不能渲染「查看会话」假入口
+    expect(screen.queryByText('messageDetail.viewSession')).toBeNull()
+    expect(h.setConversationId).not.toHaveBeenCalled()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
