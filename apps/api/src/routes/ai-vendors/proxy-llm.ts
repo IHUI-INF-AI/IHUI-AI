@@ -32,7 +32,6 @@ import {
   ensureLlmPointsBalance,
   readMaxCompletionTokens,
 } from '../../services/ai-points-billing.js'
-import { releasePointsHold } from '../../services/points-service.js'
 import { recordAiCost } from '../../plugins/ai-cost.js'
 import { chargeMediaPoints, ensureMediaPointsBalance } from '../../services/media-billing.js'
 import { bareMediaModelId } from '@ihui/shared'
@@ -272,6 +271,8 @@ export async function chargePointsForCall(
       completionTokens,
       totalTokens: promptTokens + completionTokens,
       requestType: 'llm_chat',
+      // 同一 referenceId 的重放/重试只落一条成本,避免代理层与结算层双记。
+      idempotencyKey: referenceId ? `llm_cost:${referenceId}` : undefined,
       metadata: JSON.stringify({
         referenceId,
         source: 'proxy_llm',
@@ -297,20 +298,18 @@ export async function chargePointsForCall(
       description: `LLM 调用扣分(model=${modelId}, tokens=${promptTokens + completionTokens})`,
       referenceId,
       holdReferenceId: request.id,
+      // 平台成本已在上面单独落账,避免 settleLlmPointsUsage 再记一份。
+      costRecordedByCaller: true,
     })
     if (settlement.shortfall > 0) {
       request.log.warn(
         { userId, modelId, referenceId, shortfall: settlement.shortfall },
-        '[proxy-llm] 积分不足,已部分结算',
+        '[proxy-llm] 积分不足,已记欠费',
       )
     }
   } catch (err) {
-    await releasePointsHold({
-      userId,
-      source: 'llm_chat',
-      referenceId: request.id,
-    }).catch(() => undefined)
-    // 扣分失败不阻塞已生成的响应;平台成本已在上面独立落账,不受影响。
+    // 不释放 hold:已生成响应、上游成本已发生,释放等于白送。
+    // settleLlmPointsUsage 内部已把 hold 标记为 settle_pending,交给周期任务重试。
     request.log?.warn?.({ err, userId, modelId, referenceId }, '[proxy-llm] 积分结算失败')
   }
 }

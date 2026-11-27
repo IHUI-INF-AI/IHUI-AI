@@ -4,12 +4,14 @@
 
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
 import { eq, sql } from 'drizzle-orm'
+import { createHash, randomUUID } from 'node:crypto'
 import { createReadStream, existsSync } from 'node:fs'
-import { readdir, readFile, stat } from 'node:fs/promises'
+import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { basename, join, resolve, sep } from 'node:path'
 import { db } from '../db/index.js'
-import { agents, docs, sdks, aiModelConfig } from '@ihui/database'
+import { agents, docs, sdks, aiModelConfig, users } from '@ihui/database'
 import { success } from '../utils/response.js'
+import { AppError } from '../errors/AppError.js'
 import { authenticate } from '../plugins/auth.js'
 import { canonicalMimeOfExtension } from '../utils/file-type-validator.js'
 import { fetchProviderHealth, isProviderHardUnavailable } from '../lib/llm-provider-health.js'
@@ -18,6 +20,15 @@ import { fetchProviderHealth, isProviderHardUnavailable } from '../lib/llm-provi
 const DOCS_DIR = existsSync(join(process.cwd(), 'docs'))
   ? join(process.cwd(), 'docs')
   : join(process.cwd(), '../../docs')
+
+/**
+ * 文档批注存储目录(2026-11-27 立)。
+ *
+ * 刻意放 docs/ 之外:文档中心的 scanDocsRecursive 会扫到 json,落进 docs/.annotations
+ * 会把批注内容当“文档”列出来。data/ 不在任何 public 文件白名单内,后续迁 DB 时也只换
+ * 这一层读写实现,API/前端契约不变。文件按 documentId 的 sha256 命名,不拼用户路径。
+ */
+const ANNOTATIONS_DIR = resolve(DOCS_DIR, '..', 'data', 'document-annotations')
 
 // 文档中心对外可见的白名单(普通用户/匿名可看)。
 // 其余 docs/*.md 含生产环境/凭证/守门策略等敏感信息,仅管理员可见。
@@ -317,11 +328,274 @@ async function readFileDocs(admin: boolean): Promise<DocListItem[]> {
 }
 
 /**
+ * 文档批注持久化(2026-11-27 立,接 D91 四类锚点)。
+ *
+ * 先做“可直接协作”的服务端落盘:同一 documentId 下所有登录用户共享线程,
+ * 支持主批注 + 回复 + resolved 状态。当前用 data/document-annotations/<sha256>.json
+ * 作为单实例真相;契约保持稳定,后续换 Postgres 时只改 read/write。
+ * 文档权限仍按 docs 的公共/管理员边界判定,不能借批注接口读 compliance 材料。
+ */
+type DocumentAnnotationStatus = 'open' | 'resolved'
+
+interface StoredDocumentAnnotation {
+  id: string
+  parentId: string | null
+  userId: string
+  author: string
+  body: string
+  label: string
+  anchorKind: string | null
+  anchor: Record<string, unknown> | null
+  excerpt: string | null
+  status: DocumentAnnotationStatus
+  createdAt: string
+  updatedAt: string
+}
+
+interface DocumentAnnotationStore {
+  version: 1
+  documentId: string
+  annotations: StoredDocumentAnnotation[]
+}
+
+interface DocumentAnnotationDto extends Omit<StoredDocumentAnnotation, 'userId'> {
+  documentId: string
+}
+
+function annotationFilePath(documentId: string): string {
+  const digest = createHash('sha256').update(documentId).digest('hex')
+  return join(ANNOTATIONS_DIR, `${digest}.json`)
+}
+
+async function readAnnotationStore(documentId: string): Promise<DocumentAnnotationStore> {
+  const file = annotationFilePath(documentId)
+  try {
+    const raw = JSON.parse(await readFile(file, 'utf8')) as Partial<DocumentAnnotationStore>
+    if (!Array.isArray(raw.annotations)) throw new Error('invalid annotation store')
+    return {
+      version: 1,
+      documentId,
+      annotations: raw.annotations.filter(
+        (item): item is StoredDocumentAnnotation =>
+          !!item &&
+          typeof item === 'object' &&
+          typeof item.id === 'string' &&
+          typeof item.body === 'string' &&
+          (item.status === 'open' || item.status === 'resolved'),
+      ),
+    }
+  } catch {
+    return { version: 1, documentId, annotations: [] }
+  }
+}
+
+async function writeAnnotationStore(store: DocumentAnnotationStore): Promise<void> {
+  await mkdir(ANNOTATIONS_DIR, { recursive: true })
+  const file = annotationFilePath(store.documentId)
+  const temp = `${file}.${randomUUID()}.tmp`
+  await writeFile(temp, JSON.stringify(store), 'utf8')
+  try {
+    await rename(temp, file)
+  } catch {
+    // Windows 上目标已存在时 rename 可能拒绝覆盖;删旧后重试一次,仍失败才上报。
+    await rm(file, { force: true })
+    await rename(temp, file)
+  }
+}
+
+function toAnnotationDto(
+  documentId: string,
+  annotation: StoredDocumentAnnotation,
+): DocumentAnnotationDto {
+  const { userId: _userId, ...rest } = annotation
+  return { ...rest, documentId }
+}
+
+async function authorOf(userId: string): Promise<string> {
+  try {
+    const rows = await db
+      .select({ nickname: users.nickname, username: users.username })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1)
+    const row = rows[0]
+    return row?.nickname?.trim() || row?.username?.trim() || '用户'
+  } catch {
+    return '用户'
+  }
+}
+
+async function requireDocumentUser(
+  request: FastifyRequest,
+): Promise<{ userId: string; roleId: number }> {
+  const payload = await authenticate(request)
+  if (!payload.userId) throw new AppError('请先登录', 401, 'UNAUTHORIZED')
+  return { userId: payload.userId, roleId: payload.roleId ?? 0 }
+}
+
+function requireDocumentId(value: unknown): string {
+  if (typeof value !== 'string' || value.length === 0 || value.length > 512) {
+    throw new AppError('documentId 无效', 400, 'INVALID_DOCUMENT_ID')
+  }
+  if (!value.startsWith('file:') && !value.startsWith('doc:')) {
+    throw new AppError('documentId 无效', 400, 'INVALID_DOCUMENT_ID')
+  }
+  if (value.startsWith('file:')) {
+    const relPath = value.slice(5)
+    if (!relPath || relPath.startsWith('/') || relPath.includes('..')) {
+      throw new AppError('documentId 无效', 400, 'INVALID_DOCUMENT_ID')
+    }
+  }
+  return value
+}
+
+/** 文档本身不在公共白名单时,只有管理员能读写其批注。 */
+async function assertDocumentReadable(documentId: string, roleId: number): Promise<void> {
+  if (!documentId.startsWith('file:')) return
+  const relPath = documentId.slice(5)
+  if (!isDocPublic(relPath) && roleId < 1) {
+    throw new AppError('无权访问该文档', 403, 'DOCUMENT_FORBIDDEN')
+  }
+}
+
+function trimmedText(value: unknown, field: string, max: number, required = true): string {
+  if (value === undefined || value === null) {
+    if (required) throw new AppError(`${field}不能为空`, 400, 'VALIDATION_FAILED')
+    return ''
+  }
+  if (typeof value !== 'string') throw new AppError(`${field}格式错误`, 400, 'VALIDATION_FAILED')
+  const text = value.trim()
+  if (required && !text) throw new AppError(`${field}不能为空`, 400, 'VALIDATION_FAILED')
+  if (text.length > max) throw new AppError(`${field}超长`, 400, 'VALIDATION_FAILED')
+  return text
+}
+
+function optionalAnchor(value: unknown): Record<string, unknown> | null {
+  if (value === undefined || value === null) return null
+  if (typeof value !== 'object' || Array.isArray(value)) {
+    throw new AppError('anchor 格式错误', 400, 'VALIDATION_FAILED')
+  }
+  const anchor = value as Record<string, unknown>
+  if (JSON.stringify(anchor).length > 8000) {
+    throw new AppError('anchor 超长', 400, 'VALIDATION_FAILED')
+  }
+  return anchor
+}
+
+/**
  * Feature Center 开放平台聚合路由。
  * 提供集市概览统计 + 5 个集市列表（API/Agent/文档/模型/SDK）。
  * 数据来源于现有业务表，做字段映射后返回前端期望的结构。
  */
 export const featureCenterRoutes: FastifyPluginAsync = async (server) => {
+  // -------------------------------------------------------------------------
+  // 文档批注 / 评论线程(必须先于 /documents/* 通配注册,Fastify 静态段优先,
+  // 但把静态路由靠前可以让读代码的人也一眼看到边界)。
+  // -------------------------------------------------------------------------
+  server.get('/documents/annotations', async (request, reply) => {
+    const { roleId } = await requireDocumentUser(request)
+    const query = request.query as { documentId?: unknown }
+    const documentId = requireDocumentId(query.documentId)
+    await assertDocumentReadable(documentId, roleId)
+    const store = await readAnnotationStore(documentId)
+    return reply.send(success(store.annotations.map((item) => toAnnotationDto(documentId, item))))
+  })
+
+  server.post('/documents/annotations', async (request, reply) => {
+    const { userId, roleId } = await requireDocumentUser(request)
+    const body = (request.body ?? {}) as Record<string, unknown>
+    const documentId = requireDocumentId(body.documentId)
+    await assertDocumentReadable(documentId, roleId)
+
+    const text = trimmedText(body.body, '批注内容', 4000)
+    const label = trimmedText(body.label, '批注位置', 200, false)
+    const excerpt = trimmedText(body.excerpt, '引用文本', 2000, false)
+    const anchor = optionalAnchor(body.anchor)
+    const anchorKind =
+      anchor && typeof anchor.kind === 'string'
+        ? anchor.kind
+        : trimmedText(body.anchorKind, '锚点类型', 24, false) || null
+    const parentIdInput =
+      body.parentId === undefined || body.parentId === null
+        ? null
+        : trimmedText(body.parentId, '父批注', 64)
+
+    const store = await readAnnotationStore(documentId)
+    let parentId: string | null = null
+    if (parentIdInput) {
+      const parent = store.annotations.find((item) => item.id === parentIdInput)
+      if (!parent) throw new AppError('父批注不存在', 404, 'ANNOTATION_NOT_FOUND')
+      // 回复统一挂到线程根,避免前端拿到三层树还要递归。
+      parentId = parent.parentId ?? parent.id
+    }
+
+    const now = new Date().toISOString()
+    const annotation: StoredDocumentAnnotation = {
+      id: randomUUID(),
+      parentId,
+      userId,
+      author: await authorOf(userId),
+      body: text,
+      label: parentId ? '' : label,
+      anchorKind: parentId ? null : anchorKind,
+      anchor: parentId ? null : anchor,
+      excerpt: parentId ? null : excerpt || null,
+      status: 'open',
+      createdAt: now,
+      updatedAt: now,
+    }
+    store.annotations.push(annotation)
+    await writeAnnotationStore(store)
+    return reply.send(success(toAnnotationDto(documentId, annotation)))
+  })
+
+  server.patch('/documents/annotations/:id', async (request, reply) => {
+    const { userId, roleId } = await requireDocumentUser(request)
+    const params = request.params as { id?: string }
+    const body = (request.body ?? {}) as Record<string, unknown>
+    const documentId = requireDocumentId(body.documentId)
+    await assertDocumentReadable(documentId, roleId)
+    const id = trimmedText(params.id, '批注 id', 64)
+    const status = body.status
+    if (status !== 'open' && status !== 'resolved') {
+      throw new AppError('状态无效', 400, 'VALIDATION_FAILED')
+    }
+
+    const store = await readAnnotationStore(documentId)
+    const target = store.annotations.find((item) => item.id === id)
+    if (!target) throw new AppError('批注不存在', 404, 'ANNOTATION_NOT_FOUND')
+    if (target.parentId) throw new AppError('只能处理主批注', 400, 'VALIDATION_FAILED')
+    if (target.userId !== userId && roleId < 1) {
+      throw new AppError('无权修改该批注', 403, 'ANNOTATION_FORBIDDEN')
+    }
+    target.status = status
+    target.updatedAt = new Date().toISOString()
+    await writeAnnotationStore(store)
+    return reply.send(success(toAnnotationDto(documentId, target)))
+  })
+
+  server.delete('/documents/annotations/:id', async (request, reply) => {
+    const { userId, roleId } = await requireDocumentUser(request)
+    const params = request.params as { id?: string }
+    const body = (request.body ?? {}) as Record<string, unknown>
+    const documentId = requireDocumentId(body.documentId)
+    await assertDocumentReadable(documentId, roleId)
+    const id = trimmedText(params.id, '批注 id', 64)
+
+    const store = await readAnnotationStore(documentId)
+    const target = store.annotations.find((item) => item.id === id)
+    if (!target) throw new AppError('批注不存在', 404, 'ANNOTATION_NOT_FOUND')
+    if (target.userId !== userId && roleId < 1) {
+      throw new AppError('无权删除该批注', 403, 'ANNOTATION_FORBIDDEN')
+    }
+    const rootId = target.parentId ?? target.id
+    store.annotations = store.annotations.filter(
+      (item) => item.id !== target.id && item.parentId !== rootId,
+    )
+    await writeAnnotationStore(store)
+    return reply.send(success({ id }))
+  })
+
   // -------------------------------------------------------------------------
   // GET /stats - 集市概览统计
   // -------------------------------------------------------------------------

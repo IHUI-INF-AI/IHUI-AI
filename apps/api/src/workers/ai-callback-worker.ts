@@ -279,42 +279,61 @@ export function startAiCallbackWorker(server: FastifyInstance): Worker {
             })
             const costCents = Math.ceil(actual.cost)
 
-            // 2. 结算 AI 积分:上游已发生成本,能扣多少扣多少,差额落 metadata 形成欠额审计
+            // 2. 结算 AI 积分。结算抛错不能吞掉第 3 步的成本账:
+            //    上游已经发生成本,成本必须独立落库;积分侧由 settle_pending 重试。
             let settlement: LlmPointsSettlement | null = null
-            settlement = await settleLlmPointsUsage({
-              userId,
-              modelId: model,
-              promptTokens: billedPrompt,
-              completionTokens: billedCompletion,
-              source: 'llm_chat',
-              description: `LLM chat ${model}`,
-              referenceId: idempotencyKey,
-            })
-            if (settlement.shortfall > 0) {
-              server.log.warn(
-                {
-                  userId,
-                  points: settlement.quote.points,
-                  deducted: settlement.deducted,
-                  shortfall: settlement.shortfall,
-                  model,
-                },
-                'AI points insufficient, message persisted but partially charged',
+            let settleError: unknown = null
+            try {
+              settlement = await settleLlmPointsUsage({
+                userId,
+                modelId: model,
+                promptTokens: billedPrompt,
+                completionTokens: billedCompletion,
+                source: 'llm_chat',
+                description: `LLM chat ${model}`,
+                referenceId: idempotencyKey,
+                // 本段第 3 步独立 server.aiCost.record,避免内部再记一份成本。
+                costRecordedByCaller: true,
+              })
+              if (settlement.shortfall > 0) {
+                server.log.warn(
+                  {
+                    userId,
+                    points: settlement.quote.points,
+                    deducted: settlement.deducted,
+                    shortfall: settlement.shortfall,
+                    model,
+                  },
+                  'AI points insufficient, debt recorded on user_points',
+                )
+              }
+            } catch (e) {
+              settleError = e
+              server.log.error(
+                { err: e, userId, tokens, model, idempotencyKey },
+                'AI points settlement failed; hold marked settle_pending for retry',
               )
             }
 
             const billing = {
-              pointsDeducted: settlement.deducted,
-              pointsBalanceAfter: settlement.remaining,
-              billingShortfallPoints: settlement.shortfall,
-              pointsQuote: settlement.quote.points,
-              pointsMultiplier: settlement.quote.multiplier,
+              pointsDeducted: settlement?.deducted ?? 0,
+              pointsBalanceAfter: settlement?.remaining ?? null,
+              billingShortfallPoints: settlement?.shortfall ?? null,
+              pointsQuote: settlement?.quote.points ?? null,
+              pointsMultiplier: settlement?.quote.multiplier ?? null,
               usageSource:
                 completionTokens !== undefined && completionTokens !== null
                   ? 'upstream'
                   : reportedTotal > 0
                     ? 'total_only'
                     : 'fallback_one_token',
+              ...(settleError
+                ? {
+                    billingPending: true,
+                    billingError:
+                      settleError instanceof Error ? settleError.message : String(settleError),
+                  }
+                : {}),
             }
 
             // 3. 记平台成本到 ai_cost_records;用户扣分由上面的积分结算单独产生
@@ -326,6 +345,8 @@ export function startAiCallbackWorker(server: FastifyInstance): Worker {
               completionTokens: billedCompletion,
               totalTokens: billedTotal,
               requestType: 'chat',
+              // BullMQ 重试/回调重放只落一条成本;与积分结算的 referenceId 同源。
+              idempotencyKey: idempotencyKey ? `llm_cost:${idempotencyKey}` : undefined,
               cost: costCents,
               currency: actual.currency,
               metadata: JSON.stringify(billing),
@@ -333,7 +354,7 @@ export function startAiCallbackWorker(server: FastifyInstance): Worker {
           } catch (e) {
             server.log.error(
               { err: e, userId, tokens, model },
-              'AI points settlement/cost record failed',
+              'AI cost record failed after points settlement attempt',
             )
             // 不 rethrow:避免 BullMQ 重试导致重复扣费(idempotencyKey 兜底)
           }

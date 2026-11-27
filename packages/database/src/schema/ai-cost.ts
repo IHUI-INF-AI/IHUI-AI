@@ -39,6 +39,8 @@ export const aiCostRecords = pgTable(
     requestType: varchar('request_type', { length: 32 }).default('chat').notNull(),
     promptHash: varchar('prompt_hash', { length: 64 }),
     metadata: text('metadata'),
+    /** 成本账幂等键(2026-11-27 立):独立列 + 唯一索引,避免 metadata 文本扫描与并发双记。 */
+    idempotencyKey: varchar('idempotency_key', { length: 128 }),
     // ── G4 计费弹性(2026-10-30 立,全部可空,存量行 NULL、读取端零适配)──
     /** 用量维度:会员档位键(member/vip/svip);model 维度由上方 model 列覆盖 */
     tier: varchar('tier', { length: 32 }),
@@ -62,6 +64,8 @@ export const aiCostRecords = pgTable(
     tenantIdx: index('ai_cost_tenant_idx').on(t.tenantId),
     modelIdx: index('ai_cost_model_idx').on(t.model),
     createdIdx: index('ai_cost_created_idx').on(t.createdAt),
+    // PG 唯一索引允许多个 NULL,历史无幂等键的成本行不受影响。
+    idempotencyKeyUniq: uniqueIndex('ai_cost_idempotency_key_uq').on(t.idempotencyKey),
   }),
 )
 

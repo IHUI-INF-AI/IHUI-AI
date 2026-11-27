@@ -183,6 +183,7 @@ describe('D91 XLSX 单元格选区 → 批注锚 → 注事件', () => {
     expect(received[0]?.source).toBe('xlsx-selection')
     expect(received[0]?.sheet).toBe('表A')
     expect(received[0]?.range).toBe('A1')
+    expect(received[0]?.note).toBe('把表头加粗')
     received.release()
   })
 
@@ -355,6 +356,49 @@ describe('D91 AnnotationAnchorCapture / 取消与删除态(单一状态机)', ()
       'PDF 第 4 页',
     )
     pdf.unmount()
+  })
+})
+
+describe('D91 PDF/PPTX 二期锚点直派(同一状态机)', () => {
+  it('PDF 页锚 → 采集卡 `PDF 第 4 页`;派发 source=pdf-selection + page', () => {
+    const { container } = render(
+      <AnnotationAnchorCapture anchor={{ kind: 'pdf', page: 4 }} source="pdf-selection" />,
+    )
+    const card = container.firstElementChild as HTMLElement
+    expect(card.getAttribute('data-anchor-kind')).toBe('pdf')
+    expect(card.querySelector('[data-anchor-label="main"]')?.textContent).toBe('PDF 第 4 页')
+    const note = card.querySelector('[data-testid="annotation-anchor-note"]') as HTMLTextAreaElement
+    fireEvent.change(note, { target: { value: '核对第 4 页结论' } })
+    const received = captureEvents()
+    fireEvent.click(card.querySelector('[data-action="add"]') as HTMLButtonElement)
+    expect(received[0]?.text).toBe('[PDF 第 4 页] 核对第 4 页结论')
+    expect(received[0]?.source).toBe('pdf-selection')
+    expect(received[0]?.page).toBe(4)
+    received.release()
+  })
+
+  it('PPTX 元素锚 → 主/次标签齐备;派发 source=pptx-element + slide/element', () => {
+    const { container } = render(
+      <AnnotationAnchorCapture
+        anchor={{ kind: 'pptx', slide: 2, element: '标题 1' }}
+        source="pptx-element"
+      />,
+    )
+    const card = container.firstElementChild as HTMLElement
+    expect(card.getAttribute('data-anchor-kind')).toBe('pptx')
+    expect(card.querySelector('[data-anchor-label="main"]')?.textContent).toBe(
+      '第 2 张 · 标题 1',
+    )
+    expect(card.querySelector('[data-anchor-label="secondary"]')?.textContent).toBe('批注 标题 1')
+    const note = card.querySelector('[data-testid="annotation-anchor-note"]') as HTMLTextAreaElement
+    fireEvent.change(note, { target: { value: '替换结论页' } })
+    const received = captureEvents()
+    fireEvent.click(card.querySelector('[data-action="add"]') as HTMLButtonElement)
+    expect(received[0]?.anchor).toEqual({ kind: 'pptx', slide: 2, element: '标题 1' })
+    expect(received[0]?.source).toBe('pptx-element')
+    expect(received[0]?.slide).toBe(2)
+    expect(received[0]?.element).toBe('标题 1')
+    received.release()
   })
 })
 

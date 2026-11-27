@@ -22,7 +22,6 @@ import { useTranslations } from 'next-intl'
 import { Globe, Loader2, ShieldQuestion, X } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { toMediaImageUrl } from '@/lib/media-proxy'
 import type { LinkPreviewState } from '@/hooks/use-link-preview'
 
 export interface LinkPreviewCardProps {
@@ -53,7 +52,8 @@ export function LinkPreviewCard({
 
   if (!preview) return null
 
-  const iconSrc = preview.status === 'ok' && preview.icon ? toMediaImageUrl(preview.icon) : ''
+  const iconSrc =
+    preview.status === 'ok' && preview.icon?.startsWith('data:image/') ? preview.icon : ''
 
   // 把后端 reason 映射成具体人话:同一句"暂时无法判定"会让用户无法判断是登录墙、
   // 超时还是地址被拦。未知 reason 才回落到三态总文案(未判定 ≠ 读不到)。
@@ -172,12 +172,12 @@ export function LinkPreviewCard({
         className={cn('grid h-8 w-8 shrink-0 place-items-center rounded-lg border', tileTone)}
       >
         {preview.status === 'ok' && iconSrc && failedIcon !== preview.icon ? (
-          // eslint-disable-next-line @next/next/no-img-element -- 20px 固定尺寸的同源代理图标,无需 next/image 管线
+          // eslint-disable-next-line @next/next/no-img-element -- 20px 固定尺寸的 data URL 图标,无需 next/image 管线
           <img
             src={iconSrc}
             alt=""
             aria-hidden
-            loading="lazy"
+            decoding="async"
             referrerPolicy="no-referrer"
             onError={() => setFailedIcon(preview.icon ?? null)}
             className="h-5 w-5 rounded-[3px] object-contain"

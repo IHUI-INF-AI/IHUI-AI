@@ -160,7 +160,7 @@ describe('每日赠送额度 — 真实 DB 语义', () => {
     expect(after.dailyPoints).toBe(100)
   })
 
-  it('AI 结算余额不足：扣到 0 并返回 shortfall，流水只记实扣金额', async () => {
+  it('AI 结算余额不足：差额记负余额欠费，流水按应扣全额记', async () => {
     const user = await createTestUser('13911110009')
     await ensureDailyCreditRow(user.id)
     await setDailyState(user.id, { points: 500, dailyPoints: 30, date: bizDayKey() })
@@ -180,14 +180,15 @@ describe('每日赠送额度 — 真实 DB 语义', () => {
     })
     const after = await ensureDailyCreditRow(user.id)
     expect(after.dailyPoints).toBe(0)
-    expect(after.points).toBe(0)
-    // total_spent 只累计永久余额扣减，赠送的 30 不进财务口径
-    expect(after.totalSpent).toBe(500)
+    // 差额不再“扣到 0 就消失”，而是落成负余额欠费。
+    expect(after.points).toBe(-70)
+    // total_spent 记永久余额扣减 + 欠费，赠送的 30 不进财务口径。
+    expect(after.totalSpent).toBe(570)
     const txns = await db.execute(
       sql`SELECT amount, balance_after FROM point_transactions WHERE user_id = ${user.id}`,
     )
     expect(txns).toHaveLength(1)
-    expect(Number(txns[0]?.amount)).toBe(-530)
+    expect(Number(txns[0]?.amount)).toBe(-600)
     expect(Number(txns[0]?.balance_after)).toBe(0)
   })
 

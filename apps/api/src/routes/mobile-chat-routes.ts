@@ -436,7 +436,9 @@ export const mobileChatRoutes: FastifyPluginAsync = async (server) => {
     if (!allowed) return
 
     let assistantContent: string
-    let billed = false
+    // 上游是否已成功返回内容。只有“没拿到任何可交付结果”才允许释放 hold;
+    // 结算失败也必须保留 hold(内部已标 settle_pending),否则等于这一单免费。
+    let upstreamDelivered = false
     try {
       const resp = await aiServiceSystemFetch('/api/llm/complete', {
         method: 'POST',
@@ -456,6 +458,7 @@ export const mobileChatRoutes: FastifyPluginAsync = async (server) => {
       if (data.error) {
         return reply.status(502).send(error(502, data.error_message ?? '模型调用失败'))
       }
+      upstreamDelivered = true
       assistantContent = String(data.content ?? '')
       const promptUsed = Math.max(
         0,
@@ -481,14 +484,13 @@ export const mobileChatRoutes: FastifyPluginAsync = async (server) => {
           referenceId: billingReference,
           holdReferenceId: billingReference,
         })
-        billed = true
       } catch (e) {
         request.log.error({ err: e, userId, billingReference }, '[mobile-agent] 积分结算失败')
       }
     } catch {
       return reply.status(503).send(error(503, 'AI service unavailable'))
     } finally {
-      if (!billed) {
+      if (!upstreamDelivered) {
         await releasePointsHold({
           userId,
           source: 'llm_chat',
@@ -834,6 +836,9 @@ export const mobileChatRoutes: FastifyPluginAsync = async (server) => {
           estimateTokens(assistantContent) ||
           1,
       )
+      // 消息已持久化、上游已完整收尾,这一轮不可再释放 hold:
+      // 即使积分结算失败,也要留给 settle_pending 重试,否则等于整轮免费。
+      streamBillingFinalized = true
       try {
         await settleLlmPointsUsage({
           userId,
@@ -845,7 +850,6 @@ export const mobileChatRoutes: FastifyPluginAsync = async (server) => {
           referenceId: streamBillingReference,
           holdReferenceId: streamBillingReference,
         })
-        streamBillingFinalized = true
       } catch (e) {
         request.log.error(
           { err: e, userId, streamBillingReference },

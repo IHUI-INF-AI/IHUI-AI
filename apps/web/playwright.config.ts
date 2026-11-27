@@ -85,7 +85,7 @@ export default defineConfig({
       name: 'public',
       // streaming-tail-frame:harness 路由用假鉴权(localStorage 假会话 + /api mock),
       // 与真实账号无关 ⇒ 同属「无需登录态」一族,缺 E2E_ADMIN_PASSWORD 时也应能跑。
-      testMatch: /(footer-regression|streaming-tail-frame)\.spec\.ts/,
+      testMatch: /(footer-regression|streaming-tail-frame|skin-surface)\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
         launchOptions: { args: ['--disable-dev-shm-usage'] },

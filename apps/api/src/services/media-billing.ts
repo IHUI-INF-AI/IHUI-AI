@@ -19,7 +19,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import {
   getActivePointsHoldAmount,
   getPointsHoldPricingSnapshot,
-  releasePointsHold,
+  markPointHoldPendingSettlement,
   reservePointsUsage,
   settlePointsUsage,
 } from './points-service.js'
@@ -106,6 +106,11 @@ export async function ensureMediaPointsBalance(
         units: quote.units,
         unitPricePoints: quote.unitPricePoints,
         videoUnit: quote.videoUnit ?? null,
+        // 成本价必须一起冻结:结算时定价行下架/调价,成本账仍要按当时成本落。
+        costUnitPrice:
+          quote.costCents === null || quote.appliedUnits <= 0
+            ? null
+            : quote.costCents / quote.appliedUnits,
         frozenAt: new Date().toISOString(),
       },
     })
@@ -173,6 +178,7 @@ function quoteFromHoldSnapshot(
   if (!snapshot || snapshot.category !== category) return null
   const unit = snapshot.unitPricePoints
   if (typeof unit !== 'number' || !Number.isFinite(unit) || unit <= 0) return null
+  const costUnit = snapshot.costUnitPrice
   return quoteMediaPoints({
     category,
     units,
@@ -180,7 +186,10 @@ function quoteFromHoldSnapshot(
       billingMode: requiredBillingMode(category),
       perUnitPrice: unit,
       videoUnit: snapshot.videoUnit === 'second' ? 'second' : 'call',
-      costUnitPrice: null,
+      costUnitPrice:
+        typeof costUnit === 'number' && Number.isFinite(costUnit) && costUnit >= 0
+          ? costUnit
+          : null,
     },
   })
 }
@@ -238,9 +247,22 @@ export async function chargeMediaPoints(
         )
         return settlement.alreadySettled ? 0 : settlement.deducted
       } catch (err) {
+        // 产物已交付、上游成本已发生:不能释放 hold 变成免费,标成待结算交给周期任务。
+        await markPointHoldPendingSettlement({
+          userId,
+          source: MEDIA_BILLING_SOURCE,
+          referenceId: holdReferenceId,
+          amount: holdAmount,
+          settlementReferenceId: referenceId,
+          description:
+            `媒体定价行失效,待结算(model=${modelId}, category=${category}, reference=${referenceId})`.slice(
+              0,
+              255,
+            ),
+        }).catch(() => undefined)
         request.log.error(
           { err, model: modelId, category, units, referenceId, holdAmount },
-          '[media-billing] 定价行失效且预扣额结算失败(产物已交付)',
+          '[media-billing] 定价行失效且预扣额结算失败,已标记待结算(产物已交付)',
         )
         return 0
       }
@@ -283,20 +305,26 @@ export async function chargeMediaPoints(
       )
     }
   } catch (err) {
-    // 结算失败:主动释放 hold,避免余额被锁到 TTL;产物已给用户,不能吞掉结果。
-    await releasePointsHold({
+    // 结算失败不等于免费:保留冻结并标记待结算,由周期任务按本次实际报价重试;
+    // 产物已交付,但平台不会因为一次 DB 抖动把这一单放走。
+    await markPointHoldPendingSettlement({
       userId,
       source: MEDIA_BILLING_SOURCE,
       referenceId: holdReferenceId,
+      amount: quote.points,
+      settlementReferenceId: referenceId,
+      description:
+        `媒体生成待结算(${category}, model=${modelId}, units=${quote.appliedUnits})`.slice(0, 255),
     }).catch(() => undefined)
     request.log.warn(
       { err, model: modelId, category, units, referenceId },
-      '[media-billing] 扣分失败(产物已交付,不阻塞响应)',
+      '[media-billing] 扣分失败,已标记待结算(产物已交付,不阻塞响应)',
     )
   }
 
-  // 成本账独立于积分账:重复回调命中积分幂等时不再重复写成本。
-  if (!alreadySettled) {
+  // 成本账独立于积分账:即使本次命中积分幂等(重复回调/重试),也要按幂等键补记成本。
+  // 旧逻辑在 alreadySettled 时整段跳过,导致“首次结算成功、成本落账失败”的重试永远补不上成本。
+  {
     const costCents = quote.costCents
     if (costCents === null) {
       request.log.warn(
@@ -315,12 +343,14 @@ export async function chargeMediaPoints(
           cost: costCents,
           currency: 'CNY',
           requestType: `media_${category}`,
+          idempotencyKey: `media_cost:${referenceId}`,
           costStatus: costCents > 0 ? 'priced' : 'zero_cost',
           metadata: JSON.stringify({
             category,
             units: quote.units,
             appliedUnits: quote.appliedUnits,
             referenceId,
+            holdReferenceId,
             userPricePoints: quote.points,
             priceSource: quote.source,
             costStatus: costCents > 0 ? 'priced' : 'zero_cost',

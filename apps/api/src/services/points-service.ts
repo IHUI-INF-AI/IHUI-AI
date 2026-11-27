@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { and, eq, lt, sql } from 'drizzle-orm'
+import { and, eq, inArray, lt, sql } from 'drizzle-orm'
 import {
   pointTransactions,
   pointHolds,
@@ -15,8 +15,16 @@ import { ensureDailyCreditRow, adjustPoints, type DbTx } from '../db/gamificatio
 import { availableOf } from './daily-credits.js'
 import { bizDayKey } from '../utils/biz-day.js'
 
-/** 单次 AI/媒体调用预扣积分的默认冻结时长；到期未结算自动释放。 */
-export const POINTS_HOLD_TTL_MS = 15 * 60 * 1000
+/**
+ * 单次 AI/媒体调用预扣积分的默认冻结时长。
+ *
+ * 15 分钟会把长上下文/Agent 流式调用卡在边界上(2026-11-27 生产实测一条请求
+ * 11:27 冻结、11:42 到期,结算时已找不到 held 行)。改为 60 分钟,并配合
+ * settle_pending 重试兜底;超过 60 分钟仍未结算的差额落负余额欠费,不再白送。
+ */
+export const POINTS_HOLD_TTL_MS = 60 * 60 * 1000
+/** 结算失败后待结算 hold 的续期时长;给周期重试留足窗口,不直接释放。 */
+export const POINTS_SETTLE_PENDING_TTL_MS = 6 * 60 * 60 * 1000
 
 export interface PointsResult {
   points: UserPoints
@@ -88,7 +96,7 @@ export interface ReservePointsUsageInput {
   modelId?: string
   /** 预扣时的费率/单位价快照,结算按其计算 */
   pricingSnapshot?: Record<string, unknown>
-  /** 冻结时长,默认 15 分钟 */
+  /** 冻结时长,默认 60 分钟 */
   ttlMs?: number
 }
 
@@ -148,7 +156,7 @@ export async function reservePointsUsage(
           eq(pointHolds.userId, input.userId),
           eq(pointHolds.source, input.source),
           eq(pointHolds.referenceId, input.referenceId),
-          eq(pointHolds.status, 'held'),
+          inArray(pointHolds.status, ['held', 'settle_pending']),
         ),
       )
       .limit(1)
@@ -252,7 +260,7 @@ export async function getActivePointsHold(input: {
         eq(pointHolds.userId, input.userId),
         eq(pointHolds.source, input.source),
         eq(pointHolds.referenceId, input.referenceId),
-        eq(pointHolds.status, 'held'),
+        inArray(pointHolds.status, ['held', 'settle_pending']),
       ),
     )
     .limit(1)
@@ -304,7 +312,7 @@ export async function getActivePointsHoldAmount(input: {
         eq(pointHolds.userId, input.userId),
         eq(pointHolds.source, input.source),
         eq(pointHolds.referenceId, input.referenceId),
-        eq(pointHolds.status, 'held'),
+        inArray(pointHolds.status, ['held', 'settle_pending']),
       ),
     )
     .limit(1)
@@ -335,7 +343,7 @@ export async function releasePointsHold(input: {
           eq(pointHolds.userId, input.userId),
           eq(pointHolds.source, input.source),
           eq(pointHolds.referenceId, input.referenceId),
-          eq(pointHolds.status, 'held'),
+          inArray(pointHolds.status, ['held', 'settle_pending']),
         ),
       )
       .limit(1)
@@ -415,81 +423,111 @@ export interface SettlePointsUsageInput {
 }
 
 export interface SettlePointsUsageResult {
-  /** 实际扣掉的积分(可能小于 amount) */
+  /** 实际从可用余额扣掉的积分(可能小于 amount) */
   deducted: number
-  /** 结算后的可用余额(永久 + 当日剩余) */
+  /** 结算后的可用余额(永久 + 当日剩余 - 冻结;负数欠费夹到 0) */
   remaining: number
-  /** 未扣到的差额;上游已产生成本时用于审计,不能静默吞掉 */
+  /** 未从可用余额扣到、已计入负余额的差额;上游已产生成本时用于审计 */
   shortfall: number
   /** 命中幂等键,本次未重复扣 */
   alreadySettled: boolean
 }
 
 /**
- * 结算一笔已经发生的 AI 用量:余额够就全扣,不够就扣到 0,差额返回给调用方。
+ * 结算一笔已经发生的 AI 用量:余额够就全扣,不够就把差额记成负余额欠费。
  *
  * 与 spendPoints 的区别:
  * - spendPoints 是"先确认够付再扣",余额不足会抛错;
  * - 本函数用于流式/异步/上游已产生成本的场景,不能因为余额在中途被别的请求花掉
- *   就整笔不扣,否则平台白送。
+ *   就整笔不扣,否则平台白送。差额落 `user_points.points` 负值,后续充值/赠送
+ *   自动抵消;`availableOf` 对负余额夹到 0,欠费期间无法继续发起新调用。
  *
  * 并发安全:事务内 FOR UPDATE 锁 user_points 行,和 adjustPoints 共用同一行锁;
- * 扣减顺序与普通消费一致(先当日赠送,再永久积分)。
+ * 扣减顺序与普通消费一致(先当日赠送,再永久积分)。结算失败会做有界重试,
+ * 仍失败则由调用方标记 settle_pending,不直接释放冻结。
  */
 export async function settlePointsUsage(
   input: SettlePointsUsageInput,
 ): Promise<SettlePointsUsageResult> {
   const amount = Math.max(0, Math.floor(input.amount))
   await ensureDailyCreditRow(input.userId)
-  await releaseExpiredPointHolds(input.userId)
 
   const holdSource = input.holdSource ?? input.source
   const holdReferenceId = input.holdReferenceId ?? input.referenceId
+  let lastError: unknown
 
-  return db.transaction(async (tx) => {
-    let [account] = await tx
-      .select()
-      .from(userPoints)
-      .where(eq(userPoints.userId, input.userId))
-      .limit(1)
-      .for('update')
-    if (!account) throw new Error('积分账户不存在')
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      return await db.transaction(async (tx) => {
+        let [account] = await tx
+          .select()
+          .from(userPoints)
+          .where(eq(userPoints.userId, input.userId))
+          .limit(1)
+          .for('update')
+        if (!account) throw new Error('积分账户不存在')
 
-    let hold: { id: string; amount: number } | null = null
-    if (holdReferenceId) {
-      const [activeHold] = await tx
-        .select({ id: pointHolds.id, amount: pointHolds.amount })
-        .from(pointHolds)
-        .where(
-          and(
-            eq(pointHolds.userId, input.userId),
-            eq(pointHolds.source, holdSource),
-            eq(pointHolds.referenceId, holdReferenceId),
-            eq(pointHolds.status, 'held'),
-          ),
-        )
-        .limit(1)
-      hold = activeHold ?? null
-    }
+        let hold: { id: string; amount: number } | null = null
+        if (holdReferenceId) {
+          const [activeHold] = await tx
+            .select({ id: pointHolds.id, amount: pointHolds.amount })
+            .from(pointHolds)
+            .where(
+              and(
+                eq(pointHolds.userId, input.userId),
+                eq(pointHolds.source, holdSource),
+                eq(pointHolds.referenceId, holdReferenceId),
+                // 不先跑过期回收:在途请求即使越过 expires_at,也必须先把这笔 hold
+                // 结算掉;否则会先被置 expired、再按“找不到 hold”结算,形成短收。
+                inArray(pointHolds.status, ['held', 'settle_pending']),
+              ),
+            )
+            .limit(1)
+          hold = activeHold ?? null
+        }
 
-    if (input.referenceId) {
-      const [existing] = await tx
-        .select({ amount: pointTransactions.amount })
-        .from(pointTransactions)
-        .where(
-          and(
-            eq(pointTransactions.userId, input.userId),
-            eq(pointTransactions.type, 'spend'),
-            eq(pointTransactions.source, input.source),
-            eq(pointTransactions.referenceId, input.referenceId),
-          ),
-        )
-        .limit(1)
-      if (existing) {
+        if (input.referenceId) {
+          const [existing] = await tx
+            .select({ amount: pointTransactions.amount })
+            .from(pointTransactions)
+            .where(
+              and(
+                eq(pointTransactions.userId, input.userId),
+                eq(pointTransactions.type, 'spend'),
+                eq(pointTransactions.source, input.source),
+                eq(pointTransactions.referenceId, input.referenceId),
+              ),
+            )
+            .limit(1)
+          if (existing) {
+            if (hold) {
+              await tx
+                .update(pointHolds)
+                .set({ status: 'released', settledAt: new Date() })
+                .where(eq(pointHolds.id, hold.id))
+              const [released] = await tx
+                .update(userPoints)
+                .set({
+                  reservedPoints: sql`GREATEST(${userPoints.reservedPoints} - ${hold.amount}, 0)`,
+                  updatedAt: new Date(),
+                })
+                .where(eq(userPoints.userId, input.userId))
+                .returning()
+              if (released) account = released
+            }
+            return {
+              deducted: Math.abs(existing.amount),
+              remaining: availableOf(account),
+              shortfall: 0,
+              alreadySettled: true,
+            }
+          }
+        }
+
         if (hold) {
           await tx
             .update(pointHolds)
-            .set({ status: 'released', settledAt: new Date() })
+            .set({ status: 'settled', settledAt: new Date() })
             .where(eq(pointHolds.id, hold.id))
           const [released] = await tx
             .update(userPoints)
@@ -501,70 +539,217 @@ export async function settlePointsUsage(
             .returning()
           if (released) account = released
         }
-        return {
-          deducted: Math.abs(existing.amount),
-          remaining: availableOf(account),
-          shortfall: 0,
-          alreadySettled: true,
+
+        const availableBefore = availableOf(account)
+        if (amount <= 0) {
+          return { deducted: 0, remaining: availableBefore, shortfall: 0, alreadySettled: false }
         }
-      }
-    }
 
-    if (hold) {
-      await tx
-        .update(pointHolds)
-        .set({ status: 'settled', settledAt: new Date() })
-        .where(eq(pointHolds.id, hold.id))
-      const [released] = await tx
-        .update(userPoints)
-        .set({
-          reservedPoints: sql`GREATEST(${userPoints.reservedPoints} - ${hold.amount}, 0)`,
-          updatedAt: new Date(),
+        // 能扣多少扣多少;剩余差额直接写进负余额,成为可审计、可被后续充值抵消的欠费。
+        const deducted = Math.min(Math.max(0, availableBefore), amount)
+        const shortfall = amount - deducted
+        // 跨日未刷新的昨日赠送不属于今日可用余额;只允许扣「今天」的赠送额,
+        // 否则会把昨天残留的 daily_points 扣掉、永久余额不动,等于白送一次调用。
+        const todayDaily =
+          account.dailyPointsDate === bizDayKey() ? Math.max(0, account.dailyPoints) : 0
+        // 欠费先用今日赠送补平:points 为负时,今天这份赠送先对冲欠费本金,
+        // 剩余才是可用于本次消费的额度。否则赠送跨日作废后欠费永远留在 points 上,
+        // available 虽然算得对,但欠费本金会被高估。
+        const debtOffset = Math.min(todayDaily, Math.max(0, -account.points))
+        const dailyDeduct = Math.min(todayDaily - debtOffset, deducted)
+        const permanentDeduct = deducted - dailyDeduct
+
+        const [updated] = await tx
+          .update(userPoints)
+          .set({
+            dailyPoints: sql`${userPoints.dailyPoints} - ${debtOffset + dailyDeduct}`,
+            // 欠费部分记为负 points,而不是只扣到 0 后把短收丢掉。
+            points: sql`${userPoints.points} + ${debtOffset} - ${permanentDeduct} - ${shortfall}`,
+            totalSpent: sql`${userPoints.totalSpent} + ${permanentDeduct} + ${shortfall}`,
+            updatedAt: new Date(),
+          })
+          .where(eq(userPoints.userId, input.userId))
+          .returning()
+        if (!updated) throw new Error('积分扣减失败')
+
+        await tx.insert(pointTransactions).values({
+          userId: input.userId,
+          type: 'spend',
+          // 流水按“本次应扣”全额记,余额可能为负;短收因此不会从账上消失。
+          amount: -amount,
+          balanceAfter: availableOf(updated),
+          source: input.source,
+          description: input.description ?? null,
+          referenceId: input.referenceId ?? null,
+          createdAt: new Date(),
         })
-        .where(eq(userPoints.userId, input.userId))
-        .returning()
-      if (released) account = released
-    }
 
-    const availableBefore = availableOf(account)
-    if (amount <= 0 || availableBefore <= 0) {
-      return { deducted: 0, remaining: availableBefore, shortfall: amount, alreadySettled: false }
-    }
-
-    const deducted = Math.min(availableBefore, amount)
-    const shortfall = amount - deducted
-    // 跨日未刷新的昨日赠送不属于今日可用余额;只允许扣「今天」的赠送额,
-    // 否则会把昨天残留的 daily_points 扣掉、永久余额不动,等于白送一次调用。
-    const todayDaily =
-      account.dailyPointsDate === bizDayKey() ? Math.max(0, account.dailyPoints) : 0
-    const dailyDeduct = Math.min(todayDaily, deducted)
-    const permanentDeduct = deducted - dailyDeduct
-
-    const [updated] = await tx
-      .update(userPoints)
-      .set({
-        dailyPoints: sql`${userPoints.dailyPoints} - ${dailyDeduct}`,
-        points: sql`${userPoints.points} - ${permanentDeduct}`,
-        totalSpent: sql`${userPoints.totalSpent} + ${permanentDeduct}`,
-        updatedAt: new Date(),
+        return {
+          deducted,
+          remaining: availableOf(updated),
+          shortfall,
+          alreadySettled: false,
+        }
       })
-      .where(eq(userPoints.userId, input.userId))
-      .returning()
-    if (!updated) throw new Error('积分扣减失败')
+    } catch (err) {
+      lastError = err
+      if (attempt < 3 && isRetryablePointsDbError(err)) {
+        await sleepMs(50 * attempt)
+        continue
+      }
+      throw err
+    }
+  }
 
-    await tx.insert(pointTransactions).values({
-      userId: input.userId,
-      type: 'spend',
-      amount: -deducted,
-      balanceAfter: availableOf(updated),
-      source: input.source,
-      description: input.description ?? null,
-      referenceId: input.referenceId ?? null,
-      createdAt: new Date(),
+  throw lastError instanceof Error ? lastError : new Error('积分结算失败')
+}
+
+/** 只对连接/死锁类瞬时错误重试;业务错误重试也不会成功,反而放大延迟。 */
+function isRetryablePointsDbError(err: unknown): boolean {
+  const code = (err as { code?: string } | null)?.code ?? ''
+  const message = err instanceof Error ? err.message : String(err)
+  return (
+    /^(08|40P01|40001|57P01|57P02|57P03|53300)/.test(code) ||
+    /deadlock|connection|timeout|too many clients|server closed/i.test(message)
+  )
+}
+
+function sleepMs(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/**
+ * 把一笔已交付/已发生、但积分结算暂时失败的 hold 标记为待结算:
+ * 保留 reserved,续期 6 小时,由周期任务按快照金额重试。
+ *
+ * 不在这里释放,是因为“结算失败”不等于“免费”;释放会让已交付的调用彻底漏收。
+ */
+export async function markPointHoldPendingSettlement(input: {
+  userId: string
+  source: string
+  referenceId: string
+  /** 本次应扣积分(实际金额,不是预扣上限) */
+  amount: number
+  /** 结算幂等键;默认与 hold referenceId 相同 */
+  settlementReferenceId?: string
+  modelId?: string
+  description?: string
+}): Promise<boolean> {
+  const amount = Math.max(0, Math.floor(input.amount))
+  return db.transaction(async (tx) => {
+    const [account] = await tx
+      .select({ id: userPoints.id })
+      .from(userPoints)
+      .where(eq(userPoints.userId, input.userId))
+      .limit(1)
+      .for('update')
+    if (!account) return false
+
+    const [hold] = await tx
+      .select({ id: pointHolds.id })
+      .from(pointHolds)
+      .where(
+        and(
+          eq(pointHolds.userId, input.userId),
+          eq(pointHolds.source, input.source),
+          eq(pointHolds.referenceId, input.referenceId),
+          inArray(pointHolds.status, ['held', 'settle_pending']),
+        ),
+      )
+      .limit(1)
+
+    const patch = JSON.stringify({
+      settlementPending: {
+        amount,
+        settlementReferenceId: input.settlementReferenceId ?? input.referenceId,
+        description: input.description ?? null,
+        markedAt: new Date().toISOString(),
+      },
     })
 
-    return { deducted, remaining: availableOf(updated), shortfall, alreadySettled: false }
+    if (!hold) {
+      // 异步回调等“调用后才结算”的链路没有预扣 hold;仍要落一条 0 冻结的
+      // settle_pending 行作为重试队列,否则结算失败后没有任何账可追。
+      if (amount <= 0) return false
+      await tx.insert(pointHolds).values({
+        userId: input.userId,
+        source: input.source,
+        referenceId: input.referenceId,
+        modelId: input.modelId ?? null,
+        amount: 0,
+        pricingSnapshot: sql`${patch}::jsonb`,
+        status: 'settle_pending',
+        expiresAt: new Date(Date.now() + POINTS_SETTLE_PENDING_TTL_MS),
+      })
+      return true
+    }
+
+    await tx
+      .update(pointHolds)
+      .set({
+        status: 'settle_pending',
+        expiresAt: new Date(Date.now() + POINTS_SETTLE_PENDING_TTL_MS),
+        pricingSnapshot: sql`coalesce(${pointHolds.pricingSnapshot}, '{}'::jsonb) || ${patch}::jsonb`,
+      })
+      .where(eq(pointHolds.id, hold.id))
+    return true
   })
+}
+
+/**
+ * 周期重试 settle_pending hold。最多 100 笔/轮,按创建时间从旧到新;
+ * 单笔失败只留日志,不阻塞其他用户,也不把 hold 释放。
+ */
+export async function retryPendingPointHolds(
+  limit = 100,
+): Promise<{ scanned: number; settled: number; failed: number }> {
+  const rows = await db
+    .select({
+      id: pointHolds.id,
+      userId: pointHolds.userId,
+      source: pointHolds.source,
+      referenceId: pointHolds.referenceId,
+      amount: pointHolds.amount,
+      pricingSnapshot: pointHolds.pricingSnapshot,
+    })
+    .from(pointHolds)
+    .where(eq(pointHolds.status, 'settle_pending'))
+    .orderBy(pointHolds.createdAt)
+    .limit(Math.min(Math.max(Math.trunc(limit), 1), 500))
+
+  let settled = 0
+  let failed = 0
+  for (const row of rows) {
+    const snapshot =
+      typeof row.pricingSnapshot === 'object' && row.pricingSnapshot !== null
+        ? (row.pricingSnapshot as Record<string, unknown>)
+        : {}
+    const pending =
+      typeof snapshot.settlementPending === 'object' && snapshot.settlementPending !== null
+        ? (snapshot.settlementPending as Record<string, unknown>)
+        : {}
+    const amount = Number(pending.amount ?? row.amount)
+    if (!Number.isFinite(amount) || amount < 0) {
+      failed += 1
+      continue
+    }
+    try {
+      await settlePointsUsage({
+        userId: row.userId,
+        amount,
+        source: row.source,
+        referenceId: String(pending.settlementReferenceId ?? row.referenceId),
+        holdReferenceId: row.referenceId,
+        holdSource: row.source,
+        description:
+          typeof pending.description === 'string' ? pending.description : 'settle_pending retry',
+      })
+      settled += 1
+    } catch {
+      failed += 1
+    }
+  }
+  return { scanned: rows.length, settled, failed }
 }
 
 /**
@@ -629,6 +814,8 @@ export interface PointHoldHealth {
   asOf: string
   /** 当前仍处于 held 的冻结(含已过期但尚未被回收的 stale 行) */
   held: { count: number; points: number; oldestAgeMinutes: number }
+  /** 已交付/已发生但积分结算失败、等待周期重试的冻结(保留 reserved) */
+  pending: { count: number; points: number }
   /** expires_at 已过但仍 status=held,等待每日任务/懒释放回收 */
   staleHeld: { count: number; points: number }
   /** 近 24 小时终态:过期回收 / 正常结算 / 主动释放 */
@@ -680,6 +867,17 @@ export async function getPointHoldHealth(): Promise<PointHoldHealth> {
     points: Number(staleRow?.points ?? 0),
   }
 
+  const pendingRes = await db.execute(sql`
+    select count(*)::int as count, coalesce(sum(amount), 0)::bigint as points
+    from point_holds
+    where status = 'settle_pending'
+  `)
+  const pendingRow = holdRows<{ count: number; points: number | string }>(pendingRes)[0]
+  const pending = {
+    count: Number(pendingRow?.count ?? 0),
+    points: Number(pendingRow?.points ?? 0),
+  }
+
   const last24Res = await db.execute(sql`
     select status, count(*)::int as count, coalesce(sum(amount), 0)::bigint as points
     from point_holds
@@ -703,7 +901,7 @@ export async function getPointHoldHealth(): Promise<PointHoldHealth> {
   const bySourceRes = await db.execute(sql`
     select source, status, count(*)::int as count, coalesce(sum(amount), 0)::bigint as points
     from point_holds
-    where status = 'held'
+    where status in ('held', 'settle_pending')
        or (status in ('expired', 'settled', 'released')
            and settled_at >= now() - interval '24 hours')
     group by source, status
@@ -726,7 +924,7 @@ export async function getPointHoldHealth(): Promise<PointHoldHealth> {
     with held as (
       select user_id, sum(amount)::bigint as points
       from point_holds
-      where status = 'held'
+      where status in ('held', 'settle_pending')
       group by user_id
     )
     select count(*)::int as users,
@@ -744,6 +942,7 @@ export async function getPointHoldHealth(): Promise<PointHoldHealth> {
   return {
     asOf: new Date().toISOString(),
     held: { count: heldCount, points: heldPoints, oldestAgeMinutes },
+    pending,
     staleHeld,
     last24h,
     bySource,

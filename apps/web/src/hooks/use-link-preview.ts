@@ -219,7 +219,17 @@ export function useLinkPreview(): UseLinkPreviewReturn {
           }
         } else {
           // 传输层失败(4xx/5xx/网络)——我们没判定成,标"未判定"而非"读不到"。
-          finish({ status: 'undetermined', url, reason: 'probe_request_failed' })
+          // 2026-11-27 实报:401 原样报成"网络不可达",把"没登录"误导成"站点连不上",
+          // 排查方向整个跑偏。这里按状态码给出可分辨的 reason,文案仍走卡片既有映射。
+          const reason =
+            res.status === 401 || res.status === 403
+              ? 'http_401'
+              : res.status === 429
+                ? 'http_429'
+                : typeof res.status === 'number' && res.status >= 500
+                  ? `http_${res.status}`
+                  : 'probe_request_failed'
+          finish({ status: 'undetermined', url, reason })
         }
       } catch {
         finish({ status: 'undetermined', url, reason: 'probe_error' })

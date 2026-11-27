@@ -1,15 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-27T06:50:50.122Z",
+  "sealedAt": "2026-11-27T07:09:12.911Z",
   "sealedBy": "root-guard --seal",
-  "reason": "登记 329/329p 跨端路由契约门与 64 条刷新",
+  "reason": "AGENTS.md 门名列表补登门 329(R4 接线点名);runner 注册 id 329 皮肤表面覆盖",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "c506967b684722e19e80e15fa9f2f58e37989204e872583425aec22ad0002c06"
+      "sha256": "60f8a7d7fe8826c78725daf05819ab8c2cd781b89ddfd140c9838f4bf5b20a67"
     },
     {
       "id": "judgement-libs",

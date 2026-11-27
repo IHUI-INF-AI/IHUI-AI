@@ -476,30 +476,6 @@ html[data-reduce-motion='true'] *::after {
   scroll-behavior: auto !important; /* -- ihui-allow-important: 同上,关掉平滑滚动是「减弱动效」的一部分 */
 }
 
-html[data-high-contrast='true'] {
-  --color-border: hsl(0 0% 55%);
-  --color-border-medium: hsl(0 0% 45%);
-  --color-input: hsl(0 0% 50%);
-  --color-stroke-subtle: rgba(0, 0, 0, 0.3);
-  --color-stroke-default: hsl(0 0% 55%);
-  --color-stroke-strong: hsl(0 0% 45%);
-  --color-stroke-field: hsl(0 0% 50%);
-  --color-stroke-inverse: rgba(255, 255, 255, 0.5);
-  --color-muted-foreground: hsl(0 0% 30%);
-}
-
-html.dark[data-high-contrast='true'] {
-  --color-border: hsl(0 0% 55%);
-  --color-border-medium: hsl(0 0% 65%);
-  --color-input: hsl(0 0% 60%);
-  --color-stroke-subtle: rgba(255, 255, 255, 0.3);
-  --color-stroke-default: hsl(0 0% 55%);
-  --color-stroke-strong: hsl(0 0% 65%);
-  --color-stroke-field: hsl(0 0% 60%);
-  --color-stroke-inverse: rgba(0, 0, 0, 0.5);
-  --color-muted-foreground: hsl(0 0% 82%);
-}
-
 html[data-link-underline='true'] a {
   text-decoration: underline;
   text-underline-offset: 2px;
@@ -602,6 +578,9 @@ html[data-custom-theme='true'] {
   --color-primary: var(--custom-light-primary);
   --color-primary-foreground: var(--custom-light-primary-foreground);
   --color-primary-foreground-rgb: var(--custom-light-primary-foreground-rgb);
+  /* 2026-11-27:皮肤需染整站,品牌 CTA 实底跟随皮肤主色(默认档仍是 tokens.css 的黑白反转)。 */
+  --color-cta: var(--custom-light-primary);
+  --color-cta-foreground: var(--custom-light-primary-foreground);
   --color-brand-accent-deep: color-mix(in srgb, var(--custom-light-primary) 72%, black);
   --color-background: var(--custom-light-background);
   --color-foreground: var(--custom-light-foreground);
@@ -640,12 +619,59 @@ html[data-custom-theme='true'] {
   );
   --color-sidebar-item-hover-bg: var(--custom-light-card);
   --color-shell-panel: var(--custom-light-card);
+  /* 2026-11-27 二期:容器底/描边/链接/选中整族随皮肤 —— 只染大面会留下"细部仍灰"的半套观感。
+   * 语义色(success/warning/danger/info/gold/vip/rank)、遮罩 scrim、提示条 notification/warm
+   * 与品牌色 brand-* 刻意不随皮肤,见 docs/UI_GUIDELINES.md 皮肤边界。 */
+  --color-chrome: var(--custom-light-background);
+  --color-screen-canvas: var(--custom-light-background);
+  --color-surface-light: var(--custom-light-card);
+  --color-surface-dark: color-mix(
+    in srgb,
+    var(--custom-light-foreground) 82%,
+    var(--custom-light-primary)
+  );
+  --color-glass-bg: color-mix(in srgb, var(--custom-light-card) 60%, transparent);
+  --color-muted-soft: color-mix(
+    in srgb,
+    var(--custom-light-muted) 55%,
+    var(--custom-light-background)
+  );
+  --color-streamed-container-bg: color-mix(
+    in srgb,
+    var(--custom-light-muted) 60%,
+    var(--custom-light-background)
+  );
+  --color-streamed-container-bg-hover: var(--custom-light-muted);
+  --color-float-indicator-bg: var(--custom-light-card);
+  --color-tag-inactive-bg: var(--custom-light-muted);
+  --color-pinned-tag-bg: var(--custom-light-muted);
+  --color-track-active-bg: color-mix(in srgb, var(--custom-light-card) 65%, transparent);
+  --color-link: var(--custom-light-primary);
+  --color-link-bg: color-mix(in srgb, var(--custom-light-primary) 12%, transparent);
+  --color-text-medium: var(--custom-light-foreground);
+  --color-text-tertiary: color-mix(
+    in srgb,
+    var(--custom-light-foreground) 55%,
+    var(--custom-light-background)
+  );
+  --color-selection: var(--custom-light-primary);
+  --color-selection-foreground: var(--custom-light-primary-foreground);
+  --color-stroke-subtle: color-mix(in srgb, var(--custom-light-foreground) 6%, transparent);
+  --color-stroke-default: color-mix(in srgb, var(--custom-light-foreground) 10%, transparent);
+  --color-stroke-strong: color-mix(in srgb, var(--custom-light-foreground) 18%, transparent);
+  --color-stroke-field: color-mix(in srgb, var(--custom-light-foreground) 14%, transparent);
+  --color-stroke-focus: var(--custom-light-primary);
+  --color-stroke-selected: var(--custom-light-primary);
+  --color-border-medium: color-mix(in srgb, var(--custom-light-foreground) 16%, transparent);
 }
 
 html.dark[data-custom-theme='true'] {
   --color-primary: var(--custom-dark-primary);
   --color-primary-foreground: var(--custom-dark-primary-foreground);
   --color-primary-foreground-rgb: var(--custom-dark-primary-foreground-rgb);
+  /* 同亮档:皮肤下 CTA 实底跟随皮肤主色 */
+  --color-cta: var(--custom-dark-primary);
+  --color-cta-foreground: var(--custom-dark-primary-foreground);
   --color-brand-accent-deep: color-mix(in srgb, var(--custom-dark-primary) 72%, white);
   --color-background: var(--custom-dark-background);
   --color-foreground: var(--custom-dark-foreground);
@@ -688,6 +714,104 @@ html.dark[data-custom-theme='true'] {
     var(--custom-dark-muted)
   );
   --color-shell-panel: var(--custom-dark-card);
+  /* 同亮档:容器底/描边/链接/选中整族随皮肤(语义色与遮罩刻意不随,见亮档头注) */
+  --color-chrome: var(--custom-dark-background);
+  --color-screen-canvas: var(--custom-dark-background);
+  --color-surface-light: var(--custom-dark-card);
+  --color-surface-dark: color-mix(
+    in srgb,
+    var(--custom-dark-foreground) 88%,
+    var(--custom-dark-primary)
+  );
+  --color-glass-bg: color-mix(in srgb, var(--custom-dark-card) 60%, transparent);
+  --color-muted-soft: color-mix(
+    in srgb,
+    var(--custom-dark-muted) 55%,
+    var(--custom-dark-background)
+  );
+  --color-streamed-container-bg: color-mix(
+    in srgb,
+    var(--custom-dark-muted) 60%,
+    var(--custom-dark-background)
+  );
+  --color-streamed-container-bg-hover: var(--custom-dark-muted);
+  --color-float-indicator-bg: var(--custom-dark-card);
+  --color-tag-inactive-bg: var(--custom-dark-muted);
+  --color-pinned-tag-bg: var(--custom-dark-muted);
+  --color-track-active-bg: color-mix(in srgb, var(--custom-dark-card) 65%, transparent);
+  --color-link: var(--custom-dark-primary);
+  --color-link-bg: color-mix(in srgb, var(--custom-dark-primary) 14%, transparent);
+  --color-text-medium: var(--custom-dark-foreground);
+  --color-text-tertiary: color-mix(
+    in srgb,
+    var(--custom-dark-foreground) 55%,
+    var(--custom-dark-background)
+  );
+  --color-selection: var(--custom-dark-primary);
+  --color-selection-foreground: var(--custom-dark-primary-foreground);
+  --color-stroke-subtle: color-mix(in srgb, var(--custom-dark-foreground) 8%, transparent);
+  --color-stroke-default: color-mix(in srgb, var(--custom-dark-foreground) 12%, transparent);
+  --color-stroke-strong: color-mix(in srgb, var(--custom-dark-foreground) 22%, transparent);
+  --color-stroke-field: color-mix(in srgb, var(--custom-dark-foreground) 16%, transparent);
+  --color-stroke-focus: var(--custom-dark-primary);
+  --color-stroke-selected: var(--custom-dark-primary);
+  --color-border-medium: color-mix(in srgb, var(--custom-dark-foreground) 20%, transparent);
+}
+
+/* 登录浮层 scope 自定变量随皮肤(ui-react auth-shell.css 的 .login-scope 把 --color-muted/accent
+ * 写死为纯白做 hover 凸出;它落在元素上,靠继承压不回来,必须用更高特异度选择器重指皮肤色,
+ * 否则登录整片仍是黑白)。tablist/strength-track 的显式 hsl 灰阶(见上方 283-305 行)同此覆盖。 */
+html[data-custom-theme='true'] .login-scope {
+  --color-accent: var(--custom-light-card);
+  --color-accent-foreground: var(--custom-light-foreground);
+  --color-muted: var(--custom-light-card);
+}
+html.dark[data-custom-theme='true'] .login-scope {
+  --color-accent: var(--custom-dark-card);
+  --color-accent-foreground: var(--custom-dark-foreground);
+  --color-muted: var(--custom-dark-card);
+}
+html[data-custom-theme='true'] .login-scope [role='tablist'],
+html[data-custom-theme='true'] .login-scope [data-slot='strength-track'] {
+  background-color: color-mix(
+    in srgb,
+    var(--custom-light-foreground) 8%,
+    var(--custom-light-background)
+  );
+}
+html.dark[data-custom-theme='true'] .login-scope [role='tablist'],
+html.dark[data-custom-theme='true'] .login-scope [data-slot='strength-track'] {
+  background-color: color-mix(
+    in srgb,
+    var(--custom-dark-foreground) 12%,
+    var(--custom-dark-background)
+  );
+}
+
+/* 高对比阶梯必须压过皮肤(可读性 > 观感):两块的位置刻意排在 data-custom-theme 段之后,
+ * 同特异度下后写者胜;皮肤下仍以中性高对比描边为准。勿上移,上移即被皮肤覆盖。 */
+html[data-high-contrast='true'] {
+  --color-border: hsl(0 0% 55%);
+  --color-border-medium: hsl(0 0% 45%);
+  --color-input: hsl(0 0% 50%);
+  --color-stroke-subtle: rgba(0, 0, 0, 0.3);
+  --color-stroke-default: hsl(0 0% 55%);
+  --color-stroke-strong: hsl(0 0% 45%);
+  --color-stroke-field: hsl(0 0% 50%);
+  --color-stroke-inverse: rgba(255, 255, 255, 0.5);
+  --color-muted-foreground: hsl(0 0% 30%);
+}
+
+html.dark[data-high-contrast='true'] {
+  --color-border: hsl(0 0% 55%);
+  --color-border-medium: hsl(0 0% 65%);
+  --color-input: hsl(0 0% 60%);
+  --color-stroke-subtle: rgba(255, 255, 255, 0.3);
+  --color-stroke-default: hsl(0 0% 55%);
+  --color-stroke-strong: hsl(0 0% 65%);
+  --color-stroke-field: hsl(0 0% 60%);
+  --color-stroke-inverse: rgba(0, 0, 0, 0.5);
+  --color-muted-foreground: hsl(0 0% 82%);
 }
 
 /* ---- v2:阅读辅助 --------------------------------------------------------

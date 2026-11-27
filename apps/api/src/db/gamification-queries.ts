@@ -184,7 +184,15 @@ export async function ensureDailyCreditRow(
 
   const granted = await db
     .update(userPoints)
-    .set({ dailyPoints: DAILY_GRANT_POINTS, dailyPointsDate: today, updatedAt: new Date() })
+    .set({
+      // 负 points 是已发生但未补缴的欠费。每日赠送按“赠送先抵消欠费”口径,
+      // 先补平负余额,剩余部分才进入当天可花额度;否则赠送跨日作废后欠费仍在,
+      // 用户会白丢这份抵消权。
+      points: sql`${userPoints.points} + LEAST(${DAILY_GRANT_POINTS}, GREATEST(0, -${userPoints.points}))`,
+      dailyPoints: sql`${DAILY_GRANT_POINTS} - LEAST(${DAILY_GRANT_POINTS}, GREATEST(0, -${userPoints.points}))`,
+      dailyPointsDate: today,
+      updatedAt: new Date(),
+    })
     .where(
       and(
         eq(userPoints.userId, userId),

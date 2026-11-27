@@ -487,6 +487,30 @@ export function UserCard() {
 - [ ] i18n key 已添加(见 [I18N.md §7](./I18N.md))
 - [ ] 涉及 CSS 改动附 `Verified-DOM:` trailer(见 [AGENTS.md §17](../AGENTS.md))
 
+## 7. 主题皮肤(换肤)边界
+
+皮肤(customTheme 色板,如「芭比粉」)只在 `apps/web/app/globals.css` 的
+`html[data-custom-theme='true']` 与 `html.dark[data-custom-theme='true']` 两段里映射;
+新增任何 `--color-*` 容器/描边角色时,必须同时回答"是否随皮肤":
+
+| 族 | 变量 | 随皮肤 |
+| --- | --- | --- |
+| 基础面 | background / foreground / card / popover / muted / secondary / accent / sidebar 族 / shell-panel / chrome / screen-canvas / surface-light / glass-bg / muted-soft | ✅ |
+| 品牌主色 | primary / primary-foreground / brand-accent-deep / cta / cta-foreground / link / link-bg / selection / selection-foreground | ✅ |
+| 描边 | border / input / border-medium / stroke-subtle·default·strong·field·focus·selected | ✅ |
+| 容器底 | streamed-container-bg(+hover) / float-indicator-bg / tag-inactive-bg / pinned-tag-bg / track-active-bg | ✅ |
+| 文字 | text-medium / text-tertiary / muted-foreground | ✅ |
+| 语义 | success / warning / danger / destructive / info 全族 | ❌ 语义恒定 |
+| 装饰 | gold / vip / rank-* / brand / brand-* / gradient-* / ai-input-glow-* / model-type-* | ❌ 品牌资产 |
+| 遮罩/提示 | scrim / scrim-foreground / notification-bg / warm-bg / toast-* | ❌ 对比度优先 |
+| 结构透明度 | black-* / white-* 阶 / stroke-inverse / surface-dark 深面 | ❌ 叠层 alpha |
+
+- **高对比 > 皮肤**:`html[data-high-contrast]` 两块必须排在皮肤段**之后**(同特异度后写者胜,
+  顺序即优先级,勿上移);皮肤用户开高对比时描边回中性高对比阶梯。
+- **固定亮档**:粉色皮肤 `applySkinChoice('pink')` 固定 `light`,不跟随系统深色
+  (深色粉板观感发灰黑,用户已否决;需要暗色请增设独立皮肤,不要改跟随语义)。
+- **新增角色三选一**:接进皮肤映射 / 本表"不随"并写理由 / 行内 `skin-surface-exempt: <原因>`。
+
 ---
 
 ## 相关文档

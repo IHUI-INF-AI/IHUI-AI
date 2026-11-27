@@ -9,8 +9,9 @@
 // 职责边界:预览器内的**选区采集 → 注事件派发 → D22 消费兼容**。
 //  - XLSX:XlsxGrid 单元格选区 → {sheet, range} 锚(office-preview.tsx 接线)
 //  - DOCX:docx-preview 渲染 DOM 文本选区 → 段落序号锚(office-preview.tsx 接线)
-//  - PDF / PPTX:当前预览形态无选区/元素坐标采集能力(PDF=iframe、PPTX=大纲
-//    降级),属 D41 二期,登记不做 —— 本组件的类型分叉仍穷尽四类,扩 kind 不改本件。
+//  - PDF:PDFTextLayer 透明文本层选区 → {page} 锚(PDFViewer.tsx 接线)
+//  - PPTX:版式预览元素点击 → {slide, element} 锚(pptx-visual.tsx 接线)
+//    四类共用同一状态机与同一 D22 事件族,扩 kind 不改本件。
 //
 // 派发复用 D22 事件族 `ihui:add-text-reference`(message-input 消费者只读
 // detail.text,结构化字段为纯增量,不破坏既有文本引用流)。状态判定一律走
@@ -34,8 +35,12 @@ import {
 /** D22 文本引用事件名(message-input.tsx 消费者监听的同一通道)。 */
 export const ADD_TEXT_REFERENCE_EVENT = 'ihui:add-text-reference'
 
-/** 注事件采集来源(XLSX 单元格选区 / DOCX 文本选区;PDF/PPTX 二期登记)。 */
-export type AnchorReferenceSource = 'xlsx-selection' | 'docx-selection'
+/** 注事件采集来源(XLSX 单元格选区 / DOCX 文本选区 / PDF 文本选区 / PPTX 元素点击)。 */
+export type AnchorReferenceSource =
+  | 'xlsx-selection'
+  | 'docx-selection'
+  | 'pdf-selection'
+  | 'pptx-element'
 
 /**
  * `ihui:add-text-reference` 的 D91 扩展 detail。
@@ -55,8 +60,16 @@ export interface AnchorReferenceDetail {
   readonly range?: string
   /** DOCX 段落锚(1 起) */
   readonly paragraph?: number
-  /** DOCX 选中文本摘要 */
+  /** PDF 页锚(1 起) */
+  readonly page?: number
+  /** PPTX 幻灯片序号(1 起) */
+  readonly slide?: number
+  /** PPTX 元素名(取 OOXML `cNvPr/@name`,缺失时用稳定序号) */
+  readonly element?: string
+  /** 选中文本摘要 */
   readonly excerpt?: string
+  /** 用户填写的批注正文(增量字段;旧消费者不读) */
+  readonly note?: string
 }
 
 /** 单一派发点:window 级 CustomEvent,与 D22 消费者同通道同机制。 */
@@ -153,7 +166,11 @@ export function AnnotationAnchorCapture({
       sheet: anchor.sheet,
       range: anchor.range,
       paragraph: docxParagraph,
+      page: anchor.page,
+      slide: anchor.slide,
+      element: anchor.element,
       excerpt: initialNote,
+      note: note.trim(),
     })
     setState((prev) => applyAnchorAction(prev, 'add'))
   }

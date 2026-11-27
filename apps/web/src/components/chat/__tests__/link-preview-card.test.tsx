@@ -65,21 +65,20 @@ describe('LinkPreviewCard 三态区别化(票面验收 ①)', () => {
     expect(screen.getByText('docs.example.com')).toBeTruthy()
   })
 
-  it('ok 带站点图标 → 经同源媒体代理加载;图标失败回落字母块', () => {
+  it('ok 带站点图标 → 直接渲染后端内联的 data URL;图标失败回落字母块', () => {
+    const icon = 'data:image/png;base64,iVBORw0KGgo='
     const { container } = renderCard({
       status: 'ok',
       url: 'https://example.com/',
       title: 'Example Domain',
-      icon: 'https://cdn.example.com/fav.png',
+      icon,
     })
     const img = container.querySelector('img')
     expect(img).toBeTruthy()
-    expect(img?.getAttribute('src')).toBe(
-      `/api/media/image?url=${encodeURIComponent('https://cdn.example.com/fav.png')}`,
-    )
+    expect(img?.getAttribute('src')).toBe(icon)
     expect(img?.getAttribute('referrerpolicy')).toBe('no-referrer')
 
-    // 图标 404/被拦时不能空着:回落站点字母块 E。
+    // 图标损坏/加载失败时不能空着:回落站点字母块 E。
     fireEvent.error(img as HTMLImageElement)
     expect(container.querySelector('img')).toBeNull()
     expect(screen.getByText('E')).toBeTruthy()

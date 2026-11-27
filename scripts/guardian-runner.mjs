@@ -53,6 +53,14 @@ import { rootGuardDeclarationPairing } from './lib/root-guard-declaration-pairin
 
 // === 检查配置(按 mode 分组;项数与分级见 `--help`,勿在此写死数字——写死必然过期) ===
 
+/*
+2026-11-27 门号迁移留痕: 329/329p 全量 Web↔小程序路由契约门 → 330/330p;
+以下三行为迁移前逐字原行,保留以证明不是静默删除:
+  // 329:全量 Web↔小程序路由契约。射程 = 三端路由清单 + 承载台账 + 契约产物。
+  // 329p:全量 Web↔小程序路由契约（push 面同样拦截，防止绕过 pre-commit 直推；主 checks 用 329）。
+    id: '329p',
+*/
+
 const checks = [
   // --- blocking(项数见 --help) ---
   {
@@ -8242,9 +8250,36 @@ const checks = [
       '',
     ].join('\n'),
   },
-  // 329:全量 Web↔小程序路由契约。射程 = 三端路由清单 + 承载台账 + 契约产物。
+  // --- 皮肤表面覆盖(1 项,blocking,2026-11-27 立)---
+  // 立因:皮肤(customTheme)映射是 globals.css 里手写的一段;芭比粉上线时静态差集实测
+  // 27/222 覆盖 —— 描边、容器底、链接、选中整类漏在皮肤外。本门把"新增 --color-* 角色
+  // 必须回答是否随皮肤"变成机器判据,并断言高对比块排序在皮肤段之后(可读性 > 观感)。
   {
     id: '329',
+    label: '🎨 皮肤表面覆盖(blocking:未登记角色/高对比倒序)',
+    script: 'check-skin-surface-coverage.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_SKIN_SURFACE_COVERAGE',
+    stagedTriggers: [
+      'packages/design-tokens/src/styles/tokens.css',
+      'apps/web/app/globals.css',
+      'scripts/data/skin-surface-exemptions.json',
+    ],
+    onFailHint: [
+      '',
+      '  💡 新增了 --color-* 角色却让皮肤漏染,观感就是「半套换肤」:',
+      '     ① 要随皮肤 ⇒ 在 apps/web/app/globals.css 两段 html[data-custom-theme] 里按色板派生;',
+      '     ② 刻意不随(语义/品牌/遮罩/透明度阶)⇒ 在 scripts/data/skin-surface-exemptions.json',
+      '        登记 pattern+reason(族通配 xx-*),边界说明同步 docs/UI_GUIDELINES.md §7;',
+      '     ③ 高对比块必须排在皮肤段之后(同特异度后写者胜,上移即被皮肤覆盖)。',
+      '     单独复现:node scripts/check-skin-surface-coverage.mjs [--staged|--worktree] [--self-test]。',
+      '',
+    ].join('\n'),
+  },
+  // 330:全量 Web↔小程序路由契约。射程 = 三端路由清单 + 承载台账 + 契约产物。
+  {
+    id: '330',
     label: '🧭 全量 Web↔小程序路由契约门(932 路由逐条 carrier;漂移/未知即红)',
     script: 'check-cross-end-route-contract.mjs',
     args: ['--check'],
@@ -8271,6 +8306,7 @@ const checks = [
       '     应急放行:HUSKY_SKIP_CROSS_END_ROUTE_CONTRACT=1 git commit ...(不推荐;跳过会留痕)',
     ].join('\n'),
   },
+
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
@@ -8453,9 +8489,9 @@ const pushGateChecks = [
       '     应急放行:HUSKY_SKIP_WEB_MP_ROUTE_CARRIERS=1 git commit ...(不推荐;跳过会留痕)',
     ].join('\n'),
   },
-  // 329p:全量 Web↔小程序路由契约（push 面同样拦截，防止绕过 pre-commit 直推；主 checks 用 329）。
+  // 330p:全量 Web↔小程序路由契约（push 面同样拦截，防止绕过 pre-commit 直推；主 checks 用 330）。
   {
-    id: '329p',
+    id: '330p',
     label: '🧭 全量 Web↔小程序路由契约门(932 路由逐条 carrier;漂移/未知即红)',
     script: 'check-cross-end-route-contract.mjs',
     args: ['--check'],
@@ -8482,6 +8518,7 @@ const pushGateChecks = [
       '     应急放行:HUSKY_SKIP_CROSS_END_ROUTE_CONTRACT=1 git commit ...(不推荐;跳过会留痕)',
     ].join('\n'),
   },
+
   // 2026-11-20:push 面已按推送改动面(PUSH_SCOPE_FILES)消费 stagedTriggers ⇒ 下面这些
   // 收窄档各自声明触发面;未声明的(T1/47p/IG/193)仍恒跑。声明缺失 = 恒跑,不是恒跳。
   {

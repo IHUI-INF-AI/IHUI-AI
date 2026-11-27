@@ -22,6 +22,7 @@ import { success, error } from '../utils/response.js'
 import { parsePositiveInt } from '../utils/positive-int.js'
 import { calculateCost, findActivePricingForMode } from '../services/pricing-service.js'
 import { resolvePrice, type ResolvedPrice } from '../services/pricing-engine.js'
+import { getLlmPointsRates } from '../services/llm-points-pricing.js'
 import { checkOrgSpendBudget } from '../services/org-policy-service.js'
 import { getUserDailyCostLimit } from '../services/budget-alert-service.js'
 import { config } from '../config/index.js'
@@ -393,6 +394,11 @@ export interface CostRecordInput {
   /** G4 用量维度:会员档位键(member/vip/svip),可空;落 ai_cost_records.tier */
   tier?: string | null
   /**
+   * 成本账幂等键。同一业务引用(媒体任务/LLM billing reference)重放时只落一条成本;
+   * 会写入 metadata.idempotencyKey,不新增列。
+   */
+  idempotencyKey?: string
+  /**
    * 成本币种(ISO 4217)。仅供 Prometheus 标签如实标注:
    * 缺省取定价引擎返回的 currency(现值 CNY),再兜底 'CNY'。
    * 落库列 ai_cost_records 无币种字段,故不影响 DB 写入。
@@ -492,6 +498,8 @@ export async function resolveAiCost(input: {
   let cost = input.cost
   let costCurrency = input.currency
   let pricingKnown = input.cost !== undefined
+  // 采购成本不可用、退回 ai_pricing 零售价时，金额只是参考值，不能标记为已知成本。
+  let retailFallback = false
   // G4 计费弹性(2026-10-30 立):开关开且未手动传 cost 时,优先按 pricing_rules
   // 组合价(基础价 × 档位 × 错峰)解析;开关关 / 未命中规则 / 解析异常 ⇒
   // pricing 为 null,走下方 calculateCost 既有路径,存量结算行为逐字节不变。
@@ -504,6 +512,31 @@ export async function resolveAiCost(input: {
       timestamp: new Date(),
     })
     if (pricing) pricingKnown = true
+  }
+  if (cost === undefined && !pricing) {
+    // 平台成本优先用采购成本列(ai_model_config_models.cost_*),而不是 ai_pricing 的
+    // 零售价。零售价含成本加成,直接当成本会把毛利算没;采购成本缺失时才退回零售价
+    // 作为“未知成本的参考值”。供应商前缀(provider/model)由 getLlmPointsRates 归一。
+    try {
+      const rates = await getLlmPointsRates(input.model)
+      if (rates?.costBasis === 'config') {
+        const round6 = (v: number) => Math.round(v * 1e6) / 1e6
+        cost = round6(
+          (input.promptTokens / 1000) * rates.inputCostPer1k +
+            (input.completionTokens / 1000) * rates.outputCostPer1k,
+        )
+        pricingKnown = true
+        if (costCurrency === undefined) costCurrency = 'CNY'
+      } else if (rates) {
+        // 有零售价、没有采购成本：下面仍会算出参考金额，但状态必须是 unknown。
+        retailFallback = true
+      }
+    } catch (err) {
+      // 成本查询失败不能阻塞成本落账,继续走下面的零售价回退。
+      logger.warn(
+        `[ai-cost] 采购成本解析失败,回退定价引擎: model=${input.model} err=${String(err)}`,
+      )
+    }
   }
   if (cost === undefined) {
     if (pricing) {
@@ -529,7 +562,8 @@ export async function resolveAiCost(input: {
           logger.warn(`[ai-cost] 模型无定价配置,成本标记 unknown: model=${input.model}`)
         }
       } else {
-        pricingKnown = true
+        // 采购成本缺失时，calculateCost 给出的是零售价参考值，只能是 unknown。
+        pricingKnown = !retailFallback
       }
       cost = result.totalCost
       // 币种口径跟定价引擎走,不在这里另拍一份(§0.6)
@@ -566,6 +600,32 @@ export async function recordAiCost(
   const tenantId =
     input.tenantId ?? (input.userId ? await resolveTenantIdForUser(input.userId) : undefined)
 
+  // 成本账幂等:同一业务引用重放只落一条,避免“结算失败重试/回调重放”双记成本。
+  // 2026-11-27:改用独立列 + 唯一索引。旧实现用 metadata->>'idempotencyKey',
+  // 但 metadata 是 text 列,PostgreSQL 根本没有 text ->> 操作符,线上会直接报错。
+  let metadata = input.metadata
+  if (input.idempotencyKey) {
+    const [existing] = await db
+      .select({ id: aiCostRecords.id })
+      .from(aiCostRecords)
+      .where(eq(aiCostRecords.idempotencyKey, input.idempotencyKey))
+      .limit(1)
+    if (existing) return { cost, currency: costCurrency ?? 'CNY' }
+    let metaObj: Record<string, unknown> = {}
+    if (input.metadata) {
+      try {
+        const parsed = JSON.parse(input.metadata) as unknown
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          metaObj = parsed as Record<string, unknown>
+        }
+      } catch {
+        metaObj = { rawMetadata: input.metadata }
+      }
+    }
+    metaObj.idempotencyKey = input.idempotencyKey
+    metadata = JSON.stringify(metaObj)
+  }
+
   recordAiCallSample({
     vendor: input.provider,
     model: input.model,
@@ -591,7 +651,8 @@ export async function recordAiCost(
       cached: input.cached ?? false,
       requestType: input.requestType ?? 'chat',
       promptHash: input.promptHash,
-      metadata: input.metadata,
+      metadata,
+      idempotencyKey: input.idempotencyKey ?? null,
       // G4 用量维度 + 结算明细(未命中规则时全 null,与旧行形态一致)
       tier: input.tier ?? null,
       pricingRuleId: pricing?.ruleId ?? null,
@@ -600,6 +661,10 @@ export async function recordAiCost(
       costStatus: input.costStatus ?? (pricingKnown ? 'priced' : 'unknown'),
     })
   } catch (err) {
+    // 并发重放同一幂等键时唯一索引会拒绝第二条;这不算成本写失败,如实返回本次计算值。
+    if ((err as { code?: string } | null)?.code === '23505' && input.idempotencyKey) {
+      return { cost, currency: costCurrency ?? 'CNY' }
+    }
     // 成本落库失败 ⇒ 大屏上这条 AI 调用有计数但没有 DB 明细,必须留痕(不吞异常,原样上抛)
     recordAiCostWriteFailure(input.provider, input.model)
     throw err
