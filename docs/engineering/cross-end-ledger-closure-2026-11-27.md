@@ -141,6 +141,6 @@ BankCard 原先只有 `withdrawal_flows.account_info` 的只读投影，没有�
 - **部署序列**：`01:33:51` 完成 `HEAD=d0a5f97e4a`；`02:39:06` 完成 `HEAD=73121f8036`（DB 事务锁 + 真实库/跨进程测试进生产）；`03:27:29` 完成 `HEAD=89c7d5f9a6`（并行合并版，已含 RN 提现修复 `8077b159`）；`03:32:32` merge 到 `HEAD=f03d92b6cb`，**03:50:23 部署完成** `HEAD=f03d92b6cb`。最终 8801/8802 `/api/health` 均 200，web 活跃 blue(:8851) `updatedAt=03:46:52`，api 活跃 blue(:8842) `updatedAt=03:49:10`。
 - **生产并发复验**：用 E2E 真实登录态 `auth_token` 组 Bearer 头，对 8801 生产 API 并发两次同卡号 `POST /api/wallet/bank-cards`：**201 + 409**，GET 落库只 **1 张**可编辑卡；再创建两张卡并发 `PATCH /:id/default`：**200 + 200**，GET 两张卡 `isDefault=true` 仅 **1 张**。验收后按 id 删除测试卡，未留数据。
 - **新版 E2E**：`wallet-bank-cards.spec.ts` 在 8801 部署 `73121f8036` 后 **3 passed / 13.9s**；最终 `f03d92b6cb` 部署后再跑 **3 passed / 10.9s**（2 条 auth setup + 1 条用例）。用已登录 storageState 直查 DOM：`testid_bank_name=1 holder=1 number=1 save=1`，证明生产产物含 5 个 testID，不是兜底选择器假绿。
-- **最终口径**：`origin/main=f03d92b6cb`，production `HEAD=f03d92b6cb`；`8077b159`（RN/小程序提现契约）、`73121f8036`（数据库事务锁）、`f03d92b6cb`（Web 过滤只读投影 + `@ihui/types` DOM 构建修复）均已在生产。代码、测试、文档、远端提交与部署无未闭环项；真机截图因本机无设备保留为环境边界。
+- **最终口径**：production `HEAD=f03d92b6cb`；代码面 `f03d92b6cb` 已推 `origin/main`（本文档随后提交，后续并行任务可能继续推进 `origin/main`）；`8077b159`（RN/小程序提现契约）、`73121f8036`（数据库事务锁）、`f03d92b6cb`（Web 过滤只读投影 + `@ihui/types` DOM 构建修复）均已在生产。代码、测试、文档、远端提交与部署无未闭环项；真机截图因本机无设备保留为环境边界。
 
 > 本轮提交：`73121f8036`（DB 锁/真实库/跨进程脚本）、`8077b159`（RN/小程序提现接卡）、`f03d92b6cb`（Web 只读过滤 + types 构建修复）；本文档随后单独提交。
