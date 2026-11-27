@@ -14,9 +14,11 @@ import {
   Loader2,
   AlertCircle,
   Type,
+  MessageSquare,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
+import type { PreviewAnnotationPin } from '@/lib/document-annotations'
 import { AnnotationAnchorCapture } from '@/components/chat/annotation-anchor'
 import { PDFTextLayer } from './PDFTextLayer'
 
@@ -24,6 +26,10 @@ interface PDFViewerProps {
   url: string
   className?: string
   initialScale?: number
+  /** 文档中心下发的 PDF 页级批注 pin */
+  annotationPins?: readonly PreviewAnnotationPin[]
+  focusedAnnotationId?: string | null
+  onAnnotationSelect?: (id: string) => void
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- PDF.js API 类型定义不完整,用 any 简化集成 */
@@ -53,7 +59,14 @@ async function loadPdfjs(): Promise<AnyPdfLib> {
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
-export function PDFViewer({ url, className, initialScale = 1.2 }: PDFViewerProps) {
+export function PDFViewer({
+  url,
+  className,
+  initialScale = 1.2,
+  annotationPins = [],
+  focusedAnnotationId = null,
+  onAnnotationSelect,
+}: PDFViewerProps) {
   const t = useTranslations('a11y')
   const canvasRef = React.useRef<HTMLCanvasElement>(null)
   const pageRef = React.useRef<HTMLDivElement>(null)
@@ -74,6 +87,10 @@ export function PDFViewer({ url, className, initialScale = 1.2 }: PDFViewerProps
     pdfPage: AnyPdfPage | null
     viewport: AnyViewport | null
   }>({ pdfPage: null, viewport: null })
+  const pagePins = React.useMemo(
+    () => annotationPins.filter((pin) => pin.kind === 'pdf' && pin.page === page),
+    [annotationPins, page],
+  )
 
   React.useEffect(() => {
     let cancelled = false
@@ -305,6 +322,38 @@ export function PDFViewer({ url, className, initialScale = 1.2 }: PDFViewerProps
               visible={textSelectable}
             />
           )}
+          {pagePins.length > 0 ? (
+            <div
+              className="pointer-events-none absolute right-2 top-2 z-40 flex flex-col items-end gap-1.5"
+              data-testid="pdf-annotation-pins"
+            >
+              {pagePins.map((pin, index) => (
+                <Tooltip key={pin.id} content={pin.label}>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      onAnnotationSelect?.(pin.id)
+                    }}
+                    aria-label={`${pin.label}: ${pin.body}`}
+                    title={pin.body}
+                    data-testid="pdf-annotation-pin"
+                    data-annotation-id={pin.id}
+                    data-annotation-status={pin.status}
+                    data-annotation-focused={focusedAnnotationId === pin.id ? 'true' : undefined}
+                    className={cn(
+                      'pointer-events-auto flex h-7 min-w-7 items-center justify-center gap-1 rounded-full px-1.5 text-[10px] font-semibold text-white shadow-md ring-2 ring-white/80 transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500',
+                      pin.status === 'resolved' ? 'bg-emerald-600' : 'bg-violet-600',
+                      focusedAnnotationId === pin.id && 'ring-4 ring-violet-300',
+                    )}
+                  >
+                    <MessageSquare className="h-3.5 w-3.5" />
+                    <span className="tabular-nums">{index + 1}</span>
+                  </button>
+                </Tooltip>
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

@@ -6,8 +6,9 @@
 
 import * as React from 'react'
 import type JSZip from 'jszip'
-import { Loader2 } from 'lucide-react'
+import { Loader2, MessageSquare } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import type { PreviewAnnotationPin } from '@/lib/document-annotations'
 import { AnnotationAnchorCapture } from '@/components/chat/annotation-anchor'
 
 /**
@@ -1004,6 +1005,10 @@ function TableShapeView({ shape }: { shape: PptxTableShape }) {
   )
 }
 
+function shapeNameOf(shape: PptxVisualShape, index: number): string {
+  return shape.name || `#${index + 1}`
+}
+
 function ShapeHit({
   shape,
   label,
@@ -1020,7 +1025,7 @@ function ShapeHit({
       type="button"
       aria-label={label}
       title={label}
-      className="absolute z-20 border-0 bg-transparent p-0 transition-colors hover:bg-primary/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
+      className="absolute z-20 rounded-sm border-0 bg-transparent p-0 transition-colors hover:bg-primary/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
       style={{
         left: `${shape.x * 100}%`,
         top: `${shape.y * 100}%`,
@@ -1040,16 +1045,37 @@ function VisualSlideView({
   cx,
   cy,
   onSelect,
+  annotationPins = [],
+  focusedAnnotationId = null,
+  onAnnotationSelect,
 }: {
   slide: PptxVisualSlide
   cx: number
   cy: number
   onSelect?: (slide: number, element: string) => void
+  annotationPins?: readonly PreviewAnnotationPin[]
+  focusedAnnotationId?: string | null
+  onAnnotationSelect?: (id: string) => void
 }) {
+  const slidePins = annotationPins.filter(
+    (pin) => pin.kind === 'pptx' && pin.slide === slide.index,
+  )
+  const pinsByShape = new Map<number, PreviewAnnotationPin[]>()
+  for (const pin of slidePins) {
+    const shapeIndex = pin.element
+      ? slide.shapes.findIndex((shape, index) => shapeNameOf(shape, index) === pin.element)
+      : -1
+    if (shapeIndex < 0) continue
+    const list = pinsByShape.get(shapeIndex) ?? []
+    list.push(pin)
+    pinsByShape.set(shapeIndex, list)
+  }
+  const stacks = new Map<string, number>()
+
   return (
     <figure data-testid="pptx-visual-slide" className="mx-auto w-full max-w-[880px]">
       <div
-        className="relative w-full overflow-hidden rounded-lg shadow-sm ring-1 ring-border"
+        className="relative w-full overflow-hidden rounded-sm shadow-sm ring-1 ring-border"
         style={
           {
             aspectRatio: `${cx} / ${cy}`,
@@ -1088,12 +1114,73 @@ function VisualSlideView({
               <ShapeHit
                 key={`hit-${index}`}
                 shape={shape}
-                label={shape.name || `#${index + 1}`}
+                label={shapeNameOf(shape, index)}
                 slide={slide.index}
                 onSelect={onSelect}
               />
             ))
           : null}
+        {Array.from(pinsByShape.entries()).map(([shapeIndex, pins]) => {
+          const shape = slide.shapes[shapeIndex]
+          if (!shape) return null
+          const hasOpen = pins.some((pin) => pin.status === 'open')
+          return (
+            <div
+              key={`annotation-shape-${shapeIndex}`}
+              className={
+                hasOpen
+                  ? 'pointer-events-none absolute z-10 border-2 border-violet-500/80 bg-violet-500/5'
+                  : 'pointer-events-none absolute z-10 border-2 border-emerald-500/70 bg-emerald-500/5'
+              }
+              style={{
+                left: `${shape.x * 100}%`,
+                top: `${shape.y * 100}%`,
+                width: `${shape.w * 100}%`,
+                height: `${shape.h * 100}%`,
+                transform: shape.rotation ? `rotate(${shape.rotation}deg)` : undefined,
+              }}
+              data-testid="pptx-annotation-shape"
+            />
+          )
+        })}
+        {slidePins.map((pin) => {
+          const stackKey = pin.element ?? `slide-${slide.index}`
+          const stack = stacks.get(stackKey) ?? 0
+          stacks.set(stackKey, stack + 1)
+          const shapeIndex = pin.element
+            ? slide.shapes.findIndex((shape, index) => shapeNameOf(shape, index) === pin.element)
+            : -1
+          const shape = shapeIndex >= 0 ? slide.shapes[shapeIndex] : undefined
+          const left = shape ? Math.min(96, Math.max(2, (shape.x + shape.w) * 100)) : 96
+          const top = shape
+            ? Math.min(88, Math.max(4, shape.y * 100 + 2 + stack * 6))
+            : 6 + stack * 7
+          return (
+            <button
+              key={pin.id}
+              type="button"
+              aria-label={`${pin.label}: ${pin.body}`}
+              title={pin.body}
+              onClick={(event) => {
+                event.stopPropagation()
+                onAnnotationSelect?.(pin.id)
+              }}
+              data-testid="pptx-annotation-pin"
+              data-annotation-id={pin.id}
+              data-annotation-status={pin.status}
+              data-annotation-focused={focusedAnnotationId === pin.id ? 'true' : undefined}
+              className={[
+                'absolute z-30 flex h-7 min-w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center gap-1 rounded-full px-1.5 text-[10px] font-semibold text-white shadow-md ring-2 ring-white/80 transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500',
+                pin.status === 'resolved' ? 'bg-emerald-600' : 'bg-violet-600',
+                focusedAnnotationId === pin.id ? 'ring-4 ring-violet-300' : '',
+              ].join(' ')}
+              style={{ left: `${left}%`, top: `${top}%` }}
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              <span className="tabular-nums">{stack + 1}</span>
+            </button>
+          )
+        })}
         {slide.shapes.length === 0 ? (
           <p className="absolute inset-0 flex items-center justify-center text-label text-muted-foreground">
             —
@@ -1110,7 +1197,17 @@ function VisualSlideView({
   )
 }
 
-export function PptxPreview({ data }: { data: ArrayBuffer }) {
+export function PptxPreview({
+  data,
+  annotationPins = [],
+  focusedAnnotationId = null,
+  onAnnotationSelect,
+}: {
+  data: ArrayBuffer
+  annotationPins?: readonly PreviewAnnotationPin[]
+  focusedAnnotationId?: string | null
+  onAnnotationSelect?: (id: string) => void
+}) {
   const t = useTranslations('chat')
   const [deck, setDeck] = React.useState<PptxVisualDeck | null>(null)
   const [failed, setFailed] = React.useState(false)
@@ -1171,6 +1268,9 @@ export function PptxPreview({ data }: { data: ArrayBuffer }) {
             cx={deck.cx}
             cy={deck.cy}
             onSelect={(slideNumber, element) => setSelected({ slide: slideNumber, element })}
+            annotationPins={annotationPins}
+            focusedAnnotationId={focusedAnnotationId}
+            onAnnotationSelect={onAnnotationSelect}
           />
         ))}
       </div>
