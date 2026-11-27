@@ -9,7 +9,11 @@ import type JSZip from 'jszip'
 import { Loader2, MessageSquare, Sparkles } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { AiReviewFinding, PreviewAnnotationPin } from '@/lib/document-annotations'
-import { reviewDocumentFragment, saveAiFindings } from '@/lib/document-annotations'
+import {
+  reviewDocumentBlocks,
+  reviewDocumentFragment,
+  saveAiFindings,
+} from '@/lib/document-annotations'
 import { AnnotationAnchorCapture } from '@/components/chat/annotation-anchor'
 import { toast } from '@/components/common'
 
@@ -1014,7 +1018,12 @@ function shapeNameOf(shape: PptxVisualShape, index: number): string {
 function shapeTextOf(shape: PptxVisualShape): string {
   if (shape.kind === 'text') {
     return shape.paragraphs
-      .map((paragraph) => paragraph.runs.map((run) => run.text).join('').trim())
+      .map((paragraph) =>
+        paragraph.runs
+          .map((run) => run.text)
+          .join('')
+          .trim(),
+      )
       .filter(Boolean)
       .join('\n')
   }
@@ -1076,9 +1085,7 @@ function VisualSlideView({
   onAiReview?: () => void
   aiReviewBusy?: boolean
 }) {
-  const slidePins = annotationPins.filter(
-    (pin) => pin.kind === 'pptx' && pin.slide === slide.index,
-  )
+  const slidePins = annotationPins.filter((pin) => pin.kind === 'pptx' && pin.slide === slide.index)
   const pinsByShape = new Map<number, PreviewAnnotationPin[]>()
   for (const pin of slidePins) {
     const shapeIndex = pin.element
@@ -1256,6 +1263,7 @@ export function PptxPreview({
   const [deck, setDeck] = React.useState<PptxVisualDeck | null>(null)
   const [failed, setFailed] = React.useState(false)
   const [aiReviewSlide, setAiReviewSlide] = React.useState<number | null>(null)
+  const [aiFullReviewBusy, setAiFullReviewBusy] = React.useState(false)
   const [selected, setSelected] = React.useState<{
     readonly slide: number
     readonly element: string
@@ -1263,7 +1271,7 @@ export function PptxPreview({
 
   const runAiReview = React.useCallback(
     async (slide: PptxVisualSlide) => {
-      if (!documentId || aiReviewSlide !== null) return
+      if (!documentId || aiReviewSlide !== null || aiFullReviewBusy) return
       const elements = slide.shapes
         .map((shape, index) => ({ name: shapeNameOf(shape, index), text: shapeTextOf(shape) }))
         .filter((item) => item.text)
@@ -1317,8 +1325,91 @@ export function PptxPreview({
         setAiReviewSlide(null)
       }
     },
-    [aiReviewSlide, documentId, documentName, onAnnotationsMutated],
+    [aiFullReviewBusy, aiReviewSlide, documentId, documentName, onAnnotationsMutated],
   )
+
+  const runFullAiReview = React.useCallback(async () => {
+    if (!documentId || !deck || aiReviewSlide !== null || aiFullReviewBusy) return
+    setAiFullReviewBusy(true)
+    try {
+      const blocks: {
+        anchor: Record<string, unknown>
+        text: string
+        elements: { name: string; text: string }[]
+      }[] = []
+      let totalChars = 0
+      for (const slide of deck.slides.slice(0, 20)) {
+        if (totalChars >= 30_000) break
+        const elements = slide.shapes
+          .map((shape, index) => ({ name: shapeNameOf(shape, index), text: shapeTextOf(shape) }))
+          .filter((item) => item.text)
+        const text = elements.map((item) => `[${item.name}]\n${item.text}`).join('\n\n')
+        if (text.length < 20) continue
+        const remaining = 30_000 - totalChars
+        blocks.push({
+          anchor: { kind: 'pptx', slide: slide.index },
+          text: text.slice(0, remaining),
+          elements,
+        })
+        totalChars += Math.min(text.length, remaining)
+      }
+      if (blocks.length === 0) {
+        toast.error('这份演示文稿没有可审阅的文字')
+        return
+      }
+      const findings = await reviewDocumentBlocks({
+        title: documentName || 'PPTX 演示文稿',
+        blocks,
+      })
+      if (findings.length === 0) {
+        toast.success(`AI 已通读 ${blocks.length} 张幻灯片：没有发现需要标注的问题`)
+        return
+      }
+      const groups = new Map<
+        string,
+        { slide: PptxVisualSlide; element: string; items: AiReviewFinding[] }
+      >()
+      for (const finding of findings) {
+        const blockNumber = finding.block
+        if (!blockNumber || blockNumber < 1 || blockNumber > blocks.length) continue
+        const block = blocks[blockNumber - 1]
+        if (!block) continue
+        const slide = deck.slides.find((item) => item.index === Number(block.anchor.slide))
+        if (!slide) continue
+        const elements = block.elements
+        const element =
+          finding.element && elements.some((item) => item.name === finding.element)
+            ? finding.element
+            : elements[0]?.name
+        if (!element) continue
+        const key = `${slide.index}:${element}`
+        const group = groups.get(key) ?? { slide, element, items: [] }
+        group.items.push(finding)
+        groups.set(key, group)
+      }
+      let created = 0
+      for (const { slide, element, items } of groups.values()) {
+        const saved = await saveAiFindings({
+          documentId,
+          label: `第 ${slide.index} 张 · ${element} · AI 全文`,
+          anchorKind: 'pptx',
+          anchor: { kind: 'pptx', slide: slide.index, element },
+          findings: items,
+        })
+        created += saved.created.length
+      }
+      onAnnotationsMutated?.()
+      toast.success(
+        created > 0
+          ? `AI 已通读 ${blocks.length} 张幻灯片，发现 ${created} 条新意见`
+          : `AI 已通读 ${blocks.length} 张幻灯片：同一位置的意见已存在`,
+      )
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'AI 全文预审失败，请稍后重试')
+    } finally {
+      setAiFullReviewBusy(false)
+    }
+  }, [aiFullReviewBusy, aiReviewSlide, deck, documentId, documentName, onAnnotationsMutated])
 
   React.useEffect(() => {
     let cancelled = false
@@ -1362,6 +1453,24 @@ export function PptxPreview({
             source="pptx-element"
             onDispose={() => setSelected(null)}
           />
+        </div>
+      ) : null}
+      {documentId && deck.slides.length > 1 ? (
+        <div className="flex justify-end border-b bg-background px-3 py-1.5">
+          <button
+            type="button"
+            onClick={() => void runFullAiReview()}
+            disabled={aiReviewSlide !== null || aiFullReviewBusy}
+            aria-label="AI 全文预审"
+            className="flex items-center gap-1 rounded-md border border-violet-300 px-2 py-1 text-[11px] font-medium text-violet-700 transition-colors hover:bg-violet-50 disabled:opacity-60 dark:border-violet-800 dark:text-violet-300 dark:hover:bg-violet-950/40"
+          >
+            {aiFullReviewBusy ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="h-3.5 w-3.5" />
+            )}
+            AI 全文预审
+          </button>
         </div>
       ) : null}
       <div className="max-h-[480px] space-y-4 overflow-auto bg-muted/30 p-3">

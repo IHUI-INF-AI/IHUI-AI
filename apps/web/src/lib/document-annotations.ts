@@ -39,6 +39,15 @@ export interface AiReviewFinding {
   readonly suggestion: string
   /** PPTX 元素名;由服务端校验必须来自调用方给定元素集合 */
   readonly element?: string
+  /** 全文预审时命中的 block 序号(1 起);单片段模式不返回 */
+  readonly block?: number
+}
+
+/** 全文预审的一个可定位片段:anchor 与 text 必须成对,避免 AI 结论落不到页/元素。 */
+export interface AiReviewBlock {
+  readonly anchor: Record<string, unknown>
+  readonly text: string
+  readonly elements?: readonly { name: string; text: string }[]
 }
 
 /** 页内标记:只支持有稳定页面/元素坐标的 PDF 与 PPTX。 */
@@ -67,7 +76,9 @@ function textOf(value: unknown): string {
  * 线程 record → 页内 pin。
  * 回复不生成 pin(只挂主线程);锚点不完整时返回 null,绝不猜页码/元素名。
  */
-export function toPreviewAnnotationPin(record: DocumentAnnotationRecord): PreviewAnnotationPin | null {
+export function toPreviewAnnotationPin(
+  record: DocumentAnnotationRecord,
+): PreviewAnnotationPin | null {
   if (record.parentId) return null
   const anchor = record.anchor
   if (!anchor || typeof anchor !== 'object') return null
@@ -162,6 +173,22 @@ export async function reviewDocumentFragment(input: {
   anchor: Record<string, unknown>
   text: string
   elements?: readonly { name: string; text: string }[]
+}): Promise<AiReviewFinding[]> {
+  const res = await fetchApi<{ findings: AiReviewFinding[] }>('/api/office/review', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  if (!res.success) throw new Error(res.error)
+  return res.data.findings
+}
+
+/**
+ * AI 全文预审:一次把整份文档的多个可定位片段交给模型,要求模型用 block 回指位置。
+ * 每个 block 都带 anchor,因此模型给出的结论能直接落成页/元素 pin,不需要二次猜坐标。
+ */
+export async function reviewDocumentBlocks(input: {
+  title: string
+  blocks: readonly AiReviewBlock[]
 }): Promise<AiReviewFinding[]> {
   const res = await fetchApi<{ findings: AiReviewFinding[] }>('/api/office/review', {
     method: 'POST',
