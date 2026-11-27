@@ -317,11 +317,52 @@ function looksLikeExecutableValue(masked, valueStart) {
  * 这样既不吃 tests/ 的 mock(扫描面已排除),也不把"只有 name 的普通对象"或
  * "execute 嵌在更深一层的对象"当工具。
  */
+/**
+ * 花括号是否是**类型声明体**(interface / type alias / class / enum),而不是值对象字面量。
+ *
+ * 为什么要这一道:`export interface Tool { name: string; execute(...): ... }` 的成员形状
+ * 与工具对象**逐字相同**,抽取器会把类型声明当工具(实测 `apps/cli/src/tools/index.ts`
+ * 被判 2 枚,其中 1 枚正是 `interface Tool` 本体)。类型不是注册面,判它"缺契约"是假阳性 ——
+ * 噪声会稀释真红,让"门在报什么"变得不可读。
+ *
+ * 判据只看遮罩面(`maskNonCode` 已抹掉注释与字符串),取 `{` 之前紧邻的声明头。
+ */
+export function isTypeDeclarationBody(masked, start) {
+  const before = masked.slice(Math.max(0, start - 200), start)
+  return (
+    /(?:^|\s)(?:export\s+)?(?:declare\s+)?interface\s+[\w$]+(?:\s*<[^{}]*>)?(?:\s+extends\s+[^{}]+)?\s*$/.test(before)
+    || /(?:^|\s)(?:export\s+)?(?:declare\s+)?type\s+[\w$]+(?:\s*<[^{}]*>)?\s*=\s*$/.test(before)
+    || /(?:^|\s)(?:export\s+)?(?:declare\s+)?(?:abstract\s+)?class\s+[\w$]+(?:\s*<[^{}]*>)?(?:\s+extends\s+[^{}]+)?(?:\s+implements\s+[^{}]+)?\s*$/.test(before)
+    || /(?:^|\s)(?:export\s+)?(?:declare\s+)?(?:const\s+)?enum\s+[\w$]+\s*$/.test(before)
+  )
+}
+
+/**
+ * execute 值是否是**固定失败死桩**:整段就是 `async () => ({ success: false, output: '' })`。
+ *
+ * 为什么要这一道:审批闸拿不到本地 Tool 对象时会给 `confirmDangerous` 一个只读视图
+ * (`apps/cli/src/tools/index.ts` 的 `gateRemoteHubTool`),那份视图含 name + execute 的同形
+ * 成员,但 execute 是**永不执行**的死桩(源码注释写明"没有任何路径会调它")。视图不是注册
+ * 工具,判它缺契约会让"给闸加视图"这种纯安全动作反被门拦。
+ *
+ * 判据取"execute 整段恒为失败空输出"这个**结构特征**,不认变量名/注释 —— 否则一句注释
+ * 就能把真工具豁免掉。而恒失败空输出的 execute 本身就不可能是一个能用的工具(对照全仓:
+ * 该形态只出现在上述视图桩一处)。
+ */
+export function isDeadStubExecute(text, executeMember) {
+  const from = executeMember.valueStart
+  const compact = text.slice(from, Math.min(text.length, from + 200)).replace(/\s+/g, '')
+  return /^(?:async)?\(\)=>\(\{success:false,output:(''|"")\}\)/.test(compact)
+}
+
 export function extractToolLiterals(text) {
   const masked = maskNonCode(text)
   const ranges = findObjectRanges(masked)
   const rawLines = String(text).split('\n')
   const tools = []
+  let typeBodies = 0
+  let viewStubs = 0
+  let thirdPartyDynamic = 0
   for (const [start, end] of ranges) {
     const members = collectMembers(masked, start, end)
     const nameMember = members.find((m) => m.name === 'name')
@@ -330,7 +371,35 @@ export function extractToolLiterals(text) {
         m.name === 'execute' && (m.sep === '(' || looksLikeExecutableValue(masked, m.valueStart)),
     )
     if (!nameMember || !executeMember) continue
+    // 下面两格只对"本来会被判成工具"的对象生效 ⇒ 计数即"纠正了多少假阳性",不是文件里的
+    // interface/视图总数(否则数字毫无解释力)。
+    if (isTypeDeclarationBody(masked, start)) {
+      typeBodies += 1
+      continue
+    }
+    if (isDeadStubExecute(text, executeMember)) {
+      viewStubs += 1
+      continue
+    }
     const toolName = readStringValue(text, nameMember.valueStart) ?? '(non-literal)'
+    // 第三方动态装配面:名字由运行期决定(非字面量)、免批授权走 approvalExemption 两轴、
+    // 且带 registrationOwner 归属 —— 三者同时成立才是 MCP 工具面的结构签名。
+    //
+    // 为什么这里判**不适用**而不是"缺契约":第三方工具没有声明过 resultBudget,为过门伪造
+    // 一份等于顺手给它的输出加一道裁剪(`packages/types/src/tool-contract.ts` 头注明令禁止);
+    // 名字又是运行期拼的,字面量契约在静态面根本绑不上身份。免批仍由两轴 +
+    // `requiresUserConfirmation` 管(`apps/cli/src/tools/index.ts:1208-1241`),不是无人看管。
+    //
+    // 三件套同时成立才跳过 ⇒ 给一个名字是字面量的真工具加 approvalExemption 不会把它豁免掉
+    // (反例见自检 ST11f)。
+    if (
+      toolName === '(non-literal)'
+      && members.some((m) => m.name === 'approvalExemption')
+      && members.some((m) => m.name === 'registrationOwner')
+    ) {
+      thirdPartyDynamic += 1
+      continue
+    }
     const contractMember = members.find((m) => m.name === 'contract')
     const dangerMember = members.find((m) => m.name === 'dangerLevel')
     const line = lineOf(masked, nameMember.keyIndex)
@@ -352,6 +421,11 @@ export function extractToolLiterals(text) {
     })
   }
   tools.sort((a, b) => a.line - b.line)
+  // 非枚举:调用方(JSON 序列化 / 计数)完全无感,但报告能读到"严格化了多少假阳性"。
+  Object.defineProperty(tools, 'skipped', {
+    value: { typeBodies, viewStubs, thirdPartyDynamic },
+    enumerable: false,
+  })
   return tools
 }
 
@@ -1031,6 +1105,9 @@ function main(argv) {
   let anchorTools = 0
   let declaredIdentities = 0
   let notApplicableFiles = 0
+  let excludedTypeBodies = 0
+  let excludedViewStubs = 0
+  let excludedThirdParty = 0
   // TC5 三桶(判红随棘轮走;豁免与判不出**只报数**,不并桶 —— "没看清"不得写成"没问题")
   let tc5RedsTotal = 0
   let tc5ExemptTotal = 0
@@ -1049,6 +1126,10 @@ function main(argv) {
       continue
     }
     const tools = extractToolLiterals(text)
+    const skipped = tools.skipped ?? { typeBodies: 0, viewStubs: 0, thirdPartyDynamic: 0 }
+    excludedTypeBodies += skipped.typeBodies
+    excludedViewStubs += skipped.viewStubs
+    excludedThirdParty += skipped.thirdPartyDynamic ?? 0
     const violations = violationsOf(tools)
     for (const t of flipAuditOf(tools)) flip.push({ file: rel, ...t })
     totalTools += tools.length
@@ -1125,6 +1206,19 @@ function main(argv) {
     console.log(
       `ℹ️ 不适用:${notApplicableFiles} 个被判定的文件在 HEAD 与本面均注册 0 枚工具` +
         `(helper / barrel / 策略表这类)—— 契约判据对它们不适用,本门结论只覆盖其余文件。`,
+    )
+  }
+  if (excludedTypeBodies > 0 || excludedViewStubs > 0 || excludedThirdParty > 0) {
+    // 同样必须喊出来:这几格是"抽取器严格化 / 判据不适用"而不是"判过了"。报数口径 =
+    // 被纠正的假阳性 + 动态面,不是文件里 interface/视图的总数 ⇒ 数字一旦上涨就该有人问
+    // "新出现了什么同形对象"。
+    const parts = [
+      `${excludedTypeBodies} 个类型声明体(interface/type/class/enum)`,
+      `${excludedViewStubs} 个审批闸只读视图桩(execute 恒为失败空桩,从不注册)`,
+      `${excludedThirdParty} 个第三方动态装配面(运行期名 + approvalExemption 两轴 + registrationOwner,契约判据不适用)`,
+    ]
+    console.log(
+      `ℹ️ 抽取口径:排除 ${parts.join(' + ')} —— 它们不进入工具计数,也不得读成"已核"。`,
     )
   }
   // ---- TC4 权限轴字段级消费对账(D142,2026-09-29)----
@@ -1408,6 +1502,66 @@ function selfTest() {
   ok(
     'ST11 空源文件 ⇒ 0 工具 0 违规(判据非恒真)',
     extractToolLiterals('').length === 0 && violationsOf([]).length === 0,
+  )
+
+  // ---------- 抽取器严格化(2026-11-27):两类同形假阳性必须有正反对照 ----------
+  const typeBodySrc = `export interface Demo extends Base {
+  name: string;
+  description: string;
+  execute(args: Record<string, unknown>): Promise<Result>;
+}`
+  const tTypeBody = extractToolLiterals(typeBodySrc)
+  ok(
+    'ST11b interface 类型声明体不算注册工具(成员形状与 Tool 逐字相同)',
+    tTypeBody.length === 0 && tTypeBody.skipped.typeBodies === 1,
+  )
+
+  const viewStubSrc = `export const view: Tool = {
+  name: call.name,
+  description: desc.description,
+  parameters: {},
+  required: [],
+  dangerLevel: 'dangerous',
+  execute: async () => ({ success: false, output: '' }),
+}`
+  const tViewStub = extractToolLiterals(viewStubSrc)
+  ok(
+    'ST11c 审批闸只读视图桩(死桩 execute)不算注册工具',
+    tViewStub.length === 0 && tViewStub.skipped.viewStubs === 1,
+  )
+
+  const arrowToolSrc = `export const arrowTool: Tool = {
+  name: 'arrow_tool',
+  execute: async () => ({ success: true, output: 'ok' }),
+}`
+  ok(
+    'ST11d 箭头函数真工具仍被识别(死桩判据不误伤)',
+    extractToolLiterals(arrowToolSrc).length === 1,
+  )
+
+  const thirdPartySrc = `export function toTool(conn: Conn): Tool {
+  return {
+    name: makeName(conn.name, other),
+    approvalExemption: { readonlyAxis: true, closedWorldAxis: false },
+    registrationOwner: 'mcp:demo',
+    execute: async () => ({ success: true, output: 'ok' }),
+  }
+}`
+  const tThirdParty = extractToolLiterals(thirdPartySrc)
+  ok(
+    'ST11e 第三方动态装配面(非字面量名 + 两轴 + 归属)⇒ 契约判据不适用,不记缺契约',
+    tThirdParty.length === 0 && tThirdParty.skipped.thirdPartyDynamic === 1,
+  )
+
+  const literalWithAxesSrc = `export const literalTool: Tool = {
+  name: 'literal_tool',
+  approvalExemption: { readonlyAxis: true, closedWorldAxis: false },
+  registrationOwner: 'mcp:demo',
+  execute: async () => ({ success: true, output: 'ok' }),
+}`
+  ok(
+    'ST11f 反例:名字是字面量的工具带两轴+归属仍算注册工具(三件套不得被借来豁免)',
+    extractToolLiterals(literalWithAxesSrc).length === 1,
   )
 
   // ---------- TRD(触碰即须声明)—— 2026-09-25 换锚点,取证必须两档日期都可构造 ----------
@@ -1868,6 +2022,8 @@ export const __test__ = {
   findObjectRanges,
   collectMembers,
   extractToolLiterals,
+  isTypeDeclarationBody,
+  isDeadStubExecute,
   violationsOf,
   flipAuditOf,
   exceedsAnchor,
