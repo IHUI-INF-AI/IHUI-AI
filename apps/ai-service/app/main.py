@@ -576,6 +576,15 @@ async def lifespan(app: FastAPI) -> Any:
     # Redis 不可用时降级为 no-op(不阻塞 lifespan)
     await im_bridge_service.initialize()
 
+    # 总管智能体 P2-04:订阅注册表失效频道。只推进进程代次,请求级 provider 下一次
+    # prepare 各自重拉;未配 Redis 时打一条 warning 后退回 60s TTL,不阻塞启动。
+    try:
+        from app.services.agent_registry_events import start_registry_invalidation_listener
+
+        await start_registry_invalidation_listener()
+    except Exception as exc:  # noqa: BLE001 - 订阅失败不得阻塞启动
+        logger.warning("[agent-registry] 失效订阅启动失败(退回 TTL): %s", exc)
+
     # V3 #77(2026-09-27 立):goal 自评估的**跨轮账本**切到 checkpoint 持久档。
     # 缺省档是 services/goal_completion_gate.py 里的一个进程内 dict,于是 §8 第 4 步
     # ("连续 N 轮 no 无进展 → blocked")在两种真实形态下从未成立:① 调用方每轮重启
@@ -1191,6 +1200,11 @@ async def lifespan(app: FastAPI) -> Any:
 
         await close_db_pool()
 
+    async def _s_agent_registry_events() -> None:
+        from app.services.agent_registry_events import stop_registry_invalidation_listener
+
+        await stop_registry_invalidation_listener()
+
     async def _s_socketio() -> None:
         await sio.disconnect()
 
@@ -1200,6 +1214,8 @@ async def lifespan(app: FastAPI) -> Any:
 
         # 关闭 IM 桥接服务(取消消费任务 + 关闭 Redis 连接,2026-07-31 立)
         ("im_bridge_service", lambda: im_bridge_service.shutdown()),
+        # 注册表失效订阅:只关本进程的 pubsub 任务,不触碰去重缓存(缓存随进程退出)。
+        ("agent_registry_events", _s_agent_registry_events),
         ("dream_scheduler", _s_dream_scheduler),
         ("expiry_janitor", _s_expiry_janitor),
         ("procedural_redact_daemon", _s_procedural_redact_daemon),

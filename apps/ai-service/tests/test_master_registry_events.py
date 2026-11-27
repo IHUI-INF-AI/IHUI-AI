@@ -45,6 +45,25 @@ async def test_bad_message_does_not_raise() -> None:
 
 
 @pytest.mark.asyncio
+async def test_callback_mode_does_not_need_provider() -> None:
+    calls: list[tuple[int, list[str]]] = []
+
+    def mark(version: int, ids: list[str]) -> bool:
+        calls.append((version, ids))
+        return True
+
+    listener = RegistryInvalidationListener(redis_url="redis://test", on_invalidate=mark)
+    assert await listener.handle_message(b'{"version": 42, "ids": ["def-1"]}') is True
+    assert calls == [(42, ["def-1"])]
+
+
+@pytest.mark.asyncio
+async def test_listener_requires_a_sink() -> None:
+    with pytest.raises(ValueError, match="provider 或 on_invalidate"):
+        RegistryInvalidationListener(redis_url="redis://test")
+
+
+@pytest.mark.asyncio
 async def test_consume_messages_counts_only_applied() -> None:
     provider = FakeProvider()
     listener = RegistryInvalidationListener(provider, redis_url="redis://test")  # type: ignore[arg-type]

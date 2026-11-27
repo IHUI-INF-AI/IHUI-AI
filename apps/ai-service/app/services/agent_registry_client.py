@@ -78,6 +78,16 @@ def _parse_iso_epoch(value: Any) -> float:
 class AgentRegistryClient:
     """按用户/团队构建 resolver 所需的快照；不持有任何“全局定义表”。"""
 
+    # 进程级失效代次：Redis 监听器收到变更后自增，所有客户端下一次 get_snapshot 强制重拉。
+    # 这不是定义版本（definition.version），而是“本进程见过多少次失效通知”，只进不退。
+    _global_epoch: int = 0
+
+    @classmethod
+    def invalidate_all(cls) -> int:
+        """标记全进程快照过期；返回新代次。调用方不阻塞、不等待拉取。"""
+        cls._global_epoch += 1
+        return cls._global_epoch
+
     def __init__(
         self,
         *,
@@ -101,6 +111,7 @@ class AgentRegistryClient:
         self._last_error: str | None = None
         self._lock = asyncio.Lock()
         self._transport = transport
+        self._epoch_seen = AgentRegistryClient._global_epoch
 
     @property
     def snapshot(self) -> RegistrySnapshot:
@@ -112,10 +123,13 @@ class AgentRegistryClient:
 
     @property
     def degraded(self) -> bool:
-        return self._snapshot.degraded
+        return bool(self._snapshot.degraded)
 
     def is_stale(self) -> bool:
-        return (self._clock() - self._snapshot.fetched_at) > self._ttl_seconds
+        """TTL 过期或进程收到过更高代次的失效通知，任一成立即需重拉。"""
+        return (
+            self._clock() - self._snapshot.fetched_at
+        ) > self._ttl_seconds or self._epoch_seen != AgentRegistryClient._global_epoch
 
     async def get_snapshot(self, *, force: bool = False) -> RegistrySnapshot:
         if not force and not self.is_stale() and self._snapshot.version > 0:
@@ -140,6 +154,7 @@ class AgentRegistryClient:
                 )
                 return self._snapshot
             self._snapshot = next_snapshot
+            self._epoch_seen = AgentRegistryClient._global_epoch
             self._last_error = None
             if self._enable_disk_cache:
                 self._write_disk(payload)

@@ -12,9 +12,10 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import inspect
 import json
 import logging
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any
 
 from .agent_definition_provider import AgentDefinitionProvider
@@ -23,25 +24,40 @@ logger = logging.getLogger(__name__)
 
 AGENT_REGISTRY_CHANNEL = "ihui:agent-registry:v1:changed"
 
+InvalidateCallback = Callable[[int, list[str]], Awaitable[bool] | bool]
+
 
 class RegistryInvalidationListener:
-    """一个进程一个监听器；provider 是请求级对象时，应由调用方为每个用户各建一个。"""
+    """一个进程一个监听器；provider 是请求级对象时，不应把某个用户的 provider 当全局用。
+
+    两种消费方式二选一：
+    - `provider`：旧口径，收到通知后让该 provider 重拉（测试/单请求嵌入）；
+    - `on_invalidate`：进程级口径，只标记全局代次，下一次请求各自重拉。
+    """
 
     def __init__(
         self,
-        provider: AgentDefinitionProvider,
+        provider: AgentDefinitionProvider | None = None,
         *,
         redis_url: str,
         channel: str = AGENT_REGISTRY_CHANNEL,
         redis_factory: Callable[[str], Any] | None = None,
+        on_invalidate: InvalidateCallback | None = None,
     ) -> None:
+        if provider is None and on_invalidate is None:
+            raise ValueError("RegistryInvalidationListener 需要 provider 或 on_invalidate 之一")
         self._provider = provider
+        self._on_invalidate = on_invalidate
         self._redis_url = redis_url
         self._channel = channel
         self._redis_factory = redis_factory
         self._task: asyncio.Task[None] | None = None
         self._redis: Any = None
         self._pubsub: Any = None
+
+    @property
+    def running(self) -> bool:
+        return self._task is not None and not self._task.done()
 
     async def handle_message(self, raw: str | bytes) -> bool:
         """返回 True 表示真的重拉了；坏消息/低版本都返回 False。"""
@@ -55,7 +71,14 @@ class RegistryInvalidationListener:
 
         changed = [str(item) for item in ids]
         try:
-            applied = await self._provider.apply_invalidation(version, changed)
+            if self._on_invalidate is not None:
+                result = self._on_invalidate(version, changed)
+                if inspect.isawaitable(result):
+                    result = await result
+                applied = bool(result)
+            else:
+                assert self._provider is not None
+                applied = await self._provider.apply_invalidation(version, changed)
         except Exception as exc:  # noqa: BLE001 -- 重拉失败不能弄死订阅循环
             logger.warning("[agent-registry] 失效后重拉失败 version=%s: %s", version, exc)
             return False
@@ -116,6 +139,55 @@ async def consume_messages(
     """给测试/嵌入使用的消费循环；返回已应用条数。"""
     applied = 0
     async for message in pubsub:
-        if message.get("type") == "message" and await listener.handle_message(message.get("data") or ""):
+        if message.get("type") == "message" and await listener.handle_message(
+            message.get("data") or ""
+        ):
             applied += 1
     return applied
+
+
+_listener: RegistryInvalidationListener | None = None
+
+
+def _mark_all_clients_stale(version: int, changed_ids: list[str]) -> bool:
+    """进程级失效：只推进代次；请求级 provider 下一次 prepare 会各自重拉。"""
+    from .agent_registry_client import AgentRegistryClient
+
+    epoch = AgentRegistryClient.invalidate_all()
+    logger.info(
+        "[agent-registry] 进程快照失效 epoch=%s version=%s changed=%s",
+        epoch,
+        version,
+        changed_ids,
+    )
+    return True
+
+
+async def start_registry_invalidation_listener() -> RegistryInvalidationListener | None:
+    """FastAPI lifespan 启动入口；未配 Redis 返回 None 并按 TTL 轮询。"""
+    global _listener
+    if _listener is not None:
+        return _listener
+    from ..core.config import settings
+
+    url = str(getattr(settings, "redis_url", "") or "").strip()
+    if not url:
+        logger.warning("[agent-registry] 未配置 REDIS_URL，失效订阅不启动，退回 60s TTL")
+        return None
+    listener = RegistryInvalidationListener(
+        redis_url=url,
+        on_invalidate=_mark_all_clients_stale,
+    )
+    await listener.start()
+    if not listener.running:
+        return None
+    _listener = listener
+    return listener
+
+
+async def stop_registry_invalidation_listener() -> None:
+    global _listener
+    listener = _listener
+    _listener = None
+    if listener is not None:
+        await listener.stop()

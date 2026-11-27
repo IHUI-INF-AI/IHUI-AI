@@ -136,5 +136,29 @@ async def test_invalidation_with_higher_version_forces_refetch(tmp_path: Path) -
     assert "def-2" in snapshot.definitions
 
 
+@pytest.mark.asyncio
+async def test_process_epoch_forces_refetch_even_with_same_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(AgentRegistryClient, "_global_epoch", 0)
+    payloads = iter([_payload(1, _raw_definition()), _payload(1, _raw_definition("def-2"))])
+
+    async def fetch(_base: str) -> dict[str, object]:
+        return _success(next(payloads))
+
+    client = AgentRegistryClient(
+        user_id="user-1",
+        base_url="http://test",
+        cache_path=tmp_path / "snapshot.json",
+        fetcher=fetch,
+    )
+    await client.get_snapshot(force=True)
+    AgentRegistryClient.invalidate_all()
+    snapshot = await client.get_snapshot()
+
+    assert snapshot.version == 1
+    assert "def-2" in snapshot.definitions
+
+
 def _success(data: dict[str, object]) -> dict[str, object]:
     return {"code": 0, "message": "success", "data": data}
