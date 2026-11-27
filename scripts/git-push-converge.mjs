@@ -348,7 +348,9 @@ function healViaGuard() {
     timeout: 600_000,
     // 逐字保留改动前的强制同步档:GUARD_ASYNC=0 让 guard 在本进程里推完再返回,
     // 否则它 spawn 后台 worker 后秒回 exit 0 ⇒ 本脚本会把"什么都没推"报成 PUSHED。
-    env: { ...process.env, GUARD_ASYNC: '0', GUARD_WORKER: '' },
+    // 2026-11-27:唯一收尾出口本身就是"显式推送窗口",必须给 guard 开 PUSH_WINDOW=1;
+    // 否则 guard 会以"窗口未开启"拒推,出现 origin 没推、gitee 已推的分叉。
+    env: { ...process.env, GUARD_ASYNC: '0', GUARD_WORKER: '', PUSH_WINDOW: '1' },
   })
 }
 
