@@ -83,3 +83,11 @@ Tauri 2 的命令 ACL 是三处登记缺一即失效：
 - 0.1.95 客户端二进制里，`https://aizhs.top/desktop-feed.json` 端点旁内嵌的是官方公钥 A40E05DD，故现有客户端会拒绝 0.1.96 的更新包。
 - 处置：生产更新清单回滚到 0.1.94（main 提交 `692c097f`）；Release `desktop-v0.1.96` 标记 prerelease、正文加阻塞警示、删除 `latest.json` 资产，仅保留 exe 与 sig 供手动安装/留档。
 - 恢复自动更新：找回官方私钥（A40E05DD）重签；或统一轮换 `plugins.updater.pubkey` 为 CI 密钥并出一次手动迁移包（旧客户端无法自动升级，需手动覆盖安装）。
+
+## 2026-11-27 收口：官方私钥找回，0.1.96 重签并恢复推送
+
+- 官方私钥定位：生产机 D:\DevEnv\secrets\tauri\ihui-updater.key（配对公钥 A40E05DD769D7961 / pk d67ea113，keynum 61799d76dd050ea4），同目录 ihui-updater.key.pub 与 ihui-updater.pw。
+- 用该私钥重签 AI_0.1.96_x64-setup.exe（35,803,702 字节，包体未改），新 .sig 420 字节、keynum 61799d76；按 minisign 预哈希规则用 tauri.conf.json 的 pinned 公钥验签 PASS。
+- Release desktop-v0.1.96 已替换 .sig、重新上传 latest.json、取消 prerelease 并清掉阻塞警示；更新清单烘焙提交 f4f76ea7 指向 0.1.96（官方签名）。
+- CI 统一：DESKTOP_TAURI_PRIVATE_KEY 已写回该官方私钥（明文），DESKTOP_TAURI_KEY_PASSWORD 同步更新；后续 release-desktop.yml 直接签出 A40E05DD，不再与 conf 失配。
+- 08dbb1a2 那把仍留在本机 ~/.tauri（旧信任锚时期的孤儿钥匙），不再参与发布。
