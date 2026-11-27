@@ -158,6 +158,14 @@ describe('G-12 ③ 取不到输入 ⇒ 未判定并点名缺什么(反向牙:绝
     expect(outcome.missing.join(';')).toContain('tool-output-file-path-missing');
   });
 
+  it('scanEditedFile 的相对路径按 baseDir 解析,不拿 CLI 进程 cwd 顶替工作区', () => {
+    fs.mkdirSync(path.join(tmpDir, 'nested'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, 'nested', 'leaky.ts'), `${FINDING_LINE}\n`, 'utf-8');
+    const outcome = scanEditedFile({ path: 'nested/leaky.ts' }, tmpDir);
+    expect(outcome.status).toBe('findings');
+    expect(outcome.findings.map((finding) => finding.ruleId).join(';')).toContain('aws-access-key-id');
+  });
+
   it('reviewWorkspaceChanges 的 git 采集全部失败 ⇒ undetermined 逐条点名,不返回"安全"', () => {
     const failing = (): { ok: false; error: string } => ({ ok: false, error: 'git: not a repository' });
     const outcome = reviewWorkspaceChanges(tmpDir, failing as never);

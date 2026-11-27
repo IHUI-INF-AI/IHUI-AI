@@ -37,7 +37,6 @@ import {
   registerBrowserTools,
   listTools,
   parsePlanBlock,
-  executeToolCall,
   formatToolResult,
   toolsToProviderSchema,
   extractToolCalls,
@@ -48,20 +47,31 @@ import {
   enableToolHub,
   setHubRemoteRegistry,
   WORKTREE_TOOLS,
+  executeToolCall,
   resolveDangerousConfirmation,
   type Tool,
   type ToolContext,
 } from '../tools/index.js';
+import {
+  MAX_PARALLEL_TOOL_CALLS_ENV,
+  executeToolCallsInBatches,
+  resolveMaxParallelToolCalls,
+} from '../tools/tool-call-scheduler.js';
 import { toolCrashResult } from '../tools/tool-crash.js';
 import {
   buildNativeToolsBody,
   shouldRetryNativeTools,
   type ToolChoice,
 } from '../tools/native-tools-body.js';
+import { createNativeToolExecutor, type ToolExecutor, type ToolExecutorKind } from '../tools/tool-executor.js';
 import { createToolSearchTool } from '../tools/tool-search.js';
 import { composeSystemPrompt } from '../prompts/compose.js';
 import { parseWelcomeMode, parseInteractionMode } from '../prompts/mode-matrix.js';
 import { BUILTIN_TOOLS } from '../tools/builtins.js';
+import { PTC_TOOL_ENV, createPtcReadOnlyExecutor, createRunCodeTool } from '../tools/ptc-tool.js';
+import { PTC_RUN_CODE_TOOL_NAME, createPtcTurnBudget, createPtcTurnConcurrency } from '../tools/ptc-executor.js';
+import type { PtcBindingApprover, PtcBindingCallQuota, PtcBindingConcurrencyQuota } from '../tools/ptc-executor.js';
+import { renderPtcSdk, selectPtcBindingTools } from '../tools/ptc-sdk.js';
 // 人事考勤(HR)工具族:AI 对话框可调用操作考勤/部门/员工/请假(复用 @ihui/attendance-core 判定内核)。
 import { HR_TOOLS } from '../tools/hr.js';
 // relay 号池工具族(2026-11-09 立):号池查询/巡检/任务/重认证/策略的 AI 工具化(清单生成器产出)。
@@ -95,7 +105,13 @@ import {
   resolveAuditIngestClient,
 } from '../utils/audit-ingest-client.js';
 import { CLIPBOARD_TOOLS } from '../tools/clipboard.js';
-import { checkPermission, isAdvertisableDecision, type PermissionRules, type PermissionMode } from '../tools/permissions.js';
+import {
+  checkPermission,
+  isAdvertisableDecision,
+  withPermissionKeyAliases,
+  type PermissionRules,
+  type PermissionMode,
+} from '../tools/permissions.js';
 import { createMarkdownRenderer } from './markdown-renderer.js';
 import { resolveProvider, streamOpenAiCompatible, type ChatCompletionMessage } from '../provider/local.js';
 // G-686:进程级、按 provider/model 分桶的 AIMD 准入闸门(默认关 —— 见该文件头注的翻转前置)。
@@ -119,7 +135,7 @@ import { CONTEXT_BUDGET_THRESHOLD, DEFAULT_TRIGGER_RATIO } from '@ihui/context-c
 // WP-2 三道有效性守卫的运行期装配 + WP-3 工具结果预算信封与已读状态跟踪
 import { ContextGuards } from '../context-guards.js';
 import { isPromptTooLongErrorMessage, recoverAfterOverflow } from '../context-guards.js';
-import { envelopeToolResult, ReadStateTracker } from '../tools/result-envelope/index.js';
+import { envelopeToolResult, DEFAULT_SPILL_TTL_MS, ReadStateTracker } from '../tools/result-envelope/index.js';
 // 流式期工具登记账本:登记 + 提前执行 + 恢复锚点(机制在 stream-tool-ledger.ts)
 import {
   StreamToolLedger,
@@ -137,7 +153,7 @@ import {
   writeCompactionSummaryCache,
 } from '../compaction-cache.js';
 import { generateReminders } from '../reminders.js';
-import { loadMcpTools, loadMcpConnections } from '../tools/mcp-runtime.js';
+import { loadMcpTools, loadMcpConnections, listConfiguredMcpServerNames } from '../tools/mcp-runtime.js';
 import { registerMcpToolsToHub } from '../tools/hub/mcp-adapter.js';
 import { InMemoryRegistry } from '../tools/hub/registry.js';
 import { loadSkills, formatSkillsForPrompt, type Skill } from '../skills/index.js';
@@ -245,9 +261,49 @@ export interface AgentOptions {
   prompt: string;
   modelId: string;
   workspacePath: string;
+  /** TaskPrepare 的已授权源根；缺省为空，任务副本不得凭空授权。 */
+  workspaceRoots?: readonly string[];
+  /** 宿主任务副本 id；存在时文件工具写操作经宿主网关。 */
+  taskWorkspaceId?: string;
   apiUrl: string;
   apiKey?: string;
   maxIterations: number;
+  /**
+   * 单批工具并行上限。缺省从 `IHUI_MAX_PARALLEL_TOOL_CALLS` 读取(默认 10,1=串行);
+   * 显式传值优先于环境变量。每批开始前重读,运行中改环境变量从下一批生效。
+   */
+  maxParallelToolCalls?: number;
+  /**
+   * 单程序绑定调用总上限（仅 PTC / run_code 生效）。缺省 1000，最大 10000；
+   * 同时决定执行器预算与 SDK 里向模型公布的预算。
+   */
+  maxPtcToolCalls?: number;
+  /** 一个 agent 回合内多个 run_code 共享的绑定调用总上限;缺省不设回合闸。 */
+  maxPtcTurnCalls?: number;
+  /** 单程序同时在飞的绑定调用上限（仅 PTC / run_code 生效）。缺省 10，最大 64。 */
+  maxPtcConcurrentCalls?: number;
+  /** 命名空间/成员级绑定调用配额（仅 PTC / run_code 生效）。 */
+  maxPtcScopeCalls?: readonly PtcBindingCallQuota[];
+  /** 命名空间/成员级绑定并发配额（仅 PTC / run_code 生效）。 */
+  maxPtcScopeConcurrentCalls?: readonly PtcBindingConcurrencyQuota[];
+  /** 排队老化上限（0 关闭，1..10 逐轮加有效优先级，仅 PTC / run_code 生效）。 */
+  maxPtcPriorityAging?: number;
+  /** 单个绑定调用的墙钟上限;0 关闭,缺省 30000,最大 600000。 */
+  maxPtcBindingTimeoutMs?: number;
+  /** 一个 agent 回合内所有 run_code 共享的绑定并发上限;缺省不设回合并发闸。 */
+  maxPtcTurnConcurrentCalls?: number;
+  /** 绑定调用前的审批钩子;缺省只读绑定直接放行,宿主可注入人工/策略审批。 */
+  approvePtcBinding?: PtcBindingApprover;
+  /** 保留式 REPL/Script;缺省 false(每次 run_code 新进程,不保留变量)。 */
+  ptcRetained?: boolean;
+  /** Windows AppContainer 内核沙箱;缺省 false。 */
+  ptcOsSandbox?: boolean;
+  /** AppContainer worker 根目录;缺省 %ProgramData%\IHUI-AI\PTC。 */
+  ptcOsSandboxRoot?: string;
+  /** 工具执行器接缝;缺省 native(现有 executeToolCall)。PTC 有独立实现,但默认不选中。 */
+  toolExecutor?: ToolExecutor;
+  /** 执行器模式;ptc 时只广告 run_code,原生工具仅供只读绑定使用。 */
+  toolExecutorKind?: ToolExecutorKind;
   jsonMode?: boolean;
   /** P1-5 输出格式:覆盖 jsonMode(若设置)。--output-format 显式传入,默认 undefined 走 jsonMode 路径 */
   outputFormat?: OutputFormat;
@@ -288,6 +344,12 @@ export interface AgentOptions {
   permissions?: PermissionRules;
   /** 权限模式:default|acceptEdits|bypassPermissions|plan|manual */
   permissionMode?: PermissionMode;
+  /**
+   * 每次工具调用**开始前**的观察钩子（W4-09 worker 预算用）。
+   * 与 runToolLoop 同名选项不同：runAgent 这一层还会继续给内置 CLI 事件出口派发，
+   * 两者是并列观察者，不是替代关系。
+   */
+  onToolCall?: (name: string, args: Record<string, unknown>) => void | Promise<void>;
   /** WP-8③ —— 执行前声明的硬性指标;非空即 goal 模式(见 RunToolLoopOptions 同名注释) */
   goalCriteria?: GoalHardCriterion[];
   /** goal 原文(与指标一起送进独立校验轮) */
@@ -423,9 +485,39 @@ export function readAgentsMd(workspacePath: string): string | undefined {
 
 export interface SetupAgentToolsOptions {
   workspacePath: string;
+  /** 宿主 TaskPrepare 的授权源根；任务副本模式下与 workspacePath 分离。 */
+  workspaceRoots?: readonly string[];
+  /** 宿主任务副本 id；存在时文件工具写操作经宿主网关。 */
+  taskWorkspaceId?: string;
   checkpoints?: CheckpointManager;
   enableMcp?: boolean;
   silent?: boolean;
+  /** 执行器模式;ptc 时只注册/广告 run_code,其余工具仅供只读绑定。 */
+  toolExecutorKind?: ToolExecutorKind;
+  /** 单程序绑定调用总上限;缺省 1000，超限 abort。 */
+  maxPtcToolCalls?: number;
+  /** 一个 agent 回合内多个 run_code 共享的绑定调用总上限;缺省不设回合闸。 */
+  maxPtcTurnCalls?: number;
+  /** 单程序同时在飞的绑定调用上限;缺省 10，超出排队。 */
+  maxPtcConcurrentCalls?: number;
+  /** 命名空间/成员级绑定调用配额;未知范围在启动前报 invalid_arguments。 */
+  maxPtcScopeCalls?: readonly PtcBindingCallQuota[];
+  /** 命名空间/成员级绑定并发配额;未知范围在启动前报 invalid_arguments。 */
+  maxPtcScopeConcurrentCalls?: readonly PtcBindingConcurrencyQuota[];
+  /** 排队老化上限;0 关闭,1..10 逐轮加有效优先级。 */
+  maxPtcPriorityAging?: number;
+  /** 单个绑定调用的墙钟上限;0 关闭,缺省 30000,最大 600000。 */
+  maxPtcBindingTimeoutMs?: number;
+  /** 一个 agent 回合内所有 run_code 共享的绑定并发上限;缺省不设回合并发闸。 */
+  maxPtcTurnConcurrentCalls?: number;
+  /** 绑定调用前的审批钩子;缺省只读绑定直接放行,宿主可注入人工/策略审批。 */
+  approvePtcBinding?: PtcBindingApprover;
+  /** 保留式 REPL/Script;缺省 false(每次 run_code 新进程,不保留变量)。 */
+  ptcRetained?: boolean;
+  /** Windows AppContainer 内核沙箱;缺省 false。 */
+  ptcOsSandbox?: boolean;
+  /** AppContainer worker 根目录;缺省 %ProgramData%\IHUI-AI\PTC。 */
+  ptcOsSandboxRoot?: string;
   /** 危险操作确认回调。REPL 用 inquirer,Agent 用 --allow-dangerous,ACP 默认拒绝。 */
   confirmDangerous?: (tool: Tool, args: Record<string, unknown>) => Promise<boolean>;
   /**
@@ -482,6 +574,11 @@ export interface SetupAgentToolsResult {
   skills: Skill[];
   /** 加载到的 memory 条目(供 REPL /memory 命令使用) */
   memory: MemoryEntry[];
+  /**
+   * 本次装配真实接上的 MCP server 名（W4-02 能力事实）。
+   * 与 `skills` 不同，这里只给名字：工具面另由 listTools 反映。
+   */
+  mcpServers: string[];
   /** PluginRegistry(若 settings.plugins.enabled 或外部注入,供 runToolLoop 触发 preToolCall/postToolCall hook) */
   pluginRegistry?: PluginRegistry;
 }
@@ -528,6 +625,26 @@ const PLUGIN_CONSOLE_LOGGER: PluginLogger = {
 export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<SetupAgentToolsResult> {
   clearTools();
   registerTools(BUILTIN_TOOLS);
+  const ptcEnabled = process.env[PTC_TOOL_ENV] === '1' || opts.toolExecutorKind === 'ptc';
+  // PTC run_code 是显式 opt-in 的混合面:原工具仍可直接调;绑定只含四个只读工具,
+  // 程序本身按 dangerous 级要求确认。默认不注册,避免无沙箱执行面默认暴露。
+  if (ptcEnabled) {
+    registerTools([createRunCodeTool({
+      runner: executeToolCall,
+      maxBindingCalls: opts.maxPtcToolCalls,
+      maxConcurrentBindingCalls: opts.maxPtcConcurrentCalls,
+      maxBindingCallsByScope: opts.maxPtcScopeCalls,
+      maxConcurrentCallsByScope: opts.maxPtcScopeConcurrentCalls,
+      priorityAging: opts.maxPtcPriorityAging,
+      bindingTimeoutMs: opts.maxPtcBindingTimeoutMs,
+      approveBinding: opts.approvePtcBinding,
+      retainState: opts.ptcRetained,
+      osSandbox: opts.ptcOsSandbox,
+      ...(opts.ptcOsSandboxRoot === undefined
+        ? {}
+        : { osSandboxRoot: opts.ptcOsSandboxRoot }),
+    })]);
+  }
   // 人事考勤(HR)工具族:2026-11-09 立,API 路由 → AI 工具模板域。
   registerTools(HR_TOOLS);
   // relay 号池工具族(2026-11-09 立):号池列表/详情/巡检/任务/重认证/策略。
@@ -580,12 +697,17 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   // 会话级 worktree 隔离(enter_worktree / exit_worktree):与子代理隔离腿同一套创建/回收实现。
   // 无条件注册:是否真的需要隔离由模型按任务决定,注册面不能替它预判(与 git 族同档)。
   registerTools(WORKTREE_TOOLS);
+  // W4-02:能力事实只记**真实接入**的 server 名。MCP 装载失败/无配置时是空数组，
+  // 不把「配置里写了但没连上」冒充成已加载能力。
+  let mcpServers: string[] = [];
   if (opts.subagentParent) {
     registerTools([createSubagentTool({
       modelId: opts.subagentParent.modelId,
       apiUrl: opts.subagentParent.apiUrl,
       apiKey: opts.subagentParent.apiKey,
       workspacePath: opts.workspacePath,
+      workspaceRoots: opts.workspaceRoots,
+      taskWorkspaceId: opts.taskWorkspaceId,
       allowDangerous: opts.subagentParent.allowDangerous,
       worktreeFastPathEnabled: settings.worktreeFastPath?.enabled === true,
       hunkTracker: opts.subagentParent.hunkTracker,
@@ -603,6 +725,7 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
     if (useHubAdapter) {
       try {
         const conns = await loadMcpConnections({ workspacePath: opts.workspacePath }, mcpTrust);
+        mcpServers = conns.map((conn) => conn.server.name).filter((name) => name.length > 0);
         if (conns.length > 0) {
           const remoteRegistry = new InMemoryRegistry();
           let total = 0;
@@ -626,6 +749,7 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
         const mcpTools = await loadMcpTools({ workspacePath: opts.workspacePath }, mcpTrust);
         if (mcpTools.length > 0) {
           registerTools(mcpTools);
+          mcpServers = listConfiguredMcpServerNames({ workspacePath: opts.workspacePath }, mcpTrust);
           if (!opts.silent) console.info(chalk.dim(`  🔌 已加载 ${mcpTools.length} 个 MCP 工具`));
         }
       } catch {
@@ -701,7 +825,11 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   // 受限工具集裁剪(2026-11-12):在**取工具表这一刻**生效,而不是在调用时拒绝。
   // 工具不存在于 prompt 里,模型就不会尝试调用 —— 这比事后拒绝更可靠。
   // 拼错的模式名会抛错(不静默回退全量):把最危险的默认值塞给以为自己被限制的人是更糟的失效。
-  const rawTools = listTools();
+  // PTC 的绑定仍要取自全量注册表;广告面只留 run_code,两者不是同一张表。
+  const ptcBindingTools = ptcEnabled ? selectPtcBindingTools(listTools()) : [];
+  const rawTools = opts.toolExecutorKind === 'ptc'
+    ? listTools().filter((tool) => tool.name === PTC_RUN_CODE_TOOL_NAME)
+    : listTools();
   const codeModeResult = applyCodeMode(rawTools, opts.codeMode);
   const tools = codeModeResult.allowed;
   if (codeModeResult.mode.id !== 'full' && !opts.silent) {
@@ -750,7 +878,25 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   const memorySection = memoryText
     ? injectHostSection('context_memory', memoryText, { kind: 'reference_data' })
     : '';
-  const extraContext = [agentsMdSection, skillsText, memorySection].filter(Boolean).join('\n\n');
+  // PTC 的程序面绑定不是工具调用面:模型必须在 run_code 的 SDK 说明里看到它们,
+  // 否则只会看到一个没有参数的 run_code,不知道 tools.* 能调什么。
+  const ptcSdkSection = ptcEnabled
+    ? injectHostSection('context_ptc_sdk', renderPtcSdk(ptcBindingTools, {
+        maxBindingCalls: opts.maxPtcToolCalls,
+        maxConcurrentCalls: opts.maxPtcConcurrentCalls,
+        maxBindingCallsByScope: opts.maxPtcScopeCalls,
+        maxConcurrentCallsByScope: opts.maxPtcScopeConcurrentCalls,
+        priorityAging: opts.maxPtcPriorityAging,
+        maxBindingTimeoutMs: opts.maxPtcBindingTimeoutMs,
+        maxTurnBindingCalls: opts.maxPtcTurnCalls,
+        maxTurnConcurrentCalls: opts.maxPtcTurnConcurrentCalls,
+        typeCheck: opts.ptcRetained !== true,
+        retained: opts.ptcRetained === true,
+        osSandbox: opts.ptcOsSandbox === true,
+        approveBindings: opts.approvePtcBinding !== undefined,
+      }), { kind: 'host_directive' })
+    : '';
+  const extraContext = [agentsMdSection, skillsText, memorySection, ptcSdkSection].filter(Boolean).join('\n\n');
   // 唯一装配路径:模式矩阵过滤工具 → 片段经登记出口注入 → buildSystemPrompt 拼装。
   // revealed 随会话传入(会话局部 Set),命中工具的完整 schema 由 tool_search 直接返回给模型;
   // 本函数的 systemPrompt 只装配一次,不在轮间重建。
@@ -774,6 +920,8 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   }
   const ctx: ToolContext = {
     workspacePath: opts.workspacePath,
+    workspaceRoots: opts.workspaceRoots,
+    taskWorkspaceId: opts.taskWorkspaceId,
     confirmDangerous: opts.confirmDangerous,
     allowDangerous: opts.allowDangerous,
     // 有审批人否:缺省不传(undefined)⇒ 工具层沿用旧归因(user-declined / no-confirmation-channel)。
@@ -795,7 +943,7 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
     permissionMode: opts.permissionMode,
   };
 
-  return { systemPrompt, ctx, skills, memory: memoryPrompt.entries, pluginRegistry };
+  return { systemPrompt, ctx, skills, memory: memoryPrompt.entries, pluginRegistry, mcpServers };
 }
 
 export interface RunToolLoopOptions {
@@ -804,11 +952,44 @@ export interface RunToolLoopOptions {
   ctx: ToolContext;
   maxIterations: number;
   /**
+   * 单批工具并行上限;缺省读 `IHUI_MAX_PARALLEL_TOOL_CALLS`(默认 10,1=串行)。
+   * 每个批次开始前重算 —— 已在飞的批次不追改,下一批生效。
+   */
+  maxParallelToolCalls?: number;
+  /**
    * 原生 function calling 的 `tool_choice`。缺省**不写进请求体**(与改动前逐字节同请求);
    * `'required'` = 本轮必须调工具,对象形 = 必须调指定那一枚。
    * 只在携带 tools 时才生效(prompt 降级模式下无意义)。
    */
   toolChoice?: ToolChoice;
+  /** 单程序绑定调用总上限;缺省 1000，超限 abort。 */
+  maxPtcToolCalls?: number;
+  /** 一个 agent 回合内多个 run_code 共享的绑定调用总上限;缺省不设回合闸。 */
+  maxPtcTurnCalls?: number;
+  /** 单程序同时在飞的绑定调用上限;缺省 10，超出排队。 */
+  maxPtcConcurrentCalls?: number;
+  /** 命名空间/成员级绑定调用配额;未知范围在启动前报 invalid_arguments。 */
+  maxPtcScopeCalls?: readonly PtcBindingCallQuota[];
+  /** 命名空间/成员级绑定并发配额;未知范围在启动前报 invalid_arguments。 */
+  maxPtcScopeConcurrentCalls?: readonly PtcBindingConcurrencyQuota[];
+  /** 排队老化上限;0 关闭,1..10 逐轮加有效优先级。 */
+  maxPtcPriorityAging?: number;
+  /** 单个绑定调用的墙钟上限;0 关闭,缺省 30000,最大 600000。 */
+  maxPtcBindingTimeoutMs?: number;
+  /** 一个 agent 回合内所有 run_code 共享的绑定并发上限;缺省不设回合并发闸。 */
+  maxPtcTurnConcurrentCalls?: number;
+  /** 绑定调用前的审批钩子;缺省只读绑定直接放行,宿主可注入人工/策略审批。 */
+  approvePtcBinding?: PtcBindingApprover;
+  /** 保留式 REPL/Script;缺省 false(每次 run_code 新进程,不保留变量)。 */
+  ptcRetained?: boolean;
+  /** Windows AppContainer 内核沙箱;缺省 false。 */
+  ptcOsSandbox?: boolean;
+  /** AppContainer worker 根目录;缺省 %ProgramData%\IHUI-AI\PTC。 */
+  ptcOsSandboxRoot?: string;
+  /** 工具执行器接缝;缺省 native。PTC 有独立实现,但默认不选中。 */
+  toolExecutor?: ToolExecutor;
+  /** 执行器模式;ptc 时 runToolLoop 自建只读绑定执行器,并把广告面收口到 run_code。 */
+  toolExecutorKind?: ToolExecutorKind;
   signal?: AbortSignal;
   /** 关联会话 ID(用于 hook 埋点传递) */
   sessionId?: string;
@@ -2119,12 +2300,74 @@ function finishTurnTrace(params: {
 }
 
 export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoopResult> {
+  let owned: ToolExecutor | undefined
+  try {
+    return await runToolLoopInner(opts, (executor) => {
+      owned = executor
+    })
+  } finally {
+    // retained REPL 的 worker 属于本回合自建执行器;回合结束必须释放,否则
+    // 交互式 REPL 每回合都会留下一个已无引用的子进程和临时目录。
+    await owned?.dispose?.()
+  }
+}
+
+async function runToolLoopInner(
+  opts: RunToolLoopOptions,
+  onOwnedToolExecutor?: (executor: ToolExecutor) => void,
+): Promise<RunToolLoopResult> {
   // 工具粒度钩子取消腿(G-424 移交票,"主会话补"那一行):生产装配面的回合 signal
   // 此前从未进 ToolContext ⇒ executeToolCall 里 ctx.signal 恒 undefined,取消打不到
   // runPreToolCall/runPostToolCall 的钩子子进程。这里一次性派生注入:有 opts.signal 才
   // 展开新对象(无 signal 时原样复用 opts.ctx,行为逐零差异);opts.ctx 在本函数内只读
   // 不写(已全量核点),浅拷贝无漂移面。
-  const toolCtx: ToolContext = opts.signal ? { ...opts.ctx, signal: opts.signal } : opts.ctx;
+  const baseToolCtx: ToolContext = {
+    ...opts.ctx,
+    ...(opts.signal ? { signal: opts.signal } : {}),
+    ...(opts.sessionId ? { sessionId: opts.sessionId } : {}),
+  };
+  // W4-14 第十七轴:回合预算只在本回合内共享;每个 runToolLoop 新建一份,
+  // 多个 run_code 共用同一个可同步扣减的 remaining,回合结束自然丢弃。
+  const ptcTurnBudget =
+    opts.maxPtcTurnCalls === undefined
+      ? undefined
+      : createPtcTurnBudget(opts.maxPtcTurnCalls);
+  // W4-14 第十九轴:回合并发闸也只在本回合内共享;缺省不设,保留单程序并发语义。
+  const ptcTurnConcurrency =
+    opts.maxPtcTurnConcurrentCalls === undefined
+      ? undefined
+      : createPtcTurnConcurrency(opts.maxPtcTurnConcurrentCalls);
+  const toolCtx: ToolContext =
+    ptcTurnBudget !== undefined || ptcTurnConcurrency !== undefined
+      ? {
+          ...baseToolCtx,
+          ...(ptcTurnBudget === undefined ? {} : { ptcTurnBudget }),
+          ...(ptcTurnConcurrency === undefined ? {} : { ptcTurnConcurrency }),
+        }
+      : baseToolCtx;
+  // W4-14:执行器只在回合入口解析一次;default native 仍走 executeToolCall 的全套安全边界。
+  // ptc 模式每次 run_code 自建/释放 runtime,绑定仍走 executeToolCall。
+  const toolExecutor =
+    opts.toolExecutor ??
+    (opts.toolExecutorKind === 'ptc'
+      ? createPtcReadOnlyExecutor({
+          runner: executeToolCall,
+          maxBindingCalls: opts.maxPtcToolCalls,
+          maxConcurrentBindingCalls: opts.maxPtcConcurrentCalls,
+          maxBindingCallsByScope: opts.maxPtcScopeCalls,
+          maxConcurrentCallsByScope: opts.maxPtcScopeConcurrentCalls,
+          priorityAging: opts.maxPtcPriorityAging,
+          bindingTimeoutMs: opts.maxPtcBindingTimeoutMs,
+          turnBudget: ptcTurnBudget,
+          turnConcurrency: ptcTurnConcurrency,
+          retainState: opts.ptcRetained,
+          osSandbox: opts.ptcOsSandbox,
+          ...(opts.ptcOsSandboxRoot === undefined
+            ? {}
+            : { osSandboxRoot: opts.ptcOsSandboxRoot }),
+        })
+      : createNativeToolExecutor());
+  if (opts.toolExecutor === undefined) onOwnedToolExecutor?.(toolExecutor)
   // G-632:异步解算启动即捕获当下分支代数 —— 解算期间 /fork、/branch、/sessions resume
   // 任何一次分支装配都会使代数 +1,落地口比对不等即作废本轮结果。
   const branchGeneration = captureBranchGeneration();
@@ -2156,6 +2399,14 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   const turnTrace = opts.sessionId
     ? beginTurnTrace({ sessionId: opts.sessionId, now: Date.now() })
     : null;
+  // W4-06 幂等双键：本回合的 turnId 注入工具上下文，供宿主缓存按
+  // `turnId|toolCallId` 判定重试。没有 sessionId 的单发路径退化为进程级稳定值，
+  // 绝不每次随机 —— 随机等于没有幂等。只替换本次 runToolLoop 的 options.ctx，
+  // 不改调用方共享的 ToolContext（并行回合不会互相改写 turnId）。
+  opts.ctx = {
+    ...opts.ctx,
+    turnId: turnTrace?.turnId ?? opts.sessionId ?? `cli-turn-${process.pid}`,
+  };
   // V3#54(2026-09-28):工具连续失败反思换策略 —— 判据/阈值上提共享层
   // (createFailureStreakTracker + FAILURE_STREAK_STRATEGY_THRESHOLD,Python 等价
   // app/core/doom_loop.py 的 FailureStreakTracker;parity 由守门钉死)。
@@ -2300,19 +2551,27 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
    * 也不让 native function calling 静默退化成 prompt 模式 —— 那是另一种更难诊断的失败)。
    */
   const advertisableTools = (all: ReturnType<typeof listTools>): ReturnType<typeof listTools> => {
+    // PTC 模式只广告 run_code;原生工具仍在注册表供绑定,但不能让模型以为可直接调。
+    const scoped = toolExecutor.kind === 'ptc'
+      ? all.filter((t) => t.name === PTC_RUN_CODE_TOOL_NAME)
+      : all;
     const mode = opts.ctx.permissionMode ?? 'default';
     const nobodyToAsk = opts.ctx.approverAvailable === false && opts.ctx.allowDangerous !== true;
-    const kept = all.filter((t) => {
+    const kept = scoped.filter((t) => {
       const d = checkPermission(
         t.name,
         opts.ctx.permissions,
         mode,
         t.dangerLevel ?? 'read',
         undefined,
-        t.nameAliases,
+        withPermissionKeyAliases(t.nameAliases, t.contract?.permission?.permissionKey),
+        // 广告面拿不到入参:allow/ask 内容规则按"可能命中"保留工具,deny 内容规则不摘工具。
+        { matchSources: t.contract?.permission?.matchSources },
       );
       return isAdvertisableDecision(d, nobodyToAsk);
     });
+    // PTC 的广告面本来就是单工具;为空时宁可零工具,也不能把原生工具越权放回去。
+    if (toolExecutor.kind === 'ptc') return kept;
     if (all.length > 0 && kept.length === 0) {
       console.error(
         `⚠️ 广告面过滤后为空(整份注册表 ${all.length} 枚全被权限档判死)⇒ 原样下发不过滤,` +
@@ -2331,7 +2590,17 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
     const tool = getTool(toolName);
     if (!tool || tool.dangerLevel !== 'read') return false;
     const mode = opts.ctx.permissionMode ?? 'default';
-    return checkPermission(toolName, opts.ctx.permissions, mode, tool.dangerLevel, undefined, tool.nameAliases) === 'allow';
+    return (
+      checkPermission(
+        toolName,
+        opts.ctx.permissions,
+        mode,
+        tool.dangerLevel,
+        undefined,
+        withPermissionKeyAliases(tool.nameAliases, tool.contract?.permission?.permissionKey),
+        { matchSources: tool.contract?.permission?.matchSources },
+      ) === 'allow'
+    );
   };
   /**
    * 提前发起一次只读执行;抛错原样上送,由账本记成 ok=false。
@@ -2341,7 +2610,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   const dispatchEarlyTool =
     (name: string, args: Record<string, unknown>) =>
     (): Promise<unknown> =>
-      executeToolCall({ name, arguments: args }, toolCtx);
+      toolExecutor.execute({ name, arguments: args }, toolCtx);
   const newLedger = (): StreamToolLedger =>
     new StreamToolLedger({
       // G-633:turn 用回合起点 reserve 出的进程级唯一号,不再用会话内迭代计数 ——
@@ -3115,8 +3384,8 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       }
 
       const resultParts: string[] = [];
-      // P0-1 Tool parallelism:先按顺序触发 onToolCall,再用 Promise.all 并行执行,最后按顺序处理结果
-      // 单工具时 Promise.all 退化为串行,无额外开销,UI 体验与原串行实现一致
+      // P0-1 Tool parallelism:先按顺序触发 onToolCall,再按**有上限的批次**执行,最后按顺序处理结果。
+      // 上限默认 10(1=串行),每批开始前从 env/显式选项重读;批次内 Promise.all,批次间串行。
       for (const call of toolCalls) {
         await opts.onToolCall?.(call.name, call.arguments);
         // D113(2026-09-27):文件写类工具在**执行之前**把"将要写入的内容"按服务端的
@@ -3149,8 +3418,14 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         });
       }
       const mode = opts.ctx.permissionMode ?? 'default';
-      const parallelResults = await Promise.all(
-        toolCalls.map(async (call) => {
+      const parallelResults = await executeToolCallsInBatches(
+        toolCalls,
+        () =>
+          resolveMaxParallelToolCalls(
+            process.env[MAX_PARALLEL_TOOL_CALLS_ENV],
+            opts.maxParallelToolCalls,
+          ),
+        async (call) => {
           const startTime = Date.now();
           const tool = getTool(call.name);
           // G-401 拍板②:remote(MCP 适配层)工具没有本地 Tool 对象,此前在这里只能拿到
@@ -3159,7 +3434,18 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
           // 'dangerous',白名单内 'read',见 hub/mcp-adapter.ts 的 MCP_READONLY_TOOL_ALLOWLIST)。
           // 末位 `?? 'read'` 是本函数对"两面都查不到"的既有缺省,本票不动(翻缺省属另一票)。
           const dangerLevel = tool?.dangerLevel ?? getHubRemoteToolDangerLevel(call.name) ?? 'read';
-          const decision = checkPermission(call.name, opts.ctx.permissions, mode, dangerLevel, undefined, tool?.nameAliases);
+          const decision = checkPermission(
+            call.name,
+            opts.ctx.permissions,
+            mode,
+            dangerLevel,
+            undefined,
+            withPermissionKeyAliases(tool?.nameAliases, tool?.contract?.permission?.permissionKey),
+            {
+              matchSources: tool?.contract?.permission?.matchSources,
+              invocationArguments: call.arguments,
+            },
+          );
           if (decision === 'deny') {
             return {
               call,
@@ -3199,8 +3485,8 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
             // 匹配按 (工具名+参数指纹) 而非下标 —— 上游解析器丢条目时下标会整体错位一格。
             const ledgerEntry = ledger.matchForCall(call.name, call.arguments);
             const result = ledgerEntry
-              ? (await ledger.runOnce(ledgerEntry, () => executeToolCall(call, toolCtx))).value
-              : await executeToolCall(call, toolCtx);
+              ? (await ledger.runOnce(ledgerEntry, () => toolExecutor.execute(call, toolCtx))).value
+              : await toolExecutor.execute(call, toolCtx);
             if (call.name === 'dispatch_subagent') {
               const subId = String(call.arguments.subagentId ?? call.arguments.task ?? '').slice(0, 80);
               await runHook('subagentStop', {
@@ -3217,7 +3503,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
             // 归因:保留原始 message(排障要原文),errorType=tool_crashed 不在可重试闭集。
             return { call, result: toolCrashResult(call, error), durationMs: Date.now() - startTime };
           }
-        }),
+        },
       );
       for (const { call, result, durationMs } of parallelResults) {
         auditLog({
@@ -3297,6 +3583,8 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
           sessionId: opts.sessionId,
           turn: iterations,
           tracker: readState,
+          // W4-12:生产信封默认 24h 保留；过期由保存路径的 TTL 扫描真正删除。
+          spillTtlMs: DEFAULT_SPILL_TTL_MS,
           resultBudget: getTool(call.name)?.contract?.resultBudget,
         });
         resultParts.push(
@@ -3616,9 +3904,20 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
 
   const { systemPrompt, ctx, pluginRegistry } = await setupAgentTools({
     workspacePath: opts.workspacePath,
+    workspaceRoots: opts.workspaceRoots,
+    taskWorkspaceId: opts.taskWorkspaceId,
     checkpoints: opts.checkpoints,
     enableMcp: opts.enableMcp,
     silent,
+    toolExecutorKind: opts.toolExecutorKind,
+    maxPtcToolCalls: opts.maxPtcToolCalls,
+    maxPtcTurnCalls: opts.maxPtcTurnCalls,
+    maxPtcConcurrentCalls: opts.maxPtcConcurrentCalls,
+    maxPtcScopeCalls: opts.maxPtcScopeCalls,
+    maxPtcScopeConcurrentCalls: opts.maxPtcScopeConcurrentCalls,
+    maxPtcPriorityAging: opts.maxPtcPriorityAging,
+    maxPtcBindingTimeoutMs: opts.maxPtcBindingTimeoutMs,
+    maxPtcTurnConcurrentCalls: opts.maxPtcTurnConcurrentCalls,
     planFirst: opts.planFirst,
     welcomeMode: opts.welcomeMode,
     interactionMode: opts.interactionMode,
@@ -3801,6 +4100,17 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
       messages,
       ctx,
       maxIterations: opts.maxIterations,
+      maxParallelToolCalls: opts.maxParallelToolCalls,
+      maxPtcToolCalls: opts.maxPtcToolCalls,
+      maxPtcTurnCalls: opts.maxPtcTurnCalls,
+      maxPtcConcurrentCalls: opts.maxPtcConcurrentCalls,
+      maxPtcScopeCalls: opts.maxPtcScopeCalls,
+      maxPtcScopeConcurrentCalls: opts.maxPtcScopeConcurrentCalls,
+      maxPtcPriorityAging: opts.maxPtcPriorityAging,
+      maxPtcBindingTimeoutMs: opts.maxPtcBindingTimeoutMs,
+      maxPtcTurnConcurrentCalls: opts.maxPtcTurnConcurrentCalls,
+      toolExecutor: opts.toolExecutor,
+      toolExecutorKind: opts.toolExecutorKind,
       signal: opts.signal,
       sessionId: opts.session?.id,
       planFirst: opts.planFirst,
@@ -3826,6 +4136,9 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
         }
       },
       onToolCall: (name, args) => {
+        // W4-09:先派发外部观察钩子（worker 预算扣减在此处，抛错/abort 由调用方处理），
+        // 再走内置 CLI 事件出口 —— 两者顺序固定，外部钩子不得被控制台渲染吞掉。
+        opts.onToolCall?.(name, args);
         d113Bridge.noteToolCall(name);
         if (isStructured) emit({ type: 'tool_call', name, arguments: args });
         else {

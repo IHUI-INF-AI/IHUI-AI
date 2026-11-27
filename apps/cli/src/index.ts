@@ -21,9 +21,13 @@ import { Command, type OptionValues } from 'commander';
 import chalk from 'chalk';
 import { readFileSync, statSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { join } from 'node:path';
+import { join, resolve as resolvePath } from 'node:path';
 import { setBaseUrl, setClientSignatureProvider, setDeviceFingerprintProvider, setUserAgent } from '@ihui/api-client';
 import type { GoalHardCriterion } from '@ihui/api-client';
+import type { ToolExecutorKind } from './tools/tool-executor.js';
+import { PTC_MAX_BINDING_CALLS, PTC_MAX_BINDING_PRIORITY_AGING, PTC_MAX_BINDING_QUOTA_SCOPES, PTC_MAX_BINDING_SCOPE_PRIORITY, PTC_MAX_BINDING_SCOPE_WEIGHT, PTC_MAX_CONCURRENT_BINDING_CALLS, PTC_MAX_TURN_CONCURRENT_CALLS } from './tools/ptc-executor.js';
+import { PTC_MAX_BINDING_TIMEOUT_MS } from './tools/ptc-tool.js';
+import type { PtcBindingConcurrencyQuota, PtcBindingScopeQuota } from './tools/ptc-executor.js';
 import { cliDeviceFingerprintCollector, CLI_USER_AGENT } from './lib/device-fingerprint.js';
 import { registerCliTokenProvider } from './lib/auth-refresh.js';
 import {
@@ -116,6 +120,12 @@ import type { IhuiAcpAgent } from './acp/server.js';
 import { registerSubagentParallelCommand } from './commands/subagent-parallel.js';
 import { CheckpointManager } from './checkpoints/index.js';
 import {
+  abandonTaskOnToolHost,
+  prepareTaskOnToolHost,
+  publishTaskOnToolHost,
+} from './sandbox/tool-host.js';
+import { resolveSandboxOptions } from './sandbox/index.js';
+import {
   resolveEffectiveConfig,
   saveSettingsTemplate,
   getSettingsPath,
@@ -156,6 +166,258 @@ function resolvePermissions(opts: OptionValues): PermissionRules | undefined {
   return { allow, deny };
 }
 
+/** W4-14:CLI flag 只做“显式正整数”解析;上限/回退仍由 tool-call-scheduler 单一解释。 */
+function resolveMaxParallelToolCallsFlag(opts: OptionValues): number | undefined {
+  const raw = typeof opts.maxParallelToolCalls === 'string' ? opts.maxParallelToolCalls.trim() : '';
+  if (raw === '') return undefined;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1) {
+    console.error('--max-parallel-tool-calls 必须是 >= 1 的整数');
+    process.exit(2);
+  }
+  return n;
+}
+
+/** W4-14:绑定调用总预算只接受 1..10000 的整数;非法值 fail-closed 成退出码 2。 */
+function resolveMaxPtcToolCallsFlag(opts: OptionValues): number | undefined {
+  const raw = typeof opts.maxPtcToolCalls === 'string' ? opts.maxPtcToolCalls.trim() : '';
+  if (raw === '') return undefined;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1 || n > PTC_MAX_BINDING_CALLS) {
+    console.error(`--max-ptc-tool-calls 必须是 1..${PTC_MAX_BINDING_CALLS} 的整数`);
+    process.exit(2);
+  }
+  return n;
+}
+
+/** W4-14:单绑定超时 0 关闭,1..600000 毫秒;非法值 fail-closed 成退出码 2。 */
+function resolveMaxPtcBindingTimeoutMsFlag(opts: OptionValues): number | undefined {
+  const raw =
+    typeof opts.maxPtcBindingMs === 'string'
+      ? opts.maxPtcBindingMs.trim()
+      : '';
+  if (raw === '') return undefined;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 0 || n > PTC_MAX_BINDING_TIMEOUT_MS) {
+    console.error(`--max-ptc-binding-ms 必须是 0..${PTC_MAX_BINDING_TIMEOUT_MS} 的整数`);
+    process.exit(2);
+  }
+  return n;
+}
+
+/** W4-14:回合级共享预算同样只接受 1..10000 的整数;空值表示不设回合闸。 */
+function resolveMaxPtcTurnCallsFlag(opts: OptionValues): number | undefined {
+  const raw = typeof opts.maxPtcTurnCalls === 'string' ? opts.maxPtcTurnCalls.trim() : '';
+  if (raw === '') return undefined;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1 || n > PTC_MAX_BINDING_CALLS) {
+    console.error(`--max-ptc-turn-calls 必须是 1..${PTC_MAX_BINDING_CALLS} 的整数`);
+    process.exit(2);
+  }
+  return n;
+}
+
+/** W4-14:排队老化 0 关闭,1..10 逐轮加有效优先级;非法值 fail-closed 成退出码 2。 */
+function resolveMaxPtcPriorityAgingFlag(opts: OptionValues): number | undefined {
+  const raw = typeof opts.maxPtcPriorityAging === 'string' ? opts.maxPtcPriorityAging.trim() : '';
+  if (raw === '') return undefined;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 0 || n > PTC_MAX_BINDING_PRIORITY_AGING) {
+    console.error(`--max-ptc-priority-aging 必须是 0..${PTC_MAX_BINDING_PRIORITY_AGING} 的整数`);
+    process.exit(2);
+  }
+  return n;
+}
+
+/** W4-14:回合并发闸只接受 1..64 的整数;非法值 fail-closed 成退出码 2。 */
+function resolveMaxPtcTurnConcurrentCallsFlag(opts: OptionValues): number | undefined {
+  const raw =
+    typeof opts.maxPtcTurnConcurrentCalls === 'string'
+      ? opts.maxPtcTurnConcurrentCalls.trim()
+      : '';
+  if (raw === '') return undefined;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1 || n > PTC_MAX_TURN_CONCURRENT_CALLS) {
+    console.error(`--max-ptc-turn-concurrent-calls 必须是 1..${PTC_MAX_TURN_CONCURRENT_CALLS} 的整数`);
+    process.exit(2);
+  }
+  return n;
+}
+
+/** W4-14:单程序绑定并发只接受 1..64 的整数;非法值 fail-closed 成退出码 2。 */
+function resolveMaxPtcConcurrentCallsFlag(opts: OptionValues): number | undefined {
+  const raw = typeof opts.maxPtcConcurrentCalls === 'string' ? opts.maxPtcConcurrentCalls.trim() : '';
+  if (raw === '') return undefined;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1 || n > PTC_MAX_CONCURRENT_BINDING_CALLS) {
+    console.error(`--max-ptc-concurrent-calls 必须是 1..${PTC_MAX_CONCURRENT_BINDING_CALLS} 的整数`);
+    process.exit(2);
+  }
+  return n;
+}
+
+/** W4-14:重复收集 namespace/member 配额,校验在进入执行前完成。 */
+function collectPtcScopeCalls(value: string, previous: string[]): string[] {
+  return [...previous, value];
+}
+
+function resolveScopeQuotaFlag(
+  raw: unknown,
+  flagName: string,
+  maxLimit: number,
+  maxPriority?: number,
+  maxWeight?: number,
+): readonly PtcBindingConcurrencyQuota[] | undefined {
+  if (raw === undefined) return undefined;
+  const values = Array.isArray(raw) ? raw : [raw];
+  if (values.length === 0) return undefined;
+
+  const quotas: PtcBindingConcurrencyQuota[] = [];
+  const seen = new Set<string>();
+  for (const value of values) {
+    if (typeof value !== 'string') {
+      scopeQuotaUsageError(flagName, `值必须是字符串,收到 ${String(value)}`, maxPriority !== undefined);
+    }
+    const eq = value.indexOf('=');
+    if (eq <= 0 || eq === value.length - 1 || value.indexOf('=', eq + 1) !== -1) {
+      const usage = maxPriority === undefined ? '<scope=n>' : '<scope=n[:p[:w]]>';
+      scopeQuotaUsageError(flagName, `"${value}" 不是 ${usage} 形式`, maxPriority !== undefined);
+    }
+    const scope = value.slice(0, eq).trim();
+    const quotaText = value.slice(eq + 1).trim();
+    const quotaParts = quotaText.split(':');
+    if (quotaParts.length > 3) {
+      scopeQuotaUsageError(flagName, `"${value}" 的 n 部分只能有 ":p" 与 ":w"`, maxPriority !== undefined);
+    }
+    const limitText = quotaParts[0]!.trim();
+    const priorityText = quotaParts[1]?.trim();
+    const weightText = quotaParts[2]?.trim();
+    if (priorityText !== undefined && maxPriority === undefined) {
+      scopeQuotaUsageError(flagName, `"${value}" 不支持优先级 p`, false);
+    }
+    if (weightText !== undefined && maxWeight === undefined) {
+      scopeQuotaUsageError(flagName, `"${value}" 不支持权重 w`, false);
+    }
+    const parts = scope.split('.');
+    if (
+      scope === '' ||
+      parts.length > 2 ||
+      parts.some((part) => part === '')
+    ) {
+      scopeQuotaUsageError(flagName, `"${scope}" 不是 namespace 或 namespace.member`, maxPriority !== undefined);
+    }
+    const limit = Number(limitText);
+    if (!Number.isInteger(limit) || limit < 1 || limit > maxLimit) {
+      scopeQuotaUsageError(flagName, `"${value}" 的 n 必须是 1..${maxLimit} 的整数`, maxPriority !== undefined);
+    }
+    let priority: number | undefined;
+    if (priorityText !== undefined && maxPriority !== undefined) {
+      priority = Number(priorityText);
+      if (
+        priorityText === '' ||
+        !Number.isInteger(priority) ||
+        priority < 0 ||
+        priority > maxPriority
+      ) {
+        scopeQuotaUsageError(
+          flagName,
+          `"${value}" 的 p 必须是 0..${maxPriority} 的整数`,
+          true,
+        );
+      }
+    }
+    let weight: number | undefined;
+    if (weightText !== undefined && maxWeight !== undefined) {
+      weight = Number(weightText);
+      if (
+        weightText === '' ||
+        !Number.isInteger(weight) ||
+        weight < 1 ||
+        weight > maxWeight
+      ) {
+        scopeQuotaUsageError(
+          flagName,
+          `"${value}" 的 w 必须是 1..${maxWeight} 的整数`,
+          true,
+        );
+      }
+    }
+    if (seen.has(scope)) {
+      scopeQuotaUsageError(flagName, `范围 "${scope}" 重复`, maxPriority !== undefined);
+    }
+    if (quotas.length >= PTC_MAX_BINDING_QUOTA_SCOPES) {
+      scopeQuotaUsageError(flagName, `最多 ${PTC_MAX_BINDING_QUOTA_SCOPES} 条`, maxPriority !== undefined);
+    }
+    seen.add(scope);
+    quotas.push({
+      namespace: parts[0]!,
+      ...(parts[1] === undefined ? {} : { member: parts[1] }),
+      limit,
+      ...(priority === undefined ? {} : { priority }),
+      ...(weight === undefined ? {} : { weight }),
+    });
+  }
+  return quotas;
+}
+
+function resolveMaxPtcScopeCallsFlag(opts: OptionValues): readonly PtcBindingScopeQuota[] | undefined {
+  return resolveScopeQuotaFlag(
+    opts.maxPtcScopeCalls,
+    '--max-ptc-scope-calls',
+    PTC_MAX_BINDING_CALLS,
+  );
+}
+
+function resolveMaxPtcScopeConcurrentCallsFlag(
+  opts: OptionValues,
+): readonly PtcBindingConcurrencyQuota[] | undefined {
+  return resolveScopeQuotaFlag(
+    opts.maxPtcScopeConcurrentCalls,
+    '--max-ptc-scope-concurrent-calls',
+    PTC_MAX_CONCURRENT_BINDING_CALLS,
+    PTC_MAX_BINDING_SCOPE_PRIORITY,
+    PTC_MAX_BINDING_SCOPE_WEIGHT,
+  );
+}
+
+function scopeQuotaUsageError(
+  flagName: string,
+  message: string,
+  allowPriority = false,
+): never {
+  console.error(
+    `${flagName} ${message};` +
+    '格式为 tools=n 或 tools.member=n' +
+    (allowPriority ? ';并发维度可写 tools=n:p 或 tools.member=n:p' : ''),
+  );
+  process.exit(2);
+}
+
+/** W4-14:执行器选择只接受两个明文值;非法值 fail-closed 成退出码 2,不静默回退。 */
+function resolveToolExecutorFlag(opts: OptionValues): ToolExecutorKind | undefined {
+  const raw = typeof opts.toolExecutor === 'string' ? opts.toolExecutor.trim() : '';
+  if (raw === '' || raw === 'native') return undefined;
+  if (raw === 'ptc') return 'ptc';
+  console.error('--tool-executor 必须是 native 或 ptc');
+  process.exit(2);
+}
+
+/** W4-14:保留式 REPL/Script 只在显式 flag 下启用;缺省仍是一次性执行。 */
+function resolvePtcRetainedFlag(opts: OptionValues): boolean {
+  return opts.ptcRetained === true;
+}
+
+/** W4-14:AppContainer 内核沙箱只在显式 flag 下启用。 */
+function resolvePtcOsSandboxFlag(opts: OptionValues): boolean {
+  return opts.ptcOsSandbox === true;
+}
+
+function resolvePtcOsSandboxRootFlag(opts: OptionValues): string | undefined {
+  return typeof opts.ptcOsSandboxRoot === 'string' && opts.ptcOsSandboxRoot.length > 0
+    ? opts.ptcOsSandboxRoot
+    : undefined;
+}
+
 /**
  * IHUI_TUI=1 时的全屏分支(默认档仍是行模式 —— 见 commands/tui.ts 头注的理由)。
  *
@@ -171,6 +433,16 @@ async function maybeRunFullScreen(
 ): Promise<boolean> {
   const declined: string[] = [];
   if (resolvePermissions(opts)) declined.push('--tools/--disallowed-tools');
+  if (resolveMaxParallelToolCallsFlag(opts) !== undefined) declined.push('--max-parallel-tool-calls');
+  if (resolveMaxPtcToolCallsFlag(opts) !== undefined) declined.push('--max-ptc-tool-calls');
+  if (resolveMaxPtcBindingTimeoutMsFlag(opts) !== undefined) declined.push('--max-ptc-binding-ms');
+  if (resolveMaxPtcTurnCallsFlag(opts) !== undefined) declined.push('--max-ptc-turn-calls');
+  if (resolveMaxPtcConcurrentCallsFlag(opts) !== undefined) declined.push('--max-ptc-concurrent-calls');
+  if (resolveMaxPtcScopeCallsFlag(opts) !== undefined) declined.push('--max-ptc-scope-calls');
+  if (resolveMaxPtcScopeConcurrentCallsFlag(opts) !== undefined) declined.push('--max-ptc-scope-concurrent-calls');
+  if (resolveMaxPtcPriorityAgingFlag(opts) !== undefined) declined.push('--max-ptc-priority-aging');
+  if (resolveMaxPtcTurnConcurrentCallsFlag(opts) !== undefined) declined.push('--max-ptc-turn-concurrent-calls');
+  if (resolveToolExecutorFlag(opts) === 'ptc') declined.push('--tool-executor ptc');
   if (cfg.planFirst) declined.push('--plan');
   if (cfg.autoApprovePlan) declined.push('--auto-approve-plan');
   return tryFullScreenFromEnv({
@@ -210,7 +482,31 @@ program
   .version(pkg.version)
   .option('-m, --model <model_id>', t('cliEntry.modelIdDesc'), 'default')
   .option('-w, --workspace <path>', t('cliEntry.workspacePathDesc'), process.cwd())
+  .option('--task-workspace', '本次无头运行在宿主任务副本中执行；成功后 publish 回工作区，失败默认丢弃')
   .option('--max-iterations <n>', t('cliEntry.maxIterationsDesc'), '25')
+  .option('--max-parallel-tool-calls <n>', '单批工具并行上限(默认 10，1=串行，最大 64)')
+  .option('--max-ptc-tool-calls <n>', '单程序绑定调用总上限(默认 1000，最大 10000，仅 PTC/run_code 生效)')
+  .option('--max-ptc-binding-ms <n>', '单个绑定调用墙钟上限(0 关闭，默认 30000，最大 600000，仅 PTC/run_code 生效)')
+  .option('--max-ptc-turn-calls <n>', '一个 agent 回合内多次 run_code 共享的绑定调用总上限(最大 10000；不设则只看单程序预算)')
+  .option('--max-ptc-priority-aging <n>', '排队老化上限(0 关闭，1..10 表示每轮空槽分配给仍在排队的调用 +1 级有效优先级，仅 PTC/run_code 生效)')
+  .option('--max-ptc-turn-concurrent-calls <n>', '一个 agent 回合内所有 run_code 共享的绑定调用同时在飞上限(1..64；不设则只看单程序/范围并发)')
+  .option('--max-ptc-concurrent-calls <n>', '单程序同时在飞的绑定调用上限(默认 10，最大 64，仅 PTC/run_code 生效)')
+  .option('--ptc-retained', '启用保留式 REPL/Script:同一 agent 内 run_code 顶层变量跨调用保留(缺省一次性)')
+  .option('--ptc-os-sandbox', 'Windows:用 AppContainer 内核沙箱运行 PTC worker(缺省关闭;仅文件/网络内核裁决)')
+  .option('--ptc-os-sandbox-root <path>', 'AppContainer worker 根目录(缺省 %ProgramData%\\IHUI-AI\\PTC)')
+  .option(
+    '--max-ptc-scope-calls <scope=n>',
+    '按命名空间/成员限制单程序绑定调用次数(可重复，如 tools=100、tools.read_file=20)',
+    collectPtcScopeCalls,
+    [],
+  )
+  .option(
+    '--max-ptc-scope-concurrent-calls <scope=n[:p[:w]]>',
+    '按命名空间/成员限制单程序同时在飞调用(可重复，如 tools=4、tools.read_file=2:8、tools.read_file=2:0:4;p=0..10 越大越优先,w=1..10 同优先级按权重分份额,最大 64 条)',
+    collectPtcScopeCalls,
+    [],
+  )
+  .option('--tool-executor <mode>', '工具执行器: native(默认) / ptc(仅暴露 run_code)', 'native')
   .option('--max-turns <n>', t('cliEntry.maxTurnsDesc'))
   .option('--api-url <url>', t('cliEntry.apiUrlDesc'), process.env.IHUI_API_URL || '')
   .option('--api-key <key>', t('cliEntry.apiKeyDesc'), process.env.IHUI_API_KEY || '')
@@ -488,6 +784,7 @@ async function runAgentAndExit(
     headlessPermission.evaluate({ name: HEADLESS_SESSION_RELAXATION }).action === 'allow';
   const abort = new AbortController();
   let session: ReturnType<typeof createSession> | null = null;
+  let taskRun: { id: string; source: string; root: string } | null = null;
   const onSigint = (): void => {
     if (!abort.signal.aborted) {
       abort.abort();
@@ -509,9 +806,35 @@ async function runAgentAndExit(
       session.id = resumed.sessionId;
       session.history = resumed.history;
     }
+    const sourceWorkspace = resolvePath(
+      typeof opts.workspace === 'string' ? opts.workspace : process.cwd(),
+    );
+    let toolWorkspace = sourceWorkspace;
+    if (opts.taskWorkspace === true || process.env.IHUI_TASK_WORKSPACE === '1') {
+      // Task 模式下 source 必须先干净；建副本失败就 fail-closed，不悄悄退回真实工作区。
+      const rawTaskId = `cli-${session.id}-${Date.now()}`.replace(/[^A-Za-z0-9._-]/g, '-');
+      const taskId = rawTaskId.slice(0, 96);
+      // 与 setupAgentTools 用同一份结算，避免自定义 blockedEnv 让 run_command
+      // 重建宿主连接、把刚建的任务副本丢掉。
+      const taskSandbox = resolveSandboxOptions(loadSettings().sandbox?.profile, loadSettings().sandbox ?? {});
+      const prep = await prepareTaskOnToolHost(
+        sourceWorkspace,
+        taskId,
+        [sourceWorkspace],
+        taskSandbox.blockedEnvVars,
+      );
+      if (typeof prep.root !== 'string' || prep.root.length === 0) {
+        throw new Error(`TaskPrepare 未返回副本根: ${JSON.stringify(prep)}`);
+      }
+      taskRun = { id: taskId, source: sourceWorkspace, root: prep.root };
+      toolWorkspace = prep.root;
+      if (!jsonMode) {
+        console.info(chalk.dim(`  [task-workspace] ${taskId} → ${toolWorkspace}`));
+      }
+    }
     const checkpoints = new CheckpointManager({
       sessionId: session.id,
-      workspacePath: opts.workspace,
+      workspacePath: toolWorkspace,
     });
     // 权限租约(--permission-lease):操作员显式点名工具清单才授予,作用域 = 本次会话这一目标。
     // 未给 flag ⇒ outcome.kind==='none',`grantPermissionLease()` 一次都不被调用,
@@ -579,10 +902,27 @@ async function runAgentAndExit(
       const result = await runAgent({
         prompt,
         modelId: cfg.model,
-        workspacePath: opts.workspace,
+        workspacePath: toolWorkspace,
+        workspaceRoots: taskRun ? [taskRun.source] : undefined,
+        taskWorkspaceId: taskRun?.id,
         apiUrl: cfg.apiUrl,
         apiKey: cfg.apiKey,
         maxIterations: cfg.maxIterations,
+        maxParallelToolCalls: resolveMaxParallelToolCallsFlag(opts),
+        maxPtcToolCalls: resolveMaxPtcToolCallsFlag(opts),
+        maxPtcBindingTimeoutMs: resolveMaxPtcBindingTimeoutMsFlag(opts),
+        maxPtcTurnCalls: resolveMaxPtcTurnCallsFlag(opts),
+        maxPtcPriorityAging: resolveMaxPtcPriorityAgingFlag(opts),
+        maxPtcTurnConcurrentCalls: resolveMaxPtcTurnConcurrentCallsFlag(opts),
+        maxPtcConcurrentCalls: resolveMaxPtcConcurrentCallsFlag(opts),
+        maxPtcScopeCalls: resolveMaxPtcScopeCallsFlag(opts),
+        maxPtcScopeConcurrentCalls: resolveMaxPtcScopeConcurrentCallsFlag(opts),
+        toolExecutorKind: resolveToolExecutorFlag(opts),
+        ptcRetained: resolvePtcRetainedFlag(opts),
+        ptcOsSandbox: resolvePtcOsSandboxFlag(opts),
+        ...(resolvePtcOsSandboxRootFlag(opts) === undefined
+          ? {}
+          : { ptcOsSandboxRoot: resolvePtcOsSandboxRootFlag(opts) }),
         jsonMode,
         // 本函数(`runAgentAndExit`)就是无头单次执行本身:--prompt-file / `ihui "任务"` /
         // `ihui agent 任务` 三条单发入口都汇到这里,而交互式 REPL / ACP 各自直调 runToolLoop、
@@ -615,9 +955,30 @@ async function runAgentAndExit(
       if (result.stopReason === 'error') {
         cloudStatus = 'error';
       }
+      if (taskRun) {
+        // 只有正常 end_turn 才发布；error/interrupted/cancelled 等一律丢弃，避免把
+        // 半成品悄悄 apply 到用户工作区。
+        if (result.stopReason === 'end_turn') {
+          const published = await publishTaskOnToolHost(taskRun.id);
+          if (!jsonMode) {
+            console.info(
+              chalk.green(
+                `  [task-workspace] published ${String(published.changedFiles ?? 0)} file(s), ` +
+                  `${String(published.patchBytes ?? 0)} byte patch`,
+              ),
+            );
+          }
+        }
+        await abandonTaskOnToolHost(taskRun.id);
+        taskRun = null;
+      }
     } catch (err) {
       cloudStatus = 'error';
       cloudOutput = err instanceof Error ? err.message : String(err);
+      if (taskRun) {
+        await abandonTaskOnToolHost(taskRun.id).catch(() => {});
+        taskRun = null;
+      }
       throw err;
     } finally {
       // 租约收尾:无论成功/失败/异常都显式撤销并落 `permission_lease_revoked` 审计行。
@@ -695,6 +1056,10 @@ async function runAgentAndExit(
     }
   } finally {
     process.off('SIGINT', onSigint);
+    if (taskRun) {
+      await abandonTaskOnToolHost(taskRun.id).catch(() => {});
+      taskRun = null;
+    }
   }
 }
 
@@ -809,6 +1174,21 @@ program
         apiUrl: cfg.apiUrl,
         apiKey: cfg.apiKey,
         maxIterations: cfg.maxIterations,
+        maxParallelToolCalls: resolveMaxParallelToolCallsFlag(opts),
+        maxPtcToolCalls: resolveMaxPtcToolCallsFlag(opts),
+        maxPtcBindingTimeoutMs: resolveMaxPtcBindingTimeoutMsFlag(opts),
+        maxPtcTurnCalls: resolveMaxPtcTurnCallsFlag(opts),
+        maxPtcPriorityAging: resolveMaxPtcPriorityAgingFlag(opts),
+        maxPtcTurnConcurrentCalls: resolveMaxPtcTurnConcurrentCallsFlag(opts),
+        maxPtcConcurrentCalls: resolveMaxPtcConcurrentCallsFlag(opts),
+        maxPtcScopeCalls: resolveMaxPtcScopeCallsFlag(opts),
+        maxPtcScopeConcurrentCalls: resolveMaxPtcScopeConcurrentCallsFlag(opts),
+        toolExecutorKind: resolveToolExecutorFlag(opts),
+        ptcRetained: resolvePtcRetainedFlag(opts),
+        ptcOsSandbox: resolvePtcOsSandboxFlag(opts),
+        ...(resolvePtcOsSandboxRootFlag(opts) === undefined
+          ? {}
+          : { ptcOsSandboxRoot: resolvePtcOsSandboxRootFlag(opts) }),
         sessionId: session.sessionId,
         history: session.history,
         enableMcp: cfg.enableMcp,
@@ -848,6 +1228,21 @@ const chatCmd = program
       apiUrl: cfg.apiUrl,
       apiKey: cfg.apiKey,
       maxIterations: cfg.maxIterations,
+      maxParallelToolCalls: resolveMaxParallelToolCallsFlag(opts),
+      maxPtcToolCalls: resolveMaxPtcToolCallsFlag(opts),
+      maxPtcBindingTimeoutMs: resolveMaxPtcBindingTimeoutMsFlag(opts),
+      maxPtcTurnCalls: resolveMaxPtcTurnCallsFlag(opts),
+      maxPtcPriorityAging: resolveMaxPtcPriorityAgingFlag(opts),
+      maxPtcTurnConcurrentCalls: resolveMaxPtcTurnConcurrentCallsFlag(opts),
+      maxPtcConcurrentCalls: resolveMaxPtcConcurrentCallsFlag(opts),
+      maxPtcScopeCalls: resolveMaxPtcScopeCallsFlag(opts),
+      maxPtcScopeConcurrentCalls: resolveMaxPtcScopeConcurrentCallsFlag(opts),
+      toolExecutorKind: resolveToolExecutorFlag(opts),
+      ptcRetained: resolvePtcRetainedFlag(opts),
+      ptcOsSandbox: resolvePtcOsSandboxFlag(opts),
+      ...(resolvePtcOsSandboxRootFlag(opts) === undefined
+        ? {}
+        : { ptcOsSandboxRoot: resolvePtcOsSandboxRootFlag(opts) }),
       sessionId: session.sessionId,
       history: session.history,
       enableMcp: cfg.enableMcp,

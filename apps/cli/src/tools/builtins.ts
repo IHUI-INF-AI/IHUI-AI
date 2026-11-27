@@ -13,8 +13,13 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { runSandboxed, runSandboxedAsync } from '../sandbox/index.js';
+import { runSandboxed, runSandboxedAsync, precheckSandbox, DEFAULT_BLOCKED_ENV_VARS } from '../sandbox/index.js';
 import type { SandboxResult } from '../sandbox/index.js';
+import { isToolHostAvailable, runOnToolHost } from '../sandbox/tool-host.js';
+// build 配置的 noUnusedLocals 不会把只在 tool-host 分支里出现的导入算作读取;
+// 固定别名保留它们的引用,避免生产构建被误判为未使用。
+const sandboxPrecheck = precheckSandbox
+const defaultBlockedEnvVars = DEFAULT_BLOCKED_ENV_VARS
 // 按操作分维的文件访问裁决(goal-b49 复现对侧能力):读正文之前先问这一层。
 import { evaluateFileAccess, toAclPath, announceGuardUnjudged } from '../sandbox/file-access-policy.js';
 import { markPostToolCallDeferred, runDeferredPostToolCall } from '../hooks/index.js';
@@ -675,9 +680,9 @@ export const read_file: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 32 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 16 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 80, from: 'head' },
+      preview: { bytes: 4096, lines: 80, from: 'head' },
     },
   },
   parameters: {
@@ -993,9 +998,9 @@ export const list_dir: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 32 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 16 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 80, from: 'head' },
+      preview: { bytes: 4096, lines: 80, from: 'head' },
     },
   },
   async execute(args, ctx): Promise<ToolResult> {
@@ -1136,9 +1141,9 @@ export const grep: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 32 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 16 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 80, from: 'head' },
+      preview: { bytes: 4096, lines: 80, from: 'head' },
     },
   },
   async execute(args, ctx): Promise<ToolResult> {
@@ -1244,9 +1249,9 @@ export const glob: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 32 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 16 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 80, from: 'head' },
+      preview: { bytes: 4096, lines: 80, from: 'head' },
     },
   },
   async execute(args, ctx): Promise<ToolResult> {
@@ -1367,6 +1372,20 @@ export function isAutoBackgroundEligible(command: string): boolean {
   if (!trimmed) return false;
   const first = (trimmed.split(/\s+/)[0] ?? '').toLowerCase();
   return first !== 'sleep';
+}
+
+/**
+ * W4-06 前台宿主路由的显式 opt-in。
+ *
+ * 默认只有不可收编（`sleep` 类）的命令进宿主：可收编命令在超时后必须留在
+ * CLI 进程里转后台，宿主一次性执行没有这个句柄。要验证/启用全量前台命令走
+ * 宿主，显式设 `IHUI_TOOL_HOST_FOREGROUND=1`；此时超时等价于直接失败，不再
+ * 自动转后台（这是用宿主换隔离的代价，调用方自己选）。
+ */
+export function shouldRouteForegroundToToolHost(command: string): boolean {
+  if (!isToolHostAvailable()) return false;
+  if (process.env.IHUI_TOOL_HOST_FOREGROUND === '1') return true;
+  return !isAutoBackgroundEligible(command);
 }
 
 /**
@@ -1495,9 +1514,9 @@ export const run_command: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   parameters: {
@@ -1571,6 +1590,108 @@ export const run_command: Tool = {
       commandAllowlist: ctx.sandbox?.commandAllowlist,
       blockedEnvVars: ctx.sandbox?.blockedEnvVars,
     };
+    // W4-06 消费方:宿主可用时,前台一次性命令交给独立 tool-host 进程执行。
+    // 后台/可收编命令仍走旧路径(需要 ChildProcess 句柄与流式输出);命令白名单与
+    // 路径白名单仍先在 CLI 侧过一遍,不能因为换了宿主就跳过策略。
+    if (ctx.taskWorkspaceId) {
+      // 任务副本模式:所有前台命令都走宿主 AppContainer，cwd 是任务副本（AC 可写根），
+      // 默认断网；后台/自动收编命令需要 ChildProcess 句柄，当前宿主协议不提供，直接拒绝，
+      // 不回落 CLI 直跑制造第二条执行路径。
+      if (background) {
+        return {
+          success: false,
+          output: '',
+          error: '任务副本模式暂不支持 background 命令；请用前台命令或拆分任务',
+          errorType: 'task_workspace_background_unsupported',
+        };
+      }
+      const precheck = sandboxPrecheck(command, sandboxOpts);
+      if (precheck.blocked) {
+        return {
+          success: false,
+          output: '',
+          error: `命令被沙箱预检拒绝: ${(precheck as { blockReason?: string }).blockReason ?? 'unknown'}`,
+          errorType: 'sandbox_blocked',
+        };
+      }
+      try {
+        const host = await runOnToolHost({
+          command,
+          cwd: ctx.workspacePath,
+          timeoutMs,
+          blockedEnvVars: sandboxOpts.blockedEnvVars ?? defaultBlockedEnvVars,
+          integrity: 'appcontainer',
+          workspaceRoots: ctx.workspaceRoots ?? (ctx.workspacePath ? [ctx.workspacePath] : []),
+          taskWorkspaceId: ctx.taskWorkspaceId,
+          turnId: ctx.turnId,
+          toolCallId: ctx.toolCallId,
+        });
+        const result: SandboxResult = {
+          stdout: host.stdout,
+          stderr: host.stderr,
+          exitCode: host.exitCode,
+          timedOut: host.timedOut,
+          truncated:
+            host.stdout.includes('[output truncated at 1MiB]') ||
+            host.stderr.includes('[output truncated at 1MiB]'),
+          blocked: false,
+          failureKind: host.timedOut ? 'timed_out' : host.exitCode === 0 ? null : 'failed',
+        };
+        return settleForegroundCommand(result, command, ctx);
+      } catch (err) {
+        return {
+          success: false,
+          output: '',
+          error: `tool-host 任务命令执行失败(未回落,避免重复副作用): ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+          errorType: 'tool_host_error',
+        };
+      }
+    }
+    if (shouldRouteForegroundToToolHost(command)) {
+      const precheck = sandboxPrecheck(command, sandboxOpts);
+      if (!precheck.blocked) {
+        try {
+          // 默认前台宿主只接 `sleep` 类不可收编命令，不需要写工作区，走 AppContainer
+          // 断网档；`IHUI_TOOL_HOST_FOREGROUND=1` 才显式放开全量前台命令并保留
+          // `inherit`（这些命令可能写 workspacePath，AppContainer 低完整性会被 MIC 拦住）。
+          const fullForeground = process.env.IHUI_TOOL_HOST_FOREGROUND === '1';
+          const host = await runOnToolHost({
+            command,
+            cwd: fullForeground ? ctx.workspacePath : '',
+            timeoutMs,
+            blockedEnvVars: sandboxOpts.blockedEnvVars ?? defaultBlockedEnvVars,
+            integrity: fullForeground ? 'inherit' : 'appcontainer',
+            workspaceRoots: ctx.workspaceRoots ?? (ctx.workspacePath ? [ctx.workspacePath] : []),
+            turnId: ctx.turnId,
+            toolCallId: ctx.toolCallId,
+          });
+          const result: SandboxResult = {
+            stdout: host.stdout,
+            stderr: host.stderr,
+            exitCode: host.exitCode,
+            timedOut: host.timedOut,
+            truncated:
+              host.stdout.includes('[output truncated at 1MiB]') ||
+              host.stderr.includes('[output truncated at 1MiB]'),
+            blocked: false,
+            failureKind: host.timedOut ? 'timed_out' : host.exitCode === 0 ? null : 'failed',
+          };
+          return settleForegroundCommand(result, command, ctx);
+        } catch (err) {
+          // 不回落:宿主可能已经执行了一半,回落会制造第二次副作用。
+          return {
+            success: false,
+            output: '',
+            error: `tool-host 执行失败(未回落,避免重复副作用): ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+            errorType: 'tool_host_error',
+          };
+        }
+      }
+    }
     if (isAutoBackgroundEligible(command)) {
       // G-896416 超时自动转后台 —— 上游 ZCode `tool/handlers/bash.ts:178-184`:
       // `eligibleForAutoBackground && backgroundLifecyclePort ⇒ runBashWithBackgroundLifecycle(request,{mode:"auto_on_timeout"})`。
@@ -1636,9 +1757,9 @@ export const list_background_tasks: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 32 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 16 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 80, from: 'head' },
+      preview: { bytes: 4096, lines: 80, from: 'head' },
     },
   },
   parameters: {},
@@ -1673,9 +1794,9 @@ export const get_command_output: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 32 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 16 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 80, from: 'head' },
+      preview: { bytes: 4096, lines: 80, from: 'head' },
     },
   },
   parameters: {
@@ -1731,9 +1852,9 @@ export const wait_command: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 32 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 16 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 80, from: 'head' },
+      preview: { bytes: 4096, lines: 80, from: 'head' },
     },
   },
   parameters: {
@@ -1815,9 +1936,9 @@ export const kill_command: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   parameters: {

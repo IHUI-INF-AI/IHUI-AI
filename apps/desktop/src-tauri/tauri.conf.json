@@ -1,11 +1,11 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "智汇AI",
-  "version": "0.1.97",
+  "version": "0.1.94",
   "identifier": "com.ihui.desktop",
   "build": {
     "beforeDevCommand": "node ../../scripts/desktop-before-dev.mjs",
-    "beforeBuildCommand": "node ../../scripts/desktop-cli-bundle.mjs && node ../../scripts/desktop-launcher-build.mjs && node ../../scripts/desktop-installer-assets.mjs && node ../../scripts/check-desktop-icons.mjs --icons-dir=src-tauri/icons",
+    "beforeBuildCommand": "node ../../scripts/desktop-toolhost-build.mjs && node ../../scripts/desktop-launcher-build.mjs && node ../../scripts/desktop-installer-assets.mjs && node ../../scripts/check-desktop-icons.mjs --icons-dir=src-tauri/icons",
     "devUrl": "http://localhost:8801",
     "frontendDist": "shell"
   },
@@ -37,13 +37,13 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' blob: https://aizhs.top https://www.aizhs.top https://api.aizhs.top wss://api.aizhs.top http://127.0.0.1:8803; font-src 'self' data:; frame-src 'self' https://aizhs.top https://www.aizhs.top"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://aizhs.top https://www.aizhs.top https://api.aizhs.top wss://api.aizhs.top http://127.0.0.1:8803; font-src 'self' data:; frame-src 'self' https://aizhs.top https://www.aizhs.top"
     }
   },
   "plugins": {
     "updater": {
       "endpoints": ["https://aizhs.top/desktop-feed.json"],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE0MEUwNURENzY5RDc5NjEKUldSaGVaMTIzUVVPcE5aK29STWhYQ1ZzeGY1T00ycWhFbWpmSTl2OWN5ZjlkR2twMlBkakdJdlMK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEI1RDdFNjdFQTJCMURCMDgKUldRSTI3R2lmdWJYdFJuYXhoQ1pQekNOcUNKOUplWWQ1QVJPK25OakFrL2NmS0ZrREZDbThwbEUK",
       "windows": {
         "installMode": "quiet"
       }
@@ -62,9 +62,7 @@
     "targets": ["nsis", "app", "dmg", "deb", "rpm", "appimage"],
     "createUpdaterArtifacts": true,
     "resources": {
-      "binaries/ihui-launcher.exe": "launcher/ihui-launcher.exe",
-      "bundle-cli": "cli",
-      "bundle-node": "node"
+      "binaries/ihui-launcher.exe": "launcher/ihui-launcher.exe"
     },
     "icon": [
       "icons/32x32.png",

@@ -2316,6 +2316,7 @@ dependencies = [
  "aes-gcm",
  "arboard",
  "base64 0.23.0",
+ "encoding_rs",
  "enigo",
  "fs2",
  "ihui-launcher",
@@ -2361,6 +2362,7 @@ dependencies = [
  "fs2",
  "serde",
  "serde_json",
+ "sha2",
  "windows-sys 0.52.0",
  "winres",
 ]

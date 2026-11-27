@@ -7,6 +7,14 @@
 // 同一判序 + 同一 ASCII 原因码 + 同样的「拒时具名出声」)。内置网段/域名族表刻意不复制,
 // 详见模块头注与 `apps/desktop/tests/egress-env-keys-parity.test.mjs`。
 mod egress_gate;
+// 2026-11-26 立:受限令牌 guarded spawn —— 低完整性 + 受限令牌 + 作业限额的真实进程隔离。
+// 补 `sandbox_sdk` 只探测不执行的缺口；失败一律 Err，不回落裸跑。
+#[cfg(windows)]
+mod sandbox_spawn;
+// 2026-11-27 立(W4-06 第一步):tool-host 子进程 + 命名管道 JSON-RPC。
+// 执行从 UI 进程切出去;turnId/toolCallId 双键幂等;MCP 迁移留位但如实报未实现。
+#[cfg(windows)]
+pub mod tool_host;
 mod native_bridge;
 // 2026-09-17 薄壳化配套:线上前端自动刷新 + 断网兜底守卫(详见模块文档)
 mod auto_refresh;
@@ -48,6 +56,7 @@ mod git_status_core;
 mod git_local_diff;
 // 2026-10-18 立(票72②):工作区增量索引执行层(只用 std;目录不下降符号链接/junction=票72④的索引侧收口)。
 mod workspace_index;
+mod task_workspace;
 // 2026-11-19 立:本机工作区文件通道(判据层纯 std 可单跑 / 胶水层只映射 DTO)。
 // 与 Qoder/Trae/WorkBuddy 同构的那一半:工作区=本机目录,列/读/写在本机进程里完成,
 // 不再经过服务端 IHUI_WORKSPACE_ROOTS 白名单。
@@ -580,6 +589,7 @@ fn get_admin_window_info() -> AdminWindowInfo {
 /// Tauri 2 没有 JS 端 toggle API,必须在 Rust 端做。
 #[tauri::command]
 fn toggle_devtools(window: tauri::WebviewWindow) -> Result<(), String> {
+    // 生产默认特性集不含 devtools（L13）。方法只在 feature 打开时存在。
     #[cfg(feature = "devtools")]
     {
         if window.is_devtools_open() {
@@ -592,7 +602,7 @@ fn toggle_devtools(window: tauri::WebviewWindow) -> Result<(), String> {
     #[cfg(not(feature = "devtools"))]
     {
         let _ = window;
-        Err("当前构建未启用开发者工具".to_string())
+        Err("devtools 未编入此构建".to_string())
     }
 }
 
@@ -4972,6 +4982,70 @@ fn query_notification_permission() -> notification_permission::PermissionReport 
     notification_permission::read_notification_permission()
 }
 
+/// B2-11:沙箱能力自检(只读)。返回本机真实探测结果:低完整性进程能否启动、
+/// stdout 管道能否读到。探测失败如实带回原因,前端不得把 unsupported 当 supported 展示。
+#[tauri::command]
+fn sandbox_self_test() -> serde_json::Value {
+    #[cfg(windows)]
+    {
+        let report = sandbox_spawn::probe();
+        // W4-06 桌面侧消费点：自检命令真拉起 tool-host 并执行一次 echo。
+        // 找不到 sidecar 时只把可用性写进报告，不让整个沙箱自检失败。
+        let tool_host = match tool_host::ToolHostManager::new(None).execute(
+            "desktop-self-test",
+            "call-1",
+            "cmd.exe",
+            &["/d", "/s", "/c", "echo toolhost-ok"],
+            None,
+            Some(5_000),
+        ) {
+            Ok(result) => serde_json::json!({ "available": true, "result": result }),
+            Err(error) => serde_json::json!({ "available": false, "error": error }),
+        };
+        return serde_json::json!({
+            "supported": report.supported,
+            "tier": report.tier,
+            "detail": report.detail,
+            "preferred_tier": if report.supported { sandbox_sdk::TIER_LOW_INTEGRITY } else { sandbox_sdk::TIER_JOB_OBJECT },
+            "tool_host": tool_host,
+        });
+    }
+    #[cfg(not(windows))]
+    {
+        serde_json::json!({
+            "supported": false,
+            "tier": "unsupported",
+            "detail": "非 Windows 平台未接低完整性沙箱（不拿作业级实现冒充）",
+            "preferred_tier": sandbox_sdk::TIER_JOB_OBJECT,
+        })
+    }
+}
+
+#[cfg(test)]
+mod desktop_self_test_probe_tests {
+    use super::sandbox_self_test;
+
+    /// W4-06 桌面消费点：自检报告必须带 tool_host 字段，且宿主可用时真的执行返回
+    /// success。没有 sidecar 的干净 CI 只断言字段存在，不把“没装宿主”伪装成失败。
+    #[test]
+    fn reports_tool_host_probe() {
+        let report = sandbox_self_test();
+        let probe = report.get("tool_host").expect("tool_host 字段缺失");
+        assert!(probe.get("available").is_some(), "tool_host.available 缺失: {probe}");
+        #[cfg(windows)]
+        if probe.get("available").and_then(|v| v.as_bool()) == Some(true) {
+            assert_eq!(
+                probe
+                    .get("result")
+                    .and_then(|v| v.get("exitCode"))
+                    .and_then(|v| v.as_i64()),
+                Some(0),
+                "tool-host 执行 echo 应退出 0: {probe}"
+            );
+        }
+    }
+}
+
 /// 长任务防休眠开关(幂等):前端 owner 引用计数归零时才调 active=false。
 #[tauri::command]
 fn set_sleep_prevention(active: bool) -> wake_lock::SleepPreventionReport {
@@ -5828,6 +5902,7 @@ pub fn run() {
             embedded_browser::embedded_browser_new_tab,
             embedded_browser::embedded_browser_devtools,
             embedded_browser::embedded_browser_pip,
+            embedded_browser::embedded_browser_watch_task,
             browser_pip_window::open_browser_pip_window,
             browser_pip_window::close_browser_pip_window,
             browser_pip_window::set_browser_pip_collapsed,
@@ -5970,6 +6045,7 @@ pub fn run() {
     set_sleep_prevention,
     // 2026-11-23 立(B2-10):出站拦截四桶计数(只读;埋点挂在 guard_egress_target)。
     sandbox_egress_metrics,
+    sandbox_self_test,
     // 2026-11-23 立(B3-06):剪贴板一次性读取票据(发票 + 凭票读一次)。
     clipboard_issue_grant,
     clipboard_read_with_grant,

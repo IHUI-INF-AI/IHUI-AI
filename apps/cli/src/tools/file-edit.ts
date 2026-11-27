@@ -26,10 +26,12 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as crypto from 'node:crypto';
 import { type Tool, type ToolResult, type ToolContext, checkPathWritePermission } from './index.js';
+import { deleteFileOnToolHost, writeFileOnToolHost } from '../sandbox/tool-host.js';
 import { seekSequence, type MatchLevel } from './seek-sequence.js';
 import type { CheckpointManager } from '../checkpoints/index.js';
 import type { HunkTracker } from '../checkpoints/hunk-tracker.js';
 import {
+  assertSingleFileDeleteAllowed,
   createBatchEditTools,
   // 删除保护链端内腿(goal-b49 W1-①):单文件删除同样先过护栏判定、再进回收站
   recycleDeleteSingleFile,
@@ -252,9 +254,9 @@ export function createWriteFileTool(ctx: EditToolContext): Tool {
       },
       resultBudget: {
         inlineLimitBytes: 16 * 1024,
-        providerVisibleLimitBytes: 72_000,
+        providerVisibleLimitBytes: 8 * 1024,
         policy: 'truncate',
-        preview: { bytes: 3_600, lines: 40, from: 'head' },
+        preview: { bytes: 2048, lines: 40, from: 'head' },
       },
     },
     async execute(args, execCtx): Promise<ToolResult> {
@@ -282,7 +284,18 @@ export function createWriteFileTool(ctx: EditToolContext): Tool {
           : { startLine: 1, endLine: Math.max(1, content.split('\n').length) };
         warnConflictIfAny(ctx, abs, startLine, endLine);
         const snapshotNote = snapshotBeforeEdit(ctx, [abs], 'auto_pre_write_file');
-        commitAtomicWrite(baseline, content);
+        if (ctx.taskWorkspaceId) {
+          // 任务副本模式的唯一写入口：宿主校验路径、落盘到 stage，CLI 进程不再直写。
+          await writeFileOnToolHost(
+            ctx.taskWorkspaceId,
+            filePath,
+            content,
+            ctx.turnId ?? '',
+            ctx.toolCallId ?? '',
+          );
+        } else {
+          commitAtomicWrite(baseline, content);
+        }
         recordWriteState(execCtx, abs);
         recordHunk(ctx, abs, startLine, endLine, content);
         const lines = content.split('\n').length;
@@ -467,9 +480,9 @@ export function createEditFileTool(ctx: EditToolContext): Tool {
       },
       resultBudget: {
         inlineLimitBytes: 16 * 1024,
-        providerVisibleLimitBytes: 72_000,
+        providerVisibleLimitBytes: 8 * 1024,
         policy: 'truncate',
-        preview: { bytes: 3_600, lines: 40, from: 'head' },
+        preview: { bytes: 2048, lines: 40, from: 'head' },
       },
     },
     async execute(args, execCtx): Promise<ToolResult> {
@@ -516,7 +529,17 @@ export function createEditFileTool(ctx: EditToolContext): Tool {
 
         const { startLine, endLine } = computeChangedRange(original, applied.result);
         warnConflictIfAny(ctx, abs, startLine, endLine);
-        commitAtomicWrite(baseline, applied.result);
+        if (ctx.taskWorkspaceId) {
+          await writeFileOnToolHost(
+            ctx.taskWorkspaceId,
+            filePath,
+            applied.result,
+            ctx.turnId ?? '',
+            ctx.toolCallId ?? '',
+          );
+        } else {
+          commitAtomicWrite(baseline, applied.result);
+        }
         recordWriteState(execCtx, abs);
         recordHunk(ctx, abs, startLine, endLine, applied.result);
         const diff = computeUnifiedDiff(original, applied.result, filePath);
@@ -623,9 +646,9 @@ export function createDeleteFileTool(ctx: EditToolContext): Tool {
       },
       resultBudget: {
         inlineLimitBytes: 16 * 1024,
-        providerVisibleLimitBytes: 72_000,
+        providerVisibleLimitBytes: 8 * 1024,
         policy: 'truncate',
-        preview: { bytes: 3_600, lines: 40, from: 'head' },
+        preview: { bytes: 2048, lines: 40, from: 'head' },
       },
     },
     async execute(args, _execCtx): Promise<ToolResult> {
@@ -688,7 +711,18 @@ export function createDeleteFileTool(ctx: EditToolContext): Tool {
 
       // 删除保护链(两阶段护栏判定 + 回收站搬运):非 clean 判定即抛错 ⇒ 原文件未被触碰
       try {
-        recycleDeleteSingleFile(ctx.workspacePath, abs);
+        if (ctx.taskWorkspaceId) {
+          // 任务副本：先做同一套护栏判定，再经宿主删除；回收站只服务源工作区。
+          assertSingleFileDeleteAllowed(ctx.workspacePath, abs);
+          await deleteFileOnToolHost(
+            ctx.taskWorkspaceId,
+            filePath,
+            ctx.turnId ?? '',
+            ctx.toolCallId ?? '',
+          );
+        } else {
+          recycleDeleteSingleFile(ctx.workspacePath, abs);
+        }
       } catch (err) {
         return {
           success: false,

@@ -246,6 +246,14 @@ describe('createSubagentTool — schema 含新参数', () => {
     expect(tool.parameters.keepWorktree?.type).toBe('boolean');
   });
 
+  it('任务副本模式拒绝 worktree 隔离，避免写目标逃出当前副本', async () => {
+    const tool = createSubagentTool({ ...baseParentOpts, taskWorkspaceId: 'task-1' });
+    const result = await tool.execute({ task: 'test', isolation: 'worktree' }, { workspacePath: '/test-ws' });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('worktree');
+    expect(createWorktree).not.toHaveBeenCalled();
+  });
+
   it('description 提及 isolation/resumeFrom/capabilityMode', () => {
     const tool = createSubagentTool(baseParentOpts);
     expect(tool.description).toContain('isolation');

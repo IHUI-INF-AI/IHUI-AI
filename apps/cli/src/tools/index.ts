@@ -20,6 +20,13 @@
  */
 
 import { redactSecrets } from '../redact.js';
+import {
+  TOOL_EXEC_BUDGET_ABSOLUTE_FACTOR,
+  TOOL_EXEC_BUDGET_SETTLE_GRACE_MS,
+  resolveToolExecBudgetMs,
+  type ToolExecBudget,
+} from './tool-exec-budget-policy.js';
+export * from './tool-exec-budget-policy.js';
 import { checkFolderTrust, type FolderTrustMap } from '../sandbox/index.js';
 import { evaluateFileAccess, toAclPath, announceGuardUnjudged } from '../sandbox/file-access-policy.js';
 // 产品形态能力闸(goal-b49 Y3):判定本体在 @ihui/types 的 PRODUCT_FORM_CAPABILITIES(本层零判据),
@@ -33,7 +40,7 @@ import {
   type ResolvedPermissionAxis,
 } from '../sandbox/permission-axis-runtime.js';
 import { observeShadowToolCall } from '../skills/allowed-tools-shadow.js';
-import { checkPermission, checkRulesWithLease, type PermissionRules } from './permissions.js';
+import { checkPermissionRules, checkRulesWithLease, withPermissionKeyAliases, type PermissionRules } from './permissions.js';
 import { activePermissionLease } from './permission-lease.js';
 import {
   enforceValidateToolArguments,
@@ -63,11 +70,13 @@ export { ToolError };
 import {
   auditToolDenial,
   buildToolDenial,
+  buildToolRegistrationDenial,
   denialErrorSuffix,
   type ToolCallDenial,
 } from '../utils/tool-denial.js';
 import { injectHostSection } from '../utils/prompt-injection-registry.js';
 import { buildToolSurface, renderStablePrefix, renderToolSchema } from './tool-surface.js';
+import { auditToolRegistrationDecision, normalizeToolRegistration, permissionDecisionForRegistration, type ToolRegistration } from './tool-registration.js';
 import { BROWSER_TOOLS } from './browser.js';
 import { BROWSER_PAGE_TOOLS } from './browser-page.js';
 import {
@@ -95,11 +104,6 @@ export interface ToolParameter {
   properties?: Record<string, ToolParameter>;
   required?: string[];
   /**
-   * 闭合声明(b76-14 G-998176):`false` = 该层只收已声明键(未声明键判 unknown_field);
-   * 子 schema 形 = 未声明键按值类型判。**递归语义**:每一层各自声明,嵌套层由
-   * argument-validator 的 checkObject 逐层执行 —— 闭集不再只是顶层那一格。
-   */
-  /**
    * P1-3(2026-11-27):字符串格式与长度约束。声明后由 argument-validator 校验
    * (pattern_mismatch / length_mismatch),并由 schema-projection 原样发射给模型 ——
    * 「怎么校验」与「模型被告知怎么填」仍然同源。非法正则不静默跳过,一律 pattern_mismatch。
@@ -110,6 +114,11 @@ export interface ToolParameter {
   /** P1-3:数值范围(闭区间),声明后由 argument-validator 校验(range_mismatch)。 */
   minimum?: number;
   maximum?: number;
+  /**
+   * 闭合声明(b76-14 G-998176):`false` = 该层只收已声明键(未声明键判 unknown_field);
+   * 子 schema 形 = 未声明键按值类型判。**递归语义**:每一层各自声明,嵌套层由
+   * argument-validator 的 checkObject 逐层执行 —— 闭集不再只是顶层那一格。
+   */
   additionalProperties?: boolean | ToolParameter;
 }
 
@@ -307,6 +316,12 @@ export interface Tool extends ToolContractMount {
   /** 危险级别:read(只读,默认)/ write(写入)/ dangerous(危险,需用户确认) */
   dangerLevel?: 'read' | 'write' | 'dangerous';
   /**
+   * 工具注册三段式(2026-11-26 第八轮):approval / decorate / publish。
+   * 缺省(省略)= 既有行为逐字节不变;声明后由 executeToolCall 与 subagent 过滤面消费。
+   * 详见 `tools/tool-registration.ts` 头注。
+   */
+  registration?: ToolRegistration;
+  /**
    * 单次执行的墙钟预算声明(缺省 = 用 `TOOL_EXEC_BUDGET_DEFAULT_MS`)。
    * 唯一解释器是 `resolveToolExecBudgetMs()`,唯一应用点是 `executeWithinExecBudget()`。
    * 结构性不可打断用 `notInterruptible` 形态,**必须带 reason**,且不得改用 `*-exempt:` 注释
@@ -352,84 +367,7 @@ export interface Tool extends ToolContractMount {
 }
 
 // ==================== 工具执行墙钟预算与取消下发 ====================
-//
-// 立票理由(实测,不是设想):本文件的 `executeToolCall` 在改前对 `tool.execute` 的 await
-// **既无墙钟上限也无取消通道**,而 `tools/subagent.ts` 的 `dispatch_subagent` 在里面嵌套跑
-// 一整条 agent loop ⇒ provider 一挂就是这一枚工具调用永久挂起,且 Ctrl-C 到不了。
-// 探针读数见交付报告(同一探针在改后由"未结算"翻成"预算内结算")。
-
-/** 默认档 30 分钟。取值依据:本仓工具**自身**最长的一档限是后台任务等待 600s(`tools/background-registry.ts`)
- *  与 DAP stopped 事件 300s(`tools/debug.ts`),默认档必须显著高于所有自限档 —— 否则本票会把"工具自己
- *  还在正常工作"判成超时,即"把现有正常工具改红"。30 min = 现有最长自限 × 3。
- *  需要更长的工具**显式声明** `execBudget`,不得为消红去抬这一档。 */
-export const TOOL_EXEC_BUDGET_DEFAULT_MS = 30 * 60_000;
-
-/** 硬封顶 60 分钟:任何来源(默认档 / 工具声明 / 环境变量覆盖)都不得越过。
- *  这一行是"模型侧或工具侧覆盖越过后端上限"的唯一收口点,删掉它 = 本票失效。 */
-export const TOOL_EXEC_BUDGET_MAX_MS = 60 * 60_000;
-
-/** 结算宽限:到点后先 abort,再给 handler 这么多时间自己收尾;仍不 settle 就**停止等待**并代为结算。
- *  语义是"到点之后额外留给清理的时间",不是"把超时推迟"。 */
-export const TOOL_EXEC_BUDGET_SETTLE_GRACE_MS = 5_000;
-
-/**
- * 绝对上限倍数(G-426):预算改成"每次活动重排"后,必须留一个**从开始计时的总上限**兜底,
- * 否则一个持续 reportActivity 的死循环能无限续命。取预算 3 倍而不是独立常量:各工具的
- * 声明档差异极大(默认 30min / 子代理 60min / 测试毫秒档),相对倍数让"多长的执行算滥用"
- * 与该工具自己声明的合理时长同比例缩放 —— 3 = 名义预算之外再给两整段同额推进余量,
- * 足以容纳合法的慢长任务,又把无限续命封死在 3 × budget。
- */
-export const TOOL_EXEC_BUDGET_ABSOLUTE_FACTOR = 3;
-
-/** 逃生舱:总开关(仅应急)。设 off/0/false 时整条预算不生效,行为逐路径回到改前。 */
-const EXEC_BUDGET_DISABLE_ENV = 'IHUI_TOOL_EXEC_BUDGET';
-/** 观察档:覆盖默认值,用于逐档量"哪些工具会撞上新上限"(仍受 MAX 封顶)。 */
-const EXEC_BUDGET_DEFAULT_ENV = 'IHUI_TOOL_EXEC_BUDGET_MS';
-
-/** 显式预算档(毫秒)。 */
-export interface ToolExecBudgetMs {
-  readonly ms: number;
-}
-
-/** 结构性声明:该工具**不该被墙钟打断**,且理由写进数据而不是注释(注释会被编辑掉,数据不会)。 */
-export interface ToolExecBudgetNotInterruptible {
-  readonly notInterruptible: true;
-  readonly reason: string;
-}
-
-export type ToolExecBudget = ToolExecBudgetMs | ToolExecBudgetNotInterruptible;
-
-function parsePositiveIntMs(raw: string | undefined): number | undefined {
-  if (raw === undefined || raw.trim() === '') return undefined;
-  const n = Number(raw.trim());
-  return Number.isFinite(n) && n > 0 ? n : undefined;
-}
-
-/**
- * 预算解析的**唯一出口**。三段优先级:
- *   ① 结构性声明 notInterruptible ⇒ `undefined`(连定时器都不建)
- *   ② 工具显式声明 `ms` ⇒ 该值
- *   ③ 否则 环境变量覆盖档 ?? 默认档
- * 最后**一律**过 `Math.min(…, TOOL_EXEC_BUDGET_MAX_MS)` 封顶。
- *
- * 刻意不读模型传的参数(`args.timeout_ms` 一类):那等于把"这次执行多久"交给被调用方决定,
- * 而本票要收的是"宿主说了算"。已有自带 timeout 参数的工具(run_command / spawn_parallel)
- * 由其 handler 内部解释,不在本函数覆盖面内。
- *
- * `0` 与非法值一律退回默认档 —— 这不是宽容,是把"0 被压成 1ms 立刻超时"这一型写死在门外。
- */
-export function resolveToolExecBudgetMs(
-  tool: Pick<Tool, 'name' | 'execBudget'>,
-  env: NodeJS.ProcessEnv = process.env,
-): number | undefined {
-  const declared = tool.execBudget;
-  if (declared && 'notInterruptible' in declared) return undefined;
-  if (/^(?:off|0|false)$/i.test((env[EXEC_BUDGET_DISABLE_ENV] ?? '').trim())) return undefined;
-  const envDefault = parsePositiveIntMs(env[EXEC_BUDGET_DEFAULT_ENV]);
-  const base = declared ? declared.ms : (envDefault ?? TOOL_EXEC_BUDGET_DEFAULT_MS);
-  const safe = Number.isFinite(base) && base > 0 ? base : (envDefault ?? TOOL_EXEC_BUDGET_DEFAULT_MS);
-  return Math.min(safe, TOOL_EXEC_BUDGET_MAX_MS);
-}
+// W4-14:策略常量/类型/解析已独立到 tool-exec-budget-policy.ts;本文件只保留应用点。
 
 const NOOP_UNLINK = (): void => undefined;
 
@@ -675,6 +613,33 @@ export type DangerousConfirmationOutcome =
 export interface ToolContext {
   workspacePath: string;
   /**
+   * TaskPrepare 的已授权源根。任务副本模式下 `workspacePath` 指向副本，
+   * 这里仍指向真实源工作区；run_command 用它维持宿主连接，避免因切换 cwd
+   * 而重建宿主、把已经创建的任务副本丢掉。
+   */
+  workspaceRoots?: readonly string[];
+  /**
+   * 宿主 TaskPrepare 的任务 id。存在时，文件写入必须经宿主 `service/FileWrite`
+   * 落到任务副本；缺省表示普通工作区直写路径（尚未迁移）。
+   */
+  taskWorkspaceId?: string;
+  /**
+   * 当前会话 id（W4-08 三段式审计的 `PermissionDecision.sessionId` 来源）。
+   * 由 runToolLoop 从 `opts.sessionId` 注入；缺省 undefined，审计用 `unbound` 明确标注，
+   * 不伪造一个看似真实的会话号。
+   */
+  sessionId?: string;
+  /**
+   * 当前 agent 回合 id（W4-06 幂等双键之一）。由 `runToolLoop` 从 turnTrace 注入；
+   * 嵌入式调用缺省时消费方退化为进程级稳定值，绝不每次随机。
+   */
+  turnId?: string;
+  /**
+   * 当前工具调用 id（W4-06 幂等双键之二）。`executeToolCall` 按被执行的
+   * `ParsedToolCall.id` 克隆上下文注入，并发批次之间互不串号。
+   */
+  toolCallId?: string;
+  /**
    * 危险操作确认回调。契约见 `DangerousConfirmationCallback`;
    * 未提供时 dangerous 操作直接拒绝(fail-closed,拒绝归因 `no-confirmation-channel`)。
    */
@@ -739,6 +704,16 @@ export interface ToolContext {
    * 该缺口由守门 `scripts/check-tool-exec-budget.mjs` 的 S2 按 HEAD 棘轮点名,不会静默。
    */
   signal?: AbortSignal;
+  /**
+   * PTC 回合级绑定调用预算;由 runToolLoop 每回合新建,多个 run_code 共享。
+   * 缺席(undefined)= 只按单程序预算,回合间不累计。
+   */
+  ptcTurnBudget?: { readonly limit: number; remaining: number };
+  /** 一个 agent 回合内多个 run_code 共享的绑定调用并发闸。 */
+  ptcTurnConcurrency?: {
+    readonly limit: number;
+    acquire(signal?: AbortSignal): Promise<() => void>;
+  };
   /**
    * 本执行窗的活动上报口(G-426,由 `executeWithinExecBudget` 注入):长跑 handler(典型:
    * 子代理 loop)每有一段真实推进 —— 工具调用开始/结束、流式输出块 —— 就调用一次,
@@ -953,6 +928,12 @@ ${toolDescriptions}${catalogueSection}`;
 export interface ParsedToolCall {
   name: string;
   arguments: Record<string, unknown>;
+  /**
+   * 原生函数调用 id（OpenAI `tool_calls[].id` / Anthropic `tool_use.id`）。
+   * 幂等双键的一半：同一 id 在同一回合内重试必须命中同一结果；正则解析出的
+   * 旧式调用没有 id，由消费方按“本回合 + 工具名 + 参数摘要”兜底。
+   */
+  id?: string;
 }
 
 const TOOL_CALL_REGEX = /```tool_call\s*\n([\s\S]*?)```/g;
@@ -1298,6 +1279,8 @@ function declaresApprovalExemption(tool: Tool): boolean {
 export function requiresUserConfirmation(tool: Tool, leaseContentDrifted = false): boolean {
   if (tool.dangerLevel === 'dangerous') return true;
   if (leaseContentDrifted) return true;
+  // 注册声明 ask:不降 dangerous、不覆盖规则 deny,只把“本来不用问”的工具强制问一次。
+  if (tool.registration?.approval === 'ask') return true;
   if (isAlwaysAskDeclared(tool)) return true;
   if (declaresApprovalExemption(tool) && !hasApprovalExemption(tool)) return true;
   return false;
@@ -1326,6 +1309,62 @@ export function requiresUserConfirmation(tool: Tool, leaseContentDrifted = false
  * hub 分支与本地路径**共用**本函数(不写第二份校验):两处唯一的差别是"拿不拿得到
  * Tool 对象",见 `executeToolCall` hub 分支的覆盖面注记。
  */
+function applyToolRegistration(
+  tool: Tool,
+  call: ParsedToolCall,
+  ctx: ToolContext,
+): ToolResult | null {
+  const registration = normalizeToolRegistration(tool.registration);
+  const decision = permissionDecisionForRegistration({ registration, ctx, toolName: call.name });
+  if (tool.registration !== undefined) {
+    auditToolRegistrationDecision({
+      toolName: call.name,
+      decision,
+      args: call.arguments,
+      phase: 'approval',
+    });
+  }
+  if (registration.approval === 'deny') {
+    const denial = buildToolRegistrationDenial(call.name, call.arguments);
+    return {
+      success: false,
+      output: '',
+      error: `工具 ${call.name} 的注册声明为 deny,本次调用被拒绝\n${denialErrorSuffix(denial)}`,
+      errorType: 'permission_denied',
+      denial,
+    };
+  }
+  if (registration.decorate) {
+    const before = call.arguments;
+    try {
+      call.arguments = registration.decorate(call.arguments, ctx);
+      auditToolRegistrationDecision({
+        toolName: call.name,
+        decision: { ...decision, kind: 'allow', reasonCode: 'decorate-applied' },
+        args: call.arguments,
+        phase: 'decorate',
+        before,
+        after: call.arguments,
+      });
+    } catch (err) {
+      auditToolRegistrationDecision({
+        toolName: call.name,
+        decision: { ...decision, kind: 'deny', reasonCode: 'decorate-threw' },
+        args: before,
+        phase: 'decorate',
+        before,
+      });
+      return {
+        success: false,
+        output: '',
+        error: `工具 ${call.name} 的注册装饰阶段失败: ${err instanceof Error ? err.message : String(err)}`,
+        errorType: 'invalid_arguments',
+      };
+    }
+  }
+  return null;
+}
+
 function applyToolArgValidation(tool: Tool, call: ParsedToolCall): ToolResult | null {
   const toolArgMode = resolveToolArgValidationMode();
   if (toolArgMode === 'enforce') {
@@ -1543,6 +1582,9 @@ async function executeToolCallInner(
     // 那一族维持不校验,与 G-712"推不出 schema 不得兜空表冒充已校验"同一条纪律。
     const hubTool = getTool(call.name);
     if (hubTool) {
+      // 注册三段式同样覆盖 hub 本地解析:装饰必须在 schema 校验之前，deny 必须在 dispatch 之前。
+      const hubRegRejection = applyToolRegistration(hubTool, call, ctx);
+      if (hubRegRejection) return hubRegRejection;
       const rejection = applyToolArgValidation(hubTool, call);
       if (rejection) return rejection;
     }
@@ -1554,8 +1596,15 @@ async function executeToolCallInner(
       hubTool ?? { name: call.name, dangerLevel: 'dangerous' },
       call,
       ctx,
+      // 注册声明 ask 在 hub 分支也要问:axis=allow 时不能直接放过去。
+      { forceAsk: hubTool?.registration?.approval === 'ask' },
     );
     if (hubAxisRejection) return hubAxisRejection;
+    // 权限轴缺席时 gatePermissionAxis 整段不介入;注册声明 ask 不能因此漏问。
+    if (hubTool?.registration?.approval === 'ask' && !ctx.permissionAxis) {
+      const denied = await denyOrApproveDangerous(hubTool, call, ctx);
+      if (denied) return denied;
+    }
     // G-401 拍板②(2026-10-07):remote(MCP 适配层)工具的批准闸。
     // 本地 Tool 的批准闸在下方原路径(requiresUserConfirmation → 钩子 → confirmDangerous);
     // remote 工具没有本地 Tool 对象,那条路径结构上到不了 —— 此前 hub 分支对 remote 是
@@ -1600,6 +1649,11 @@ async function executeToolCallInner(
   if (!tool) {
     return { success: false, output: '', error: `未知工具: ${call.name}`, errorType: 'not_found' };
   }
+  // 注册三段式①:静态 deny 先于参数校验/装饰/任何执行分支 —— 被下架的工具不该再泄露 schema 细节。
+  // 归因复用 permission-rule/rule-deny(注册声明就是一条静态规则,不新造 decider 档)。
+  // 注册三段式②:执行前装饰参数(补默认值/补元数据),装饰后仍要过同一套 schema 校验。
+  const regRejection = applyToolRegistration(tool, call, ctx);
+  if (regRejection) return regRejection;
   // 入参校验唯一应用点(档位语义与 repair 共存纪律见 applyToolArgValidation 头注):
   // 违规 ⇒ 拒绝直接 return(不进权限/批准/限流/执行任何一环)。
   const argRejection = applyToolArgValidation(tool, call);
@@ -1620,9 +1674,21 @@ async function executeToolCallInner(
           tool.dangerLevel ?? 'write',
           lease,
           JSON.stringify(call.arguments ?? null),
-          tool.nameAliases,
+          withPermissionKeyAliases(tool.nameAliases, tool.contract?.permission?.permissionKey),
+          {
+            matchSources: tool.contract?.permission?.matchSources,
+            invocationArguments: call.arguments,
+          },
         )
-      : checkPermission(call.name, ctx.permissions, tool.nameAliases);
+      : checkPermissionRules(
+          call.name,
+          ctx.permissions,
+          withPermissionKeyAliases(tool.nameAliases, tool.contract?.permission?.permissionKey),
+          {
+            matchSources: tool.contract?.permission?.matchSources,
+            invocationArguments: call.arguments,
+          },
+        );
     if (!perm.allowed) {
       // 可诊断化收口:原错误串逐字保留(既有回归以 `toContain` 断言它),其后追加 ASCII 出路行;
       // 三问(哪道闸/出路/参数摘要)以结构化字段在返回体可断言。判定本身一个字节都没动。
@@ -1719,9 +1785,21 @@ async function executeToolCallInner(
               tool.dangerLevel ?? 'write',
               lease,
               JSON.stringify(modified ?? null),
-              tool.nameAliases,
+              withPermissionKeyAliases(tool.nameAliases, tool.contract?.permission?.permissionKey),
+              {
+                matchSources: tool.contract?.permission?.matchSources,
+                invocationArguments: modified ?? call.arguments,
+              },
             )
-          : checkPermission(call.name, ctx.permissions, tool.nameAliases);
+          : checkPermissionRules(
+              call.name,
+              ctx.permissions,
+              withPermissionKeyAliases(tool.nameAliases, tool.contract?.permission?.permissionKey),
+              {
+                matchSources: tool.contract?.permission?.matchSources,
+                invocationArguments: modified ?? call.arguments,
+              },
+            );
         if (!perm2.allowed) {
           // 规则拒绝是真实"说不":gate/decider 与首过同形,审计行如实可记。
           const denial = buildToolDenial({
@@ -1839,6 +1917,11 @@ export async function executeToolCall(
   ctx: ToolContext,
 ): Promise<ToolResult> {
   return runWithToolHookScope(async () => {
+    // 幂等双键：调用方给了原生 tool_call id 时，把本次调用绑定到上下文副本。
+    // 不能写回共享 ctx —— 并行批次里的两条调用会互相覆盖，重试时反而串到别的 id。
+    const callCtx: ToolContext = call.id
+      ? { ...ctx, toolCallId: call.id }
+      : ctx;
     // F-097 中央 preToolCall 闸:所有工具(含 read/list/grep/glob/skill/MCP/subagent)
     // 都从这里统一过一遍;工具体内已自己接线的第二次调用由 scope 折成"已派发空结果",
     // 不重复跑钩子(避免同一调用两次审计/两次拦截)。
@@ -1846,9 +1929,9 @@ export async function executeToolCall(
     // 改名就让既有 matchTool 配置静默失效。
     const preInput =
       call.name === 'run_command'
-        ? { ...call.arguments, cwd: ctx.workspacePath }
+        ? { ...call.arguments, cwd: callCtx.workspacePath }
         : call.arguments;
-    const pre = await runPreToolCall(toHookToolName(call.name), preInput, ctx.signal);
+    const pre = await runPreToolCall(toHookToolName(call.name), preInput, callCtx.signal);
     if (!pre.proceed) {
       return {
         success: false,
@@ -1859,17 +1942,17 @@ export async function executeToolCall(
     }
     let result: ToolResult;
     try {
-      result = assembleToolResultProjections(await executeToolCallInner(call, ctx));
+      result = assembleToolResultProjections(await executeToolCallInner(call, callCtx));
     } catch (error) {
       try {
-        await firePostToolUseFailure(call, ctx, error instanceof Error ? error.message : String(error));
+        await firePostToolUseFailure(call, callCtx, error instanceof Error ? error.message : String(error));
       } catch {
         // 钩子链故障不得替换原始错误;原始错误在下一行照常上抛。
       }
       throw error;
     }
     try {
-      await fireToolOutcomeHooks(call, ctx, result);
+      await fireToolOutcomeHooks(call, callCtx, result);
     } catch {
       // 钩子链故障不得改写成败/成功,也不得把结果路径变成第二异常源:结果原样返回。
     }
@@ -1886,7 +1969,7 @@ export async function executeToolCall(
         };
         const argPath = call.arguments?.path;
         if (typeof argPath === 'string' && argPath !== '') postPayload.path = argPath;
-        await runPostToolCall(toHookToolName(call.name), postPayload, ctx.signal);
+        await runPostToolCall(toHookToolName(call.name), postPayload, callCtx.signal, callCtx.workspacePath);
       } catch {
         // 同 fireToolOutcomeHooks:钩子故障不改结果。
       }
@@ -1912,12 +1995,12 @@ async function gatePermissionAxis(
   tool: Pick<Tool, 'name' | 'dangerLevel'>,
   call: ParsedToolCall,
   ctx: ToolContext,
-  opts: { skipIfLegacyConfirm?: boolean } = {},
+  opts: { skipIfLegacyConfirm?: boolean; forceAsk?: boolean } = {},
 ): Promise<ToolResult | null> {
   const axis = ctx.permissionAxis;
   if (!axis) return null;
   const gate = evaluateToolAxis(axis, tool);
-  if (gate.decision === 'allow') return null;
+  if (gate.decision === 'allow' && opts.forceAsk !== true) return null;
   const detail = [gate.reason, gate.hint].filter((v): v is string => !!v).join('\n');
   if (gate.decision === 'deny') {
     return {
@@ -2263,7 +2346,12 @@ function conditionSchemaForStrict(node: unknown, path: string): void {
  * 本位在其之上只做逐工具收窄。
  */
 export function toolsToProviderSchema(tools: Tool[]): ProviderToolSchema[] {
-  return tools.map((tool) => {
+  // 可见性(契约 shape.visibleToProvider):显式 false ⇒ 不投影给 provider。
+  // 缺省(无契约 / 字段缺席 / 非字面量)= 可见,与引入本字段前逐字节同结论;
+  // 第三方动态装配的工具没有 contract,天然保留(不得因本字段被摘)。
+  return tools
+    .filter((tool) => tool.contract?.shape?.visibleToProvider !== false)
+    .map((tool) => {
     const entry: ProviderToolSchema = {
       type: 'function' as const,
       function: {
@@ -2311,7 +2399,11 @@ export function parseNativeToolCalls(content: unknown): ParsedToolCall[] {
       if (!block || typeof block !== 'object') continue;
       const b = block as Record<string, unknown>;
       if (b.type === 'tool_use' && typeof b.name === 'string') {
-        calls.push({ name: b.name, arguments: parseToolArguments(b.input) });
+        calls.push({
+          name: b.name,
+          arguments: parseToolArguments(b.input),
+          ...(typeof b.id === 'string' && b.id.trim() !== '' ? { id: b.id } : {}),
+        });
       }
     }
     return calls;
@@ -2327,7 +2419,12 @@ export function parseNativeToolCalls(content: unknown): ParsedToolCall[] {
     if (!fn || typeof fn !== 'object') continue;
     const name = fn.name;
     if (typeof name !== 'string' || name.length === 0) continue;
-    calls.push({ name, arguments: parseToolArguments(fn.arguments) });
+    const id = typeof e.id === 'string' && e.id.trim() !== '' ? e.id : undefined;
+    calls.push({
+      name,
+      arguments: parseToolArguments(fn.arguments),
+      ...(id ? { id } : {}),
+    });
   }
   return calls;
 }

@@ -330,10 +330,10 @@ export function restoreTrashEntry(
 }
 
 /**
- * 单文件删除的护栏腿(delete_file 工具用):判定 + 回收站搬运 + 独立 manifest。
- * 任何非 clean 判定 ⇒ 抛错,调用方转成失败返回 ⇒ 副作用未发生。
+ * 单文件删除的护栏腿（delete_file / 任务副本网关删除共用）：
+ * 只做判定，不搬回收站；任何非 clean 判定直接抛错，调用方必须在副作用前调用。
  */
-export function recycleDeleteSingleFile(workspacePath: string, abs: string): void {
+export function assertSingleFileDeleteAllowed(workspacePath: string, abs: string): void {
   let sizeBytes: number | null = null;
   try {
     sizeBytes = fs.statSync(abs).size;
@@ -351,6 +351,14 @@ export function recycleDeleteSingleFile(workspacePath: string, abs: string): voi
   if (decision.verdict !== 'clean') {
     throw new Error(`删除被护栏拒绝(${decision.verdict}):${decision.reason ?? '未判定不记绿'}`);
   }
+}
+
+/**
+ * 单文件删除的护栏腿(delete_file 工具用):判定 + 回收站搬运 + 独立 manifest。
+ * 任何非 clean 判定 ⇒ 抛错,调用方转成失败返回 ⇒ 副作用未发生。
+ */
+export function recycleDeleteSingleFile(workspacePath: string, abs: string): void {
+  assertSingleFileDeleteAllowed(workspacePath, abs);
   const trashId = crypto.randomUUID();
   const entry = stashFileToTrash(workspacePath, abs, trashId, 0);
   writeTrashManifest(workspacePath, {
@@ -516,9 +524,9 @@ export function createBatchEditTool(ctx: EditToolContext, stat?: (path: string) 
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
     parameters: {
@@ -880,9 +888,9 @@ export function createBatchUndoTool(ctx: EditToolContext, stat?: (path: string) 
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
     parameters: {
@@ -1012,9 +1020,9 @@ export function createBatchPreviewTool(ctx: EditToolContext): Tool {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
     parameters: {

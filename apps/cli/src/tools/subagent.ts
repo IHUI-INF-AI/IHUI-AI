@@ -28,6 +28,7 @@ import { createAuditedDangerGate } from './danger-gate-audit.js';
 // G-816029:子代理被停/异常结束时,级联结算它自己派生的在飞后台任务(孤儿任务的唯一出口)
 import { settleTasksOwnedByAgent, type BackgroundCascadeReason } from './background-registry.js';
 import { listTools, clearTools, registerTools } from './index.js';
+import { filterToolsForAudience } from './tool-registration.js';
 import { runHook } from '../hooks/index.js';
 import {
   beginAskUserEscalationBudget,
@@ -50,6 +51,12 @@ import {
 import { PERSONAS_CONTRACTS, type JSONSchema } from '../personas/index.js';
 // G-426 拍板第三件套「超阈值自动后台化」:转后台落档用的中间态词汇,只引用唯一声明处
 import { SUBAGENT_STATUS_DETACHED_IDLE } from '../subagents/types.js';
+import {
+  isTurnBudgetHit,
+  parseSubagentBudget,
+  SubagentBudgetExceeded,
+  SubagentBudgetLedger,
+} from '../subagents/subagent-budget.js';
 import type { AgentTurnStopReason, SubagentPersona, CapabilityMode, IsolationMode } from '@ihui/types';
 import { resolveEffectiveOverrides } from '../subagents/precedence.js';
 import type {
@@ -250,6 +257,10 @@ export interface SubagentParentOptions {
   apiUrl: string;
   apiKey?: string;
   workspacePath: string;
+  /** TaskPrepare 的已授权源根；任务模式下子 Agent 复用同一连接。 */
+  workspaceRoots?: readonly string[];
+  /** 当前任务副本 id；有值时子 Agent 的文件/命令必须走宿主网关。 */
+  taskWorkspaceId?: string;
   allowDangerous?: boolean;
   sessionId?: string;
   isolation?: IsolationMode;
@@ -291,9 +302,9 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
       },
       resultBudget: {
         inlineLimitBytes: 16 * 1024,
-        providerVisibleLimitBytes: 72_000,
+        providerVisibleLimitBytes: 8 * 1024,
         policy: 'truncate',
-        preview: { bytes: 3_600, lines: 40, from: 'head' },
+        preview: { bytes: 2048, lines: 40, from: 'head' },
       },
     },
     // 见 SUBAGENT_EXEC_BUDGET_MS 的推导:整条子 loop 一档,取封顶值而不是默认值
@@ -313,6 +324,16 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
       maxIterations: {
         type: 'number',
         description: '最大迭代数(可选,默认按 persona 配置或 10)',
+      },
+      budget: {
+        type: 'object',
+        description:
+          '资源预算(可选):maxTurns=最大回合数,maxTokens=采样 token 上限(回合末记账),maxToolCalls=工具调用上限(超额即停)',
+        properties: {
+          maxTurns: { type: 'number', description: '最大回合数(正整数)' },
+          maxTokens: { type: 'number', description: '采样 token 上限(正整数,回合末记账)' },
+          maxToolCalls: { type: 'number', description: '工具调用上限(正整数,超额即停)' },
+        },
       },
       isolation: {
         type: 'string',
@@ -343,6 +364,17 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
           success: false,
           output: '',
           error: `子 agent 嵌套深度超过 ${MAX_SUBAGENT_DEPTH} 层,已拒绝(防止递归失控)`,
+        };
+      }
+
+      let budget: SubagentBudgetLedger;
+      try {
+        budget = new SubagentBudgetLedger(parseSubagentBudget(args.budget));
+      } catch (err) {
+        return {
+          success: false,
+          output: '',
+          error: `预算参数非法: ${err instanceof Error ? err.message : String(err)}`,
         };
       }
 
@@ -424,6 +456,15 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
 
       let effectiveWorkspace = parentOpts.workspacePath;
       let worktreeCreated = false;
+      // 任务副本里的 worktree 隔离会把子 Agent 的写目标换到任务副本之外，
+      // 而当前连接只持有 TaskPrepare 的副本句柄 ⇒ 直接拒绝，不能假装还在网关里。
+      if (parentOpts.taskWorkspaceId && isolation === 'worktree') {
+        return {
+          success: false,
+          output: '',
+          error: '任务副本模式暂不支持 worktree 隔离子 Agent；请先发布/放弃任务，或改用 isolation=none',
+        };
+      }
       // WorktreeManager 注入标记:走 manager 创建/清理,并在完成后输出 diff 供主 agent 合并
       let usedWorktreeManager = false;
       let worktreeBranch: string | undefined;
@@ -520,6 +561,8 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
 
         const { systemPrompt, ctx } = await setupAgentTools({
           workspacePath: effectiveWorkspace,
+          workspaceRoots: parentOpts.workspaceRoots,
+          taskWorkspaceId: parentOpts.taskWorkspaceId,
           silent: true,
           // 会话级旁路事实随子 ctx 下发,工具层披露可追溯(L7905 收口;与下方 gate 的 flag 继承同源)
           allowDangerous: parentOpts.allowDangerous,
@@ -552,6 +595,9 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
         if (userTools && userTools.length > 0) {
           filteredTools = filteredTools.filter((t) => userTools.includes(t.name));
         }
+        // 注册三段式③:发布面。缺省(publish 未声明)= 全部可见;显式 publish:['main']
+        // 的工具不进子代理清单,避免“主代理能调、子代理也能调”的隐式继承。
+        filteredTools = filterToolsForAudience(filteredTools, 'subagent');
         const registryChanged = filteredTools.length !== savedTools.length;
         if (registryChanged) {
           clearTools();
@@ -565,8 +611,12 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
             kind: 'host_directive',
           });
           const finalSystemPrompt = personaSection + '\n\n' + systemPrompt;
-          const effectiveMaxIterations =
+          const baseMaxIterations =
             userMaxIterations ?? personaConfig.maxIterations ?? SUBAGENT_MAX_ITERATIONS;
+          const effectiveMaxIterations =
+            budget.limits.maxTurns === undefined
+              ? baseMaxIterations
+              : Math.min(baseMaxIterations, budget.limits.maxTurns);
 
           const messages = [
             { role: 'system' as const, content: finalSystemPrompt },
@@ -635,9 +685,38 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
             // 无外层 signal 时传 undefined,与改前逐字等价(signal 本就是可选形参)。
             signal: outerCtx.signal ? loopAbort.signal : undefined,
             onDelta: touchSubagentActivity,
-            onToolCall: touchSubagentActivity,
+            onToolCall: () => {
+              touchSubagentActivity();
+              // 工具调用额度在这里扣:第 limit+1 次直接抛,runToolLoop 捕获后
+              // 以 error 终态返回;调用方在结果处把它改写成结构化 budget 结论。
+              budget.recordToolCall();
+            },
             onToolResult: touchSubagentActivity,
           });
+
+          budget.recordTurns(result.iterations);
+          const tokenExhaustion = budget.recordTokens(result.usage?.totalTokens ?? 0);
+          const exhausted = budget.exhaustion() ?? tokenExhaustion;
+          const turnLimitHit = isTurnBudgetHit({
+            maxTurns: budget.limits.maxTurns,
+            stopReason: result.stopReason,
+            effectiveMaxIterations,
+            iterations: result.iterations,
+          });
+          if (exhausted || turnLimitHit) {
+            const detail =
+              exhausted !== null
+                ? `${exhausted.kind}: ${exhausted.used}/${exhausted.limit}`
+                : `turns: ${result.iterations}/${budget.limits.maxTurns}`;
+            stopReason = 'failed';
+            stopError = `子 agent 预算耗尽(${detail})`;
+            return {
+              success: false,
+              output: '',
+              error: stopError,
+              errorType: 'budget_exhausted',
+            };
+          }
 
           const text = result.assistantText.trim();
           if (!text) {
@@ -682,6 +761,15 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
         }
       } catch (err) {
         stopReason = 'failed';
+        if (err instanceof SubagentBudgetExceeded) {
+          stopError = `子 agent 预算耗尽(${err.exhaustion.kind}: ${err.exhaustion.used}/${err.exhaustion.limit})`;
+          return {
+            success: false,
+            output: '',
+            error: stopError,
+            errorType: 'budget_exhausted',
+          };
+        }
         stopError = err instanceof Error ? err.message : String(err);
         return {
           success: false,
@@ -817,9 +905,9 @@ export function createSpawnParallelTool(parentOpts: SubagentParentOptions): Tool
       },
       resultBudget: {
         inlineLimitBytes: 16 * 1024,
-        providerVisibleLimitBytes: 72_000,
+        providerVisibleLimitBytes: 8 * 1024,
         policy: 'truncate',
-        preview: { bytes: 3_600, lines: 40, from: 'head' },
+        preview: { bytes: 2048, lines: 40, from: 'head' },
       },
     },
     parameters: {
@@ -847,6 +935,21 @@ export function createSpawnParallelTool(parentOpts: SubagentParentOptions): Tool
               type: 'number',
               // 净增 0 行的中文文案(守门 70 棘轮):一行写完,语义细节见 worker-pool 头注 G-426 条
               description: '无活动超时秒数(可选,默认 300;每次任务活动重排,总上限 3 倍,真正卡死才触发)',
+            },
+            // W4-09:子进程预算随请求下发；maxTurns 直接收紧 maxIterations，
+            // maxToolCalls/maxTokens 由 worker-entry 在子进程内先扣后结算。
+            budget: {
+              type: 'object',
+              description: '子代理独立预算(正整数字段；未知键整份拒收)',
+              properties: {
+                maxTurns: { type: 'number', description: '最大回合数' },
+                maxTokens: { type: 'number', description: '采样 token 上限(回合末结算)' },
+                maxToolCalls: { type: 'number', description: '工具调用上限' },
+              },
+            },
+            permissionMode: {
+              type: 'string',
+              description: '权限档(可选)；inherit=沿用父会话，不传也按 inherit，绝不静默放宽',
             },
           },
           required: ['persona', 'task'],
@@ -876,11 +979,32 @@ export function createSpawnParallelTool(parentOpts: SubagentParentOptions): Tool
       );
 
       // 注入默认 workspacePath 和 model(子 agent 默认在主 agent 工作区跑,用主 agent 模型)
-      const reqsWithWorkspace: SubagentSpawnRequest[] = requests.map((r) => ({
-        ...r,
-        workspacePath: r.workspacePath ?? parentOpts.workspacePath,
-        model: r.model ?? parentOpts.modelId,
-      }));
+      // W4-09:预算在父侧先解析/拒绝，不把非法值静默放给子进程；maxTurns 直接收紧
+      // 实际 maxIterations，保证「预算轮次」就是执行轮次，而不是两套数字互相漂移。
+      const reqsWithWorkspace: SubagentSpawnRequest[] = []
+      for (const [index, r] of requests.entries()) {
+        let budget
+        try {
+          budget = parseSubagentBudget(r.budget)
+        } catch (err) {
+          return {
+            success: false,
+            output: '',
+            error: `requests[${index}].budget 非法: ${err instanceof Error ? err.message : String(err)}`,
+          }
+        }
+        const maxIterations =
+          budget.maxTurns === undefined
+            ? r.maxIterations
+            : Math.min(r.maxIterations ?? 25, budget.maxTurns)
+        reqsWithWorkspace.push({
+          ...r,
+          workspacePath: r.workspacePath ?? parentOpts.workspacePath,
+          model: r.model ?? parentOpts.modelId,
+          maxIterations,
+          budget,
+        })
+      };
 
       try {
         const results: SubagentSpawnResponse[] = await spawnParallelTopology(reqsWithWorkspace, {
