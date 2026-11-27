@@ -33,7 +33,7 @@ import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useMounted } from '@/hooks/use-mounted'
 import { useLanguageStore, type Language } from '@/stores/language'
 import { useAppearanceStore } from '@/stores/appearance-settings'
-import { PINK_SKIN, isPinkSkin } from '@/lib/theme-skins'
+import { applySkinChoice, resolveSkinChoice } from '@/lib/theme-skins'
 import { useNotificationStore } from '@/stores/notification'
 import { useAnalytics } from '@/hooks/use-analytics'
 import { useDownloadTrack } from '@ihui/shared/hooks'
@@ -218,16 +218,21 @@ export function SidebarUserRow({
     setLocale(code)
   }
 
-  // 主题色:与设置页「主题」卡同一份 customTheme 通道(默认 / 粉色两张皮肤)。
-  const pinkSkinActive = isPinkSkin(appearance.customTheme)
-  const neutralSkinActive = !appearance.customTheme.enabled
-  const applySkin = (pink: boolean) => {
-    appearance.update(
-      pink
-        ? { accentColor: 'rose', customTheme: { ...PINK_SKIN } }
-        : { accentColor: 'default', customTheme: { ...appearance.customTheme, enabled: false } },
-    )
-  }
+  // 主题:与设置页「主题」卡同一份四选一(随系统/珍珠白/曜石黑/樱花粉),
+  // 生效判定与写入都走 theme-skins 的共享实现 —— 菜单只是同一开关的快捷入口。
+  const skinChoice = resolveSkinChoice(appearance.customTheme, theme)
+  const skinOptions = [
+    { id: 'system' as const, labelKey: 'themeSkinDefault' },
+    { id: 'pearl' as const, labelKey: 'themeSkinPearl' },
+    { id: 'obsidian' as const, labelKey: 'themeSkinObsidian' },
+    { id: 'pink' as const, labelKey: 'presetBuiltinPink' },
+  ] as const
+  const applySkin = (choice: (typeof skinOptions)[number]['id']) =>
+    applySkinChoice(choice, {
+      update: appearance.update,
+      setTheme,
+      customTheme: appearance.customTheme,
+    })
 
   // store 中的 NotificationItem 映射为 NotificationCenter 所需的 NoticeItem
   const noticeItems: NoticeItem[] = notifications.map((n) => ({
@@ -478,54 +483,17 @@ export function SidebarUserRow({
         })),
       },
       {
-        key: 'appearance-theme-mode',
-        label: ta('themeModeLabel'),
-        trailing: subValue(
-          theme === 'light'
-            ? ts('themeLight')
-            : theme === 'dark'
-              ? ts('themeDark')
-              : ts('themeSystem'),
-        ),
-        children: [
-          {
-            key: 'theme-mode-system',
-            label: ts('themeSystem'),
-            trailing: checkMark(theme === 'system'),
-            onSelect: () => setTheme('system'),
-          },
-          {
-            key: 'theme-mode-light',
-            label: ts('themeLight'),
-            trailing: checkMark(theme === 'light'),
-            onSelect: () => setTheme('light'),
-          },
-          {
-            key: 'theme-mode-dark',
-            label: ts('themeDark'),
-            trailing: checkMark(theme === 'dark'),
-            onSelect: () => setTheme('dark'),
-          },
-        ],
-      },
-      {
         key: 'appearance-theme-skin',
         label: ta('themeSkinLabel'),
-        trailing: subValue(pinkSkinActive ? ta('presetBuiltinPink') : ta('themeSkinDefault')),
-        children: [
-          {
-            key: 'theme-skin-default',
-            label: ta('themeSkinDefault'),
-            trailing: checkMark(neutralSkinActive),
-            onSelect: () => applySkin(false),
-          },
-          {
-            key: 'theme-skin-pink',
-            label: ta('presetBuiltinPink'),
-            trailing: checkMark(pinkSkinActive),
-            onSelect: () => applySkin(true),
-          },
-        ],
+        trailing: subValue(
+          ta(skinOptions.find((o) => o.id === skinChoice)?.labelKey ?? 'themeSkinDefault'),
+        ),
+        children: skinOptions.map((opt) => ({
+          key: `theme-skin-${opt.id}`,
+          label: ta(opt.labelKey),
+          trailing: checkMark(skinChoice === opt.id),
+          onSelect: () => applySkin(opt.id),
+        })),
       },
       {
         key: 'appearance-font-family',

@@ -18,7 +18,7 @@ import { useTranslations } from 'next-intl'
 import { Monitor, Palette } from 'lucide-react'
 
 import { useAppearanceStore } from '@/stores/appearance-settings'
-import { PINK_SKIN, isPinkSkin } from '@/lib/theme-skins'
+import { applySkinChoice, resolveSkinChoice } from '@/lib/theme-skins'
 
 import { OptionGrid, SectionCard } from './controls'
 
@@ -36,38 +36,28 @@ export function ThemeCard() {
   const [mounted, setMounted] = React.useState(false)
   React.useEffect(() => setMounted(true), [])
 
-  const pinkActive = isPinkSkin(config.customTheme)
-  const neutralActive = !config.customTheme.enabled
-  const systemActive = neutralActive && mounted && theme === 'system'
-  const pearlActive = neutralActive && mounted && theme === 'light'
-  const obsidianActive = neutralActive && mounted && theme === 'dark'
-
-  const applyNeutral = () => {
-    config.update({
-      accentColor: 'default',
-      customTheme: { ...config.customTheme, enabled: false },
+  // 四选一的生效判定与写入逻辑与头像菜单共用 theme-skins 的同一份实现(单一真相源)
+  const activeChoice = mounted ? resolveSkinChoice(config.customTheme, theme) : null
+  const apply = (choice: 'system' | 'pearl' | 'obsidian' | 'pink') =>
+    applySkinChoice(choice, {
+      update: config.update,
+      setTheme,
+      customTheme: config.customTheme,
     })
-  }
 
   const skins = [
     {
       id: 'system',
       label: t('themeSkinDefault'),
-      active: systemActive,
-      onClick: () => {
-        applyNeutral()
-        setTheme('system')
-      },
+      active: activeChoice === 'system',
+      onClick: () => apply('system'),
       swatch: <Monitor className="h-4 w-4 shrink-0" aria-hidden="true" />,
     },
     {
       id: 'pearl',
       label: t('themeSkinPearl'),
-      active: pearlActive,
-      onClick: () => {
-        applyNeutral()
-        setTheme('light')
-      },
+      active: activeChoice === 'pearl',
+      onClick: () => apply('pearl'),
       swatch: (
         <span
           className="block h-4 w-4 shrink-0 rounded-full bg-white ring-1 ring-black/20"
@@ -78,11 +68,8 @@ export function ThemeCard() {
     {
       id: 'obsidian',
       label: t('themeSkinObsidian'),
-      active: obsidianActive,
-      onClick: () => {
-        applyNeutral()
-        setTheme('dark')
-      },
+      active: activeChoice === 'obsidian',
+      onClick: () => apply('obsidian'),
       swatch: (
         <span
           className="block h-4 w-4 shrink-0 rounded-full ring-1 ring-black/40"
@@ -94,11 +81,8 @@ export function ThemeCard() {
     {
       id: 'pink',
       label: t('presetBuiltinPink'),
-      active: pinkActive,
-      onClick: () => {
-        config.update({ accentColor: 'rose', customTheme: { ...PINK_SKIN } })
-        setTheme('system')
-      },
+      active: activeChoice === 'pink',
+      onClick: () => apply('pink'),
       swatch: (
         <span
           className="block h-4 w-4 shrink-0 rounded-full ring-1 ring-black/10"
@@ -134,7 +118,7 @@ export function ThemeCard() {
             </button>
           ))}
         </div>
-        {pinkActive ? (
+        {activeChoice === 'pink' ? (
           <p className="text-label text-muted-foreground">{t('presetBuiltinPinkDesc')}</p>
         ) : null}
       </div>

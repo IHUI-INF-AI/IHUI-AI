@@ -41,4 +41,39 @@ export function isPinkSkin(theme: CustomThemeConfig): boolean {
     ),
   )
 }
+
+/** 主题卡四选一(2026-11-27 起):中性皮肤 × 明暗档 + 粉色皮肤,设置页与头像菜单共用这一份判定 */
+export type SkinChoice = 'system' | 'pearl' | 'obsidian' | 'pink'
+
+export type SkinThemeMode = 'system' | 'light' | 'dark'
+
+/** 当前生效的皮肤选择:粉色皮肤优先(它覆盖明暗两套),否则按 next-themes 的明暗档映射中性皮肤 */
+export function resolveSkinChoice(
+  customTheme: CustomThemeConfig,
+  theme: string | undefined,
+): SkinChoice {
+  if (isPinkSkin(customTheme)) return 'pink'
+  if (theme === 'light') return 'pearl'
+  if (theme === 'dark') return 'obsidian'
+  return 'system'
+}
+
+/** 应用皮肤选择:中性档关闭 customTheme 并同步明暗档;粉色档套 PINK_SKIN 并跟随系统明暗 */
+export function applySkinChoice(
+  choice: SkinChoice,
+  deps: {
+    update: (patch: { accentColor: 'default' | 'rose'; customTheme: CustomThemeConfig }) => void
+    setTheme: (mode: SkinThemeMode) => void
+    customTheme: CustomThemeConfig
+  },
+): void {
+  const { update, setTheme, customTheme } = deps
+  if (choice === 'pink') {
+    update({ accentColor: 'rose', customTheme: { ...PINK_SKIN } })
+    setTheme('system')
+    return
+  }
+  update({ accentColor: 'default', customTheme: { ...customTheme, enabled: false } })
+  setTheme(choice === 'pearl' ? 'light' : choice === 'obsidian' ? 'dark' : 'system')
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
