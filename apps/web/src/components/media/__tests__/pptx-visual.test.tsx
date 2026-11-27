@@ -137,11 +137,52 @@ async function makePptx(options: { readonly gradient?: boolean } = {}): Promise<
   return zip.generateAsync({ type: 'arraybuffer' })
 }
 
+/** PowerPoint 默认模板常见形态:正文占位符只写 idx、type 省略且无 xfrm。 */
+async function makePptxIdxOnlyPlaceholder(): Promise<ArrayBuffer> {
+  const zip = new JSZip()
+  zip.file(
+    'ppt/presentation.xml',
+    `<?xml version="1.0"?><p:presentation ${NS}>
+      <p:sldIdLst><p:sldId id="256" r:id="rId1"/></p:sldIdLst>
+      <p:sldSz cx="12192000" cy="6858000"/>
+    </p:presentation>`,
+  )
+  zip.file(
+    'ppt/_rels/presentation.xml.rels',
+    `<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+      <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide1.xml"/>
+    </Relationships>`,
+  )
+  zip.file(
+    'ppt/slides/slide1.xml',
+    `<?xml version="1.0"?><p:sld ${NS}><p:cSld><p:spTree>
+      <p:sp>
+        <p:nvSpPr><p:cNvPr id="2" name="Content Placeholder 2"/><p:cNvSpPr/><p:nvPr><p:ph idx="1"/></p:nvPr></p:nvSpPr>
+        <p:spPr/>
+        <p:txBody><a:bodyPr/><a:lstStyle/>
+          <a:p><a:r><a:t>正文占位符只写 idx 时也必须保留文字，不能被整页吞掉</a:t></a:r></a:p>
+        </p:txBody>
+      </p:sp>
+    </p:spTree></p:cSld></p:sld>`,
+  )
+  return zip.generateAsync({ type: 'arraybuffer' })
+}
+
 afterEach(() => {
   cleanup()
 })
 
 describe('parsePptxVisual', () => {
+  it('正文占位符省略 type 且没有 xfrm 时仍解析出正文', async () => {
+    const deck = await parsePptxVisual(await makePptxIdxOnlyPlaceholder())
+
+    expect(deck.slides).toHaveLength(1)
+    const body = deck.slides[0]?.shapes[0]
+    if (!body || body.kind !== 'text') throw new Error('body shape must be text')
+    expect(body.paragraphs[0]?.runs[0]?.text).toContain('正文占位符只写 idx')
+    expect(body.w).toBeGreaterThan(0.5)
+  })
+
   it('按 sldIdLst 关系顺序解析,还原位置/字号/填充', async () => {
     const deck = await parsePptxVisual(await makePptx())
 
