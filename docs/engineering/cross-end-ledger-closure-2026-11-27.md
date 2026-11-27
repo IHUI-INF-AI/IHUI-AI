@@ -111,3 +111,25 @@ BankCard 原先只有 `withdrawal_flows.account_info` 的只读投影，没有�
 - **边界**：该锁只覆盖单进程/单实例内最接近用户操作的竞态，不承诺分布式互斥；跨进程、多实例仍需数据库唯一键或事务级约束，代码注释已写明。
 
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
+
+### Web 已登录浏览器 E2E（2026-11-27）
+- **用例**：`apps/web/e2e/wallet-bank-cards.spec.ts` 走真实 `authenticatedPage` 与真实 `GET/POST/DELETE/PATCH /api/wallet/bank-cards`：新增 `4111111111111111`、`5555555555554444` 两张卡 → 第二张设默认 → 逐张删除；断言以 API 落库为准，清理显式卡用 Bearer 头，历史 `readOnly` 投影卡保留。
+- **testID**：共享 `BankCardScreen` 增 `bank-card-bank-name`、`bank-card-holder`、`bank-card-number`、`bank-card-form-default`、`bank-card-save`；E2E 同时保留 placeholder 兜底，未重构建的历史产物也能跑同一用例。
+- **运行**：`IHUI_E2E_EXTERNAL_SERVER=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:8801 pnpm --filter @ihui/web exec playwright test e2e/wallet-bank-cards.spec.ts --reporter=line`，1 passed / 11.0s。此前删除确认普通 `click` 会被 RNW 卸载成 detached，已改为 reload 后 `evaluate(el.click())`。
+- **环境边界**：本地 3201 dev 受 D 盘 pagefile 与 Turbopack 缓存跨盘 external require 影响未稳定；E2E 改用已运行的 production Web 8801 取证，页面与接口均为真实服务。
+
+### 提现接银行卡选择（2026-11-27）
+- **共享屏**：`WithdrawScreenProps` 增 `bankCards` / `selectedBankCardId` / `onSelectBankCard`；到账方式为 `bank` 时渲染已绑定卡 chips（默认卡带标记），选中后隐藏自由文本账号输入，可“手动输入”回退。
+- **Web**：提现页按需查询 `/api/wallet/bank-cards`，只把 `{id, 掩码 label, isDefault}` 传给共享屏；提交改走 `/api/wallet/withdraw`，选卡时传 `bankCardId`，不再让客户端手输完整卡号。
+- **API**：`withdrawSchema` 支持可选 `bankCardId`；服务端用 `listStoredBankCards(userId)` 找到卡后解密完整卡号、强制 `accountType=bank`，落库 `accountInfo.account` 为完整卡号并附 `bankCardId` 审计字段；未绑定 id / 类型不匹配返回 400。该入口同时修正了旧 Web 提交把 `accountInfo` 发给只收 `amount` query 的 `/api/finance/withdrawal/apply` 的错位。
+- **验证**：`apps/api` 应用层 `tsc --noEmit` 0；`apps/web typecheck` 0；新增 2 条真实 DB 提现用例（bankCardId 解密落库、无效 id/类型 400），未在共享 dev 库执行以免清表。
+
+### OpenAPI 落盘（2026-11-27）
+- **产物**：`apps/api/openapi.json` 5,247.7 KB，4,582 paths / 5,721 operations；`/api/wallet/bank-cards` 与 `/api/wallet/bank-cards/{id}` 均已在列（GET/POST 与 DELETE/PATCH 四端点）。
+- **生成**：`pnpm --filter @ihui/api exec tsx scripts/export-openapi.ts`，走真实 Fastify 图、不监听端口、不连 PG/Redis；输出确定性排序，可直接作为 CI 漂移基线。
+
+### 路由契约全量收口（2026-11-27）
+- **结果**：`node scripts/check-cross-end-route-contract.mjs --write` 跑通，contractRows 932 → **934**，Web 路由 934 = web-only 536 + mini-native **214** + mini-webview 97 + rn-only 62 + mini-native-own 14 + mini-native-direct 10 + rn-pending 1；真缺口 0（未分类 0 / 承载缺账 0 / 小程序路由不存在 0 / 门户缺失 0），rn-only 复核 51/51、0 待审。
+- **哈希**：`contractHash=2482724b5b9bc2c744e214b2d3d9efbf4087620406e509351b2491196249e14e`；随后 `--check` exit 0 `PASS`，原先卡住全量生成的 `community`、`publish/account-pool` 两处上游 gap 已由本轮工作树收口。
+- **连带产物**：`apps/mobile-rn/src/navigation/linking.screens.generated.ts` 同步重生成 301/301 行（240 屏 + 60 alias）；`apps/web/src/lib/ui-routes.generated.ts` 无变化（945 条）。
+- **真机**：本机无 adb / Android 模拟器 / iOS Simulator / 微信开发者工具，无法产出 RN、小程序真机截图；替代验收为 `pnpm --filter @ihui/miniapp-taro build:weapp` exit 0 + 共享屏单测 4/4 + Web E2E 1/1，真机项保留为环境受限。
