@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native'
 import { MessageSquare, Plus, Users } from 'lucide-react-native'
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnGeometry, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CircleListItem, CircleListScreenProps } from '../../types'
 
@@ -206,7 +206,7 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       flex: 1,
       marginBottom: rnSpacing.sm,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadiusFor.card,
       backgroundColor: tk.surface.card,
       overflow: 'hidden',
       borderWidth: StyleSheet.hairlineWidth,
@@ -246,7 +246,7 @@ function createStyles(tk: AppThemeTokens) {
     joinedBadge: {
       paddingHorizontal: rnSpacing.xs,
       paddingVertical: rnSpacing['2xs'],
-      borderRadius: rnRadius.xs,
+      borderRadius: rnRadiusFor.chip,
       backgroundColor: tk.surface.light,
     },
     joinedText: {
@@ -288,9 +288,10 @@ function createStyles(tk: AppThemeTokens) {
       position: 'absolute',
       right: rnSpacing.lg,
       bottom: rnSpacing['2xl'],
-      width: rnSpacing['3xl'],
-      height: rnSpacing['3xl'],
-      borderRadius: rnRadius['2xl'],
+      width: rnGeometry.fabBox,
+      height: rnGeometry.fabBox,
+      // 正方 FAB 取几何半边构成正圆,与 study-index 同口径;不写死 28,也不占圆角档。
+      borderRadius: rnGeometry.fabBox / 2,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
