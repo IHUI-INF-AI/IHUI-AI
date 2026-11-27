@@ -40,6 +40,18 @@ test('高对比块排在皮肤段之前 ⇒ 判红并点名顺序', () => {
   assert.ok(r.problems.some((p) => p.includes('高对比块')))
 })
 
+test('亮/暗单侧新增映射 ⇒ 判红并点名缺配侧', () => {
+  const asym =
+    "html[data-custom-theme='true'] {\n  --color-background: var(--custom-light-card);\n}\n" +
+    "html.dark[data-custom-theme='true'] {\n  --color-background: var(--custom-dark-card);\n  --color-muted: var(--custom-dark-muted);\n}\n"
+  const r = __test__.check(
+    asym + "html[data-high-contrast='true'] { --color-border: #000; }",
+    TOKENS,
+    LEDGER,
+  )
+  assert.ok(r.problems.some((p) => p.includes('亮档漏配') && p.includes('--color-muted')))
+})
+
 test('皮肤段引用色板不存在的键 ⇒ 判红(防拼错静默失效)', () => {
   const bad =
     "html[data-custom-theme='true'] {\n  --color-background: var(--custom-light-nonsense);\n}\nhtml.dark[data-custom-theme='true'] {\n  --color-background: var(--custom-dark-nonsense);\n}\n"
