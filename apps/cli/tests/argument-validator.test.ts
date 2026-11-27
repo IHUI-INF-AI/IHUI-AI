@@ -520,4 +520,75 @@ describe('validateToolArguments - 收集式返回与严格档(G-937978)', () => 
     expect(JSON.stringify(records)).not.toContain('[1,2]')
   })
 })
+
+// ==================== P1-3:pattern / 长度 / 范围(声明才校验) ====================
+
+describe('validateToolArguments - pattern / 长度 / 范围(P1-3)', () => {
+  const schema: ToolSchema = {
+    name: 'fmt',
+    description: 'fmt',
+    parameters: {
+      type: 'object',
+      properties: {
+        date: { type: 'string', description: '日期', pattern: '^\\d{4}-\\d{2}-\\d{2}$' },
+        code: { type: 'string', description: '码', minLength: 3, maxLength: 8 },
+        count: { type: 'number', description: '次数', minimum: 1, maximum: 10 },
+      },
+      required: [],
+    },
+  }
+
+  it('pattern 命中 ⇒ valid', () => {
+    const r = validateToolArguments({ date: '2026-11-27' }, schema)
+    expect(r.valid).toBe(true)
+  })
+
+  it('pattern 不符 ⇒ pattern_mismatch(且不落库成类型错)', () => {
+    const r = validateToolArguments({ date: '27/11/2026' }, schema)
+    expect(r.valid).toBe(false)
+    expect(r.errors[0]).toMatchObject({ field: 'date', reason: 'pattern_mismatch' })
+  })
+
+  it('声明方写了非法正则 ⇒ 一律 pattern_mismatch(不静默跳过)', () => {
+    const bad: ToolSchema = {
+      name: 'bad',
+      description: '',
+      parameters: {
+        type: 'object',
+        properties: { x: { type: 'string', description: 'x', pattern: '([' } },
+        required: [],
+      },
+    }
+    const r = validateToolArguments({ x: 'anything' }, bad)
+    expect(r.valid).toBe(false)
+    expect(r.errors[0]?.reason).toBe('pattern_mismatch')
+    expect(r.errors[0]?.field).toBe('x')
+  })
+
+  it('minLength / maxLength 越界 ⇒ length_mismatch;边界内通过', () => {
+    expect(validateToolArguments({ code: 'ab' }, schema).errors[0]).toMatchObject({
+      field: 'code',
+      reason: 'length_mismatch',
+    })
+    expect(validateToolArguments({ code: '123456789' }, schema).errors[0]).toMatchObject({
+      field: 'code',
+      reason: 'length_mismatch',
+    })
+    expect(validateToolArguments({ code: 'abc' }, schema).valid).toBe(true)
+    expect(validateToolArguments({ code: '12345678' }, schema).valid).toBe(true)
+  })
+
+  it('minimum / maximum 越界 ⇒ range_mismatch;闭区间边界通过', () => {
+    expect(validateToolArguments({ count: 0 }, schema).errors[0]).toMatchObject({
+      field: 'count',
+      reason: 'range_mismatch',
+    })
+    expect(validateToolArguments({ count: 11 }, schema).errors[0]).toMatchObject({
+      field: 'count',
+      reason: 'range_mismatch',
+    })
+    expect(validateToolArguments({ count: 1 }, schema).valid).toBe(true)
+    expect(validateToolArguments({ count: 10 }, schema).valid).toBe(true)
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
