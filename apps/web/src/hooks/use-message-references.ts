@@ -258,14 +258,29 @@ export function useMessageReferences(): {
   const uploadRef = React.useCallback((refId: string, file: File) => {
     void (async () => {
       try {
-        const formData = new FormData()
-        formData.append('file', file, file.name)
-        const res = await fetchApi<UploadFormPayload>(UPLOAD_ENDPOINT, {
-          method: 'POST',
-          body: formData,
-          // 对齐 AttachmentsUpload:默认 30s 超时对大文件偏紧,放宽到 120s
-          timeoutMs: 120_000,
-        })
+        const buildFormData = () => {
+          const formData = new FormData()
+          formData.append('file', file, file.name)
+          return formData
+        }
+        // 上传腿显式带 X-Requested-With:admin / SSO 会话只有 HttpOnly cookie 时,
+        // auth.ts 的 Cookie 认证路径会校验它,缺了就是 403「CSRF 校验失败」;
+        // fetchApi 虽统一补,但 multipart 调用点单独钉一次,防未来 transport 分支漂移。
+        const upload = () =>
+          fetchApi<UploadFormPayload>(UPLOAD_ENDPOINT, {
+            method: 'POST',
+            body: buildFormData(),
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            // 对齐 AttachmentsUpload:默认 30s 超时对大文件偏紧,放宽到 120s
+            timeoutMs: 120_000,
+          })
+        let res = await upload()
+        // 429(网关限流)/502/503(蓝绿切换)是瞬时态:退避后重试一次;
+        // 留住用户已选文件,不让一次冷启动把附件直接打成 error。
+        if (!res.success && (res.status === 429 || (res.status ?? 0) >= 502)) {
+          await new Promise((r) => setTimeout(r, 1500))
+          res = await upload()
+        }
         if (!res.success) throw new Error(res.error ?? '附件上传失败')
         const f = res.data.file ?? res.data.data?.file
         if (!f?.id || !f.path) throw new Error('上传响应缺少 file.id/file.path')
