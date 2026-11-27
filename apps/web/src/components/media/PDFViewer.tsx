@@ -21,7 +21,11 @@ import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { toast } from '@/components/common'
 import type { PreviewAnnotationPin } from '@/lib/document-annotations'
-import { reviewDocumentFragment, saveAiFindings } from '@/lib/document-annotations'
+import {
+  reviewDocumentBlocks,
+  reviewDocumentFragment,
+  saveAiFindings,
+} from '@/lib/document-annotations'
 import { AnnotationAnchorCapture } from '@/components/chat/annotation-anchor'
 import { PDFTextLayer } from './PDFTextLayer'
 
@@ -66,6 +70,18 @@ async function loadPdfjs(): Promise<AnyPdfLib> {
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
+const MAX_FULL_REVIEW_PAGES = 20
+const MAX_FULL_REVIEW_CHARS = 30_000
+
+async function readPdfPageText(pdfPage: AnyPdfPage): Promise<string> {
+  const content = await pdfPage.getTextContent()
+  return (content?.items ?? [])
+    .map((item: { str?: string }) => (typeof item.str === 'string' ? item.str : ''))
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 export function PDFViewer({
   url,
   className,
@@ -88,6 +104,7 @@ export function PDFViewer({
   const [error, setError] = React.useState<string | null>(null)
   const [rendering, setRendering] = React.useState(false)
   const [aiReviewBusy, setAiReviewBusy] = React.useState(false)
+  const [aiFullReviewBusy, setAiFullReviewBusy] = React.useState(false)
   const [textSelectable, setTextSelectable] = React.useState(true)
   const [pdfjsState, setPdfjsState] = React.useState<AnyPdfLib | null>(null)
   const [pdfSelection, setPdfSelection] = React.useState<{
@@ -107,12 +124,7 @@ export function PDFViewer({
     if (!documentId || !pageState.pdfPage || aiReviewBusy) return
     setAiReviewBusy(true)
     try {
-      const content = await pageState.pdfPage.getTextContent()
-      const text = (content?.items ?? [])
-        .map((item: { str?: string }) => (typeof item.str === 'string' ? item.str : ''))
-        .join(' ')
-        .replace(/\s+/g, ' ')
-        .trim()
+      const text = await readPdfPageText(pageState.pdfPage)
       if (text.length < 20) {
         toast.error('本页没有可审阅的文字（可能是扫描页）')
         return
@@ -145,6 +157,71 @@ export function PDFViewer({
       setAiReviewBusy(false)
     }
   }, [aiReviewBusy, documentId, documentName, onAnnotationsMutated, page, pageState.pdfPage])
+
+  const runFullAiReview = React.useCallback(async () => {
+    const pdfDoc = docRef.current
+    if (!documentId || !pdfDoc || aiReviewBusy || aiFullReviewBusy) return
+    setAiFullReviewBusy(true)
+    try {
+      const blocks: { anchor: Record<string, unknown>; text: string }[] = []
+      let totalChars = 0
+      const pageLimit = Math.min(numPages, MAX_FULL_REVIEW_PAGES)
+      for (let pageNumber = 1; pageNumber <= pageLimit; pageNumber += 1) {
+        if (totalChars >= MAX_FULL_REVIEW_CHARS) break
+        const pdfPage = await pdfDoc.getPage(pageNumber)
+        const text = await readPdfPageText(pdfPage)
+        if (text.length < 20) continue
+        const remaining = MAX_FULL_REVIEW_CHARS - totalChars
+        blocks.push({
+          anchor: { kind: 'pdf', page: pageNumber },
+          text: text.slice(0, remaining),
+        })
+        totalChars += Math.min(text.length, remaining)
+      }
+      if (blocks.length === 0) {
+        toast.error('这份 PDF 没有可审阅的文字（可能是扫描件）')
+        return
+      }
+      const findings = await reviewDocumentBlocks({ title: documentName || 'PDF 文档', blocks })
+      if (findings.length === 0) {
+        toast.success(`AI 已通读 ${blocks.length} 页：没有发现需要标注的问题`)
+        return
+      }
+      const groups = new Map<number, typeof findings>()
+      for (const finding of findings) {
+        const blockNumber = finding.block
+        if (!blockNumber || blockNumber < 1 || blockNumber > blocks.length) continue
+        const group = groups.get(blockNumber) ?? []
+        group.push(finding)
+        groups.set(blockNumber, group)
+      }
+      let created = 0
+      for (const [blockNumber, group] of groups) {
+        const block = blocks[blockNumber - 1]
+        if (!block) continue
+        const anchor = block.anchor
+        const pageNumber = Number(anchor.page)
+        const saved = await saveAiFindings({
+          documentId,
+          label: `PDF 第 ${Number.isInteger(pageNumber) ? pageNumber : blockNumber} 页 · AI 全文`,
+          anchorKind: 'pdf',
+          anchor,
+          findings: group,
+        })
+        created += saved.created.length
+      }
+      onAnnotationsMutated?.()
+      toast.success(
+        created > 0
+          ? `AI 已通读 ${blocks.length} 页，发现 ${created} 条新意见`
+          : `AI 已通读 ${blocks.length} 页：同一位置的意见已存在`,
+      )
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'AI 全文预审失败，请稍后重试')
+    } finally {
+      setAiFullReviewBusy(false)
+    }
+  }, [aiFullReviewBusy, aiReviewBusy, documentId, documentName, numPages, onAnnotationsMutated])
 
   React.useEffect(() => {
     let cancelled = false
@@ -330,7 +407,7 @@ export function PDFViewer({
               <button
                 type="button"
                 onClick={() => void runAiReview()}
-                disabled={aiReviewBusy || !pageState.pdfPage}
+                disabled={aiReviewBusy || aiFullReviewBusy || !pageState.pdfPage}
                 aria-label="AI 预审本页"
                 className="flex items-center gap-1 rounded-md bg-violet-600 px-2 py-1 text-[11px] font-medium text-white transition-colors hover:bg-violet-700 disabled:opacity-60"
               >
@@ -340,6 +417,24 @@ export function PDFViewer({
                   <Sparkles className="h-3.5 w-3.5" />
                 )}
                 AI 预审
+              </button>
+            </Tooltip>
+          ) : null}
+          {documentId && numPages > 1 ? (
+            <Tooltip content="AI 通读全文，把结论落到具体页">
+              <button
+                type="button"
+                onClick={() => void runFullAiReview()}
+                disabled={aiReviewBusy || aiFullReviewBusy}
+                aria-label="AI 全文预审"
+                className="flex items-center gap-1 rounded-md border border-violet-300 px-2 py-1 text-[11px] font-medium text-violet-700 transition-colors hover:bg-violet-50 disabled:opacity-60 dark:border-violet-800 dark:text-violet-300 dark:hover:bg-violet-950/40"
+              >
+                {aiFullReviewBusy ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5" />
+                )}
+                AI 全文
               </button>
             </Tooltip>
           ) : null}
@@ -381,7 +476,6 @@ export function PDFViewer({
             height: pageState.viewport ? pageState.viewport.height : undefined,
           }}
         >
-
           <canvas ref={canvasRef} className="block" />
           {pdfjsState && pageState.pdfPage && pageState.viewport && (
             <PDFTextLayer

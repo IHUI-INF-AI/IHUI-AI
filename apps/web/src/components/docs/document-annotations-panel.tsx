@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { Check, Loader2, MessageSquare, RefreshCw, RotateCcw, Send, Trash2, X } from 'lucide-react'
+import { Check, Loader2, MessageSquare, RefreshCw, RotateCcw, Send, Sparkles, Trash2, X } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 
 import {
@@ -15,6 +15,8 @@ import {
   updateDocumentAnnotation,
   type DocumentAnnotationRecord,
 } from '@/lib/document-annotations'
+import { emitAnchorReference } from '@/components/chat/annotation-anchor'
+import type { AnnotationAnchor } from '@ihui/shared/chat/annotation-anchors'
 import { cn } from '@/lib/utils'
 
 export type { DocumentAnnotationRecord } from '@/lib/document-annotations'
@@ -379,6 +381,32 @@ export function DocumentAnnotationsPanel({
                 ) : null}
 
                 <div className="mt-2 flex flex-wrap items-center gap-1">
+                  {root.origin === 'ai' && root.anchor ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 gap-1 px-1.5 text-[10px] text-violet-700 hover:bg-violet-50 dark:text-violet-300 dark:hover:bg-violet-950/40"
+                      title="把这条 AI 结论带回主 AI 对话继续处理"
+                      onClick={() => {
+                        const rawAnchor = root.anchor as Record<string, unknown>
+                        emitAnchorReference({
+                          text: `[${root.label || 'AI 预审'}] ${root.body.slice(0, 1200)}\n\n请基于这条 AI 预审意见,给出可执行的修订方案,并指出需要补充的证据。`,
+                          anchor: rawAnchor as unknown as AnnotationAnchor,
+                          source: 'ai-finding',
+                          page: typeof rawAnchor.page === 'number' ? rawAnchor.page : undefined,
+                          slide: typeof rawAnchor.slide === 'number' ? rawAnchor.slide : undefined,
+                          element:
+                            typeof rawAnchor.element === 'string' ? rawAnchor.element : undefined,
+                          excerpt: root.excerpt ?? undefined,
+                          note: root.body,
+                        })
+                      }}
+                      data-testid="annotation-ai-handoff"
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      交给主 AI
+                    </Button>
+                  ) : null}
                   <Button
                     variant="ghost"
                     size="sm"
