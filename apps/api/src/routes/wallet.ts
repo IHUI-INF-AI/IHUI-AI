@@ -19,7 +19,15 @@ import {
   exchangeWalletToPoints,
   WalletExchangeError,
 } from '../services/wallet-points-exchange-service.js'
-import { projectBankCards } from '../services/bank-card-projection.js'
+import {
+  BANK_CARD_MAX,
+  BankCardStoreError,
+  addStoredBankCard,
+  deleteStoredBankCard,
+  listWalletBankCards,
+  setDefaultStoredBankCard,
+  toBankCardItem,
+} from '../services/bank-card-store.js'
 
 /**
  * 钱包路由 — /api/wallet/*
@@ -38,6 +46,15 @@ const withdrawSchema = z.object({
   account: z.string().min(1, '请输入收款账号'),
   accountType: z.string().min(1, '请选择账号类型'),
 })
+
+const bankCardAddSchema = z.object({
+  number: z.string().trim().min(12, '请输入银行卡号').max(32, '银行卡号过长'),
+  holder: z.string().trim().min(1, '请输入持卡人').max(40, '持卡人过长'),
+  bankName: z.string().trim().min(1, '请输入开户行').max(40, '开户行过长'),
+  isDefault: z.boolean().optional(),
+})
+
+const bankCardIdSchema = z.string().trim().min(1).max(64)
 
 const convertToPointsSchema = z.object({
   /** 1 分 = 1 积分;最低 ¥1,避免 1 分钱的粉尘转账 */
@@ -73,8 +90,8 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAuth)
 
   // GET /bank-cards - 银行卡列表(G-962 B8;mobile-rn BankCardScreen 消费 data 数组)
-  // 数据源:withdrawal_flows.account_info 的只读投影(不建表/不迁移,不伪造绑卡)。
-  // 只回传掩码卡号;同一卡号去重取最新;无历史提现账户时返回真实空态。
+  // 数据源:显式绑定卡(user_preferences group=bank_cards,值加密)+ withdrawal_flows
+  // account_info 的只读投影。只回传掩码卡号;同一卡号去重;默认卡排最前。
   server.get('/bank-cards', async (request, reply) => {
     const userId = request.userId!
     const rows = await dbRead
@@ -92,8 +109,66 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
       )
       .orderBy(desc(withdrawalFlows.createdAt))
       .limit(100)
-    return reply.send(success(projectBankCards(rows, userId)))
+    return reply.send(success(await listWalletBankCards(userId, rows)))
   })
+
+  // POST /bank-cards - 新增显式绑定卡（完整卡号只落加密值，不回传）
+  server.post(
+    '/bank-cards',
+    { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const parsed = bankCardAddSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      try {
+        const card = await addStoredBankCard(request.userId!, parsed.data)
+        return reply.status(201).send(success(toBankCardItem(card)))
+      } catch (err) {
+        if (err instanceof BankCardStoreError) {
+          const status = err.code === 'exists' ? 409 : 400
+          const message =
+            err.code === 'invalid-number'
+              ? '银行卡号格式不正确'
+              : err.code === 'exists'
+                ? '该银行卡已绑定'
+                : `最多绑定 ${BANK_CARD_MAX} 张银行卡`
+          return reply.status(status).send(error(status, message))
+        }
+        throw err
+      }
+    },
+  )
+
+  // DELETE /bank-cards/:id - 只删显式绑定卡；历史提现投影不可删
+  server.delete(
+    '/bank-cards/:id',
+    { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const id = bankCardIdSchema.safeParse((request.params as { id?: string }).id)
+      if (!id.success) return reply.status(400).send(error(400, '银行卡 id 不合法'))
+      const deleted = await deleteStoredBankCard(request.userId!, id.data)
+      if (!deleted) {
+        return reply.status(404).send(error(404, '未找到可删除的绑定卡'))
+      }
+      return reply.send(success({ deleted: true }))
+    },
+  )
+
+  // PATCH /bank-cards/:id/default - 设默认卡（历史提现投影不可设默认）
+  server.patch(
+    '/bank-cards/:id/default',
+    { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const id = bankCardIdSchema.safeParse((request.params as { id?: string }).id)
+      if (!id.success) return reply.status(400).send(error(400, '银行卡 id 不合法'))
+      const ok = await setDefaultStoredBankCard(request.userId!, id.data)
+      if (!ok) {
+        return reply.status(404).send(error(404, '未找到可设为默认的绑定卡'))
+      }
+      return reply.send(success({ isDefault: true }))
+    },
+  )
 
   // GET /balance
   server.get('/balance', async (request, reply) => {

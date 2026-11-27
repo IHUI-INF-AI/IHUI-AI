@@ -103,10 +103,13 @@ describe('G-962 批 B8 补后端注册的路由形状', () => {
     await server.close()
   })
 
-  const AUTHED: Array<[string, 'GET' | 'POST' | 'PUT', string]> = [
+  const AUTHED: Array<[string, 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH', string]> = [
     ['agent-setting 读', 'GET', '/api/agent-setting'],
     ['agent-setting 写', 'PUT', '/api/agent-setting'],
-    ['bank-cards', 'GET', '/api/wallet/bank-cards'],
+    ['bank-cards 列表', 'GET', '/api/wallet/bank-cards'],
+    ['bank-cards 新增', 'POST', '/api/wallet/bank-cards'],
+    ['bank-cards 删除', 'DELETE', '/api/wallet/bank-cards/card-1'],
+    ['bank-cards 设默认', 'PATCH', '/api/wallet/bank-cards/card-1/default'],
     ['证书申请', 'POST', '/api/certificates'],
     ['客服信息', 'GET', '/api/customer-service/info'],
     ['订单日志', 'GET', '/api/order-log'],

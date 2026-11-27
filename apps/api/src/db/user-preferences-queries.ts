@@ -42,6 +42,9 @@ export const USER_PREFERENCE_GROUPS = {
   // (全局配置 + 工作区覆盖 + 单条消息覆盖)。与 'preferences' 分开:
   // 外观快照体积随消息数增长,不能挤进设置页通用的 preferences 键空间。
   appearance: 'appearance',
+  // 显式绑定的银行卡(2026-11-27 BankCard 写闭环):key=卡 id,value=AES-GCM 加密 JSON。
+  // 历史提现投影仍是只读来源,两者在 GET /wallet/bank-cards 合并;不新开表/不迁移。
+  bankCards: 'bank_cards',
 } as const
 
 export type UserPreferenceGroup =
