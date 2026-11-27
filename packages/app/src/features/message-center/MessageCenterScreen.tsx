@@ -16,7 +16,7 @@ import type {
   MessageTab,
 } from '../../types'
 
-import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 import { Tappable } from '@ihui/ui-native'
@@ -71,7 +71,7 @@ export function MessageCenterScreen({
 
   /** tab 配置:平台注入优先;不传时回落四档默认 tab(文案仍取 i18n,与旧版一致) */
   const tabList: { key: string; label: string; unread?: number }[] =
-    tabs ?? TABS.map((key) => ({ key, label: t(`messageCenter.tab.${key}`) }))
+    tabs ?? TABS.map((key) => ({ key, label: t(`messageCenter.type.${key}`) }))
   /** 会话区块:未指定 conversationsTab 时保持旧行为(所有 tab 都渲染) */
   const showConversations = conversationsTab === undefined || conversationsTab === activeTab
   /** 自定义 tab 体(如私信);返回 null/undefined 时走默认会话 + 消息列表 */
@@ -162,6 +162,7 @@ export function MessageCenterScreen({
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={styles.tabsBar}
         contentContainerStyle={styles.tabs}
       >
         {tabList.map((tab) => {
@@ -345,31 +346,40 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing.sm,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadiusFor.card,
       borderWidth: 1,
       borderColor: 'transparent',
       backgroundColor: tk.surface.card,
     },
     bannerText: { flex: 1, fontSize: rnType.body.size, color: tk.text.secondary },
     searchWrap: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
+    // 横向 tab 条固定高度，防止横屏时被 flexGrow 压扁；高度只兜住 pill 与上下留白。
+    tabsBar: { flexGrow: 0, flexShrink: 0, height: 40 },
     tabs: {
       paddingHorizontal: rnSpacing['sm-loose'],
-      paddingVertical: rnSpacing.sm,
+      paddingVertical: rnSpacing.xs,
       gap: rnSpacing.sm,
     },
     tab: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'center',
       gap: rnSpacing['2xs'],
+      height: 28,
       paddingHorizontal: rnSpacing['md-loose'],
-      paddingVertical: rnSpacing['xs-loose'],
-      borderRadius: rnRadius.xl,
+      paddingVertical: 0,
+      borderRadius: rnRadiusFor.chip,
       backgroundColor: tk.surface.card,
     },
     tabActive: {
       backgroundColor: tk.brand.cta,
     },
-    tabText: { fontSize: rnType.body.size, color: tk.text.secondary },
+    tabText: {
+      fontSize: rnType.body.size,
+      lineHeight: rnType.body.lineHeight,
+      includeFontPadding: false,
+      color: tk.text.secondary,
+    },
     tabTextActive: { color: tk.brand.ctaForeground, fontWeight: '600' },
     // 未读徽标唯一形状(tab 与会话头像角标共用;角标只叠加定位)
     badge: {
@@ -401,14 +411,14 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       paddingVertical: rnSpacing.md,
       paddingHorizontal: rnSpacing['sm-loose'],
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadiusFor.card,
       gap: rnSpacing.md,
     },
     convAvatarWrap: { position: 'relative' },
     convAvatar: {
       width: 44,
       height: 44,
-      borderRadius: rnRadius.lg, // 原 10,R1 吸附至 lg(8)
+      borderRadius: rnRadiusFor.card,
       backgroundColor: tk.surface.muted,
     },
     convAvatarFallback: { alignItems: 'center', justifyContent: 'center' },
