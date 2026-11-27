@@ -997,7 +997,7 @@ function VisualSlideView({ slide, cx, cy }: { slide: PptxVisualSlide; cx: number
   return (
     <figure data-testid="pptx-visual-slide" className="mx-auto w-full max-w-[880px]">
       <div
-        className="relative w-full overflow-hidden rounded-sm shadow-sm ring-1 ring-border"
+        className="relative w-full overflow-hidden rounded-lg shadow-sm ring-1 ring-border"
         style={
           {
             aspectRatio: `${cx} / ${cy}`,

@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: rnSpacing.md,
     height: 32,
   },
-  chipIcon: { width: 16, height: 16, borderRadius: 2 },
+  chipIcon: { width: 16, height: 16, borderRadius: rnRadiusFor.tiny },
   chipText: { fontSize: rnType.body.size },
   empty: { fontSize: rnType.body.size },
   avatar: { width: 32, height: 32, borderRadius: 16 },
