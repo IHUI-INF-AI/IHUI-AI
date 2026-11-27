@@ -1020,7 +1020,7 @@ function ShapeHit({
       type="button"
       aria-label={label}
       title={label}
-      className="absolute z-20 rounded-sm border-0 bg-transparent p-0 transition-colors hover:bg-primary/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
+      className="absolute z-20 border-0 bg-transparent p-0 transition-colors hover:bg-primary/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
       style={{
         left: `${shape.x * 100}%`,
         top: `${shape.y * 100}%`,
