@@ -37,14 +37,144 @@ async def test_run_get_reads_result() -> None:
 
 
 @pytest.mark.asyncio
-async def test_non_single_mode_is_explicitly_rejected() -> None:
+async def test_parallel_requires_participants() -> None:
     envelope = await _tool(lambda _r: httpx.Response(200, json={"code": 0})).handle(
         {"action": "dispatch", "definitionId": "def-1", "goal": "做一件小事", "mode": "parallel"},
         user_id="user-1",
     )
 
     assert envelope["ok"] is False
-    assert envelope["error"]["code"] == "AGENT_MODE_NOT_IMPLEMENTED"
+    assert envelope["error"]["code"] == "AGENT_DISPATCH_INPUT_MISSING"
+
+
+def _raw_definition(def_id: str, name: str) -> dict[str, Any]:
+    return {
+        "id": def_id,
+        "version": 4,
+        "name": name,
+        "displayName": name,
+        "description": "测试",
+        "role": "reviewer",
+        "systemPrompt": "只读评审",
+        "tools": ["read_file"],
+        "skills": [],
+        "model": None,
+        "temperature": "0.2",
+        "maxTokens": None,
+        "maxIterations": 5,
+        "permissions": {},
+        "memoryPolicy": {},
+        "budget": {},
+        "concurrencyLimit": 1,
+        "isBuiltin": False,
+        "isDispatchable": True,
+        "ownerUserId": "user-1",
+        "teamId": None,
+        "scope": "personal",
+        "status": "active",
+        "marketAgentId": None,
+        "metadata": {},
+        "updatedAt": "2026-11-28T10:00:00.000Z",
+    }
+
+
+def _run_handler(definitions: list[dict[str, Any]], calls: list[tuple[str, str, dict[str, Any]]]):
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content) if request.content else {}
+        calls.append((request.method, request.url.path, payload))
+        if request.url.path.endswith("/snapshot"):
+            return httpx.Response(
+                200,
+                json={"code": 0, "data": {"items": definitions, "version": 1732788000000}},
+            )
+        if request.url.path.endswith("/runs") and request.method == "POST":
+            return httpx.Response(
+                201, json={"code": 0, "data": {"run": {"id": payload["runId"]}, "created": True}}
+            )
+        if "/runs/" in request.url.path:
+            return httpx.Response(200, json={"code": 0, "data": {"ok": True}})
+        return httpx.Response(404, json={"code": 404, "message": "not found"})
+
+    return handler
+
+
+@pytest.mark.asyncio
+async def test_dispatch_parallel_runs_two_agents(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.services.agent_orchestrator import AgentOrchestrator, AgentStepResult
+
+    definitions = [
+        _raw_definition("11111111-1111-4111-8111-111111111111", "reviewer-a"),
+        _raw_definition("22222222-2222-4222-8222-222222222222", "reviewer-b"),
+    ]
+    calls: list[tuple[str, str, dict[str, Any]]] = []
+
+    async def fake_run(self, agent, user_input, *args, **kwargs):  # type: ignore[no-untyped-def]
+        return AgentStepResult(
+            agent_name=agent.name, input=user_input, output=f"{agent.name} 完成", status="completed"
+        )
+
+    monkeypatch.setattr(AgentOrchestrator, "_run_agent", fake_run)
+    envelope = await _tool(_run_handler(definitions, calls)).handle(
+        {
+            "action": "dispatch",
+            "mode": "parallel",
+            "definitionId": definitions[0]["id"],
+            "goal": "分别检查前端与后端",
+            "agents": [
+                {"definitionId": definitions[0]["id"], "goal": "检查前端"},
+                {"definitionId": definitions[1]["id"], "goal": "检查后端"},
+            ],
+        },
+        user_id="user-1",
+    )
+
+    assert envelope["ok"] is True
+    assert envelope["data"]["runStatus"] == "succeeded"
+    assert len(envelope["data"]["steps"]) == 2
+    create_call = next(c for c in calls if c[0] == "POST" and c[1].endswith("/runs"))
+    assert create_call[2]["mode"] == "parallel"
+    assert create_call[2]["metadata"]["participants"] == [d["id"] for d in definitions]
+
+
+@pytest.mark.asyncio
+async def test_dispatch_pipeline_passes_previous_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.services.agent_orchestrator import AgentOrchestrator, AgentStepResult
+
+    definitions = [
+        _raw_definition("11111111-1111-4111-8111-111111111111", "drafter"),
+        _raw_definition("22222222-2222-4222-8222-222222222222", "reviewer-b"),
+    ]
+    calls: list[tuple[str, str, dict[str, Any]]] = []
+    inputs: list[str] = []
+
+    async def fake_run(self, agent, user_input, *args, **kwargs):  # type: ignore[no-untyped-def]
+        inputs.append(user_input)
+        return AgentStepResult(
+            agent_name=agent.name, input=user_input, output=f"{agent.name}:{user_input}", status="completed"
+        )
+
+    monkeypatch.setattr(AgentOrchestrator, "_run_agent", fake_run)
+    envelope = await _tool(_run_handler(definitions, calls)).handle(
+        {
+            "action": "dispatch",
+            "mode": "pipeline",
+            "definitionId": definitions[0]["id"],
+            "goal": "写一段介绍",
+            "steps": [
+                {"definitionId": definitions[0]["id"], "inputTemplate": "{input}"},
+                {
+                    "definitionId": definitions[1]["id"],
+                    "inputTemplate": "请评审：{prev_output}",
+                },
+            ],
+        },
+        user_id="user-1",
+    )
+
+    assert envelope["ok"] is True
+    assert envelope["data"]["runStatus"] == "succeeded"
+    assert inputs[0] == "写一段介绍"
+    assert "drafter:写一段介绍" in inputs[1]
 
 
 @pytest.mark.asyncio
