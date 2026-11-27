@@ -22,6 +22,13 @@ import {
 } from '@ihui/context-compaction'
 import { authenticate } from '../plugins/auth.js'
 import { db } from '../db/index.js'
+import {
+  backflowMiniappPatch,
+  backflowMiniappPatchMany,
+  backflowMiniappRemove,
+  collectMiniappRefs,
+  removeMiniappHistoryRows,
+} from './conversation-miniapp-backflow.js'
 import { dedupeIds, batchWriteOutcome } from '../utils/batch-outcome.js'
 // 批量操作的"哪些 id 根本没被写"对账需要直接按 (userId, ids) 查一次归属(见 POST /conversations/batch)
 import { chatConversations } from '@ihui/database'
@@ -213,6 +220,8 @@ const createConversationSchema = z.object({
   model: z.string().max(64).optional(),
   systemPrompt: z.string().optional(),
   metadata: z.unknown().optional(),
+  // 小程序历史行的 uuid;source 由 x-client-platform 头决定,不允许客户端自报来源端。
+  sourceRef: z.string().max(64).optional(),
 })
 
 const updateConversationSchema = z.object({
@@ -381,6 +390,8 @@ function serializeConversation(c: {
   archivedAt: Date | null
   compressedAt: Date | null
   compressedContext: string | null
+  source?: string | null
+  sourceRef?: string | null
   pinned?: boolean
   pinnedAt?: Date | null
   messageCount?: number
@@ -399,6 +410,8 @@ function serializeConversation(c: {
     archivedAt: c.archivedAt,
     compressedAt: c.compressedAt,
     compressedContext: c.compressedContext,
+    ...(c.source !== undefined && { source: c.source }),
+    ...(c.sourceRef !== undefined && { sourceRef: c.sourceRef }),
     ...(c.pinned !== undefined && { pinned: c.pinned }),
     ...(c.pinnedAt !== undefined && { pinnedAt: c.pinnedAt }),
     ...(c.messageCount !== undefined && { messageCount: c.messageCount }),
@@ -806,6 +819,11 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
               additionalProperties: true,
               description: '元数据(任意键值)',
             },
+            sourceRef: {
+              type: 'string',
+              maxLength: 64,
+              description: '小程序历史行 uuid,仅镜像会话使用',
+            },
           },
         },
         response: {
@@ -843,12 +861,18 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       }
 
       try {
+        // 来源端只认白名单头:rn / miniapp;其余一律 web,避免客户端伪造 source 污染收编口径。
+        const platformHeader = request.headers['x-client-platform']
+        const source =
+          platformHeader === 'rn' || platformHeader === 'miniapp' ? platformHeader : 'web'
         const conversation = await createConversation({
           userId,
           title: parsed.data.title,
           model: parsed.data.model,
           systemPrompt: parsed.data.systemPrompt,
           metadata: parsed.data.metadata,
+          source,
+          ...(parsed.data.sourceRef !== undefined && { sourceRef: parsed.data.sourceRef }),
         })
 
         // 新会话跨端即时可见(2026-11-25):此前另一端的侧栏要等 staleTime 到期或切窗 refetch,
@@ -959,6 +983,14 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     if (!owned.conversation) return
 
     const updated = await updateConversation(id, parsed.data)
+    // 小程序镜像行的状态必须回写自己的历史表;失败只 warn,不让 web 的 PATCH 变 500。
+    const backflowedPatch = await backflowMiniappPatch(userId, owned.conversation, {
+      ...(parsed.data.title !== undefined && { title: updated.title }),
+      ...(parsed.data.pinned !== undefined && { pinned: updated.pinned ?? parsed.data.pinned }),
+    })
+    if (backflowedPatch < 0) {
+      request.log.warn({ userId, conversationId: id }, '会话 PATCH 回写小程序历史失败')
+    }
     // 用户手动改名 → 打标 manual(2026-11-13):后续多轮标题重估只碰 auto,绝不吞用户命名
     if (parsed.data.title !== undefined && updated.title !== owned.conversation.title) {
       // 创建时标题留档(2026-11-16 立,与 auto-title 同一口径):首次改名时,若此前没有
@@ -1119,6 +1151,12 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     // deleted 由库侧 RETURNING 派生,不是代码常量(2026-09-27):上面的归属预查与这次
     // 删除之间若有并发,行已不在 ⇒ 这里必须如实报 false,而不是照旧回 true。
     const removed = await deleteConversation(id)
+    if (removed.length > 0) {
+      const backflowed = await backflowMiniappRemove(userId, owned.conversation)
+      if (backflowed < 0) {
+        request.log.warn({ userId, conversationId: id }, '会话删除后回写小程序历史失败')
+      }
+    }
     return reply.send(success({ deleted: removed.length > 0 }))
   })
 
@@ -1154,6 +1192,14 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
         uniqueIds,
         ownedRows.map((r) => r.id),
       )
+      // 批量删除必须在统一表删掉之前收集 source_ref;删后再查恒得空集。
+      const miniappRefsToRemove =
+        action === 'delete'
+          ? await collectMiniappRefs(
+              userId,
+              ownedRows.map((r) => r.id),
+            )
+          : []
 
       let affected = 0
       switch (action) {
@@ -1172,6 +1218,24 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
         case 'unarchive':
           affected = await setConversationsArchivedBatch(userId, ids, false)
           break
+      }
+      if (action === 'delete') {
+        const backflowed = await removeMiniappHistoryRows(userId, miniappRefsToRemove)
+        if (backflowed < 0) {
+          request.log.warn({ userId }, '批量删除后回写小程序历史失败')
+        }
+      }
+      if (action === 'archive' || action === 'unarchive') {
+        const backflowed = await backflowMiniappPatchMany(
+          userId,
+          ownedRows.map((r) => r.id),
+          {
+            archivedAt: action === 'archive' ? new Date() : null,
+          },
+        )
+        if (backflowed < 0) {
+          request.log.warn({ userId, action }, '批量归档回写小程序历史失败')
+        }
       }
       // D153(2026-09-29):归档是"另一台设备最看不出来"的一类变更 —— 侧栏少一行没有报错,
       // 只有沉默分叉。所以只对**库里真的被这次写命中**的那些 id 发帧:上面的归属预查询

@@ -168,7 +168,9 @@ describe('plugins smoke 测试', () => {
     })
 
     it('isPublicPath 非公开路径返回 false', () => {
-      expect(isPublicPath('/api/users')).toBe(false)
+      // isPublicPath 是租户绕过判据,不是鉴权公开面:/api/users 属第一方用户面,
+      // 按设计免租户(仍需登录),不能拿它当反例。这里选真正需租户的 admin 面。
+      expect(isPublicPath('/api/admin/tenants')).toBe(false)
     })
 
     it('resolveTenantIdentifier 无 header 无子域名返回 null', () => {

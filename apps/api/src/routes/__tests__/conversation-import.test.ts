@@ -74,48 +74,8 @@ vi.mock('../../utils/ai-service-fetch.js', () => ({
 // ─────────────────────────────────────────────────────────────
 // Mock:@ihui/database(列名占位,供 drizzle 操作符引用)
 // ─────────────────────────────────────────────────────────────
-vi.mock('@ihui/database', () => ({
-  // 2026-11-19 补:上游导出里新增 users,手抄 mock 缺它 ⇒ 模块加载期整片崩。
-  // 纯表身份桩(列对象按属性名缓存,保证 eq(users.id) 两次取值同引用)。
-  users: new Proxy({} as Record<string, unknown>, {
-    get: (cache, prop) =>
-      (cache[prop as string] ??= { name: String(prop), toString: () => String(prop) }),
-  }),
-  chatConversations: {
-    id: 'id',
-    userId: 'user_id',
-    title: 'title',
-    model: 'model',
-    metadata: 'metadata',
-    createdAt: 'created_at',
-    updatedAt: 'updated_at',
-    lastMessageAt: 'last_message_at',
-  },
-  chatMessages: {
-    id: 'id',
-    conversationId: 'conversation_id',
-    role: 'role',
-    content: 'content',
-    reasoning: 'reasoning',
-    tokens: 'tokens',
-    createdAt: 'created_at',
-  },
-  userChatSkills: { id: 'id' },
-  userAutomations: { id: 'id' },
-  agentMemoryEpisodic: { id: 'id' },
-  conversationImports: {
-    id: 'id',
-    ownerUuid: 'owner_uuid',
-    source: 'source',
-    conversationId: 'conversation_id',
-    fileName: 'file_name',
-    parsedCount: 'parsed_count',
-    importedCount: 'imported_count',
-    failedCount: 'failed_count',
-    status: 'status',
-    errorMessage: 'error_message',
-    importedAt: 'imported_at',
-  },
+vi.mock('@ihui/database', async (importOriginal) => ({
+  ...((await importOriginal()) as object),
 }))
 
 // ─────────────────────────────────────────────────────────────

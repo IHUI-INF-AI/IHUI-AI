@@ -16,18 +16,18 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 const capture = vi.hoisted(() => ({
-  /** 每次 db.select(projection) 的 where 子句编译后的 SQL 文本 */
-  wheres: [] as string[],
+  /** 每次 db.select(projection) 的 where 子句编译后的 SQL 文本与绑定参数 */
+  wheres: [] as Array<{ sql: string; params: unknown[] }>,
 }))
 
 vi.mock('../src/db/index.js', async () => {
   const { PgDialect } = await import('drizzle-orm/pg-core')
   const dialect = new PgDialect()
 
-  const compile = (expr: unknown): string => {
+  const compile = (expr: unknown): { sql: string; params: unknown[] } => {
     const wrapper = expr as { getSQL?: () => unknown }
     const fragment = typeof wrapper?.getSQL === 'function' ? wrapper.getSQL() : expr
-    return dialect.sqlToQuery(fragment as never).sql
+    return dialect.sqlToQuery(fragment as never)
   }
 
   const makeSelect = (_projection: Record<string, unknown>) => {
@@ -57,11 +57,15 @@ import {
   getPluginStatsTrend,
 } from '../src/db/plugin-events-queries.js'
 
-/** 从编译后的 where SQL 里抽出 interval 的天数(应恒为受控整数)。 */
-const intervalDaysIn = (sqlText: string): number[] =>
-  [...sqlText.matchAll(/interval '\s*(\d+)\s* days'/g)].map((m) => Number(m[1]))
+/** 从编译后的 where SQL 里抽出 make_interval 绑定的天数(应恒为受控整数)。 */
+const intervalDaysIn = (where: { sql: string; params: unknown[] }): number[] => {
+  const m = where.sql.match(/make_interval\(days => \$(\d+)\)/)
+  if (!m) return []
+  return [Number(where.params[Number(m[1]) - 1])]
+}
 
-const lastWhere = (): string => capture.wheres[capture.wheres.length - 1]!
+const lastWhere = (): { sql: string; params: unknown[] } =>
+  capture.wheres[capture.wheres.length - 1]!
 
 describe('Y-85 插件统计 export 入口必须 clamp days', () => {
   beforeEach(() => {
@@ -100,8 +104,8 @@ describe('Y-85 插件统计 export 入口必须 clamp days', () => {
     expect(intervalDaysIn(lastWhere())).toEqual([7])
   })
 
-  it('days=NaN 兜底到 1(不产生 interval \'\s*days\' 这类破损字面量)', async () => {
+  it("days=NaN 兜底到默认 7(不产生 interval 's*days' 这类破损字面量)", async () => {
     await getPluginStatsSummary(Number.NaN)
-    expect(intervalDaysIn(lastWhere())).toEqual([1])
+    expect(intervalDaysIn(lastWhere())).toEqual([7])
   })
 })

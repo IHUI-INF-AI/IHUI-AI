@@ -60,7 +60,24 @@ vi.mock('../../db/index.js', () => ({
     execute: vi.fn().mockResolvedValue([]),
     transaction: vi.fn(),
   },
+  dbRead: {
+    select: vi.fn().mockReturnThis(),
+    from: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockResolvedValue([]),
+    execute: vi.fn().mockResolvedValue([]),
+  },
 }))
+
+// 计费不是归属判据的被测面:预扣/结算直接放行,避免哨兵 DB 连接把 200 变 503。
+vi.mock('../../services/ai-points-billing.js', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return {
+    ...actual,
+    ensureLlmPointsBalance: async () => true,
+    settleLlmPointsUsage: async () => ({ points: 0, deducted: 0, shortfall: 0 }),
+  }
+})
 
 vi.mock('../../db/chat-queries.js', () => ({
   bindConversationWorkspace: mocks.bindConversationWorkspace,

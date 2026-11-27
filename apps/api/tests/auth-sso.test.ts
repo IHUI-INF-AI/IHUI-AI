@@ -190,7 +190,7 @@ describe('auth-sso — SSO 4 端点 + skipResponseSanitization', () => {
   })
 
   describe('POST /api/auth/sso/code — 生成一次性授权码', () => {
-    it('成功生成 30 秒一次性 code', async () => {
+    it('成功生成 90 秒一次性 code', async () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/auth/sso/code',
@@ -202,13 +202,13 @@ describe('auth-sso — SSO 4 端点 + skipResponseSanitization', () => {
       expect(body.code).toBe(0)
       expect(body.data.code).toMatch(/^[A-Za-z0-9_-]+$/) // base64url
       expect(body.data.redirectUri).toBe('/dashboard')
-      expect(body.data.expiresIn).toBe(30)
+      expect(body.data.expiresIn).toBe(90)
       // redis 中已存储
       expect(mockRedis.set).toHaveBeenCalledWith(
         expect.stringMatching(/^sso:code:/),
         expect.any(String),
         'EX',
-        30,
+        90,
       )
     })
 

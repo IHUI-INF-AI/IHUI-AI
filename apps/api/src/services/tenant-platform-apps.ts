@@ -11,6 +11,23 @@ import { decryptCredential, encryptCredential } from '../utils/crypto.js'
 export const TENANT_PLATFORM_IDS = ['feishu', 'dingtalk', 'wecom', 'wechat', 'wechat_mp'] as const
 export type TenantPlatformId = (typeof TENANT_PLATFORM_IDS)[number]
 
+// 面向用户的消息用中文平台名,不要把 wechat/wecom 这类内部键直接喷给前端。
+const PLATFORM_LABELS: Record<string, string> = {
+  wechat: '微信',
+  wechat_mp: '微信公众号',
+  wecom: '企业微信',
+  dingtalk: '钉钉',
+  feishu: '飞书',
+  alipay: '支付宝',
+  google: 'Google',
+  apple: 'Apple',
+  qq: 'QQ',
+}
+
+function platformLabel(platform: string): string {
+  return PLATFORM_LABELS[platform] ?? platform
+}
+
 export interface PlatformCredentials {
   appId: string
   appSecret: string
@@ -153,13 +170,13 @@ export async function resolveTenantPlatformCredentials(
     if (!row.enabled) {
       throw new TenantPlatformAppError(
         'CREDENTIALS_DISABLED',
-        `租户已停用 ${platform} 平台应用凭据`,
+        `租户已停用 ${platformLabel(platform)} 平台应用凭据`,
       )
     }
     if (!row.appId || !row.appSecret) {
       throw new TenantPlatformAppError(
         'CREDENTIALS_MISSING',
-        `租户尚未完整配置 ${platform} 平台应用凭据`,
+        `租户尚未完整配置 ${platformLabel(platform)} 平台应用凭据`,
       )
     }
     let appSecret: string
@@ -168,7 +185,7 @@ export async function resolveTenantPlatformCredentials(
     } catch {
       throw new TenantPlatformAppError(
         'CREDENTIALS_CORRUPTED',
-        `租户 ${platform} 平台应用密钥无法解密，请管理员重新保存`,
+        `租户 ${platformLabel(platform)} 平台应用密钥无法解密，请管理员重新保存`,
       )
     }
     return {
@@ -189,8 +206,8 @@ export async function resolveTenantPlatformCredentials(
   throw new TenantPlatformAppError(
     'CREDENTIALS_MISSING',
     tenantId
-      ? `当前租户尚未配置 ${platform} 平台应用凭据，请租户管理员在「企业应用凭据」中填写本企业应用`
-      : `平台尚未配置 ${platform} 应用凭据`,
+      ? `当前租户尚未配置 ${platformLabel(platform)} 平台应用凭据，请租户管理员在「企业应用凭据」中填写本企业应用`
+      : `平台尚未配置 ${platformLabel(platform)} 应用凭据`,
   )
 }
 

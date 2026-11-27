@@ -41,6 +41,15 @@ vi.mock('../src/services/points-service.js', () => ({
 const findPointTransactionsMock = vi.fn()
 vi.mock('../src/db/gamification-queries.js', () => ({
   ensureUserPoints: vi.fn(async () => ({ points: 1000 })),
+  // 兑换前会先读“可兑换额度”(永久 + 今日赠送);给一行今天已结算的赠送,避免落到真库 update。
+  ensureDailyCreditRow: vi.fn(async () => ({
+    points: 1000,
+    dailyPoints: 0,
+    dailyPointsDate: new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(
+      new Date(),
+    ),
+    reservedPoints: 0,
+  })),
   findPointTransactions: (...args: unknown[]) => findPointTransactionsMock(...args),
 }))
 
@@ -52,9 +61,7 @@ vi.mock('../src/db/index.js', () => ({
         where: () => ({
           limit: () =>
             Promise.resolve(
-              table === pointRedeemItems
-                ? [{ id: ITEM_ID, points: 500 }]
-                : h.exactDuplicateRows,
+              table === pointRedeemItems ? [{ id: ITEM_ID, points: 500 }] : h.exactDuplicateRows,
             ),
         }),
       }),
@@ -112,13 +119,7 @@ describe('F-334 积分兑换去重', () => {
 
     expect(res.statusCode).toBe(200)
     expect(spendSpy).toHaveBeenCalledTimes(1)
-    expect(spendSpy).toHaveBeenCalledWith(
-      'user-1',
-      500,
-      'redeem',
-      `redeem:${ITEM_ID}`,
-      ITEM_ID,
-    )
+    expect(spendSpy).toHaveBeenCalledWith('user-1', 500, 'redeem', `redeem:${ITEM_ID}`, ITEM_ID)
   })
 
   it('并发第二笔撞唯一索引(23505)→ 409,事务回滚不产生第二次扣减', async () => {

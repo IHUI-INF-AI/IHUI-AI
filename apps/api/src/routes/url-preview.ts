@@ -674,7 +674,7 @@ async function readHead(res: Response, maxBytes: number): Promise<string | null>
 }
 
 // ─────────────────────────────────────────────────────────────
-// 路由:JWT 鉴权 + 每 userId 限流 + Zod 校验(形态对齐 context-mentions.ts)
+// 路由:可选鉴权 + 内存缓存 + 滑窗限流 + Zod 校验
 // ─────────────────────────────────────────────────────────────
 
 const previewQuerySchema = z.object({
@@ -698,6 +698,72 @@ function isRateLimited(key: string): boolean {
   return false
 }
 
+/**
+ * 探测结果短缓存(2026-11-27 实报:连续粘贴同一站点会偶发 3s 超时,而探测本身并无风控)。
+ *
+ * 预览是"读一次公开页面"的只读动作,同一 URL 在 10 分钟内的标题/摘要/图标不会变;
+ * 不做缓存时,用户每刷新一次、每换一个带跟踪参数的链接都重新出站一次,既慢又容易
+ * 撞上目标站/CDN 的瞬时限流,表现为"第一次网络不可达,再粘一次又好了"。
+ *
+ * 只缓存三态结果,不缓存用户身份;键为去掉 hash 的完整 URL(查询参数保留,避免把
+ * 不同内容页命中成同一张卡)。上限 200 条,按插入顺序淘汰最旧,进程重启即清空。
+ * `undetermined` 不缓存:它是"这次没探成"的瞬时结论,缓存会把偶发超时钉成持续失败,
+ * 用户再粘一次也翻不了身 —— 恰恰是实报里最难解释的那一种。
+ */
+const PREVIEW_CACHE_MAX = 200
+const PREVIEW_CACHE_TTL_MS = {
+  ok: 10 * 60_000,
+  unavailable: 2 * 60_000,
+} as const
+
+interface PreviewCacheEntry {
+  expiresAt: number
+  result: UrlPreviewProbeResult
+}
+
+const previewCache = new Map<string, PreviewCacheEntry>()
+
+function previewCacheKey(rawUrl: string): string {
+  try {
+    const parsed = new URL(rawUrl)
+    parsed.hash = ''
+    return parsed.toString()
+  } catch {
+    return rawUrl
+  }
+}
+
+function readPreviewCache(key: string): UrlPreviewProbeResult | null {
+  const entry = previewCache.get(key)
+  if (!entry) return null
+  if (Date.now() >= entry.expiresAt) {
+    previewCache.delete(key)
+    return null
+  }
+  // 命中即刷新 LRU 顺序。
+  previewCache.delete(key)
+  previewCache.set(key, entry)
+  return entry.result
+}
+
+function writePreviewCache(key: string, result: UrlPreviewProbeResult): void {
+  // 未判定是瞬时结论,不入缓存;否则重试同一 URL 会一直读回旧失败。
+  if (result.status === 'undetermined') return
+  if (previewCache.size >= PREVIEW_CACHE_MAX) {
+    const oldest = previewCache.keys().next().value
+    if (oldest) previewCache.delete(oldest)
+  }
+  previewCache.set(key, {
+    expiresAt: Date.now() + PREVIEW_CACHE_TTL_MS[result.status],
+    result,
+  })
+}
+
+/** 测试专用清场:模块级缓存不能跨用例带状态。 */
+export function clearUrlPreviewCache(): void {
+  previewCache.clear()
+}
+
 export const urlPreviewRoutes: FastifyPluginAsync = async (server) => {
   /**
    * 鉴权改为「可选」(2026-11-27 实报根因)。
@@ -719,12 +785,19 @@ export const urlPreviewRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
+    const cacheKey = previewCacheKey(parsed.data.url)
+    const cached = readPreviewCache(cacheKey)
+    if (cached) {
+      return reply.send(success(cached))
+    }
+
     const rateKey = request.userId ?? `ip:${request.ip}`
     if (isRateLimited(rateKey)) {
       return reply.status(429).send(error(429, '链接预览探测过于频繁,请稍后再试'))
     }
     try {
       const result = await probeUrl(parsed.data.url)
+      writePreviewCache(cacheKey, result)
       return reply.send(success(result))
     } catch (e) {
       request.log.error(e)
