@@ -213,14 +213,15 @@ const ENTRIES = [
   {
     id: 'B4-05', title: '更新后优雅自重启状态机',
     probes: [
-      { path: 'apps/cli/src/daemon/auto-restart.ts', label: 'auto-restart 模块' },
-      { path: 'apps/cli/src/**/*.ts', pattern: 'pendingRestart|restartInFlight|DAEMON_RESTART_REFUSED', label: '状态机符号' },
+      { path: 'apps/cli/src/daemon/graceful-restart.ts', pattern: 'MAX_RESTART_ATTEMPTS|RestartCoordinator|PendingRestart', label: '重启状态机' },
+      { path: 'apps/cli/src/daemon/graceful-restart.ts', pattern: 'restartEligibleFromUpdate|consumeRestartMarker', label: '更新后自重启' },
     ],
   },
   {
     id: 'B4-07', title: '网络边界双引擎',
     probes: [
-      { path: 'apps/cli/src/sandbox/egress/**/*.ts', pattern: 'LocalProxy|tcp_decide|tcpDecide', label: 'TCP 决策载体' },
+      { path: 'apps/cli/src/sandbox/egress/local-proxy.ts', pattern: 'LocalProxyHandle|startEgressLocalProxy', label: 'TCP LocalProxy' },
+      { path: 'apps/cli/src/sandbox/egress/network-boundary.ts', pattern: 'installNetworkBoundary|NETWORK_BOUNDARY_PROXY_ENV', label: '网络边界装配' },
     ],
   },
   // ---- P2 ----
@@ -358,7 +359,7 @@ const ENTRIES = [
   {
     id: 'B4-10', title: 'lazy chunk manifest 版本防污染',
     probes: [
-      { path: 'apps/cli/src/startup/prewarm.ts', pattern: 'manifest|version', label: 'manifest 判据' },
+      { path: 'apps/cli/src/startup/prewarm.ts', pattern: 'PREWARM_SCHEMA_VERSION|record\\.schema|manifest', label: 'manifest 版本锁' },
     ],
   },
   {
