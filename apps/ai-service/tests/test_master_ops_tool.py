@@ -37,14 +37,14 @@ async def test_run_get_reads_result() -> None:
 
 
 @pytest.mark.asyncio
-async def test_dispatch_not_implemented_is_explicit() -> None:
+async def test_non_single_mode_is_explicitly_rejected() -> None:
     envelope = await _tool(lambda _r: httpx.Response(200, json={"code": 0})).handle(
-        {"action": "dispatch", "definitionId": "def-1", "goal": "做一件小事"},
+        {"action": "dispatch", "definitionId": "def-1", "goal": "做一件小事", "mode": "parallel"},
         user_id="user-1",
     )
 
     assert envelope["ok"] is False
-    assert envelope["error"]["code"] == "AGENT_ACTION_NOT_IMPLEMENTED"
+    assert envelope["error"]["code"] == "AGENT_MODE_NOT_IMPLEMENTED"
 
 
 @pytest.mark.asyncio
@@ -56,6 +56,91 @@ async def test_http_error_maps_code_and_retryable() -> None:
 
     assert envelope["error"]["code"] == "STORAGE_UNAVAILABLE"
     assert envelope["error"]["retryable"] is True
+
+
+@pytest.mark.asyncio
+async def test_local_pause_requires_run_id() -> None:
+    envelope = await _tool(lambda _r: httpx.Response(200, json={"code": 0})).handle(
+        {"action": "run_pause"}, user_id="user-1"
+    )
+
+    assert envelope["ok"] is False
+    assert envelope["error"]["code"] == "AGENT_RUN_ID_REQUIRED"
+
+
+@pytest.mark.asyncio
+async def test_dispatch_single_creates_run_and_executes(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.services.agent_orchestrator import AgentOrchestrator, AgentStepResult
+
+    raw_definition = {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "version": 4,
+        "name": "reviewer-readonly",
+        "displayName": "只读评审",
+        "description": "测试",
+        "role": "reviewer",
+        "systemPrompt": "只读评审",
+        "tools": ["read_file"],
+        "skills": [],
+        "model": None,
+        "temperature": "0.2",
+        "maxTokens": None,
+        "maxIterations": 5,
+        "permissions": {},
+        "memoryPolicy": {},
+        "budget": {},
+        "concurrencyLimit": 1,
+        "isBuiltin": False,
+        "isDispatchable": True,
+        "ownerUserId": "user-1",
+        "teamId": None,
+        "scope": "personal",
+        "status": "active",
+        "marketAgentId": None,
+        "metadata": {},
+        "updatedAt": "2026-11-28T10:00:00.000Z",
+    }
+    calls: list[tuple[str, str, dict[str, Any]]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content) if request.content else {}
+        calls.append((request.method, request.url.path, payload))
+        if request.url.path.endswith("/snapshot"):
+            return httpx.Response(
+                200,
+                json={"code": 0, "data": {"items": [raw_definition], "version": 1732788000000}},
+            )
+        if request.url.path.endswith("/runs") and request.method == "POST":
+            return httpx.Response(
+                201, json={"code": 0, "data": {"run": {"id": payload["runId"]}, "created": True}}
+            )
+        if "/runs/" in request.url.path:
+            return httpx.Response(200, json={"code": 0, "data": {"ok": True}})
+        return httpx.Response(404, json={"code": 404, "message": "not found"})
+
+    async def fake_run(self, agent, user_input, *args, **kwargs):  # type: ignore[no-untyped-def]
+        return AgentStepResult(
+            agent_name=agent.name, input=user_input, output="评审通过", status="completed"
+        )
+
+    monkeypatch.setattr(AgentOrchestrator, "_run_agent", fake_run)
+    envelope = await _tool(handler).handle(
+        {
+            "action": "dispatch",
+            "definitionId": "11111111-1111-4111-8111-111111111111",
+            "goal": "检查这次改动",
+            "mode": "single",
+        },
+        user_id="user-1",
+    )
+
+    assert envelope["ok"] is True
+    assert envelope["data"]["status"] == "completed"
+    assert envelope["data"]["agent"] == "reviewer-readonly"
+    create_call = next(c for c in calls if c[0] == "POST" and c[1].endswith("/runs"))
+    assert create_call[2]["definitionVersion"] == 4
+    assert create_call[2]["mode"] == "single"
+    assert create_call[2]["goal"] == "检查这次改动"
 
 
 @pytest.mark.asyncio

@@ -41,7 +41,18 @@ ACTION_VALUES = [
 ]
 
 _IMPLEMENTED = frozenset(
-    {"run_list", "run_get", "run_logs", "run_artifacts", "run_stats", "health"}
+    {
+        "dispatch",
+        "run_list",
+        "run_get",
+        "run_logs",
+        "run_artifacts",
+        "run_stats",
+        "run_pause",
+        "run_resume",
+        "run_talk",
+        "health",
+    }
 )
 
 INPUT_SCHEMA: dict[str, Any] = {
@@ -86,12 +97,14 @@ INPUT_SCHEMA: dict[str, Any] = {
 }
 
 DESCRIPTION = (
-    "查看和控制智能体运行：run_list/run_get/run_logs/run_artifacts/run_stats 可查，"
-    "health 查运行时；dispatch/pause/resume/talk/stop/retry/cancel 尚未接线，"
-    "调用会明确报未实现，不要把它当成成功。"
+    "查看和控制智能体运行：dispatch 目前只支持 single 模式，会创建 run 并真实执行；"
+    "run_list/run_get/run_logs/run_artifacts/run_stats 可查；"
+    "run_pause/run_resume/run_talk 可操作当前实例的在飞会话，health 查运行时；"
+    "parallel/pipeline/debate 等其它模式与 stop/retry/cancel 尚未接线，会明确报未实现。"
 )
 
 _ALLOWED_ARGS = frozenset(INPUT_SCHEMA["properties"].keys())
+_LOCAL_ACTIONS = frozenset({"dispatch", "run_pause", "run_resume", "run_talk"})
 
 
 def _api_base_url() -> str:
@@ -101,6 +114,16 @@ def _api_base_url() -> str:
     from ...core.config import settings
 
     return str(getattr(settings, "api_service_url", "http://localhost:8802")).rstrip("/")
+
+
+def _enum_value(value: Any) -> Any:
+    return getattr(value, "value", value)
+
+
+def _now_iso() -> str:
+    from datetime import UTC, datetime
+
+    return datetime.now(UTC).isoformat()
 
 
 def _legacy_secret() -> str:
@@ -186,7 +209,10 @@ class AgentOpsTool:
 
         try:
             payload = self._build_payload(arguments)
-            result = await self._post_ops(payload, user_id=user_id)
+            if payload["action"] in _LOCAL_ACTIONS:
+                result = await self._local_action(payload, user_id=user_id)
+            else:
+                result = await self._post_ops(payload, user_id=user_id)
         except OpsToolError as error:
             return envelope(error=error)
         except (httpx.HTTPError, InternalServiceCredentialError, ValueError) as error:
@@ -198,6 +224,140 @@ class AgentOpsTool:
                 )
             )
         return envelope(data=result)
+
+    async def _local_action(self, payload: dict[str, Any], *, user_id: str) -> Any:
+        """dispatch 真实执行 single；pause/resume/talk 依赖本实例在飞会话。"""
+        if payload["action"] == "dispatch":
+            return await self._dispatch(payload, user_id=user_id)
+
+        run_id = str(payload.get("runId") or "").strip()
+        if not run_id:
+            raise OpsToolError("AGENT_RUN_ID_REQUIRED", f"{payload['action']} 需要 runId")
+        run = await self._post_ops({"action": "run_get", "runId": run_id}, user_id=user_id)
+        session_id = str(run.get("sessionId") or "").strip() if isinstance(run, dict) else ""
+        if not session_id:
+            raise OpsToolError(
+                "AGENT_RUN_SESSION_MISSING",
+                "该运行没有 sessionId，无法定位在飞会话",
+                details={"runId": run_id},
+            )
+
+        from ..agent_run_control import pause_session, resume_session, wake_session
+
+        action = payload["action"]
+        if action == "run_pause":
+            result = await pause_session(session_id, user_id)
+            return {
+                "runId": run_id,
+                "sessionId": session_id,
+                "outcome": _enum_value(result.outcome),
+                "changed": result.changed,
+                "detail": result.detail,
+            }
+        if action == "run_resume":
+            resumed = await resume_session(session_id, user_id)
+            return {
+                "runId": run_id,
+                "sessionId": session_id,
+                "outcome": _enum_value(resumed.outcome),
+                "changed": resumed.changed,
+                "detail": resumed.detail,
+            }
+        message = str(payload.get("message") or "").strip()
+        if not message:
+            raise OpsToolError("AGENT_MESSAGE_REQUIRED", "run_talk 需要 message")
+        woken = await wake_session(session_id, owner_user_id=user_id, text=message)
+        return {"runId": run_id, "sessionId": session_id, **woken}
+
+    async def _dispatch(self, payload: dict[str, Any], *, user_id: str) -> dict[str, Any]:
+        from ..agent_definition_provider import AgentDefinitionProvider
+        from ..agent_orchestrator import AgentOrchestrator
+        from ..agent_registry_client import AgentRegistryClient
+        from ..run_ledger import RunLedgerClient
+
+        mode = str(payload.get("mode") or "single")
+        if mode != "single":
+            raise OpsToolError(
+                "AGENT_MODE_NOT_IMPLEMENTED",
+                f"dispatch 当前只支持 single，拒绝把 {mode} 当成已执行",
+                details={"mode": mode},
+            )
+        ref = str(payload.get("definitionId") or payload.get("name") or "").strip()
+        goal = str(payload.get("goal") or "").strip()
+        if not ref or not goal:
+            raise OpsToolError(
+                "AGENT_DISPATCH_INPUT_MISSING",
+                "dispatch 需要 definitionId 或 name，以及 goal",
+            )
+
+        client = AgentRegistryClient(
+            user_id=user_id, base_url=self._base_url, transport=self._transport
+        )
+        provider = AgentDefinitionProvider(client, user_id=user_id)
+        await provider.prepare()
+        definition = provider.resolve(ref)
+        if not definition.is_dispatchable:
+            raise OpsToolError(
+                "AGENT_NOT_DISPATCHABLE",
+                "该定义未开启 isDispatchable",
+                details={"definitionId": definition.id},
+            )
+
+        run_id = str(uuid.uuid4())
+        trace_id = f"tr_{uuid.uuid4().hex}"
+        ledger = RunLedgerClient(
+            user_id=user_id, base_url=self._base_url, transport=self._transport
+        )
+        await ledger.create_run(
+            {
+                "runId": run_id,
+                "definitionId": definition.id,
+                "definitionVersion": definition.version,
+                "definitionName": definition.name,
+                "ownerUserId": user_id,
+                "mode": "single",
+                "goal": goal,
+                "traceId": trace_id,
+                "status": "queued",
+                "metadata": {"source": "master_tools.agent_ops.dispatch"},
+            }
+        )
+
+        orchestrator = AgentOrchestrator(
+            definition_provider=provider,
+            run_ledger=ledger,
+        )
+        try:
+            result = await orchestrator.invoke(definition.name, goal, run_id=run_id)
+        except Exception as error:  # noqa: BLE001 -- 运行失败也要把 run 收口
+            await ledger.update_run(
+                run_id,
+                {
+                    "status": "failed",
+                    "errorCode": "AGENT_DISPATCH_FAILED",
+                    "errorMessage": f"{type(error).__name__}: {error}"[:2000],
+                    "endedAt": _now_iso(),
+                },
+            )
+            raise OpsToolError(
+                "AGENT_DISPATCH_FAILED",
+                f"派发执行失败: {type(error).__name__}",
+                details={"runId": run_id},
+            ) from error
+
+        return {
+            "runId": run_id,
+            "traceId": trace_id,
+            "definitionId": definition.id,
+            "definitionVersion": definition.version,
+            "agent": result.agent_name,
+            "status": result.status,
+            "output": result.output,
+            "error": result.error,
+            "errorCode": result.error_code,
+            "durationMs": result.duration_ms,
+            "iterations": result.iterations,
+        }
 
     async def _post_ops(self, payload: dict[str, Any], *, user_id: str) -> Any:
         headers = internal_service_headers(

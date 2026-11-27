@@ -88,6 +88,7 @@ class AgentRegistryClient:
         enable_disk_cache: bool = True,
         fetcher: FetchCallable | None = None,
         clock: Callable[[], float] = time.monotonic,
+        transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self._user_id = user_id
         self._base_url = (base_url or _api_base_url()).rstrip("/")
@@ -99,6 +100,7 @@ class AgentRegistryClient:
         self._snapshot = RegistrySnapshot.empty()
         self._last_error: str | None = None
         self._lock = asyncio.Lock()
+        self._transport = transport
 
     @property
     def snapshot(self) -> RegistrySnapshot:
@@ -186,7 +188,7 @@ class AgentRegistryClient:
             legacy_token=_legacy_secret(),
         )
         url = f"{self._base_url}/api/internal/agent-registry/snapshot"
-        async with httpx.AsyncClient(timeout=_FETCH_TIMEOUT) as client:
+        async with httpx.AsyncClient(timeout=_FETCH_TIMEOUT, transport=self._transport) as client:
             response = await client.get(url, headers=headers, params={"includeDeleted": "true"})
             response.raise_for_status()
             body = response.json()
