@@ -28,9 +28,9 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager};
 
 /// v2 更新包的信任锚（迁移期双钥匙）：
-/// - A40E05DD769D7961：与 tauri.conf.json `plugins.updater.pubkey` 一致，0.1.97 起由它签 zip；
+/// - A40E05DD769D7961：与 tauri.conf.json `plugins.updater.pubkey` 一致；0.1.98 起由它签 zip（届时 0.1.97 已双锚覆盖）；
 /// - B5D7E67EA2B1DB08（08db）：2026-11-24 稳定 Launcher 至 0.1.96 的客户端钉死的旧锚。
-/// 旧客户端只认 08db，所以 0.1.96 引导版 zip 仍用 08db 签；新客户端两把都认，下一版起统一走 A40E。
+/// 换锚顺序：0.1.97 的 zip 仍必须用 08db 签，否则只认旧锚的 0.1.96 客户端无法升级；等 0.1.97 覆盖后再把 0.1.98 起的 zip 切到 A40E。
 const UPDATE_PUBKEYS_B64: [&str; 2] = [
     "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE0MEUwNURENzY5RDc5NjEKUldSaGVaMTIzUVVPcE5aK29STWhYQ1ZzeGY1T00ycWhFbWpmSTl2OWN5ZjlkR2twMlBkakdJdlMK",
     "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEI1RDdFNjdFQTJCMURCMDgKUldRSTI3R2lmdWJYdFJuYXhoQ1pQekNOcUNKOUplWWQ1QVJPK25OakFrL2NmS0ZrREZDbThwbEUK",
