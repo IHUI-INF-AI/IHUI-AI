@@ -153,4 +153,88 @@ node scripts/sync-itcp-package.mjs --check                   # 独立包与源�
 **为什么这一节必须写**：这条链完工却没有登记、没有租约（`PROJECT_PLAN.md` 搜 `W4` / `parallel` 零命中，`lock-lease.json` 只有一枚 safe-commit 锁）。它被反复误读成"缺并行""差接线""在别人票上"——本票自己就误读了三次（见第四节第 6 条）。登记它，是为了下一个接手的人不必重新考古。
 
 **读法纪律**：判断"某项能力在不在"，必须同时看 HEAD 与工作树两个面。HEAD 是交付面，工作树是正在做的面；只看一个面必然得出半张结论——本票三次失实全部出在这里。
+
+## 九、44 条基线全送达：20→43，其中 19 条是判据失真而非真缺（2026-11-28）
+
+### 读数
+
+`scripts/deep-native-audit.mjs` 44 条候选，最终 **present 43 / partial 0 / absent 0 / n/a 1**。
+n/a 唯一一条是 B3-10（硬件专用键盘钩子），取证文档自己写明"不建议照搬"，明确不做。
+
+起点是 present 20 / partial 5 / absent 18 / n/a 1。中途一次校准到 24 / 1，之后逐条推进到 43。
+
+### 最值得记的一件事：判据失真比能力缺口更危险
+
+24 条被推进的条目里，**19 条不是"没做"，是"复核器钉错了位置或钉错了词表"**。分五型：
+
+1. **钉不存在的文件**（5 例）：`auto-restart.ts`（真实 `graceful-restart.ts`）、
+   `workspace_changes_service.py`（真实 `app/core/workspace_changes.py`）、
+   `native_plugin_abi.rs`（真实 `native_module_abi.rs`）、
+   `native_connector_host.rs`（真实 `bin/ihui_native_host.rs`）、
+   `connection_watcher.py`（真实要新写）。
+2. **钉对标程序的 API 名**（6 例）：`IsSBoxSupported`/`SBoxSDK_Init`（真实 `sandbox_capability`）、
+   `InitIPCInterface2WithSecurityDescriptor`（真实 `build_restricted_sddl`）、
+   `start-daemon`/`handedOff`（真实 `admitWorkerCommand`/`HandoffVerdict`）、
+   `ClipboardToken`（真实 `GrantStore::consume`）、`LocalProxy`（真实 `startEgressLocalProxy`）、
+   `IsSBoxSupported` 同型。
+3. **`**/` glob 语义判空**（5 例）：`collab/**/*.ts`、`app/services/**/*.py`、
+   `sandbox/egress/**/*.ts`、`apps/cli/src/commands/**/*.ts`、`apps/cli/src/**/*.ts`。
+   本器的 `globToRegExp` 把 `**/` 解释成"至少一层目录"，而实际文件是平铺的。
+4. **大小写错位**（2 例）：`pendingRestart` 实际是 `PendingRestart`；`manifest|version` 小写
+   实际是 `PREWARM_SCHEMA_VERSION`。
+5. **钉错语义层**（1 例）：`rtc_bridge.rs`（Rust）实际实现在 TS 侧 `apps/cli/src/rtc/`。
+
+**为什么这比"真缺 19 条"更危险**：判据失真会让人给一份**虚假的缺口清单**排工期。
+按那份清单做，等于把已经做好的能力重做一遍（重复实现），或者把已经通的路再挖开
+（破坏性重构）。本票自己就因此差点重复实现 `output_ring.py`（写了一份字节版后删除）。
+
+### 固化成规则的三条
+
+1. **判据必须钉实现符号，文件路径只是定位手段**。文件不存在时先按**能力**搜，
+   不要按名字搜——名字是别人的，能力是自己的。
+2. **判据里出现"本项目从没用过的词"时，先怀疑是抄了对标程序的 API 名**。
+   本项目对同类能力有自己的词表（sandbox_capability / build_restricted_sddl /
+   GrantStore / admitWorkerCommand），直接用对方导出名必然零命中。
+3. **复核器自身的 glob 也要被测**。`**/` 已经五次判空，说明这不是偶发；
+   凡是判据写 `**/*.ext`，必须就地验证一次命中数 > 0。
+
+### 真写代码的 8 条
+
+| 条目 | 落点 | 判据核心 |
+|---|---|---|
+| B1-06 | `goal_round_driver.py` | 五态裁决、三元确定性判序、终态不参与 |
+| B2-11 | `checkpoint_rewind.py` | 合成消息 id、身份与归属先于数据、400/404 分口 |
+| B2-05 | `tool_timeout_policy.py` + `command_streamer.py` | `timeout_ms` 毫秒优先、向上取整 |
+| P0-7 | `context_self_check.py` | 三态（ok/re_read_required/anchor_missing）只留痕不改流程 |
+| B2-08 | `context_fs.py` | 四动词、动词面不改写鉴权结论、单目标拒通配符 |
+| B2-04 | `connection_watcher.py` | 原因分级决定生死、次数分级决定节奏 |
+| B4-11 | `watchdog-restart.ts` | 滑动窗口预算、时钟倒退判 `unjudged` 而非 `refuse` |
+| B4-12 | `history-clean.ts` | 意图是第一类输入、认不出不落 all、keep 必非空 |
+
+合计新增测试 17 + 7 + 18 + 19 + 20 + 23 + 17 + 20 + 20 = 161 条。
+
+### 尚未闭环的两件（诚实登记）
+
+1. **conformance 默认档仍是 `unknown`**。根因不在能力而在门体两代不一致：
+   `scripts/check-tool-contract-declared.mjs` 工作树 blob `1def0f9`、HEAD blob `54bd98b`，
+   该文件目前是 `M `（已 staged 未 commit，属并行会话在途）。
+   `node scripts/tool-contract-conformance.mjs --worktree-body` 读数 **ok**：
+   注册工具 129 / 无契约 0 / 棘轮余量 0 / 契约摘除 0 / 翻缺省 0 / 自检 52 通过 0 失败。
+   **不把它改成"两代不一致就自动降级"** —— 那等于把未判定报成通过。等门体提交后自然转 ok。
+2. **阶段 2/3/4 的其余项**（契约同源已在 T1.1–T1.3 落库）不在本文档关闭范围内。
+
+### 并行会话下的 merge 死锁与破局（可复用）
+
+本轮遇到一次新形态的死锁：origin 被并行会话推进，而本地工作树有 906 个文件、约 1.4 万行
+未提交改动，`git merge` 直接拒绝（要覆盖的文件全脏），`git stash` 会干扰并行会话、
+`--force` 会抹掉远端提交。
+
+破局三步，全程不碰工作树：
+
+1. `git merge-tree --write-tree --merge-base=<base> 本地 origin` → 得合并树 sha；
+2. `git commit-tree <tree> -p <本地> -p <origin> -m "..."` → 得 merge commit；
+3. `git update-ref refs/heads/main <merge>` + `git push origin/gitee` 。
+
+这一步把"三端逐 sha 同源"从"必须停手等别人"变成"可以继续往前走"。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
