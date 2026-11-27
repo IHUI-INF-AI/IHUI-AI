@@ -61,7 +61,15 @@ vi.mock('pdfjs-dist', () => ({
   getDocument: vi.fn(() => ({ promise: Promise.resolve({ numPages: 5 }) })),
 }))
 
-import { OfficePreview, xlsxCellCss, xlsxColumnRef } from '../office-preview'
+import {
+  OfficePreview,
+  buildDocxReviewBlocks,
+  buildXlsxReviewBlocks,
+  buildXlsxWorkbookReviewBlocks,
+  xlsxCellCss,
+  xlsxColumnRef,
+  xlsxRangeStart,
+} from '../office-preview'
 import { PdfEmbed } from '../message-file-preview'
 
 // ------------------------------------------------------------- fixtures ----
@@ -245,6 +253,96 @@ describe('OfficePreview 渲染面', () => {
     render(<OfficePreview src="https://x/a.docx" ext="docx" />)
     const rendered = await screen.findByTestId('docx-rendered')
     expect(rendered.textContent).toBe('DOCX_RENDERED_TEXT')
+  })
+
+  it('docx:段落 pin 落到对应段落,点击选中批注线程', async () => {
+    stubFetch({ head: { size: null }, get: { body: new ArrayBuffer(8) } })
+    const onSelect = vi.fn()
+    render(
+      <OfficePreview
+        src="https://x/a.docx"
+        ext="docx"
+        documentId="doc-1"
+        annotationPins={[
+          {
+            id: 'docx-pin-1',
+            kind: 'docx',
+            label: '文档第 1 段',
+            body: '核对甲方整改期限',
+            excerpt: '整改期限',
+            status: 'open',
+            paragraph: 1,
+          },
+        ]}
+        onAnnotationSelect={onSelect}
+      />,
+    )
+    await screen.findByTestId('docx-rendered')
+    const pin = await screen.findByTestId('docx-annotation-pin')
+    expect(pin.getAttribute('data-annotation-id')).toBe('docx-pin-1')
+    fireEvent.click(pin)
+    expect(onSelect).toHaveBeenCalledWith('docx-pin-1')
+  })
+
+  it('xlsx:单元格 pin 按 sheet+range 起点落点,点击选中批注线程', async () => {
+    stubFetch({ head: { size: 100 }, get: { body: makeXlsx() } })
+    const onSelect = vi.fn()
+    render(
+      <OfficePreview
+        src="https://x/a.xlsx"
+        ext="xlsx"
+        documentId="doc-2"
+        annotationPins={[
+          {
+            id: 'xlsx-pin-1',
+            kind: 'xlsx',
+            label: '表A · A2',
+            body: '核对进度',
+            excerpt: null,
+            status: 'open',
+            sheet: '表A',
+            range: 'A2',
+          },
+        ]}
+        onAnnotationSelect={onSelect}
+      />,
+    )
+    await waitFor(() => expect(screen.getByTestId('xlsx-table').textContent).toContain('A1'))
+    const pin = await screen.findByTestId('xlsx-annotation-pin')
+    expect(pin.getAttribute('data-annotation-id')).toBe('xlsx-pin-1')
+    fireEvent.click(pin)
+    expect(onSelect).toHaveBeenCalledWith('xlsx-pin-1')
+  })
+
+  it('docx/xlsx 全文预审入口只有 documentId 时出现,段落就绪后解除禁用', async () => {
+    stubFetch({ head: { size: null }, get: { body: new ArrayBuffer(8) } })
+    render(<OfficePreview src="https://x/a.docx" ext="docx" documentId="doc-3" />)
+    const button = await screen.findByTestId('office-ai-full-review')
+    expect((button as HTMLButtonElement).disabled).toBe(true)
+    await screen.findByTestId('docx-rendered')
+    await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false))
+  })
+
+  it('DOCX 段落 block 保留首尾段坐标,不应把页码冒充段落', () => {
+    const built = buildDocxReviewBlocks(['第一段文字足够长', '第二段文字也足够长'])
+    expect(built.blocks).toHaveLength(1)
+    expect(built.truncated).toBe(false)
+    expect(built.blocks[0]!.anchor).toMatchObject({ kind: 'docx', paragraph: 1, paragraphEnd: 2 })
+    const sheet = buildXlsxReviewBlocks('表A', [['标题', '值'], ['A', '1']])
+    expect(sheet.truncated).toBe(false)
+    expect(sheet.blocks[0]!.anchor).toMatchObject(
+      { kind: 'xlsx', sheet: '表A', range: 'A1:B2' },
+    )
+    expect(xlsxRangeStart('A2:C9')).toEqual({ row: 2, col: 0 })
+    expect(xlsxRangeStart('')).toBeNull()
+
+    const workbook = buildXlsxWorkbookReviewBlocks([
+      { sheet: '表A', rows: [['标题', '值'], ['A', '1']], total: 2 },
+      { sheet: '表B', rows: [['标题2', '值2'], ['B', '2']], total: 3 },
+    ])
+    expect(workbook.blocks).toHaveLength(2)
+    expect(workbook.blocks.map((block) => block.anchor.sheet)).toEqual(['表A', '表B'])
+    expect(workbook.truncated).toBe(true) // 表B 只送了 2 行,真实 3 行 ⇒ 必须披露未通读
   })
 
   it('xlsx:默认首 sheet 渲染,tab 切换换内容,点单元格显示选区行列号', async () => {

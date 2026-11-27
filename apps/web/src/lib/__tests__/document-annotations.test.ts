@@ -65,5 +65,44 @@ describe('toPreviewAnnotationPin', () => {
       toPreviewAnnotationPin(record({ anchor: { kind: 'pptx', slide: 0, element: '标题 1' } })),
     ).toBeNull()
     expect(toPreviewAnnotationPin(record({ anchor: { kind: 'docx', page: 1 } }))).toBeNull()
+    expect(
+      toPreviewAnnotationPin(record({ anchor: { kind: 'xlsx', sheet: '表A', range: '' } })),
+    ).toBeNull()
+  })
+
+  it('DOCX 段落锚映射为段落 pin,不把页码当段落', () => {
+    const pin = toPreviewAnnotationPin(
+      record({
+        label: '文档第 3 段',
+        anchorKind: 'docx',
+        anchor: { kind: 'docx', paragraph: 3 },
+        excerpt: '甲方应在 2026 年 12 月前完成整改。',
+      }),
+    )
+    expect(pin).toMatchObject<Partial<PreviewAnnotationPin>>({
+      kind: 'docx',
+      paragraph: 3,
+      label: '文档第 3 段',
+      excerpt: '甲方应在 2026 年 12 月前完成整改。',
+      status: 'open',
+    })
+  })
+
+  it('XLSX sheet + range 映射为单元格 pin', () => {
+    const pin = toPreviewAnnotationPin(
+      record({
+        label: '进度表 · A2:C9',
+        anchorKind: 'xlsx',
+        anchor: { kind: 'xlsx', sheet: '进度表', range: 'A2:C9' },
+        excerpt: null,
+      }),
+    )
+    expect(pin).toMatchObject<Partial<PreviewAnnotationPin>>({
+      kind: 'xlsx',
+      sheet: '进度表',
+      range: 'A2:C9',
+      label: '进度表 · A2:C9',
+      status: 'open',
+    })
   })
 })

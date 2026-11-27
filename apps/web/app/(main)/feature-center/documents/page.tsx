@@ -431,7 +431,12 @@ export default function DocumentsPage() {
           body: note,
           label,
           anchorKind: detail.anchor.kind,
-          anchor: detail.anchor,
+          // DOCX 的段落序号是 D91 扩展字段,不在 shared AnnotationAnchor 形状里;
+          // 不并进 anchor 就会丢掉唯一可定位坐标,pin 只能落成空壳。
+          anchor:
+            detail.anchor.kind === 'docx' && detail.paragraph
+              ? { ...detail.anchor, paragraph: detail.paragraph }
+              : detail.anchor,
           excerpt: detail.excerpt ?? '',
         }),
       })

@@ -6,9 +6,16 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { ExternalLink, Loader2 } from 'lucide-react'
+import { ExternalLink, Loader2, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { PreviewAnnotationPin } from '@/lib/document-annotations'
+import {
+  reviewDocumentBlocks,
+  saveAiFindings,
+  type AiReviewBlock,
+  type AiReviewFinding,
+  type PreviewAnnotationPin,
+} from '@/lib/document-annotations'
+import { toast } from '@/components/common'
 import { AnnotationAnchorCapture } from '@/components/chat/annotation-anchor'
 import {
   PreviewSourceText,
@@ -142,6 +149,193 @@ export function xlsxColumnRef(col: number): string {
   return s
 }
 
+/** AI 全文预审上限与服务端 `readReviewInput` 同一口径;超出部分必须明说而不是假装已通读。 */
+export const OFFICE_REVIEW_MAX_BLOCKS = 20
+export const OFFICE_REVIEW_MAX_CHARS = 30_000
+const OFFICE_REVIEW_BLOCK_CHARS = 6_000
+
+/**
+ * DOCX 段落 → 可定位 block。docx-preview 没有页码,段落序号就是它与正文、pin 的唯一共同坐标。
+ * 相邻短段落合并成一个 block,避免 30 段小标题把 20 个 block 名额吃光;anchor 记录首尾段。
+ */
+export function buildDocxReviewBlocks(
+  paragraphs: readonly string[],
+): { blocks: AiReviewBlock[]; truncated: boolean } {
+  const blocks: AiReviewBlock[] = []
+  let start = 0
+  let buffer: string[] = []
+  let chars = 0
+  let lastNonEmpty = -1
+  let stoppedEarly = false
+  const flush = (endExclusive: number): void => {
+    const text = buffer.join('\n').trim()
+    if (text.length >= 10) {
+      blocks.push({
+        anchor: {
+          kind: 'docx',
+          paragraph: start + 1,
+          paragraphEnd: Math.max(start + 1, endExclusive),
+        },
+        text,
+      })
+    }
+    buffer = []
+    chars = 0
+  }
+  for (let i = 0; i < paragraphs.length; i += 1) {
+    const text = paragraphs[i]?.trim() ?? ''
+    if (!text) continue
+    lastNonEmpty = i
+    if (!buffer.length) start = i
+    if (buffer.length && chars + text.length > OFFICE_REVIEW_BLOCK_CHARS) {
+      flush(i)
+      start = i
+    }
+    buffer.push(text)
+    chars += text.length + 1
+    if (blocks.length >= OFFICE_REVIEW_MAX_BLOCKS) {
+      stoppedEarly = i + 1 < paragraphs.length
+      break
+    }
+  }
+  if (buffer.length) flush(lastNonEmpty + 1)
+  const coveredEnd = Number(blocks[blocks.length - 1]?.anchor.paragraphEnd ?? 0)
+  let truncated = stoppedEarly || (lastNonEmpty >= 0 && coveredEnd < lastNonEmpty + 1)
+  let total = 0
+  const capped: AiReviewBlock[] = []
+  for (const block of blocks) {
+    if (total + block.text.length > OFFICE_REVIEW_MAX_CHARS) {
+      truncated = true
+      break
+    }
+    capped.push(block)
+    total += block.text.length
+  }
+  return { blocks: capped.slice(0, OFFICE_REVIEW_MAX_BLOCKS), truncated }
+}
+
+/**
+ * XLSX 行 → 可定位 block。anchor 带 sheet+range;pin 取 range 起点格落点,
+ * 因此 AI 结论必须和“哪张表、哪一段行”一起回来,不能只给一句泛泛建议。
+ */
+export function buildXlsxReviewBlocks(
+  sheet: string,
+  rows: readonly (readonly string[])[],
+  totalRows: number = rows.length,
+): { blocks: AiReviewBlock[]; truncated: boolean } {
+  const blocks: AiReviewBlock[] = []
+  let startRow = 0
+  let endRow = 0
+  let buffer: string[] = []
+  let chars = 0
+  let lastNonEmptyRow = -1
+  let stoppedEarly = false
+  const flush = (): void => {
+    const text = buffer.join('\n').trim()
+    if (text.length >= 10 && sheet) {
+      const lastCol = xlsxColumnRef(Math.max(0, ...buffer.map((line) => line.split(' | ').length - 1)))
+      blocks.push({
+        anchor: {
+          kind: 'xlsx',
+          sheet,
+          range: `A${startRow + 1}:${lastCol}${endRow + 1}`,
+        },
+        text,
+      })
+    }
+    buffer = []
+    chars = 0
+  }
+  for (let row = 0; row < rows.length; row += 1) {
+    const values = (rows[row] ?? []).map((value) => String(value ?? ''))
+    if (values.every((value) => !value.trim())) continue
+    lastNonEmptyRow = row
+    if (!buffer.length) {
+      startRow = row
+      endRow = row
+    }
+    const line = `${row + 1}: ${values.map((value, col) => `${xlsxColumnRef(col)}${row + 1}=${value}`).join(' | ')}`
+    if (buffer.length && chars + line.length > OFFICE_REVIEW_BLOCK_CHARS) {
+      flush()
+      startRow = row
+      endRow = row
+    }
+    buffer.push(line)
+    endRow = row
+    chars += line.length + 1
+    if (blocks.length >= OFFICE_REVIEW_MAX_BLOCKS) {
+      stoppedEarly = row + 1 < rows.length
+      break
+    }
+  }
+  if (buffer.length) flush()
+  const coveredEnd = Number(/([1-9]\d*)$/.exec(String(blocks[blocks.length - 1]?.anchor.range ?? ''))?.[1] ?? 0)
+  let truncated =
+    stoppedEarly ||
+    (lastNonEmptyRow >= 0 && coveredEnd < lastNonEmptyRow + 1) ||
+    totalRows > rows.length
+  let total = 0
+  const capped: AiReviewBlock[] = []
+  for (const block of blocks) {
+    if (total + block.text.length > OFFICE_REVIEW_MAX_CHARS) {
+      truncated = true
+      break
+    }
+    capped.push(block)
+    total += block.text.length
+  }
+  return { blocks: capped.slice(0, OFFICE_REVIEW_MAX_BLOCKS), truncated }
+}
+
+/** 一个工作表参与 AI 全文预审的行快照;total 是未按预览上限截断前的真实行数。 */
+export interface XlsxReviewSheet {
+  readonly sheet: string
+  readonly rows: readonly string[][]
+  readonly total: number
+}
+
+/**
+ * 工作簿 → 跨 sheet 的预审 blocks。AI 必须知道每个结论落在哪张表哪段行,
+ * 所以这里按 sheet 分块,而不是把多张表拼成一段无坐标的文本。
+ */
+export function buildXlsxWorkbookReviewBlocks(
+  sheets: readonly XlsxReviewSheet[],
+): { blocks: AiReviewBlock[]; truncated: boolean } {
+  const blocks: AiReviewBlock[] = []
+  let truncated = false
+  let totalChars = 0
+  for (const item of sheets) {
+    const built = buildXlsxReviewBlocks(item.sheet, item.rows, item.total)
+    if (built.truncated) truncated = true
+    for (const block of built.blocks) {
+      if (blocks.length >= OFFICE_REVIEW_MAX_BLOCKS) {
+        truncated = true
+        break
+      }
+      if (totalChars + block.text.length > OFFICE_REVIEW_MAX_CHARS) {
+        truncated = true
+        break
+      }
+      blocks.push(block)
+      totalChars += block.text.length
+    }
+    if (blocks.length >= OFFICE_REVIEW_MAX_BLOCKS) break
+  }
+  return { blocks, truncated }
+}
+
+function officeReviewLabel(kind: 'docx' | 'xlsx', block: AiReviewBlock): string {
+  if (kind === 'docx') {
+    const start = Number(block.anchor.paragraph)
+    const end = Number(block.anchor.paragraphEnd)
+    if (Number.isInteger(start) && Number.isInteger(end) && end > start) {
+      return `文档第 ${start}-${end} 段 · AI 全文`
+    }
+    return `文档第 ${start} 段 · AI 全文`
+  }
+  return `${String(block.anchor.sheet ?? '')} · ${String(block.anchor.range ?? '')} · AI 全文`
+}
+
 interface XlsxMergeSpan {
   readonly rowSpan: number
   readonly colSpan: number
@@ -226,10 +420,26 @@ function loadXlsx(): Promise<XlsxModule> {
 
 // ---------------------------------------------------------------- docx ----
 
-function DocxBody({ data }: { data: ArrayBuffer }) {
+interface DocxBodyProps {
+  readonly data: ArrayBuffer
+  readonly annotationPins?: readonly PreviewAnnotationPin[]
+  readonly focusedAnnotationId?: string | null
+  readonly onAnnotationSelect?: (id: string) => void
+  /** 渲染完成后的段落文本;AI 全文预审与 paragraph pin 共用这一份坐标。 */
+  readonly onParagraphsChange?: (paragraphs: readonly string[]) => void
+}
+
+function DocxBody({
+  data,
+  annotationPins = [],
+  focusedAnnotationId = null,
+  onAnnotationSelect,
+  onParagraphsChange,
+}: DocxBodyProps) {
   const t = useTranslations('chat')
   const ref = React.useRef<HTMLDivElement | null>(null)
   const [failed, setFailed] = React.useState(false)
+  const [rendered, setRendered] = React.useState(0)
   // D91(2026-09-24 立):渲染 DOM 文本选区 → 段落序号锚,经 AnnotationAnchorCapture
   // 走 D22 事件族派发(docx-preview 无页码概念,按任务规格锚段落序号/文本摘要)。
   const [selection, setSelection] = React.useState<{
@@ -242,14 +452,23 @@ function DocxBody({ data }: { data: ArrayBuffer }) {
     const container = ref.current
     if (!container) return
     import('docx-preview')
-      .then(({ renderAsync }) => renderAsync(data, container, undefined, { inWrapper: false }))
+      .then(({ renderAsync }) =>
+        renderAsync(data, container, undefined, { inWrapper: false }).then(() => {
+          if (cancelled) return
+          setRendered((value) => value + 1)
+          const paragraphs = Array.from(container.querySelectorAll('p')).map(
+            (p) => p.textContent?.trim() ?? '',
+          )
+          onParagraphsChange?.(paragraphs)
+        }),
+      )
       .catch(() => {
         if (!cancelled) setFailed(true)
       })
     return () => {
       cancelled = true
     }
-  }, [data])
+  }, [data, onParagraphsChange])
 
   // D91 选区采集:mouseup 时取 window 选区,锚定所在段落(1 起)与文本摘要。
   // 监听器挂在容器上(addEventListener)而不是 JSX 的 onMouseUp:这一处不是"可点交互",
@@ -286,6 +505,63 @@ function DocxBody({ data }: { data: ArrayBuffer }) {
     }
   }, [])
 
+  // 段落 pin:docx-preview 输出第三方 DOM,React 不能直接插入子节点;
+  // 用受控 DOM marker + cleanup 把批注落到具体段落,点击仍走 onAnnotationSelect。
+  React.useEffect(() => {
+    const container = ref.current
+    if (!container || rendered === 0) return
+    const markers: { marker: HTMLElement; paragraph: HTMLElement; position: string }[] = []
+    const paragraphs = Array.from(container.querySelectorAll('p'))
+    for (const pin of annotationPins) {
+      if (pin.kind !== 'docx' || !pin.paragraph) continue
+      const paragraph = paragraphs[pin.paragraph - 1]
+      if (!paragraph) continue
+      const position = paragraph.style.position
+      if (getComputedStyle(paragraph).position === 'static') paragraph.style.position = 'relative'
+      const marker = document.createElement('button')
+      marker.type = 'button'
+      marker.dataset.testid = 'docx-annotation-pin'
+      marker.dataset.annotationId = pin.id
+      marker.setAttribute('aria-label', `查看批注：${pin.label}`)
+      marker.title = `${pin.label} · ${pin.body}`
+      marker.textContent = '●'
+      marker.style.cssText = [
+        'position:absolute',
+        'right:2px',
+        'top:2px',
+        'z-index:2',
+        'display:inline-flex',
+        'align-items:center',
+        'justify-content:center',
+        'width:16px',
+        'height:16px',
+        'border-radius:9999px',
+        'border:1px solid rgba(124,58,237,.55)',
+        'background:#ede9fe',
+        'color:#6d28d9',
+        'font-size:9px',
+        'line-height:1',
+        'cursor:pointer',
+        pin.id === focusedAnnotationId ? 'box-shadow:0 0 0 2px rgba(124,58,237,.45)' : '',
+      ].join(';')
+      marker.addEventListener('click', (event) => {
+        event.stopPropagation()
+        onAnnotationSelect?.(pin.id)
+      })
+      paragraph.appendChild(marker)
+      if (pin.id === focusedAnnotationId) {
+        paragraph.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      }
+      markers.push({ marker, paragraph, position })
+    }
+    return () => {
+      for (const item of markers) {
+        item.marker.remove()
+        item.paragraph.style.position = item.position
+      }
+    }
+  }, [annotationPins, focusedAnnotationId, onAnnotationSelect, rendered])
+
   if (failed) {
     return <p className="p-3 text-label text-muted-foreground">{t('officeFailed')}</p>
   }
@@ -316,6 +592,7 @@ function DocxBody({ data }: { data: ArrayBuffer }) {
 interface XlsxGridState {
   readonly book: WorkBook | null
   readonly active: string
+  readonly sheets: readonly XlsxReviewSheet[]
   readonly rows: readonly string[][]
   readonly total: number
   readonly selected: { readonly row: number; readonly col: number } | null
@@ -324,15 +601,48 @@ interface XlsxGridState {
 const INITIAL_XLSX_STATE: XlsxGridState = {
   book: null,
   active: '',
+  sheets: [],
   rows: [],
   total: 0,
   selected: null,
 }
 
-function XlsxGrid({ data, maxRows }: { data: ArrayBuffer; maxRows: number }) {
+interface XlsxGridProps {
+  readonly data: ArrayBuffer
+  readonly maxRows: number
+  readonly annotationPins?: readonly PreviewAnnotationPin[]
+  readonly focusedAnnotationId?: string | null
+  readonly onAnnotationSelect?: (id: string) => void
+  /** 当前 sheet 与已渲染行;AI 全文预审按 sheet+range 回指位置。 */
+  readonly onRowsChange?: (value: {
+    readonly activeSheet: string
+    readonly sheets: readonly XlsxReviewSheet[]
+  }) => void
+}
+
+/** XLSX range(如 A2:C9)→ 起点单元格;解析失败返回 null,绝不猜位置。 */
+export function xlsxRangeStart(
+  range: string | undefined,
+): { readonly row: number; readonly col: number } | null {
+  const match = /^([A-Za-z]+)([1-9]\d*)/.exec(range?.trim() ?? '')
+  if (!match) return null
+  let col = 0
+  for (const char of (match[1] ?? '').toUpperCase()) col = col * 26 + (char.charCodeAt(0) - 64)
+  return { row: Number(match[2]), col: col - 1 }
+}
+
+function XlsxGrid({
+  data,
+  maxRows,
+  annotationPins = [],
+  focusedAnnotationId = null,
+  onAnnotationSelect,
+  onRowsChange,
+}: XlsxGridProps) {
   const t = useTranslations('chat')
   const [state, setState] = React.useState<XlsxGridState>(INITIAL_XLSX_STATE)
   const [failed, setFailed] = React.useState(false)
+  const gridRef = React.useRef<HTMLDivElement>(null)
   // D91(2026-09-24 立):单元格选区 → {sheet, range} 批注锚(AnnotationAnchorCapture
   // 走 D22 事件族派发;左上角 officeSelectedCell 只读展示保持不变)
   const [anchorCell, setAnchorCell] = React.useState<{
@@ -369,17 +679,26 @@ function XlsxGrid({ data, maxRows }: { data: ArrayBuffer; maxRows: number }) {
     if (!book || !active) return
     let cancelled = false
     loadXlsx().then((mod) => {
-      const ws = book.Sheets[active]
-      if (!ws || cancelled) return
-      const all = mod.utils.sheet_to_json<string[]>(ws, {
-        header: 1,
-        blankrows: false,
-        defval: '',
-      }) as unknown as string[][]
+      const sheets: XlsxReviewSheet[] = []
+      for (const name of book.SheetNames) {
+        const ws = book.Sheets[name]
+        if (!ws) continue
+        const all = mod.utils.sheet_to_json<string[]>(ws, {
+          header: 1,
+          blankrows: false,
+          defval: '',
+          raw: false,
+          dateNF: 'yyyy-mm-dd',
+        }) as unknown as string[][]
+        sheets.push({ sheet: name, rows: all.slice(0, maxRows), total: all.length })
+      }
+      if (cancelled) return
+      const activeSheet = sheets.find((item) => item.sheet === active) ?? sheets[0]
       setState((prev) => ({
         ...prev,
-        rows: all.slice(0, maxRows),
-        total: all.length,
+        sheets,
+        rows: activeSheet?.rows ?? [],
+        total: activeSheet?.total ?? 0,
         selected: null,
       }))
     })
@@ -387,6 +706,22 @@ function XlsxGrid({ data, maxRows }: { data: ArrayBuffer; maxRows: number }) {
       cancelled = true
     }
   }, [book, active, maxRows])
+
+  React.useEffect(() => {
+    if (!state.book || !state.active || state.sheets.length === 0) return
+    onRowsChange?.({ activeSheet: state.active, sheets: state.sheets })
+  }, [state.book, state.active, state.sheets, onRowsChange])
+
+  // 右侧线程面板选中 pin ⇒ 把对应单元格滚进视野;表格横向滚动时也成立。
+  React.useEffect(() => {
+    if (!focusedAnnotationId) return
+    const container = gridRef.current
+    if (!container) return
+    const target = Array.from(container.querySelectorAll<HTMLElement>('[data-annotation-id]')).find(
+      (element) => element.dataset.annotationId === focusedAnnotationId,
+    )
+    target?.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' })
+  }, [focusedAnnotationId, annotationPins, state.active])
 
   if (failed) {
     return <p className="p-3 text-label text-muted-foreground">{t('officeFailed')}</p>
@@ -414,8 +749,35 @@ function XlsxGrid({ data, maxRows }: { data: ArrayBuffer; maxRows: number }) {
     selectedCell?.w ??
     (selectedCell?.v === undefined || selectedCell?.v === null ? '' : String(selectedCell.v))
 
+  const pinsAt = (row: number, col: number): readonly PreviewAnnotationPin[] =>
+    annotationPins.filter((pin) => {
+      if (pin.kind !== 'xlsx' || pin.sheet !== state.active) return false
+      const start = xlsxRangeStart(pin.range)
+      return start?.row === row && start.col === col
+    })
+  const pinButton = (pin: PreviewAnnotationPin): React.ReactNode => (
+    <button
+      key={pin.id}
+      type="button"
+      data-testid="xlsx-annotation-pin"
+      data-annotation-id={pin.id}
+      aria-label={`查看批注：${pin.label}`}
+      title={`${pin.label} · ${pin.body}`}
+      onClick={(event) => {
+        event.stopPropagation()
+        onAnnotationSelect?.(pin.id)
+      }}
+      className={cn(
+        'ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full border border-violet-500/60 bg-violet-100 text-[9px] leading-none text-violet-700',
+        pin.id === focusedAnnotationId && 'ring-2 ring-violet-500/50',
+      )}
+    >
+      ●
+    </button>
+  )
+
   return (
-    <div className="max-h-[420px] overflow-auto" data-testid="xlsx-grid">
+    <div ref={gridRef} className="max-h-[420px] overflow-auto" data-testid="xlsx-grid">
       <div className="flex flex-wrap items-center gap-1 bg-muted/30 px-2 py-1">
         {state.book.SheetNames.map((name) => (
           <button
@@ -472,15 +834,21 @@ function XlsxGrid({ data, maxRows }: { data: ArrayBuffer; maxRows: number }) {
               if (mergeMaps.covered.has(`1:${i}`)) return null
               const span = mergeMaps.starts.get(`1:${i}`)
               const cell = sheet?.[`${xlsxColumnRef(i)}1`]
+              const cellPins = pinsAt(1, i)
               return (
                 <th
                   key={`h-${i}`}
                   colSpan={span?.colSpan}
                   rowSpan={span?.rowSpan}
                   style={{ ...xlsxCellCss(cell), width: columnWidths[i] }}
-                  className="border border-border bg-muted/50 px-2 py-1 text-left font-medium"
+                  className={cn(
+                    'border border-border bg-muted/50 px-2 py-1 text-left font-medium',
+                    cellPins.some((pin) => pin.id === focusedAnnotationId) &&
+                      'ring-2 ring-inset ring-violet-500/60',
+                  )}
                 >
                   {h}
+                  {cellPins.map(pinButton)}
                 </th>
               )
             })}
@@ -494,6 +862,7 @@ function XlsxGrid({ data, maxRows }: { data: ArrayBuffer; maxRows: number }) {
                 if (mergeMaps.covered.has(`${rowNo}:${ci}`)) return null
                 const span = mergeMaps.starts.get(`${rowNo}:${ci}`)
                 const cell = sheet?.[`${xlsxColumnRef(ci)}${rowNo}`]
+                const cellPins = pinsAt(rowNo, ci)
                 return (
                   <td
                     key={`c-${ci}`}
@@ -508,9 +877,14 @@ function XlsxGrid({ data, maxRows }: { data: ArrayBuffer; maxRows: number }) {
                       })
                       setState((prev) => ({ ...prev, selected: { row: ri + 1, col: ci } }))
                     }}
-                    className="cursor-pointer border border-border px-2 py-1 hover:bg-muted/50"
+                    className={cn(
+                      'cursor-pointer border border-border px-2 py-1 hover:bg-muted/50',
+                      cellPins.some((pin) => pin.id === focusedAnnotationId) &&
+                        'bg-violet-50 ring-2 ring-inset ring-violet-500/60 dark:bg-violet-950/20',
+                    )}
                   >
                     {c}
+                    {cellPins.map(pinButton)}
                   </td>
                 )
               })}
@@ -542,7 +916,7 @@ export interface OfficePreviewProps {
   readonly maxRows?: number
   /** 源码视图字符上限(默认 PREVIEW_SOURCE_MAX_CHARS);超出即截断并如实说明。 */
   readonly sourceMaxChars?: number
-  /** 文档中心下发的 PPTX 元素级批注 pin(docx/xlsx 暂不参与页内标记)。 */
+  /** 文档中心下发的批注 pin(PDF/PPTX/DOCX 段落/XLSX 单元格均可定位)。 */
   readonly annotationPins?: readonly PreviewAnnotationPin[]
   readonly focusedAnnotationId?: string | null
   readonly onAnnotationSelect?: (id: string) => void
@@ -584,6 +958,9 @@ export function OfficePreview({
   const [data, setData] = React.useState<ArrayBuffer | null>(null)
   const [view, setView] = React.useState<PreviewViewMode>('preview')
   const [source, setSource] = React.useState<OfficeSourceState>(IDLE_OFFICE_SOURCE)
+  const [docxParagraphs, setDocxParagraphs] = React.useState<readonly string[]>([])
+  const [xlsxSheets, setXlsxSheets] = React.useState<readonly XlsxReviewSheet[]>([])
+  const [aiReviewBusy, setAiReviewBusy] = React.useState(false)
 
   const load = React.useCallback(async () => {
     setStatus('loading')
@@ -654,6 +1031,8 @@ export function OfficePreview({
   React.useEffect(() => {
     setView('preview')
     setSource(IDLE_OFFICE_SOURCE)
+    setDocxParagraphs([])
+    setXlsxSheets([])
     extractedFor.current = null
   }, [data])
 
@@ -681,6 +1060,70 @@ export function OfficePreview({
       ? { available: false, reason: 'previewSourceUnavailableUnsupported' }
       : officeSourceAvailability(status)
 
+  const reviewPayload = React.useMemo(() => {
+    if (kind === 'docx') return buildDocxReviewBlocks(docxParagraphs)
+    if (kind === 'xlsx' || kind === 'xls') {
+      return xlsxSheets.length > 0
+        ? buildXlsxWorkbookReviewBlocks(xlsxSheets)
+        : { blocks: [] as AiReviewBlock[], truncated: false }
+    }
+    return { blocks: [] as AiReviewBlock[], truncated: false }
+  }, [docxParagraphs, kind, xlsxSheets])
+
+  const runOfficeFullReview = React.useCallback(async () => {
+    if (!documentId || aiReviewBusy || reviewPayload.blocks.length === 0) return
+    if (kind !== 'docx' && kind !== 'xlsx' && kind !== 'xls') return
+    const reviewKind = kind === 'docx' ? 'docx' : 'xlsx'
+    setAiReviewBusy(true)
+    try {
+      const findings = await reviewDocumentBlocks({
+        title: documentName || (reviewKind === 'docx' ? 'Word 文档' : 'Excel 工作簿'),
+        blocks: reviewPayload.blocks,
+      })
+      if (findings.length === 0) {
+        toast.success(
+          `AI 已通读 ${reviewPayload.blocks.length} 个位置：没有发现需要标注的问题${
+            reviewPayload.truncated ? '（文档过长，仅审阅前段）' : ''
+          }`,
+        )
+        return
+      }
+      const groups = new Map<number, AiReviewFinding[]>()
+      for (const finding of findings) {
+        const blockNumber = finding.block
+        if (!blockNumber || blockNumber < 1 || blockNumber > reviewPayload.blocks.length) continue
+        const group = groups.get(blockNumber) ?? []
+        group.push(finding)
+        groups.set(blockNumber, group)
+      }
+      let created = 0
+      for (const [blockNumber, group] of groups) {
+        const block = reviewPayload.blocks[blockNumber - 1]
+        if (!block) continue
+        const saved = await saveAiFindings({
+          documentId,
+          label: officeReviewLabel(reviewKind, block),
+          anchorKind: reviewKind,
+          anchor: block.anchor,
+          findings: group.slice(0, 5),
+        })
+        created += saved.created.length
+      }
+      onAnnotationsMutated?.()
+      toast.success(
+        created > 0
+          ? `AI 已通读 ${reviewPayload.blocks.length} 个位置，发现 ${created} 条新意见${
+              reviewPayload.truncated ? '（文档过长，仅审阅前段）' : ''
+            }`
+          : 'AI 已通读全文：同一位置的意见已存在',
+      )
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'AI 全文预审失败，请稍后重试')
+    } finally {
+      setAiReviewBusy(false)
+    }
+  }, [aiReviewBusy, documentId, documentName, kind, onAnnotationsMutated, reviewPayload])
+
   return (
     <div
       className={cn('my-0 overflow-hidden rounded-md border border-border', className)}
@@ -694,6 +1137,28 @@ export function OfficePreview({
           {kind.toUpperCase()}
         </span>
         <span className="flex shrink-0 items-center gap-2">
+          {documentId && (kind === 'docx' || kind === 'xlsx' || kind === 'xls') ? (
+            <button
+              type="button"
+              data-testid="office-ai-full-review"
+              onClick={() => void runOfficeFullReview()}
+              disabled={aiReviewBusy || reviewPayload.blocks.length === 0}
+              aria-label="AI 全文预审"
+              title={
+                reviewPayload.truncated
+                  ? 'AI 通读全文并把结论落到段落/单元格；文档过长时只审阅前段'
+                  : 'AI 通读全文并把结论落到段落/单元格'
+              }
+              className="flex items-center gap-1 rounded-md border border-violet-300 px-2 py-1 text-[11px] font-medium text-violet-700 transition-colors hover:bg-violet-50 disabled:opacity-60 dark:border-violet-800 dark:text-violet-300 dark:hover:bg-violet-950/40"
+            >
+              {aiReviewBusy ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="h-3.5 w-3.5" />
+              )}
+              <span>AI 全文预审</span>
+            </button>
+          ) : null}
           <PreviewViewSwitch mode={view} onModeChange={setView} source={sourceAvailability} />
           <a
             href={src}
@@ -749,9 +1214,24 @@ export function OfficePreview({
               <span>{t('officeLoading')}</span>
             </p>
           )}
-          {status === 'ready' && data && kind === 'docx' && <DocxBody data={data} />}
+          {status === 'ready' && data && kind === 'docx' && (
+            <DocxBody
+              data={data}
+              annotationPins={annotationPins}
+              focusedAnnotationId={focusedAnnotationId}
+              onAnnotationSelect={onAnnotationSelect}
+              onParagraphsChange={setDocxParagraphs}
+            />
+          )}
           {status === 'ready' && data && (kind === 'xlsx' || kind === 'xls') && (
-            <XlsxGrid data={data} maxRows={maxRows} />
+            <XlsxGrid
+              data={data}
+              maxRows={maxRows}
+              annotationPins={annotationPins}
+              focusedAnnotationId={focusedAnnotationId}
+              onAnnotationSelect={onAnnotationSelect}
+              onRowsChange={(value) => setXlsxSheets(value.sheets)}
+            />
           )}
           {status === 'ready' && data && kind === 'pptx' && (
             <PptxPreview
