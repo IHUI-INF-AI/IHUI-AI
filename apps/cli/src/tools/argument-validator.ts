@@ -40,7 +40,13 @@ export interface ValidationError {
     | 'enum_mismatch'
     | 'unknown_field'
     | 'array_item_type_mismatch'
-    | 'object_missing_required';
+    | 'object_missing_required'
+    /** P1-3(2026-11-27):字符串 pattern 不符(含声明方写了非法正则 —— 不静默跳过) */
+    | 'pattern_mismatch'
+    /** P1-3:minLength / maxLength 越界 */
+    | 'length_mismatch'
+    /** P1-3:number 的 minimum / maximum 越界(闭区间) */
+    | 'range_mismatch';
   /** 期望类型/值的描述 */
   expected: string;
   /** 实际收到的值描述(类型/字面值) */
@@ -350,48 +356,116 @@ function checkString(
   param: ToolParameter,
   errors: ValidationError[],
 ): string {
+  let text: string;
   if (typeof value === 'string') {
-    return checkEnum(field, value, param, errors);
+    text = value;
+  } else if (typeof value === 'number' && Number.isFinite(value)) {
+    text = String(value);
+  } else if (typeof value === 'boolean') {
+    text = String(value);
+  } else {
+    errors.push({
+      field,
+      reason: 'type_mismatch',
+      expected: 'string',
+      actual: describeType(value),
+    });
+    return value as string; // 保留原值,即便无效
   }
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return checkEnum(field, String(value), param, errors);
+  text = checkEnum(field, text, param, errors);
+  // P1-3(2026-11-27):声明了才校验。**非法正则不放过** —— 写成坏 pattern 的声明方
+  // 拿不到"静默跳过",该字段一律 pattern_mismatch(与 effectScope 认不出即不可信同一条禁令)。
+  if (param.pattern !== undefined && param.pattern !== '') {
+    let re: RegExp | null = null;
+    try {
+      re = new RegExp(param.pattern);
+    } catch {
+      re = null;
+    }
+    if (re === null || !re.test(text)) {
+      errors.push({
+        field,
+        reason: 'pattern_mismatch',
+        expected: `pattern(${param.pattern})`,
+        actual: text.length > 80 ? `${text.slice(0, 80)}…` : text,
+      });
+    }
   }
-  if (typeof value === 'boolean') {
-    return checkEnum(field, String(value), param, errors);
+  if (param.minLength !== undefined && text.length < param.minLength) {
+    errors.push({
+      field,
+      reason: 'length_mismatch',
+      expected: `minLength(${param.minLength})`,
+      actual: `length(${text.length})`,
+    });
   }
-  errors.push({
-    field,
-    reason: 'type_mismatch',
-    expected: 'string',
-    actual: describeType(value),
-  });
-  return value as string; // 保留原值,即便无效
+  if (param.maxLength !== undefined && text.length > param.maxLength) {
+    errors.push({
+      field,
+      reason: 'length_mismatch',
+      expected: `maxLength(${param.maxLength})`,
+      actual: `length(${text.length})`,
+    });
+  }
+  return text;
 }
 
 function checkNumber(
   field: string,
   value: unknown,
-  _param: ToolParameter,
+  param: ToolParameter,
   errors: ValidationError[],
 ): number {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (typeof value === 'string') {
+  let n: number;
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    n = value;
+  } else if (typeof value === 'string') {
     // 严格解析:拒绝 '1.5abc' 这种半数字
-    const n = Number(value);
-    if (Number.isFinite(n) && String(n) === value.trim()) return n;
-    // 容错:LLM 经常 '42' 直接当 number(trim 后)
-    if (value.trim() !== '' && Number.isFinite(Number(value.trim()))) {
-      return Number(value.trim());
+    const strict = Number(value);
+    if (Number.isFinite(strict) && String(strict) === value.trim()) {
+      n = strict;
+    } else if (value.trim() !== '' && Number.isFinite(Number(value.trim()))) {
+      // 容错:LLM 经常 '42' 直接当 number(trim 后)
+      n = Number(value.trim());
+    } else {
+      errors.push({
+        field,
+        reason: 'type_mismatch',
+        expected: 'number',
+        actual: describeType(value),
+      });
+      // 原样回传(即便无效);string 与 number 无交叉,须经 unknown 中转
+      return value as unknown as number;
     }
+  } else if (typeof value === 'boolean') {
+    n = value ? 1 : 0;
+  } else {
+    errors.push({
+      field,
+      reason: 'type_mismatch',
+      expected: 'number',
+      actual: describeType(value),
+    });
+    return value as number;
   }
-  if (typeof value === 'boolean') return value ? 1 : 0;
-  errors.push({
-    field,
-    reason: 'type_mismatch',
-    expected: 'number',
-    actual: describeType(value),
-  });
-  return value as number;
+  // P1-3(2026-11-27):闭区间范围,声明了才校验
+  if (param.minimum !== undefined && n < param.minimum) {
+    errors.push({
+      field,
+      reason: 'range_mismatch',
+      expected: `minimum(${param.minimum})`,
+      actual: String(n),
+    });
+  }
+  if (param.maximum !== undefined && n > param.maximum) {
+    errors.push({
+      field,
+      reason: 'range_mismatch',
+      expected: `maximum(${param.maximum})`,
+      actual: String(n),
+    });
+  }
+  return n;
 }
 
 function checkBoolean(
@@ -569,6 +643,9 @@ const REASON_TEXT: Record<ValidationError['reason'], string> = {
   unknown_field: '未知字段',
   array_item_type_mismatch: '数组元素类型不匹配',
   object_missing_required: '对象必填字段缺失',
+  pattern_mismatch: '格式不符(pattern)',
+  length_mismatch: '长度越界',
+  range_mismatch: '数值越界',
 };
 
 // ==================== enforce 档:schema-aware 单次容错解析 ====================

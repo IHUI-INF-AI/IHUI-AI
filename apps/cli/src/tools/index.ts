@@ -99,6 +99,17 @@ export interface ToolParameter {
    * 子 schema 形 = 未声明键按值类型判。**递归语义**:每一层各自声明,嵌套层由
    * argument-validator 的 checkObject 逐层执行 —— 闭集不再只是顶层那一格。
    */
+  /**
+   * P1-3(2026-11-27):字符串格式与长度约束。声明后由 argument-validator 校验
+   * (pattern_mismatch / length_mismatch),并由 schema-projection 原样发射给模型 ——
+   * 「怎么校验」与「模型被告知怎么填」仍然同源。非法正则不静默跳过,一律 pattern_mismatch。
+   */
+  pattern?: string;
+  minLength?: number;
+  maxLength?: number;
+  /** P1-3:数值范围(闭区间),声明后由 argument-validator 校验(range_mismatch)。 */
+  minimum?: number;
+  maximum?: number;
   additionalProperties?: boolean | ToolParameter;
 }
 
