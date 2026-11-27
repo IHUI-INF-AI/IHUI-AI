@@ -114,5 +114,26 @@ node scripts/sync-itcp-package.mjs --check                   # 独立包与源�
 - gitee **首次追赶历史**时，`.husky/pre-push` 的闸会拦：仓库重量预算（本次报“引入 374MB 新对象 > 50MB”）、推送区间大文件闸（`.ihui-agent/archive/PROJECT_PLAN_*.md` 单份 16MB/9MB，按“增量 > 2MB”判）。前者有官方应急开关 `HUSKY_SKIP_REPO_WEIGHT=1`；后者无开关，只能清理归档历史（会重写 SHA、需全会话停机协调）。本次追赶用 `HUSKY_SKIP_REPO_WEIGHT=1` 放行了前者。
 - 一旦追上，后续增量很小，正常 `git push gitee` 即可过闸。当前推送门有 `rc=1` 但按机主 2026-11-23 改定“默认允许跳钩”放行，留痕在 `.ihui-agent/state/pre-push-skips.jsonl`（kind=`push-gate-default-skip`）——这是**跳过的门**，不是判定通过。
 
-事实核对（2026-11-27 现读）：三端 = `1c769f0be9f`；`tool-call-resilience` 9 + `argument-validator` 46 = 55/55；保护 tag `dual-sync-2026-11-27`。
+事实核对（2026-11-27 夜现读）：三端 = `36c60da4ea9`；`tool-call-resilience` 9 + `argument-validator` 46 = 55/55；保护 tag `dual-sync-2026-11-27` / `dual-sync-final-2026-11-27`。
+
+## 七、为什么"114 枚契约铺满"这一票没有入库（2026-11-27 夜）
+
+索引里有 24 个工具文件、**114 个纯契约块**（`git diff --cached HEAD` 逐文件判过：零删除行、零新增 import、工厂 `contractFor` 在 HEAD 的 `route-tools.ts:192` 与 `ai-bridge.ts:54` 已有）——形态上完全可以单独入库，一分钟都不用碰 ptc 链。但**没有入**，卡在一处量过的退化：
+
+- 113/113 枚新契约的 `resultBudget.policy` 都是 `truncate`，其中 102 枚 `providerVisibleLimitBytes: 8 * 1024`。
+- `budgets.ts:41` `CONTRACT_BYTES_PER_CHAR = 3`，`:152` `maxChars = Math.floor(limitBytes / 3)` ⇒ 8KB 折算 **2,730 字符**；`preview.bytes: 2048` ⇒ 预览 **682 字符**。
+- 同文件 `:59-62` 的 `DEFAULT_TOOL_OUTPUT_BUDGET`（无契约工具走的那档）是 `maxChars: 24_000 / previewChars: 1_200`。
+
+也就是说：给这 113 枚补契约，等于把它们的模型可见输出从 24,000 字符砍到 **2,730（-88.6%）**、预览从 1,200 砍到 **682**，且 `truncate` 不落盘——超限部分直接丢。受害最重的是 `run_tests`、`git_diff`、`git_*`、`terminal_exec_sandboxed`、`lsp_*`、`browser_evaluate` 这类日志/长文本工具：一次失败堆栈就过 2KB，模型只剩 682 字符预览，等于看不见失败原因。
+
+契约层的价值在治理（审批 / 可见性 / 来源 / 预算），不该顺带削掉"模型能看见多少"。
+
+修法（二选一，不许混着来）：
+
+1. `providerVisibleLimitBytes` 提到 ≥ `24 * 1024`（与默认档 `maxChars` 持平），`preview.bytes` ≥ `4_800`；或
+2. 长输出类（`run_tests` / `terminal_*` / `git_diff` / `lsp_*` / `browser_evaluate`）改 `policy: 'artifact'`，落盘回灌路径而不是丢。
+
+改完重跑守门与契约面测试（48 条），整票即可入库。**在那之前，15/129 是唯一诚实的读数；129/129 不能靠削输出换。**
+
+另附一层已核代码的安全结论（非推测）：这 114 枚全部 `requiresApproval: false`，但**不会放宽任何危险门**——`permissions.ts:165` 的契约轴是单向的（"只能把自动放行升成要人批准，不能反向，也不碰 deny"），`dangerLevel` 的 mode 矩阵先算完，契约只在 `allow` 上做升级。所以审批面无风险；唯一风险就是上面那笔输出预算。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
