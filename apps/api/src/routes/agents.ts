@@ -70,12 +70,18 @@ import {
   findAgentByAgentId,
   unpublishAgentByAgentId,
   findAgentSuggestions,
-  updateAgentDetails,
   type UpdateAgentInput,
   type CreateSettlementInput,
   type UpdateExamineInput,
 } from '../db/agents-queries.js'
-import { mapCozeOnlineInfo, type CozeOnlineInfoData } from '../lib/coze-online-info.js'
+import { toCozePublicCapabilities } from '../lib/coze-bot-config.js'
+import {
+  getCozeAgentConfigView,
+  getCozeCoverage,
+  syncAgentCozeConfig,
+  syncManyCozeAgents,
+  CozeSyncError,
+} from '../services/coze-bot-sync.js'
 import { listOAuthApps, findAuditLogList, findAuditLogStats } from '../db/oauth-queries.js'
 import {
   findOAuthAppByClientId,
@@ -500,7 +506,9 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     // (不含 agentPrompt/agentVariables/remark/suggestedQuestions/botId 等私有字段)。
     // 草稿/待审/驳回一律 404,不暴露资源存在性(与「非属主不暴露」同口径)。
     if (agent.status !== 'published') return reply.status(404).send(error(404, '智能体不存在'))
-    return reply.send(success(sanitizePublicAgent(agent)))
+    const publicAgent = sanitizePublicAgent(agent)
+    const cozePublic = toCozePublicCapabilities(agent)
+    return reply.send(success(cozePublic ? { ...publicAgent, cozePublic } : publicAgent))
   })
 
   // POST /agents/create - 创建代理
@@ -1935,59 +1943,98 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     )
   })
 
-  server.post('/:agentId/fetch-details', async (request, reply) => {
-    const { id: agentId } = idParam.parse(request.params)
-    const agent = await findAgentByAgentId(agentId)
-    if (!agent) {
-      return reply.status(404).send(error(404, '智能体不存在'))
+  // -------------------------------------------------------------------------
+  // Coze BotInfo 全量同步（2026-11-28）
+  // 解决旧 `/:agentId/fetch-details` 的三个断点：路径不在 /agents 下、路径参数名写错
+  // （idParam 读 id、实际是 agentId）、只映射 prompt/version/max_tokens/variables 四列。
+  // -------------------------------------------------------------------------
+  const cozeSyncBodySchema = z.object({
+    agentIds: z.array(z.string().uuid()).min(1).max(100).optional(),
+    limit: z.number().int().min(1).max(100).optional(),
+    isPublished: z.boolean().optional(),
+    allowDraft: z.boolean().optional(),
+    concurrency: z.number().int().min(1).max(8).optional(),
+  })
+
+  function cozeErrorReply(reply: FastifyReply, err: unknown) {
+    const e =
+      err instanceof CozeSyncError
+        ? err
+        : new CozeSyncError('COZE_API_ERROR', err instanceof Error ? err.message : String(err))
+    return reply.status(e.statusCode).send(error(e.statusCode, e.message))
+  }
+
+  server.get('/agents/coze/status', async (request, reply) => {
+    if (!isSystemAdmin(request, { includeInternalChannel: false })) {
+      return reply.status(403).send(error(403, '需要系统管理员权限'))
     }
-    const cozeToken = process.env.COZE_API_KEY || ''
-    if (!cozeToken || !agent.botId) {
-      return reply.send(
-        success({
-          agentId,
-          message: '未配置 COZE_API_KEY 或 botId，跳过远程获取',
-          details: null,
-        }),
-      )
+    // 管理端可信读数：credentials.envName / status.skipped_no_token 含敏感词，
+    // 必须跳过全局响应脱敏，否则会被改写成 "***" 破坏类型。
+    request.skipResponseSanitization = true
+    return reply.send(success(await getCozeCoverage()))
+  })
+
+  server.post('/agents/coze/sync', async (request, reply) => {
+    if (!isSystemAdmin(request, { includeInternalChannel: false })) {
+      return reply.status(403).send(error(403, '需要系统管理员权限'))
+    }
+    request.skipResponseSanitization = true
+    const parsed = cozeSyncBodySchema.safeParse(request.body ?? {})
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     try {
-      const res = await fetch(
-        `https://api.coze.cn/v1/bot/get_online_info?bot_id=${encodeURIComponent(agent.botId)}`,
-        { headers: { Authorization: `Bearer ${cozeToken}` } },
-      )
-      const body = (await res.json()) as { code: number; msg?: string; data?: CozeOnlineInfoData }
-      if (body.code !== 0) {
-        return reply.send(
-          success({
-            agentId,
-            message: `Coze API 返回: ${body.msg ?? '未知错误'}`,
-            details: null,
-          }),
-        )
-      }
-      // 映射面收窄:avatar / agent_model / agent_temperature 三列刻意不写(逐条理由见映射源头注)
-      const patch = mapCozeOnlineInfo(body.data)
-      const updated = Object.keys(patch)
-      if (updated.length === 0) {
-        return reply.send(
-          success({
-            agentId,
-            message: 'Coze 未返回可刷新的详情字段，本地记录未改动',
-            details: { updated: [] as string[] },
-          }),
-        )
-      }
-      await updateAgentDetails(agentId, patch)
+      return reply.send(success(await syncManyCozeAgents(parsed.data)))
+    } catch (err) {
+      return cozeErrorReply(reply, err)
+    }
+  })
+
+  server.get('/agents/:agentId/coze/config', async (request, reply) => {
+    const { agentId } = agentIdParam.parse(request.params)
+    if (!isSystemAdmin(request, { includeInternalChannel: false })) {
+      return reply.status(403).send(error(403, '需要系统管理员权限'))
+    }
+    request.skipResponseSanitization = true
+    const agent = await findAgentByAgentId(agentId)
+    if (!agent) return reply.status(404).send(error(404, '智能体不存在'))
+    return reply.send(success(await getCozeAgentConfigView(agent)))
+  })
+
+  server.post('/agents/:agentId/coze/sync', async (request, reply) => {
+    const { agentId } = agentIdParam.parse(request.params)
+    if (!isSystemAdmin(request, { includeInternalChannel: false })) {
+      return reply.status(403).send(error(403, '需要系统管理员权限'))
+    }
+    request.skipResponseSanitization = true
+    const agent = await findAgentByAgentId(agentId)
+    if (!agent) return reply.status(404).send(error(404, '智能体不存在'))
+    try {
+      return reply.send(success(await syncAgentCozeConfig(agent, request.body ?? {})))
+    } catch (err) {
+      return cozeErrorReply(reply, err)
+    }
+  })
+
+  // 兼容旧调用：属主或管理员可刷新自己的智能体；实际执行新全量同步。
+  server.post('/agents/:agentId/fetch-details', async (request, reply) => {
+    const { agentId } = agentIdParam.parse(request.params)
+    const agent = await findAgentByAgentId(agentId)
+    if (!agent) return reply.status(404).send(error(404, '智能体不存在'))
+    const isAdmin = isSystemAdmin(request, { includeInternalChannel: false })
+    const isOwner = Boolean(request.userId) && agent.userId === request.userId
+    if (!isAdmin && !isOwner) return reply.status(403).send(error(403, '无权刷新该智能体'))
+    try {
+      const result = await syncAgentCozeConfig(agent, request.body ?? {})
       return reply.send(
         success({
           agentId,
-          message: '智能体详情获取并更新成功',
-          details: { updated },
+          message: result.message,
+          details: { updated: result.updatedFields, variables: result.variables },
         }),
       )
-    } catch (e) {
-      return reply.status(500).send(error(500, `获取智能体详情失败: ${toUserFriendlyMessage(e)}`))
+    } catch (err) {
+      return cozeErrorReply(reply, err)
     }
   })
 

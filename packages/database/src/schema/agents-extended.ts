@@ -12,6 +12,7 @@ import {
   integer,
   timestamp,
   decimal,
+  jsonb,
   index,
   unique,
   uniqueIndex,
@@ -48,16 +49,87 @@ export const agents = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
     remark: text('remark'),
-    // Coze 配置字段（H-3 补齐，等价自旧架构 agent_models.py）
+    // Coze 配置字段（H-3 补齐，等价自旧架构 agent_models.py；2026-11-28 扩到 BotInfo 全量）
     agentVersion: varchar('agent_version', { length: 32 }),
     botId: varchar('bot_id', { length: 64 }),
     botIdStr: varchar('bot_id_str', { length: 64 }),
     botName: varchar('bot_name', { length: 200 }),
     agentPrompt: text('agent_prompt'),
+    /** 提示词模式：standard / prefix */
+    agentPromptMode: varchar('agent_prompt_mode', { length: 32 }),
+    /** 前缀缓存模式下的 prefix_prompt / dynamic_prompt */
+    agentPrefixPrompt: jsonb('agent_prefix_prompt').$type<Record<string, unknown>>(),
+    /** 本项目可路由模型名（与 Coze 展示名解耦，避免把 Coze model_name 写进路由） */
     agentModel: varchar('agent_model', { length: 100 }),
-    agentTemperature: integer('agent_temperature'),
+    /** Coze 模型数字 ID */
+    cozeModelId: varchar('coze_model_id', { length: 64 }),
+    /** Coze 模型展示名 */
+    cozeModelName: varchar('coze_model_name', { length: 200 }),
+    /** 生成随机性 0~2，保留三位小数 */
+    agentTemperature: decimal('agent_temperature', { precision: 4, scale: 3 }),
     agentMaxTokens: integer('agent_max_tokens'),
     agentVariables: text('agent_variables'),
+    /** 变量原样 JSON，避免 text 编码丢失结构 */
+    cozeVariablesRaw: jsonb('coze_variables_raw').$type<unknown[]>(),
+    /** 采样候选集大小 */
+    cozeTopK: integer('coze_top_k'),
+    /** Top P 采样 0~1 */
+    cozeTopP: decimal('coze_top_p', { precision: 4, scale: 3 }),
+    /** 携带上下文轮数 */
+    cozeContextRound: integer('coze_context_round'),
+    /** text / markdown / json */
+    cozeResponseFormat: varchar('coze_response_format', { length: 32 }),
+    /** 重复主题惩罚 */
+    cozePresencePenalty: decimal('coze_presence_penalty', { precision: 4, scale: 3 }),
+    /** 重复语句惩罚 */
+    cozeFrequencyPenalty: decimal('coze_frequency_penalty', { precision: 4, scale: 3 }),
+    /** model_info.parameters / cache_type / api_mode 等扩展参数 */
+    cozeModelParameters: jsonb('coze_model_parameters').$type<Record<string, unknown>>(),
+    /** 0 单 Agent；1 多 Agent */
+    cozeBotMode: integer('coze_bot_mode'),
+    /** text / voice / call */
+    cozeDefaultUserInputType: varchar('coze_default_user_input_type', { length: 20 }),
+    /** onboarding_info 完整对象（含兼容的 PascalCase 字段） */
+    cozeOnboarding: jsonb('coze_onboarding').$type<Record<string, unknown>>(),
+    /** 开场白（从 onboarding_info.prologue 提取） */
+    cozePrologue: text('coze_prologue'),
+    /** plugin_info_list */
+    cozePlugins: jsonb('coze_plugins').$type<unknown[]>(),
+    /** workflow_info_list */
+    cozeWorkflows: jsonb('coze_workflows').$type<unknown[]>(),
+    /** knowledge.knowledge_infos */
+    cozeKnowledge: jsonb('coze_knowledge').$type<unknown[]>(),
+    /** shortcut_commands */
+    cozeShortcutCommands: jsonb('coze_shortcut_commands').$type<unknown[]>(),
+    /** voice_info_list（兼容 voice_data_list） */
+    cozeVoices: jsonb('coze_voices').$type<unknown[]>(),
+    /** media_config */
+    cozeMediaConfig: jsonb('coze_media_config').$type<Record<string, unknown>>(),
+    /** background_image_info */
+    cozeBackgroundImage: jsonb('coze_background_image').$type<Record<string, unknown>>(),
+    /** suggest_reply_info */
+    cozeSuggestReply: jsonb('coze_suggest_reply').$type<Record<string, unknown>>(),
+    /** 所属 Coze 文件夹 */
+    cozeFolderId: varchar('coze_folder_id', { length: 64 }),
+    /** Coze 创建者用户 ID */
+    cozeOwnerUserId: varchar('coze_owner_user_id', { length: 64 }),
+    /** Coze 原始图标地址（签名 URL 会过期，只作溯源，不覆盖 avatar） */
+    cozeIconUrl: text('coze_icon_url'),
+    /** Coze 远端描述（与本地运营 description 解耦） */
+    cozeDescription: text('coze_description'),
+    /** Coze 创建/更新时间（Unix 秒） */
+    cozeCreateTime: bigint('coze_create_time', { mode: 'number' }),
+    cozeUpdateTime: bigint('coze_update_time', { mode: 'number' }),
+    /** 完整原始 payload，未知字段也永久保留 */
+    cozeConfigRaw: jsonb('coze_config_raw').$type<Record<string, unknown>>(),
+    /** get_bot_config / get_online_info / legacy_cache */
+    cozeConfigSource: varchar('coze_config_source', { length: 32 }),
+    /** never / synced / partial / error / not_found / skipped_no_token */
+    cozeConfigStatus: varchar('coze_config_status', { length: 20 }).default('never').notNull(),
+    cozeConfigError: text('coze_config_error'),
+    cozeConfigSyncedAt: timestamp('coze_config_synced_at', { withTimezone: true }),
+    cozeConfigVersion: varchar('coze_config_version', { length: 64 }),
+    cozeConfigHash: varchar('coze_config_hash', { length: 64 }),
     publishChannel: varchar('publish_channel', { length: 50 }),
     usageCount: bigint('usage_count', { mode: 'number' }).default(0).notNull(),
     likeCount: bigint('like_count', { mode: 'number' }).default(0).notNull(),
@@ -73,8 +145,39 @@ export const agents = pgTable(
     userIdx: index('agents_user_idx').on(t.userId),
     categoryIdx: index('agents_category_idx').on(t.categoryId),
     statusIdx: index('agents_status_idx').on(t.status),
+    cozeSyncIdx: index('agents_coze_sync_idx').on(t.cozeConfigStatus, t.cozeConfigSyncedAt),
   }),
 )
+
+/**
+ * Coze BotInfo 每次拉取的全量快照。
+ *
+ * `agents.coze_config_raw` 只保留最新一版；本表按 `(agent_id, payload_hash)` 去重，
+ * 保留每次版本变化的完整 payload，便于回溯 Coze 侧提示词/模型/插件/工作流/变量的历史差异。
+ */
+export const cozeBotSnapshots = pgTable(
+  'coze_bot_snapshots',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    agentId: uuid('agent_id').notNull(),
+    botId: varchar('bot_id', { length: 64 }).notNull(),
+    /** get_bot_config / get_online_info */
+    source: varchar('source', { length: 32 }).notNull(),
+    isPublished: boolean('is_published'),
+    version: varchar('version', { length: 64 }),
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
+    payloadHash: varchar('payload_hash', { length: 64 }).notNull(),
+    fetchedAt: timestamp('fetched_at', { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    agentVersionIdx: uniqueIndex('coze_bot_snapshots_agent_hash_uniq').on(t.agentId, t.payloadHash),
+    agentFetchedIdx: index('coze_bot_snapshots_agent_fetched_idx').on(t.agentId, t.fetchedAt),
+  }),
+)
+
+export type CozeBotSnapshot = typeof cozeBotSnapshots.$inferSelect
+export type NewCozeBotSnapshot = typeof cozeBotSnapshots.$inferInsert
 
 /**
  * 智能体分类表。

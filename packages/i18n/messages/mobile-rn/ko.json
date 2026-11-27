@@ -3803,7 +3803,14 @@
     "loadFailed": "에이전트 상세 불러오기 실패",
     "rating": "평점",
     "startChat": "대화 시작",
-    "uses": "사용 횟수"
+    "uses": "사용 횟수",
+    "cozeTitle": "업스트림 기능",
+    "cozePrologue": "오프닝",
+    "cozeSuggested": "추천 질문",
+    "cozePlugins": "플러그인",
+    "cozeWorkflows": "워크플로",
+    "cozeKnowledge": "지식",
+    "cozeShortcuts": "단축 명령"
   },
   "agentMarket": {
     "empty": "에이전트가 없습니다",

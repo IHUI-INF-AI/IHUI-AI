@@ -15,6 +15,9 @@ import type {
   CozeChatMessageItem,
   CozeWorkflowRunResult,
   CozeStreamChatHandlers,
+  CozeBotConfig,
+  CozeBotOnlineInfoData,
+  CozeBotListResult,
 } from '@ihui/types'
 
 export const COZE_DEFAULT_BASE_URL = 'https://api.coze.cn'
@@ -53,8 +56,24 @@ export interface CozeClient {
     timeoutMs?: number
   }): Promise<CozeWorkflowRunResult>
   getWorkflowHistory(workflowId: string, executeId: string): Promise<unknown>
-  listBots(workspaceId: string): Promise<unknown>
-  getBotOnlineInfo(botId: string): Promise<unknown>
+  /**
+   * 查看指定空间智能体列表。
+   * 官方：GET /v1/bots?workspace_id=&publish_status=&connector_id=&page_num=&page_size=
+   * 旧实现误用 `/v1/bot/list` 且只传 workspace_id，导致分页/发布状态/渠道参数全部丢失。
+   */
+  listBots(
+    workspaceId: string,
+    opts?: {
+      publishStatus?: 'all' | 'published_online' | 'published_draft' | 'unpublished_draft'
+      connectorId?: string
+      pageNum?: number
+      pageSize?: number
+    },
+  ): Promise<CozeBotListResult>
+  /** 查看智能体完整配置（已发布版/草稿版），官方 GET /v1/bots/:bot_id */
+  getBotConfig(botId: string, isPublished?: boolean): Promise<CozeBotConfig>
+  /** 查看已发布智能体在线信息（兼容旧端点），官方 GET /v1/bot/get_online_info?bot_id= */
+  getBotOnlineInfo(botId: string): Promise<CozeBotOnlineInfoData>
   listDatasets(workspaceId: string, pageSize?: number, pageIndex?: number): Promise<unknown>
   createDataset(name: string, workspaceId: string): Promise<{ dataset_id: string }>
   deleteDataset(datasetId: string): Promise<unknown>
@@ -217,11 +236,34 @@ export function createCozeClient(config: CozeConfig): CozeClient {
     getWorkflowHistory(workflowId: string, executeId: string): Promise<unknown> {
       return cozeRequest(`/v1/workflows/${workflowId}/run_histories/${executeId}`)
     },
-    listBots(workspaceId: string): Promise<unknown> {
-      return cozeRequest('/v1/bot/list', { params: { workspace_id: workspaceId } })
+    listBots(
+      workspaceId: string,
+      opts: {
+        publishStatus?: 'all' | 'published_online' | 'published_draft' | 'unpublished_draft'
+        connectorId?: string
+        pageNum?: number
+        pageSize?: number
+      } = {},
+    ): Promise<CozeBotListResult> {
+      return cozeRequest<CozeBotListResult>('/v1/bots', {
+        params: {
+          workspace_id: workspaceId,
+          publish_status: opts.publishStatus ?? 'all',
+          connector_id: opts.connectorId,
+          page_num: String(opts.pageNum ?? 1),
+          page_size: String(opts.pageSize ?? 20),
+        },
+      })
     },
-    getBotOnlineInfo(botId: string): Promise<unknown> {
-      return cozeRequest('/v1/bot/get_online_info', { method: 'POST', body: { bot_id: botId } })
+    getBotConfig(botId: string, isPublished = true): Promise<CozeBotConfig> {
+      return cozeRequest<CozeBotConfig>(`/v1/bots/${encodeURIComponent(botId)}`, {
+        params: { is_published: String(isPublished) },
+      })
+    },
+    getBotOnlineInfo(botId: string): Promise<CozeBotOnlineInfoData> {
+      return cozeRequest<CozeBotOnlineInfoData>('/v1/bot/get_online_info', {
+        params: { bot_id: botId },
+      })
     },
     listDatasets(workspaceId: string, pageSize = 20, pageIndex = 1): Promise<unknown> {
       return cozeRequest('/v1/datasets', {

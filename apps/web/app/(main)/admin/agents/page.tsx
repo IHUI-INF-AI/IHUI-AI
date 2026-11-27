@@ -10,11 +10,13 @@ import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { Plus, ChevronLeft, ChevronRight, Bot } from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight, Bot, Gauge } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 import { AgentsFilter } from './AgentsFilter'
 import { AgentsTable } from './AgentsTable'
 import { AgentEditDialog } from './AgentEditDialog'
+import { CozeConfigDialog } from './CozeConfigDialog'
+import { CozeCoverageDialog } from './CozeCoverageDialog'
 import { PAGE_SIZE, EMPTY_FORM, api, fetchAgents } from './helpers'
 import type { Agent, AgentForm, CategoriesData } from './types'
 import { BackButton } from '@/components/common'
@@ -33,6 +35,8 @@ export default function AdminAgentsPage() {
   const [editing, setEditing] = React.useState<Agent | null>(null)
   const [form, setForm] = React.useState<AgentForm>(EMPTY_FORM)
   const [err, setErr] = React.useState<string | null>(null)
+  const [cozeAgentId, setCozeAgentId] = React.useState<string | null>(null)
+  const [coverageOpen, setCoverageOpen] = React.useState(false)
 
   React.useEffect(() => {
     const tm = setTimeout(() => {
@@ -145,12 +149,18 @@ export default function AdminAgentsPage() {
           </h1>
           <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
-        <Button asChild size="sm">
-          <Link href="/agents/create">
-            <Plus className="h-4 w-4" />
-            {tc('create')}
-          </Link>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => setCoverageOpen(true)}>
+            <Gauge className="h-4 w-4" />
+            {t('coze.coverageTitle')}
+          </Button>
+          <Button asChild size="sm">
+            <Link href="/agents/create">
+              <Plus className="h-4 w-4" />
+              {tc('create')}
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <AgentsFilter
@@ -171,6 +181,7 @@ export default function AdminAgentsPage() {
         deletePending={deleteMut.isPending}
         onEdit={openEdit}
         onDelete={handleDelete}
+        onCoze={(a) => setCozeAgentId(a.agentId)}
       />
 
       <div className="flex items-center justify-between">
@@ -210,6 +221,13 @@ export default function AdminAgentsPage() {
         onClose={closeDialog}
         onSubmit={submit}
       />
+
+      <CozeConfigDialog
+        open={Boolean(cozeAgentId)}
+        agentId={cozeAgentId}
+        onClose={() => setCozeAgentId(null)}
+      />
+      <CozeCoverageDialog open={coverageOpen} onClose={() => setCoverageOpen(false)} />
     </div>
   )
 }

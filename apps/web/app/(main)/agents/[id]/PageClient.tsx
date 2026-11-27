@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils'
 import { Button, Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui-react'
 import { Avatar, VipBadge } from '@/components/data'
 import { DescriptionList } from '@/components/data/DescriptionList'
+import { CozePublicPanel } from '@/components/agents/CozePublicPanel'
 import { AgentProgressPanel } from '@/components/ai/agent-progress-panel'
 import { PlanReviewPanel } from '@/components/ai/plan-review-panel'
 import { TaskListPanel } from '@/components/ai/task-list-panel'
@@ -28,6 +29,7 @@ import { AgentRuntimePanel } from '@/components/ai/agent-runtime-panel'
 import { DispatchSubagentDialog } from '@/components/ai/dispatch-subagent-dialog'
 import type { SwarmData, BackgroundAgent } from '@/components/ai/types'
 import { getAgentPermission } from '@ihui/api-client'
+import type { CozePublicCapabilities } from '@ihui/types'
 import { usePageVisibility } from '@/hooks/use-page-visibility'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { useChatStore } from '@/stores/chat'
@@ -51,6 +53,7 @@ interface Agent {
   remark: string | null
   createdAt: string
   updatedAt: string
+  cozePublic?: CozePublicCapabilities | null
 }
 
 // ---- Agent 详情页运行时数据(5 个 Tab:progress/swarm/checkpoint/plan/background) ----
@@ -303,6 +306,7 @@ export default function AgentDetailPage() {
               <p className="whitespace-pre-wrap text-body leading-relaxed">
                 {agent.description || t('noDescription')}
               </p>
+              <CozePublicPanel capabilities={agent.cozePublic} />
               <div className="mt-4 pt-4">
                 <DescriptionList
                   column={3}

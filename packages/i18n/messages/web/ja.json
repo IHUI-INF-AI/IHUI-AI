@@ -1032,7 +1032,40 @@
       "subtitle": "のなドキュメントとAPIリファレンス",
       "title": "エージェント",
       "total": "合計 {total} 件",
-      "updateSuccess": "更新しました"
+      "updateSuccess": "更新しました",
+      "coze": {
+        "title": "Coze 上流設定",
+        "coverageTitle": "Coze カバレッジ",
+        "coverageSubtitle": "116 個の上流 Bot の実設定を項目ごとに照合",
+        "syncOne": "この Bot を同期",
+        "syncSuccess": "同期成功（{status}）",
+        "batchSync": "{count} 件を同期",
+        "batchResult": "同期完了：成功 {synced}、部分 {partial}、失敗 {errors}、上流削除 {notFound}",
+        "totalBots": "Bot 総数",
+        "fieldCoverage": "項目カバレッジ",
+        "variablesCoverage": "変数 {rows} 行 / {bots} Bot",
+        "lastSyncedAt": "最終同期",
+        "batchHint": "既定 {size}、上限 {max}、並列 {concurrency}",
+        "credentialsConfigured": "認証情報設定済み：{envName}",
+        "credentialsMissing": "Coze 認証情報が未設定。一括同期は 503 を返します",
+        "prompt": "プロンプト",
+        "model": "モデルパラメータ",
+        "onboarding": "開始メッセージと候補質問",
+        "capabilities": "プラグイン / ワークフロー / ナレッジ / コマンド",
+        "metadata": "Bot メタ情報",
+        "variables": "変数",
+        "publicProjection": "公開能力プロジェクション",
+        "snapshots": "履歴スナップショット",
+        "rawConfig": "生の BotInfo",
+        "noVariables": "上流に変数なし",
+        "noSnapshots": "スナップショットなし",
+        "status_synced": "完全同期",
+        "status_partial": "部分同期",
+        "status_error": "同期失敗",
+        "status_not_found": "上流で削除済み",
+        "status_skipped_no_token": "認証情報なし",
+        "status_never": "未同期"
+      }
     },
     "agreements": {
       "colActions": "操作",
@@ -7299,7 +7332,17 @@
     "viewPermissionExample": "を",
     "vipExclusive": "VIP専用",
     "config": "設定",
-    "dispatchSubagent": "サブエージェント割り当て"
+    "dispatchSubagent": "サブエージェント割り当て",
+    "coze": {
+      "title": "上流機能",
+      "prologue": "開始メッセージ",
+      "suggested": "候補質問",
+      "plugins": "プラグイン",
+      "workflows": "ワークフロー",
+      "knowledge": "ナレッジ",
+      "shortcuts": "ショートカット",
+      "multiAgent": "マルチ Agent"
+    }
   },
   "agentRuntimePanel": {
     "resumeUnavailable": "この実行を再開できません",

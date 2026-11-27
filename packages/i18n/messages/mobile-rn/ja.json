@@ -3803,7 +3803,14 @@
     "loadFailed": "エージェント詳細の読み込みに失敗",
     "rating": "評価",
     "startChat": "チャットを開始",
-    "uses": "利用回数"
+    "uses": "利用回数",
+    "cozeTitle": "上流機能",
+    "cozePrologue": "開始メッセージ",
+    "cozeSuggested": "候補質問",
+    "cozePlugins": "プラグイン",
+    "cozeWorkflows": "ワークフロー",
+    "cozeKnowledge": "ナレッジ",
+    "cozeShortcuts": "ショートカット"
   },
   "agentMarket": {
     "empty": "エージェントがありません",

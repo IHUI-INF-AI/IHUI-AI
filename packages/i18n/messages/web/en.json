@@ -1001,7 +1001,40 @@
       "subtitle": "Manage all platform agents",
       "title": "Agent Management",
       "total": "Total {total}",
-      "updateSuccess": "Updated successfully"
+      "updateSuccess": "Updated successfully",
+      "coze": {
+        "title": "Coze upstream config",
+        "coverageTitle": "Coze coverage",
+        "coverageSubtitle": "Field-by-field audit of the real upstream config for 116 bots",
+        "syncOne": "Sync this bot",
+        "syncSuccess": "Synced ({status})",
+        "batchSync": "Sync {count}",
+        "batchResult": "Sync complete: synced {synced}, partial {partial}, failed {errors}, upstream removed {notFound}",
+        "totalBots": "Total bots",
+        "fieldCoverage": "Field coverage",
+        "variablesCoverage": "{rows} variables / {bots} bots",
+        "lastSyncedAt": "Last synced",
+        "batchHint": "Default batch {size}, max {max}, concurrency {concurrency}",
+        "credentialsConfigured": "Credential configured: {envName}",
+        "credentialsMissing": "No Coze credential; batch sync returns 503",
+        "prompt": "Prompt",
+        "model": "Model parameters",
+        "onboarding": "Prologue & suggested questions",
+        "capabilities": "Plugins / workflows / knowledge / commands",
+        "metadata": "Bot metadata",
+        "variables": "Variables",
+        "publicProjection": "Public capability projection",
+        "snapshots": "Snapshots",
+        "rawConfig": "Raw BotInfo",
+        "noVariables": "No upstream variables",
+        "noSnapshots": "No snapshots",
+        "status_synced": "Synced",
+        "status_partial": "Partial",
+        "status_error": "Error",
+        "status_not_found": "Deleted upstream",
+        "status_skipped_no_token": "No credential",
+        "status_never": "Never synced"
+      }
     },
     "agreements": {
       "colActions": "Actions",
@@ -7268,7 +7301,17 @@
     "viewPermissionExample": "View Permission Example",
     "vipExclusive": "VIP Exclusive",
     "config": "Configuration",
-    "dispatchSubagent": "Dispatch Subagent"
+    "dispatchSubagent": "Dispatch Subagent",
+    "coze": {
+      "title": "Upstream capabilities",
+      "prologue": "Prologue",
+      "suggested": "Suggested questions",
+      "plugins": "Plugins",
+      "workflows": "Workflows",
+      "knowledge": "Knowledge",
+      "shortcuts": "Shortcut commands",
+      "multiAgent": "Multi-agent"
+    }
   },
   "agentRuntimePanel": {
     "resumeUnavailable": "Unable to resume this run",

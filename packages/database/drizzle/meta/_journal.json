@@ -3376,6 +3376,13 @@
       "when": 1795585800004,
       "tag": "20261127120000_ai_cost_idempotency_key",
       "breakpoints": true
+    },
+    {
+      "idx": 492,
+      "version": "7",
+      "when": 1795585800005,
+      "tag": "20261128030000_agents_coze_full_config",
+      "breakpoints": true
     }
   ]
 }

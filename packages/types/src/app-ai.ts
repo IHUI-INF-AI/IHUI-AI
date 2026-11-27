@@ -14,6 +14,7 @@
 import type { ComponentType } from 'react'
 import type { TFunction } from './app-shared.js'
 import type { AudioPort, OnNavigate, OnToast } from './app-host-ports.js'
+import type { CozePublicCapabilities } from './coze.js'
 
 /** 批次 9:Agent/问答/证书/提现/VIP 对比/分享(2026-07-29) */
 
@@ -29,6 +30,8 @@ export interface AgentDetailItem {
   creator: string
   isFree: boolean
   price: number
+  /** Coze 上游公开能力（开场白/插件/工作流/知识库/快捷指令），由详情接口附带 */
+  cozePublic?: CozePublicCapabilities | null
 }
 
 /** AgentDetailScreen props */

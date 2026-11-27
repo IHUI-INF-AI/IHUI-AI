@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 'use client'
-import { Loader2, Pencil, Trash2, Bot } from 'lucide-react'
+import { Cable, Loader2, Pencil, Trash2, Bot } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
 
 import { cn } from '@/lib/utils'
@@ -29,6 +29,7 @@ interface AgentsTableProps {
   deletePending: boolean
   onEdit: (a: Agent) => void
   onDelete: (a: Agent) => void
+  onCoze: (a: Agent) => void
 }
 
 export function AgentsTable({
@@ -39,6 +40,7 @@ export function AgentsTable({
   deletePending,
   onEdit,
   onDelete,
+  onCoze,
 }: AgentsTableProps) {
   const t = useTranslations('admin.agents')
   const tc = useTranslations('common')
@@ -124,6 +126,16 @@ export function AgentsTable({
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex flex-nowrap justify-end gap-1">
+                    <Tooltip content={t('coze.title')}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="shrink-0"
+                        onClick={() => onCoze(a)}
+                      >
+                        <Cable className="h-4 w-4 shrink-0" />
+                      </Button>
+                    </Tooltip>
                     <Tooltip content={tc('edit')}>
                       <Button
                         size="sm"

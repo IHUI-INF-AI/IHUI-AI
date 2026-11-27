@@ -6959,7 +6959,14 @@
     "loadFailed": "エージェント詳細の読み込みに失敗",
     "price": "価格",
     "rating": "評価",
-    "uses": "利用回数"
+    "uses": "利用回数",
+    "cozeTitle": "上流機能",
+    "cozePrologue": "開始メッセージ",
+    "cozeSuggested": "候補質問",
+    "cozePlugins": "プラグイン",
+    "cozeWorkflows": "ワークフロー",
+    "cozeKnowledge": "ナレッジ",
+    "cozeShortcuts": "ショートカット"
   },
   "articleDetail": {
     "loadFailed": "記事の読み込みに失敗",

@@ -6959,7 +6959,14 @@
     "loadFailed": "載入智慧體詳情失敗",
     "price": "價格",
     "rating": "評分",
-    "uses": "使用次數"
+    "uses": "使用次數",
+    "cozeTitle": "上游能力",
+    "cozePrologue": "開場白",
+    "cozeSuggested": "建議問題",
+    "cozePlugins": "外掛",
+    "cozeWorkflows": "工作流",
+    "cozeKnowledge": "知識庫",
+    "cozeShortcuts": "快捷指令"
   },
   "articleDetail": {
     "loadFailed": "載入文章失敗",

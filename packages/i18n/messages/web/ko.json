@@ -1032,7 +1032,40 @@
       "subtitle": "포괄적인의개발문서및API참조",
       "title": "에이전트 관리",
       "total": "총 {total}건",
-      "updateSuccess": "업데이트성공"
+      "updateSuccess": "업데이트성공",
+      "coze": {
+        "title": "Coze 업스트림 설정",
+        "coverageTitle": "Coze 커버리지",
+        "coverageSubtitle": "116개 업스트림 Bot의 실제 설정을 필드별로 점검",
+        "syncOne": "이 Bot 동기화",
+        "syncSuccess": "동기화 완료({status})",
+        "batchSync": "{count}개 동기화",
+        "batchResult": "동기화 완료: 성공 {synced}, 부분 {partial}, 실패 {errors}, 업스트림 삭제 {notFound}",
+        "totalBots": "Bot 총수",
+        "fieldCoverage": "필드 커버리지",
+        "variablesCoverage": "변수 {rows}행 / {bots}개 Bot",
+        "lastSyncedAt": "최근 동기화",
+        "batchHint": "기본 {size}, 최대 {max}, 동시 {concurrency}",
+        "credentialsConfigured": "자격 증명 설정됨: {envName}",
+        "credentialsMissing": "Coze 자격 증명 없음. 배치 동기화는 503을 반환합니다",
+        "prompt": "프롬프트",
+        "model": "모델 파라미터",
+        "onboarding": "오프닝과 추천 질문",
+        "capabilities": "플러그인 / 워크플로 / 지식 / 명령",
+        "metadata": "Bot 메타데이터",
+        "variables": "변수",
+        "publicProjection": "공개 능력 프로젝션",
+        "snapshots": "스냅샷",
+        "rawConfig": "원본 BotInfo",
+        "noVariables": "업스트림 변수 없음",
+        "noSnapshots": "스냅샷 없음",
+        "status_synced": "전체 동기화",
+        "status_partial": "부분 동기화",
+        "status_error": "동기화 실패",
+        "status_not_found": "업스트림 삭제됨",
+        "status_skipped_no_token": "자격 증명 없음",
+        "status_never": "동기화 안 됨"
+      }
     },
     "agreements": {
       "colActions": "작업",
@@ -7299,7 +7332,17 @@
     "viewPermissionExample": "권한 확인 예시 보기",
     "vipExclusive": "VIP 전용",
     "config": "설정",
-    "dispatchSubagent": "배포 하위 에이전트"
+    "dispatchSubagent": "배포 하위 에이전트",
+    "coze": {
+      "title": "업스트림 기능",
+      "prologue": "오프닝",
+      "suggested": "추천 질문",
+      "plugins": "플러그인",
+      "workflows": "워크플로",
+      "knowledge": "지식",
+      "shortcuts": "단축 명령",
+      "multiAgent": "멀티 Agent"
+    }
   },
   "agentRuntimePanel": {
     "resumeUnavailable": "이 실행을 재개할 수 없습니다",

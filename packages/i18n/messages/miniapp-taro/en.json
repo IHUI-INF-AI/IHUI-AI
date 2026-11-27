@@ -6959,7 +6959,14 @@
     "loadFailed": "Failed to load agent details",
     "price": "Price",
     "rating": "Rating",
-    "uses": "Uses"
+    "uses": "Uses",
+    "cozeTitle": "Upstream capabilities",
+    "cozePrologue": "Prologue",
+    "cozeSuggested": "Suggested questions",
+    "cozePlugins": "Plugins",
+    "cozeWorkflows": "Workflows",
+    "cozeKnowledge": "Knowledge",
+    "cozeShortcuts": "Shortcut commands"
   },
   "articleDetail": {
     "loadFailed": "Failed to load article",

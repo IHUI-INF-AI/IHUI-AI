@@ -3803,7 +3803,14 @@
     "loadFailed": "加载智能体详情失败",
     "rating": "评分",
     "startChat": "开始对话",
-    "uses": "使用次数"
+    "uses": "使用次数",
+    "cozeTitle": "上游能力",
+    "cozePrologue": "开场白",
+    "cozeSuggested": "建议问题",
+    "cozePlugins": "插件",
+    "cozeWorkflows": "工作流",
+    "cozeKnowledge": "知识库",
+    "cozeShortcuts": "快捷指令"
   },
   "agentMarket": {
     "empty": "暂无智能体",

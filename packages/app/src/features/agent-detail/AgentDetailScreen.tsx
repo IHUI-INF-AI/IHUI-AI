@@ -88,6 +88,73 @@ export function AgentDetailScreen({
             : `¥${(typeof item.price === 'number' && Number.isFinite(item.price) ? item.price : 0).toFixed(2)}`}
         </Text>
       </View>
+      {item.cozePublic ? (
+        <View style={styles.cozeCard}>
+          <Text style={styles.cozeTitle}>{t('agentDetail.cozeTitle')}</Text>
+          {item.cozePublic.prologue ? (
+            <>
+              <Text style={styles.cozeLabel}>{t('agentDetail.cozePrologue')}</Text>
+              <Text style={styles.cozeValue}>{item.cozePublic.prologue}</Text>
+            </>
+          ) : null}
+          {item.cozePublic.suggestedQuestions?.length ? (
+            <>
+              <Text style={styles.cozeLabel}>{t('agentDetail.cozeSuggested')}</Text>
+              <View style={styles.chipRow}>
+                {item.cozePublic.suggestedQuestions.map((q) => (
+                  <View key={q} style={styles.chip}>
+                    <Text style={styles.chipText}>{q}</Text>
+                  </View>
+                ))}
+              </View>
+            </>
+          ) : null}
+          {item.cozePublic.plugins?.length ? (
+            <>
+              <Text style={styles.cozeLabel}>{t('agentDetail.cozePlugins')}</Text>
+              {item.cozePublic.plugins.map((p, idx) => (
+                <Text key={`${p.name ?? 'plugin'}-${idx}`} style={styles.cozeValue}>
+                  {p.name ?? '—'}
+                  {p.tools.length > 0
+                    ? ` · ${p.tools.map((tool) => tool.name).filter(Boolean).join(', ')}`
+                    : ''}
+                </Text>
+              ))}
+            </>
+          ) : null}
+          {item.cozePublic.workflows?.length ? (
+            <>
+              <Text style={styles.cozeLabel}>{t('agentDetail.cozeWorkflows')}</Text>
+              {item.cozePublic.workflows.map((w, idx) => (
+                <Text key={`${w.name ?? 'workflow'}-${idx}`} style={styles.cozeValue}>
+                  {w.name ?? '—'}
+                </Text>
+              ))}
+            </>
+          ) : null}
+          {item.cozePublic.knowledge?.length ? (
+            <>
+              <Text style={styles.cozeLabel}>{t('agentDetail.cozeKnowledge')}</Text>
+              {item.cozePublic.knowledge.map((k, idx) => (
+                <Text key={`${k.name ?? 'knowledge'}-${idx}`} style={styles.cozeValue}>
+                  {k.name ?? '—'}
+                </Text>
+              ))}
+            </>
+          ) : null}
+          {item.cozePublic.shortcutCommands?.length ? (
+            <>
+              <Text style={styles.cozeLabel}>{t('agentDetail.cozeShortcuts')}</Text>
+              {item.cozePublic.shortcutCommands.map((s, idx) => (
+                <Text key={`${s.command ?? s.name ?? 'shortcut'}-${idx}`} style={styles.cozeValue}>
+                  {s.command ? `/${s.command}` : (s.name ?? '—')}
+                  {s.description ? ` · ${s.description}` : ''}
+                </Text>
+              ))}
+            </>
+          ) : null}
+        </View>
+      ) : null}
       {onStartChat ? (
         <TouchableOpacity style={styles.cta} onPress={() => onStartChat(item.id, item.name)}>
           <Text style={styles.ctaText}>{t('agentDetail.startChat')}</Text>
@@ -137,6 +204,27 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: 'transparent',
       backgroundColor: tk.surface.light,
     },
+    cozeCard: {
+      marginTop: rnSpacing.md,
+      padding: rnSpacing['md-loose'],
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.medium,
+      backgroundColor: tk.surface.light,
+      gap: rnSpacing.sm,
+    },
+    cozeTitle: { fontSize: rnType.body.size, fontWeight: '700', color: tk.text.primary },
+    cozeLabel: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.secondary },
+    cozeValue: { marginTop: rnSpacing.sm, fontSize: rnType.title.size, color: tk.text.primary },
+    chipRow: { marginTop: rnSpacing.sm, flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm },
+    chip: {
+      borderRadius: rnRadius.md,
+      borderWidth: 1,
+      borderColor: tk.border.medium,
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing.sm,
+    },
+    chipText: { fontSize: rnType.caption.size, color: tk.text.primary },
     label: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.secondary },
     value: { marginTop: rnSpacing.sm, fontSize: rnType.title.size, color: tk.text.primary },
     price: {

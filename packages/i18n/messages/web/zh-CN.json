@@ -1133,7 +1133,40 @@
       "subtitle": "管理平台所有智能体",
       "title": "智能体管理",
       "total": "共 {total} 条",
-      "updateSuccess": "更新成功"
+      "updateSuccess": "更新成功",
+      "coze": {
+        "title": "Coze 上游配置",
+        "coverageTitle": "Coze 覆盖率",
+        "coverageSubtitle": "逐字段核对 116 个上游 Bot 的真实配置同步情况",
+        "syncOne": "同步此 Bot",
+        "syncSuccess": "同步成功（{status}）",
+        "batchSync": "同步 {count} 个",
+        "batchResult": "同步完成：成功 {synced}，部分 {partial}，失败 {errors}，上游已删除 {notFound}",
+        "totalBots": "Bot 总数",
+        "fieldCoverage": "字段覆盖率",
+        "variablesCoverage": "变量 {rows} 行 / {bots} 个 Bot",
+        "lastSyncedAt": "最近同步",
+        "batchHint": "单批默认 {size}，上限 {max}，并发 {concurrency}",
+        "credentialsConfigured": "凭据已配置：{envName}",
+        "credentialsMissing": "未配置 Coze 凭据，批量同步会返回 503",
+        "prompt": "提示词",
+        "model": "模型参数",
+        "onboarding": "开场白与建议问题",
+        "capabilities": "插件 / 工作流 / 知识库 / 指令",
+        "metadata": "Bot 元信息",
+        "variables": "变量",
+        "publicProjection": "公开能力投影",
+        "snapshots": "历史快照",
+        "rawConfig": "原始 BotInfo",
+        "noVariables": "上游没有配置变量",
+        "noSnapshots": "暂无快照",
+        "status_synced": "完整同步",
+        "status_partial": "部分同步",
+        "status_error": "同步失败",
+        "status_not_found": "上游已删除",
+        "status_skipped_no_token": "缺少凭据",
+        "status_never": "从未同步"
+      }
     },
     "agreements": {
       "colActions": "操作",
@@ -7268,7 +7301,17 @@
     "viewPermissionExample": "查看权限确认示例",
     "vipExclusive": "VIP 专享",
     "config": "配置",
-    "dispatchSubagent": "分发子代理"
+    "dispatchSubagent": "分发子代理",
+    "coze": {
+      "title": "上游能力",
+      "prologue": "开场白",
+      "suggested": "建议问题",
+      "plugins": "插件",
+      "workflows": "工作流",
+      "knowledge": "知识库",
+      "shortcuts": "快捷指令",
+      "multiAgent": "多 Agent"
+    }
   },
   "agentRuntimePanel": {
     "resumeUnavailable": "无法继续这次运行",
