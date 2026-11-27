@@ -15,7 +15,7 @@
  *
  * Mock 策略照抄 ai-chat-stream-tools.test.ts(同一网关路由、同一 global.fetch 捕获面)。
  */
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify from 'fastify'
 
 vi.mock('jose', () => ({
@@ -64,12 +64,17 @@ vi.mock('../src/config/index.js', () => ({
   },
 }))
 
-const { mockVerifyAccessToken, mockFindConversationById, mockFindRecentUserAttachmentMessages } =
-  vi.hoisted(() => ({
-    mockVerifyAccessToken: vi.fn(),
-    mockFindConversationById: vi.fn(),
-    mockFindRecentUserAttachmentMessages: vi.fn(),
-  }))
+const {
+  mockVerifyAccessToken,
+  mockFindConversationById,
+  mockFindRecentUserAttachmentMessages,
+  mockCreateMessage,
+} = vi.hoisted(() => ({
+  mockVerifyAccessToken: vi.fn(),
+  mockFindConversationById: vi.fn(),
+  mockFindRecentUserAttachmentMessages: vi.fn(),
+  mockCreateMessage: vi.fn().mockResolvedValue({ id: 'mock-msg-id' }),
+}))
 vi.mock('@ihui/auth', () => ({
   // 2026-11-11 fail-closed:getTokenBlacklist() 返回 null 即判已吊销 ⇒ 401。
   // 覆盖为内存假黑名单(has 恒 false),不回退生产 fail-closed 语义。
@@ -98,7 +103,7 @@ vi.mock('@ihui/context-compaction', async (importOriginal) => {
   return { ...actual, compressContextIfNeeded: vi.fn() }
 })
 vi.mock('../src/db/chat-queries.js', () => ({
-  createMessage: vi.fn().mockResolvedValue({ id: 'mock-msg-id' }),
+  createMessage: mockCreateMessage,
   patchConversationMetadata: vi.fn().mockResolvedValue(undefined),
   replaceMessages: vi.fn().mockResolvedValue(undefined),
   createConversation: vi.fn(),
@@ -214,6 +219,10 @@ describe('差距① 网关侧:inputId 上行 + admission 帧下行(/chat/stream)
     await server.close()
   })
 
+  beforeEach(() => {
+    mockCreateMessage.mockClear()
+  })
+
   it('inputId 原样到达 ai-service 请求体(白名单已放行,不被 zod strip)', async () => {
     mockUser()
     const { capturedBodies, restore } = mockAIServiceSSE()
@@ -253,6 +262,104 @@ describe('差距① 网关侧:inputId 上行 + admission 帧下行(/chat/stream)
       expect(res.statusCode).toBe(200)
       expect(capturedBodies).toHaveLength(1)
       expect('inputId' in capturedBodies[0]!).toBe(false)
+    } finally {
+      restore()
+    }
+  })
+
+  it('带 userMessageId ⇒ 开流前先落用户消息,且先于上游 fetch(顺序保证不靠浏览器竞态)', async () => {
+    mockUser()
+    const USER_MSG_ID = '11111111-1111-4111-8111-111111111111'
+    const { restore } = mockAIServiceSSE()
+    try {
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/ai/chat/stream',
+        headers: { authorization: USER_TOKEN },
+        body: {
+          messages: [{ role: 'user', content: 'hi' }],
+          model: 'gpt-4o',
+          metadata: {
+            conversationId: 'conv-owned',
+            messageId: 'msg-a',
+            userMessageId: USER_MSG_ID,
+            userMessageContent: 'hi',
+          },
+        },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(mockCreateMessage).toHaveBeenCalledTimes(1)
+      expect(mockCreateMessage.mock.calls[0]![0]).toEqual({
+        id: USER_MSG_ID,
+        conversationId: 'conv-owned',
+        role: 'user',
+        content: 'hi',
+      })
+      const createOrder = mockCreateMessage.mock.invocationCallOrder[0]!
+      const fetchMock = globalThis.fetch as unknown as {
+        mock: { invocationCallOrder: number[] }
+      }
+      expect(createOrder).toBeLessThan(fetchMock.mock.invocationCallOrder[0]!)
+    } finally {
+      restore()
+    }
+  })
+
+  it('空正文用户消息也前置落库(纯附件轮不退回浏览器竞态)', async () => {
+    mockUser()
+    const USER_MSG_ID = '33333333-3333-4333-8333-333333333333'
+    const { restore } = mockAIServiceSSE()
+    try {
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/ai/chat/stream',
+        headers: { authorization: USER_TOKEN },
+        body: {
+          messages: [{ role: 'user', content: '' }],
+          model: 'gpt-4o',
+          metadata: {
+            conversationId: 'conv-owned',
+            messageId: 'msg-empty',
+            userMessageId: USER_MSG_ID,
+            userMessageContent: '',
+          },
+        },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(mockCreateMessage).toHaveBeenCalledTimes(1)
+      expect(mockCreateMessage.mock.calls[0]![0]).toEqual({
+        id: USER_MSG_ID,
+        conversationId: 'conv-owned',
+        role: 'user',
+        content: '',
+      })
+    } finally {
+      restore()
+    }
+  })
+
+  it('前置落库失败 ⇒ 500 fail-closed,且上游 fetch 一次都不发', async () => {
+    mockUser()
+    mockCreateMessage.mockRejectedValueOnce(new Error('DB connection lost'))
+    const { capturedBodies, restore } = mockAIServiceSSE()
+    try {
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/ai/chat/stream',
+        headers: { authorization: USER_TOKEN },
+        body: {
+          messages: [{ role: 'user', content: 'hi' }],
+          model: 'gpt-4o',
+          metadata: {
+            conversationId: 'conv-owned',
+            messageId: 'msg-a',
+            userMessageId: '22222222-2222-4222-8222-222222222222',
+            userMessageContent: 'hi',
+          },
+        },
+      })
+      expect(res.statusCode).toBe(500)
+      expect(capturedBodies).toHaveLength(0)
     } finally {
       restore()
     }

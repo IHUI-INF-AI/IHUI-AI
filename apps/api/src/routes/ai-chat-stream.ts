@@ -452,6 +452,14 @@ const chatStreamSchema = z.object({
       conversationId: z.string().optional(),
       // F-02:客户端自报 userId 不进入 schema,身份一律取服务端 request.userId。
       messageId: z.string().optional(),
+      /** 2026-11-27(A4 顺序倒置根治):本轮用户消息的端侧 UUID。
+       *  网关在开流前按它把用户消息先落库,助手回调随后落库时 turn 序号天然在后;
+       *  不声明会被 zod strip 静默丢弃,顺序保证退回"浏览器谁先 POST"的竞态。
+       *  可选 ⇒ 旧客户端零行为变化(旧端仍由前端 finally 落库)。 */
+      userMessageId: z.string().uuid().optional(),
+      /** 与 userMessageId 同批上行:用户消息原文。网关落库以它为准,
+       *  避免压缩/修复后的 messages 尾条与用户实际输入不一致。 */
+      userMessageContent: z.string().max(2_500_000).optional(),
       // 票59(消息级版本切换 3/3,2026-10-22):regenerate 新回复的版本族坐标。
       // 不在此声明会被 zod strip 静默丢弃(同 knowledgeContext 注记那一型):
       // 前端发了、网关"收了"、回调里没有 —— 回复落库不带族,版本切换整链空转。
@@ -637,6 +645,10 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         conversationId?: string
         userId?: string
         messageId?: string
+        /** 2026-11-27(A4 顺序倒置根治):本轮用户消息的端侧 UUID;网关开流前先落它。 */
+        userMessageId?: string
+        /** 用户消息原文;缺省时回退 finalMessages 最后一条 user。 */
+        userMessageContent?: string
         /** 票59(3/3):regenerate 新回复的版本族坐标(透传上游回调后落 chat_messages 两列) */
         parentMessageId?: string
         siblingIndex?: number
@@ -658,6 +670,42 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     // G-998168 票5:prepare 段起表(入口)。只测不存:各段经首帧 openTiming 字段回传,
     // **不落库(拍板⑥)** —— 不建表、不迁移、不进 business-metrics。
     const prepareSw = startStopwatch()
+    // 2026-11-27(A4 顺序倒置根治):顺序保证必须放在服务端,不能靠"浏览器先 POST 用户
+    // 消息、还是 ai-callback 先 POST 助手消息"的竞态。只要客户端带了 userMessageId,
+    // 网关就在开流前把这条用户消息落库(turn 序号 = max+1),助手回调随后落库时
+    // 只能沿用同一 turn。前端首个增量的补写会因 createMessage 的幂等命中同一条,不重复。
+    // 这条写失败必须 fail-closed:否则照样会出现"助手先落、用户后落/用户缺失"的坏时间线。
+    const barrierConversationId = opts.metadata?.conversationId
+    const barrierUserMessageId = opts.metadata?.userMessageId
+    if (barrierConversationId && barrierUserMessageId) {
+      const lastUser = [...finalMessages].reverse().find((m) => m.role === 'user')
+      const barrierContent = opts.metadata?.userMessageContent ?? lastUser?.content
+      // 空正文(纯附件轮)同样是合法用户消息:判"有没有这个字段",不能判真假值。
+      if (typeof barrierContent === 'string') {
+        if (!(await isConversationOwnedBy(barrierConversationId, request.userId))) {
+          return reply.code(404).send(error(404, '对话不存在'))
+        }
+        try {
+          await createMessage({
+            id: barrierUserMessageId,
+            conversationId: barrierConversationId,
+            role: 'user',
+            content: barrierContent,
+          })
+        } catch (e) {
+          request.log.warn(
+            {
+              err: e,
+              conversationId: barrierConversationId,
+              userMessageId: barrierUserMessageId,
+            },
+            '用户消息前置落库失败,拒绝开流(避免助手消息抢到前一 turn)',
+          )
+          return reply.code(500).send(error(500, '会话写入失败,请重试'))
+        }
+      }
+    }
+
     reply.hijack()
     const raw = reply.raw
     // 2026-07-27 修复跨域 SSE:reply.hijack() 绕过 @fastify/cors 插件,
@@ -983,6 +1031,11 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         // F-02:归属/预算/检索主体只取认证身份,metadata.userId 是客户端可写字段。
         userId: request.userId,
         messageId: opts.metadata?.messageId,
+        // 2026-11-27(A4 顺序倒置根治):用户消息 UUID 原样透传上游,ai-service 的
+        // metadata 是 dict[str, Any] 且 _fire_callback 整包回显 —— 回调端点把它提到
+        // job 顶层后,worker 用它把回复钉在**本轮用户消息**的 turn 上,而不是回调时读 max。
+        // 旧客户端/regenerate 不带此键 ⇒ JSON.stringify 省略 ⇒ 行为不变。
+        userMessageId: opts.metadata?.userMessageId,
         // 票59(3/3):版本族坐标原样透传上游(ai-service metadata 是 dict[str, Any],
         // _fire_callback 整包回显)→ 回调端点提出进 job 顶层 → worker 落 createMessage 两列。
         // undefined 的键经 JSON.stringify 自动省略 ⇒ 非 regenerate 流形态零变化。
@@ -1962,56 +2015,67 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(404).send(error(404, '会话不存在'))
       }
 
-      // P2 多端同步:持久化 answer + 清挂起 + WS 广播(fire-and-forget,不阻塞 SSE 流)
-      // 失败仅打日志,不影响续流(参考 persistMessageSafe 的容错策略)
+      // P2 多端同步:持久化 answer。
+      // 2026-11-27(A4 顺序倒置根治):answer 的 user 行在开流前**同步尝试**落库,
+      // 成功则助手回调不可能抢到前面;失败仍保留既有 fire-and-forget 容错(仅记日志、
+      // 不阻塞 SSE),但降级态的库本身已不可写,顺序问题不再是首要矛盾。
+      // 清挂起 + WS 广播仍异步,不阻塞 SSE。
       if (conversationId && userId) {
-        void (async () => {
-          try {
-            // 1. 持久化 answer 为 user 消息(metadata 标记 questionId + isAnswer,便于后续查询关联)
-            const savedAnswer = await createMessage({
-              conversationId,
-              role: 'user',
-              content: answer,
-              metadata: { questionId, isAnswer: true },
-            })
-
-            // 2. 清除 conversation.metadata.pendingQuestion(对话级挂起状态,标记已回答)
-            //    用 merge 模式,不覆盖 conversation.metadata 的其他 key
-            await patchConversationMetadata(conversationId, userId, {
-              pendingQuestion: null,
-              answeredQuestionId: questionId,
-            })
-
-            // 3. WS 广播 chat_question_answered 通知其他端关闭弹窗
-            //    pushNotification 已支持 Redis Pub/Sub 多实例,所有端都会收到
+        let savedAnswer: unknown
+        try {
+          savedAnswer = await createMessage({
+            conversationId,
+            role: 'user',
+            content: answer,
+            metadata: { questionId, isAnswer: true },
+          })
+        } catch (e) {
+          request.log.error(
+            { err: e, questionId, conversationId },
+            'chat/answer persistence failed (degraded: SSE continues)',
+          )
+        }
+        if (savedAnswer) {
+          void (async () => {
             try {
-              const push = (
-                server as unknown as {
-                  pushNotification?: (userId: string, payload: unknown) => void
-                }
-              ).pushNotification
-              // 3a. 推送 chat_message 让其他端看到用户回答(与 POST /conversations/:id/messages 同模式)
-              push?.(userId, {
-                type: 'chat_message',
-                conversationId,
-                message: savedAnswer,
+              // 2. 清除 conversation.metadata.pendingQuestion(对话级挂起状态,标记已回答)
+              //    用 merge 模式,不覆盖 conversation.metadata 的其他 key
+              await patchConversationMetadata(conversationId, userId, {
+                pendingQuestion: null,
+                answeredQuestionId: questionId,
               })
-              // 3b. 推送 chat_question_answered 让其他端关闭弹窗
-              push?.(userId, {
-                type: 'chat_question_answered',
-                conversationId,
-                questionId,
-              })
-            } catch {
-              /* 推送失败不阻塞 */
+
+              // 3. WS 广播 chat_question_answered 通知其他端关闭弹窗
+              //    pushNotification 已支持 Redis Pub/Sub 多实例,所有端都会收到
+              try {
+                const push = (
+                  server as unknown as {
+                    pushNotification?: (userId: string, payload: unknown) => void
+                  }
+                ).pushNotification
+                // 3a. 推送 chat_message 让其他端看到用户回答(与 POST /conversations/:id/messages 同模式)
+                push?.(userId, {
+                  type: 'chat_message',
+                  conversationId,
+                  message: savedAnswer,
+                })
+                // 3b. 推送 chat_question_answered 让其他端关闭弹窗
+                push?.(userId, {
+                  type: 'chat_question_answered',
+                  conversationId,
+                  questionId,
+                })
+              } catch {
+                /* 推送失败不阻塞 */
+              }
+            } catch (e) {
+              request.log.error(
+                { err: e, questionId, conversationId },
+                'chat/answer pendingQuestion 清理失败',
+              )
             }
-          } catch (e) {
-            request.log.error(
-              { err: e, questionId, conversationId },
-              'chat/answer persistence failed',
-            )
-          }
-        })()
+          })()
+        }
       }
 
       // 把用户答案作为新 user 消息追加到 messages 末尾(在 repair 之前,让 repair 统一处理)

@@ -101,6 +101,7 @@ export function startAiCallbackWorker(server: FastifyInstance): Worker {
         // 票59(3/3):regenerate 新回复的版本族坐标(回调端点从 metadata 提出后进顶层)
         parentMessageId,
         siblingIndex,
+        userMessageId,
       } = job.data
 
       // D64⑤(2026-10-14 立)/ F-498(2026-11-13 修):元素包帧改为「先读 → 落库 → 确认删除」
@@ -204,6 +205,8 @@ export function startAiCallbackWorker(server: FastifyInstance): Worker {
             content,
             reasoning,
             tokens: tokens,
+            // A4 顺序倒置根治:回复钉在本轮用户消息的 turn 上(而非回调时读 max)。
+            userMessageId,
             // 票59(3/3):regenerate 的新回复以 sibling 身份入族(坐标缺省 = 普通消息,
             // Drizzle 落列默认 null,与存量行为逐字一致)。update 路径不接坐标:
             // regenerate 流的占位 messageId 是前端 UUID,DB 里不存在,必走本分支。

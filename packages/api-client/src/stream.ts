@@ -455,6 +455,12 @@ export interface StreamChatOptions {
     conversationId?: string
     userId?: string
     messageId?: string
+    /** 2026-11-27(A4 顺序倒置根治):本轮用户消息的端侧 UUID。
+     *  网关在开流前按它先落用户消息,助手回调随后落库时 turn 序号天然在后;
+     *  不传 = 旧客户端,顺序保证退回前端首个增量补写。 */
+    userMessageId?: string
+    /** 与 userMessageId 同批上行的用户消息原文;网关落库以它为准。 */
+    userMessageContent?: string
     /** 票59(消息级版本切换 3/3,2026-10-22):regenerate 新回复的版本族坐标。
      *  网关 schema 声明后透传上游,ai-callback 回显落 chat_messages 两列;
      *  缺省 = 普通回复,请求体零变化(L3273 整包写入,undefined 键被 JSON 省略)。 */

@@ -1303,6 +1303,18 @@ export async function findMessagesForShare(id: string): Promise<ChatMessage[]> {
 
 export interface CreateMessageInput {
   conversationId: string
+  /**
+   * 客户端指定的消息 id(2026-11-27:号池腿收尾补写用)。
+   * 缺省 = DB 按列默认生成;显式传入时必须与端侧占位 id 一致,否则 WS
+   * chat_message 广播会被端侧判成另一条消息而重复渲染。
+   */
+  id?: string
+  /**
+   * 2026-11-27(A4 顺序倒置根治):本轮用户消息 id。
+   * 助手回复落库时按它取**同一条用户消息的 turn**,而不是重新读 max ——
+   * 否则同一会话在回调到达前又进来一条用户消息时,回复会被挂到后一轮。
+   */
+  userMessageId?: string
   role?: string
   content: string
   reasoning?: string
@@ -1332,17 +1344,66 @@ export async function createMessage(input: CreateMessageInput): Promise<ChatMess
       .from(chatConversations)
       .where(eq(chatConversations.id, input.conversationId))
       .for('update')
+
+    // 2026-11-27(A4 顺序倒置根治):同一 client messageId 必须幂等。
+    // 网关在流开始前先落用户消息,前端首个增量到达后还会补一次 POST;
+    // 若这里第二次插入直接撞主键,会把一条已经成功的发送打成 500。
+    // 只允许同会话/同角色复用,跨会话或角色不一致一律视为 ID 冲突。
+    if (input.id) {
+      const existingRows = await tx
+        .select()
+        .from(chatMessages)
+        .where(eq(chatMessages.id, input.id))
+        .limit(1)
+      const existing = existingRows[0]
+      if (existing) {
+        const existingRole = input.role ?? 'user'
+        if (existing.conversationId !== input.conversationId || existing.role !== existingRole) {
+          throw new Error('消息 ID 已属于另一条消息')
+        }
+        return existing
+      }
+    }
+
     const turnRows = await tx
       .select({ maxTurn: sql<number | null>`max(${chatMessages.turnOrdinal})` })
       .from(chatMessages)
       .where(eq(chatMessages.conversationId, input.conversationId))
     const maxTurn = Number(turnRows[0]?.maxTurn ?? 0)
     const role = input.role ?? 'user'
-    const turnOrdinal = role === 'user' ? maxTurn + 1 : Math.max(maxTurn, 1)
+    // 2026-11-27(A4 顺序倒置根治):助手回复优先钉在**它回答的那条消息**的 turn 上。
+    // 普通发送锚 userMessageId(用户消息),regenerate 锚 parentMessageId(版本族根)。
+    // 只读 max 仍有一个窗口:回调到达前用户又发了一条,回复会被挂到后一轮 —— 消息都在,
+    // 但分组错位,界面看起来仍是"回复不在自己那条下面"。两者都没有时退回 max,
+    // 保持旧客户端行为。
+    let turnOrdinalOverride: number | null = null
+    const turnAnchorId = input.parentMessageId ?? input.userMessageId
+    if (role === 'assistant' && turnAnchorId) {
+      const expectedRole = input.parentMessageId ? 'assistant' : 'user'
+      const anchorRows = await tx
+        .select({
+          conversationId: chatMessages.conversationId,
+          role: chatMessages.role,
+          turnOrdinal: chatMessages.turnOrdinal,
+        })
+        .from(chatMessages)
+        .where(eq(chatMessages.id, turnAnchorId))
+        .limit(1)
+      const anchor = anchorRows[0]
+      if (anchor) {
+        if (anchor.conversationId !== input.conversationId || anchor.role !== expectedRole) {
+          throw new Error('turn 锚点不属于当前会话的对应消息')
+        }
+        turnOrdinalOverride = Number(anchor.turnOrdinal ?? 0) || null
+      }
+    }
+    const turnOrdinal =
+      turnOrdinalOverride ?? (role === 'user' ? maxTurn + 1 : Math.max(maxTurn, 1))
 
     const rows = await tx
       .insert(chatMessages)
       .values({
+        ...(input.id ? { id: input.id } : {}),
         conversationId: input.conversationId,
         role,
         content: input.content,

@@ -110,12 +110,17 @@ export function resolvePersistTexts(status: PersistSendStatus, rawError?: string
   }
 }
 
+/** 客户端消息 id 必须是 UUID(后端 createMessageSchema 的 id 字段是 uuid) */
+const MESSAGE_ID_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 /** persistMessageSafe 的扩展选项(全可选,既有调用方零改动) */
 export interface PersistMessageOptions {
   /** 失败 toast 重发按钮回调(由调用方传入重发闭包);不传则 toast 无按钮 */
   retry?: () => void
   /** 草稿落 store 后的通知钩子(测试/埋点用);默认行为(写 store)不受影响 */
   onPreserved?: (draft: string, status: PersistSendStatus) => void
+  /** 可选的端侧消息 id:用户消息也复用本地 UUID,WS 广播按 id 去重,不再多出一条气泡 */
+  messageId?: string
 }
 
 /** 后台持久化消息:成功返回 ok;失败归一化为 D60 四态 + 草稿保全 + 明示 toast(非阻塞)
@@ -133,12 +138,19 @@ export async function persistMessageSafe(
   // 既有调用零改动零回归)—— 窗格里发送失败,草稿保到该窗格,重发提示也归该窗格。
   chatStore: ChatStore = useChatStore,
 ): Promise<PersistSendOutcome> {
-  const res = await persistMessage(conversationId, content, role, metadata, reasoning).catch(
-    (err: unknown): PersistFailureInput => ({
-      success: false,
-      error: err instanceof Error ? err.message : 'Network error',
-    }),
-  )
+  const messageId =
+    options?.messageId && MESSAGE_ID_UUID_RE.test(options.messageId) ? options.messageId : undefined
+  const res = await persistMessage(
+    conversationId,
+    content,
+    role,
+    metadata,
+    reasoning,
+    messageId,
+  ).catch((err: unknown): PersistFailureInput => ({
+    success: false,
+    error: err instanceof Error ? err.message : 'Network error',
+  }))
   if (res.success) {
     // 同文草稿已落地 → 清理,避免输入框残留旧草稿;他文草稿(另一次失败的保留)不动
     const state = chatStore.getState()
