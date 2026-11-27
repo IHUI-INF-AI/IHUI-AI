@@ -45,7 +45,9 @@ export function circleSelectColumns(viewerId: string | undefined) {
     isJoined: viewerId
       ? sql<boolean>`EXISTS (
           SELECT 1 FROM ${circleMembers}
-          WHERE ${circleMembers.circleId} = ${circles.id}
+          -- 外层 circles.id 必须带表名:子查询里的 circle_members 也有 id,
+          -- 不限定会被解析成 circle_members.circle_id = circle_members.id(恒 false)。
+          WHERE ${circleMembers.circleId} = ${sql.raw('"circles"."id"')}
             AND ${circleMembers.userId} = ${viewerId}
             AND ${circleMembers.status} = 1
         )`
