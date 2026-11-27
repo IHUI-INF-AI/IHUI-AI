@@ -124,13 +124,20 @@
    - 审计一致性：`recordAuditLog(params, tx?)` 支持调用方事务；软删/purge/rollback 的审计与业务写入同事务，审计失败会整体回滚；
    - 灰度开关：`AGENT_REGISTRY_WRITE=false` 关闭全部写面，`AGENT_REGISTRY_DELETE=false` 关闭删除/恢复/审批面；默认开启，显式 false 才关闭。
 
-5. **本切片仍未做、合并评审要带着看**
-   - `POST /api/internal/agent-registry/ops`（27 action）、`POST /runs`、`POST /runs/:id/events`、`POST /audit` 未建，留给 R2；
+5. **本轮继续补齐：运行账本内部写面**
+   - `POST /api/internal/agent-registry/runs`：创建/更新 run，`runId` 已存在时幂等返回；创建时校验定义 `active`、`ownerUserId` 必须等于票主体；返回 `created` 区分新建与回放；
+   - `PATCH /api/internal/agent-registry/runs/:id`：token/成本/状态/产物计数/错误字段更新；终态不可回非终态，同终态幂等；
+   - `POST /api/internal/agent-registry/runs/:id/events`：`(runId,seq)` 唯一，重复返回 200 + `duplicate=true`；`status` 事件是唯一改 run 状态的事件，`artifact` 事件原子 `artifact_count+1`；payload >16KB 截断并标 `truncated`；
+   - `POST /api/internal/agent-registry/audit`：只接受 `agent.*` 动作，写 `audit_logs_chain`；
+   - 真库用例新增一组：创建幂等、事件去重、artifact 只计一次、终态拒绝回 running、内部审计落链。
+
+6. **本切片仍未做、合并评审要带着看**
+   - `POST /api/internal/agent-registry/ops`（27 action）未建，留给 R3；
    - `purge` 的归档落在审批 JSONB，不是对象存储/JSONL 冷归档；大提示词与多版本会让审批行变大，长期方案待拍板；
    - `Idempotency-Key` 在 Redis 不可用时 fail-open，存在重复创建风险；规格未写死是否允许；
    - `AGENT_VERSION_CONFLICT` 仍不能在响应 `data` 里带 `currentVersion`：`AppError` 没有 details，全局 errorHandler 不返回 data；
    - 预检 `audit` 域已排除 `delete_requested/purge_requested/rollback_requested` 三条自写审计，否则审批请求自身会改变 impactHash、执行前复检永远不过；这条口径需要在安全评审确认；
-   - 真库用例默认跳过，需显式 `AGENT_REGISTRY_REAL_DB=1` + 独立库 `ihui_agent_test_fresh`；已实测 create/detail/cursor+stats/预检→软删→恢复/活跃运行回滚审批/purge 归档 5 组全过。
+   - 真库用例默认跳过，需显式 `AGENT_REGISTRY_REAL_DB=1` + 独立库 `ihui_agent_test_fresh`；已实测 create/detail/cursor+stats/预检→软删→恢复/活跃运行回滚审批/purge 归档/运行账本 6 组全过。
 
 ## F1 · 数据库地基（feat/ma-db）
 

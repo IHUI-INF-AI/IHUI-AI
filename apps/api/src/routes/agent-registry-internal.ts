@@ -20,6 +20,14 @@ import {
   snapshotAgentDefinitionsForInternal,
   type AgentRegistryActor,
 } from '../services/agent-registry-service.js'
+import {
+  appendRunEvent,
+  createOrUpdateRun,
+  recordInternalAgentAudit,
+  updateRun,
+  type CreateRunInput,
+  type UpdateRunInput,
+} from '../services/agent-registry-run-write-service.js'
 import { parseOrThrow, success } from '../utils/response.js'
 
 function withRequestId<T>(request: { id: string }, data: T): T & { requestId: string } {
@@ -27,6 +35,7 @@ function withRequestId<T>(request: { id: string }, data: T): T & { requestId: st
 }
 
 const scopeSchema = z.enum(['personal', 'team', 'system'])
+const uuidSchema = z.string().uuid()
 
 const snapshotQuerySchema = z.object({
   updatedAfter: z.iso.datetime().optional(),
@@ -56,6 +65,99 @@ function actorOf(request: Parameters<typeof checkInternalServiceToken>[0]): Agen
     requestId: request.id,
   }
 }
+
+const runModeSchema = z.enum([
+  'single',
+  'parallel',
+  'pipeline',
+  'debate',
+  'vote',
+  'critique',
+  'decomposed',
+  'team',
+  'recursive',
+])
+
+const runStatusSchema = z.enum([
+  'queued',
+  'running',
+  'paused',
+  'succeeded',
+  'failed',
+  'canceled',
+  'timeout',
+  'blocked',
+])
+
+const eventTypeSchema = z.enum([
+  'status',
+  'step',
+  'tool',
+  'error',
+  'artifact',
+  'steer',
+  'checkpoint',
+  'approval',
+  'note',
+])
+
+const createRunSchema = z
+  .object({
+    runId: z.string().uuid().nullish(),
+    definitionId: z.string().uuid(),
+    definitionVersion: z.number().int().min(1),
+    definitionName: z.string().min(1).max(100),
+    ownerUserId: z.string().uuid().nullish(),
+    teamId: z.string().uuid().nullish(),
+    parentRunId: z.string().uuid().nullish(),
+    dispatchId: z.string().min(1).max(64).nullish(),
+    sessionId: z.string().min(1).max(64).nullish(),
+    mode: runModeSchema,
+    goal: z.string().min(1).max(20_000),
+    traceId: z.string().min(1).max(64),
+    status: runStatusSchema.optional(),
+    startedAt: z.iso.datetime().nullish(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+  })
+  .strict()
+
+const updateRunSchema = z
+  .object({
+    status: runStatusSchema.optional(),
+    inputTokens: z.number().int().min(0).optional(),
+    outputTokens: z.number().int().min(0).optional(),
+    costPoints: z
+      .string()
+      .regex(/^\d{1,12}(\.\d{1,4})?$/, 'costPoints 必须是 12,4 精度内的小数')
+      .optional(),
+    errorCode: z.string().max(64).nullish(),
+    errorMessage: z.string().max(2000).nullish(),
+    artifactCount: z.number().int().min(0).optional(),
+    startedAt: z.iso.datetime().nullish(),
+    endedAt: z.iso.datetime().nullish(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+  })
+  .strict()
+
+const appendEventSchema = z
+  .object({
+    seq: z.number().int().min(1),
+    type: eventTypeSchema,
+    payload: z.record(z.string(), z.unknown()).default({}),
+  })
+  .strict()
+
+const internalAuditSchema = z
+  .object({
+    action: z.string().min(8).max(96),
+    resourceType: z.string().min(1).max(64),
+    resourceId: z.string().uuid().nullish(),
+    result: z.enum(['success', 'failure']).default('success'),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+    ip: z.string().max(64).nullish(),
+    userAgent: z.string().max(512).nullish(),
+  })
+  .strict()
 
 export async function agentRegistryInternalRoutes(server: FastifyInstance): Promise<void> {
   server.addHook('preHandler', async (request, reply) => {
@@ -104,5 +206,31 @@ export async function agentRegistryInternalRoutes(server: FastifyInstance): Prom
         }),
       ),
     )
+  })
+
+  server.post('/runs', async (request, reply) => {
+    const body = parseOrThrow(createRunSchema, request.body)
+    const result = await createOrUpdateRun(actorOf(request), body as CreateRunInput)
+    return reply.status(result.created ? 201 : 200).send(withRequestId(request, success(result)))
+  })
+
+  server.patch('/runs/:id', async (request, reply) => {
+    const params = parseOrThrow(z.object({ id: uuidSchema }), request.params)
+    const patch = parseOrThrow(updateRunSchema, request.body)
+    const run = await updateRun(actorOf(request), params.id, patch as UpdateRunInput)
+    return reply.send(withRequestId(request, success({ run })))
+  })
+
+  server.post('/runs/:id/events', async (request, reply) => {
+    const params = parseOrThrow(z.object({ id: uuidSchema }), request.params)
+    const body = parseOrThrow(appendEventSchema, request.body)
+    const result = await appendRunEvent(actorOf(request), params.id, body)
+    return reply.status(result.duplicate ? 200 : 201).send(withRequestId(request, success(result)))
+  })
+
+  server.post('/audit', async (request, reply) => {
+    const body = parseOrThrow(internalAuditSchema, request.body)
+    const auditId = await recordInternalAgentAudit(actorOf(request), body)
+    return reply.status(201).send(withRequestId(request, success({ auditId })))
   })
 }

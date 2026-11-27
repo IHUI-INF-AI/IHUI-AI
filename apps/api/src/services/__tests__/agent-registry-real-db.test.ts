@@ -32,6 +32,12 @@ import {
   precheckDelete,
   restoreAgentDefinition,
 } from '../agent-registry-approval-service.js'
+import {
+  appendRunEvent,
+  createOrUpdateRun,
+  recordInternalAgentAudit,
+  updateRun,
+} from '../agent-registry-run-write-service.js'
 
 const enabled =
   process.env.AGENT_REGISTRY_REAL_DB === '1' &&
@@ -227,6 +233,94 @@ describe.skipIf(!enabled)('agent-registry real db', () => {
     expect(approved.definition?.systemPrompt).toBe('v1 prompt')
     expect(approved.definition?.version).toBe(3)
     expect(approved.approval.status).toBe('consumed')
+  })
+
+  it('运行账本：创建幂等、事件 seq 去重、终态不可回 running', async () => {
+    const definition = await createAgentDefinition(admin, {
+      scope: 'personal',
+      name: `r1-run-${suffix}`,
+      displayName: '运行账本用例',
+    })
+    createdIds.push(definition.id)
+
+    const runId = randomUUID()
+    const created = await createOrUpdateRun(admin, {
+      runId,
+      definitionId: definition.id,
+      definitionVersion: definition.version,
+      definitionName: definition.name,
+      mode: 'single',
+      goal: '真库运行账本',
+      traceId: `real-ledger-${suffix}`,
+    })
+    expect(created.created).toBe(true)
+    expect(created.run.status).toBe('queued')
+
+    const repeated = await createOrUpdateRun(admin, {
+      runId,
+      definitionId: definition.id,
+      definitionVersion: definition.version,
+      definitionName: definition.name,
+      mode: 'single',
+      goal: '真库运行账本',
+      traceId: `real-ledger-${suffix}`,
+    })
+    expect(repeated.created).toBe(false)
+    expect(repeated.run.runId).toBe(runId)
+
+    const artifact = await appendRunEvent(admin, runId, {
+      seq: 1,
+      type: 'artifact',
+      payload: { name: 'report.md' },
+    })
+    expect(artifact.duplicate).toBe(false)
+
+    const duplicate = await appendRunEvent(admin, runId, {
+      seq: 1,
+      type: 'artifact',
+      payload: { name: 'report.md' },
+    })
+    expect(duplicate.duplicate).toBe(true)
+    expect(duplicate.run.artifactCount).toBe(1)
+
+    const running = await appendRunEvent(admin, runId, {
+      seq: 2,
+      type: 'status',
+      payload: { status: 'running' },
+    })
+    expect(running.run.status).toBe('running')
+
+    const updated = await updateRun(admin, runId, {
+      inputTokens: 100,
+      outputTokens: 200,
+      costPoints: '0.3500',
+    })
+    expect(updated.inputTokens).toBe(100)
+    expect(updated.costPoints).toBe('0.3500')
+
+    const succeeded = await appendRunEvent(admin, runId, {
+      seq: 3,
+      type: 'status',
+      payload: { status: 'succeeded' },
+    })
+    expect(succeeded.run.status).toBe('succeeded')
+    expect(succeeded.run.endedAt).toBeTruthy()
+
+    await expect(
+      appendRunEvent(admin, runId, {
+        seq: 4,
+        type: 'status',
+        payload: { status: 'running' },
+      }),
+    ).rejects.toMatchObject({ errorCode: 'AGENT_RUN_NOT_ACTIVE' })
+
+    const auditId = await recordInternalAgentAudit(admin, {
+      action: 'agent.run.settled',
+      resourceType: 'agent_run',
+      resourceId: runId,
+      metadata: { inputTokens: 100, outputTokens: 200 },
+    })
+    expect(auditId).toBeTruthy()
   })
 
   it('彻底清除保留审批与归档，版本行级联消失', async () => {
