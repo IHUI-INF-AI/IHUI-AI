@@ -758,6 +758,36 @@ html.dark[data-custom-theme='true'] {
   --color-border-medium: color-mix(in srgb, var(--custom-dark-foreground) 20%, transparent);
 }
 
+/* 登录浮层 scope 自定变量随皮肤(ui-react auth-shell.css 的 .login-scope 把 --color-muted/accent
+ * 写死为纯白做 hover 凸出;它落在元素上,靠继承压不回来,必须用更高特异度选择器重指皮肤色,
+ * 否则登录整片仍是黑白)。tablist/strength-track 的显式 hsl 灰阶(见上方 283-305 行)同此覆盖。 */
+html[data-custom-theme='true'] .login-scope {
+  --color-accent: var(--custom-light-card);
+  --color-accent-foreground: var(--custom-light-foreground);
+  --color-muted: var(--custom-light-card);
+}
+html.dark[data-custom-theme='true'] .login-scope {
+  --color-accent: var(--custom-dark-card);
+  --color-accent-foreground: var(--custom-dark-foreground);
+  --color-muted: var(--custom-dark-card);
+}
+html[data-custom-theme='true'] .login-scope [role='tablist'],
+html[data-custom-theme='true'] .login-scope [data-slot='strength-track'] {
+  background-color: color-mix(
+    in srgb,
+    var(--custom-light-foreground) 8%,
+    var(--custom-light-background)
+  );
+}
+html.dark[data-custom-theme='true'] .login-scope [role='tablist'],
+html.dark[data-custom-theme='true'] .login-scope [data-slot='strength-track'] {
+  background-color: color-mix(
+    in srgb,
+    var(--custom-dark-foreground) 12%,
+    var(--custom-dark-background)
+  );
+}
+
 /* 高对比阶梯必须压过皮肤(可读性 > 观感):两块的位置刻意排在 data-custom-theme 段之后,
  * 同特异度下后写者胜;皮肤下仍以中性高对比描边为准。勿上移,上移即被皮肤覆盖。 */
 html[data-high-contrast='true'] {
