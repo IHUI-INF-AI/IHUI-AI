@@ -9,7 +9,7 @@
 > 审计对象：`D:/IHUI-AI` monorepo（`apps/web`、`apps/mobile-rn`、`apps/miniapp-taro`、`packages/app`）
 > 审计时点：2026-11-26｜口径：全部为本次现读（HEAD blob），命令见文末附录，可逐条复现
 > 基线诉求：页面、样式、功能三端全量一致并可互通；样式以 web 端与 RN 端为主
-> **2026-11-27 现读更新**：`agent-create`、`aigc-cover`、`bank-card` 已闭环；功能账为 `92 已闭环 / 5 需裁决 / 0 真待补`。本文保留 2026-11-26 审计基线，当前结论以 `docs/engineering/rn-miniapp-parity-matrix.md` 与项目主报告为准。
+> **2026-11-27 现读更新**：`agent-create`、`aigc-cover`、`bank-card` 已闭环；`connectors / learn / note-list / security-settings / self-media` 5 项已按用户委托裁决（门户/移动专属/只读/接受平台差）并结清；功能账为 `97 已闭环 / 0 需裁决 / 0 真待补`。本文保留 2026-11-26 审计基线，当前结论以 `docs/engineering/rn-miniapp-parity-matrix.md` 与项目主报告为准。
 
 ---
 
