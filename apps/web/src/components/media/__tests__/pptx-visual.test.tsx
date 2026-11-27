@@ -214,5 +214,34 @@ describe('parsePptxVisual', () => {
     expect(received[0]?.slide).toBe(1)
     expect(received[0]?.element).toBe('正文 1')
   })
+
+  it('已有线程按 slide/element 落到 shape 上,pin 点击回传线程 id', async () => {
+    const onSelect = vi.fn()
+    render(
+      <PptxPreview
+        data={await makePptx()}
+        annotationPins={[
+          {
+            id: 'pin-1',
+            kind: 'pptx',
+            label: '第 2 张 · 标题 1',
+            body: '把标题改成年度合规总结',
+            excerpt: null,
+            status: 'open',
+            slide: 2,
+            element: '标题 1',
+          },
+        ]}
+        onAnnotationSelect={onSelect}
+      />,
+    )
+
+    const pin = await screen.findByTestId('pptx-annotation-pin')
+    expect(pin.getAttribute('data-annotation-id')).toBe('pin-1')
+    expect(pin.getAttribute('data-annotation-status')).toBe('open')
+    expect(screen.getAllByTestId('pptx-annotation-shape')).toHaveLength(1)
+    fireEvent.click(pin)
+    expect(onSelect).toHaveBeenCalledWith('pin-1')
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

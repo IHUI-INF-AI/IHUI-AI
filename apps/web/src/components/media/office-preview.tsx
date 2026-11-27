@@ -8,6 +8,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { ExternalLink, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import type { PreviewAnnotationPin } from '@/lib/document-annotations'
 import { AnnotationAnchorCapture } from '@/components/chat/annotation-anchor'
 import {
   PreviewSourceText,
@@ -541,6 +542,10 @@ export interface OfficePreviewProps {
   readonly maxRows?: number
   /** 源码视图字符上限(默认 PREVIEW_SOURCE_MAX_CHARS);超出即截断并如实说明。 */
   readonly sourceMaxChars?: number
+  /** 文档中心下发的 PPTX 元素级批注 pin(docx/xlsx 暂不参与页内标记)。 */
+  readonly annotationPins?: readonly PreviewAnnotationPin[]
+  readonly focusedAnnotationId?: string | null
+  readonly onAnnotationSelect?: (id: string) => void
 }
 
 /** 源码文本的解析进度形态:idle = 还没开始(只有切到源码档才解析)。
@@ -561,6 +566,9 @@ export function OfficePreview({
   hardMax = OFFICE_HARD_MAX,
   maxRows = XLSX_PREVIEW_MAX_ROWS,
   sourceMaxChars = PREVIEW_SOURCE_MAX_CHARS,
+  annotationPins,
+  focusedAnnotationId = null,
+  onAnnotationSelect,
 }: OfficePreviewProps) {
   const t = useTranslations('chat')
   const kind = ext.toLowerCase().replace(/^\./, '')
@@ -739,7 +747,14 @@ export function OfficePreview({
           {status === 'ready' && data && (kind === 'xlsx' || kind === 'xls') && (
             <XlsxGrid data={data} maxRows={maxRows} />
           )}
-          {status === 'ready' && data && kind === 'pptx' && <PptxPreview data={data} />}
+          {status === 'ready' && data && kind === 'pptx' && (
+            <PptxPreview
+              data={data}
+              annotationPins={annotationPins}
+              focusedAnnotationId={focusedAnnotationId}
+              onAnnotationSelect={onAnnotationSelect}
+            />
+          )}
         </>
       )}
     </div>

@@ -32,6 +32,7 @@ import {
   imagePreviewPanApplies,
 } from '@ihui/shared/utils/image-preview-offset'
 import { cn } from '@/lib/utils'
+import type { PreviewAnnotationPin } from '@/lib/document-annotations'
 import { fetchGatedBlob } from '@/lib/gated-blob-fetch'
 import { downloadFilenameFor, previewExtFromHref } from '@/lib/file-preview-attachment'
 // 外部 http(s) 图片经同源代理走 /api/media/image,满足收窄后的 CSP img-src
@@ -102,6 +103,10 @@ interface FilePreviewProps {
   galleryIndex?: number
   /** 下标变化回调(宿主需要把翻页同步回消息流时传) */
   onGalleryIndexChange?: (index: number) => void
+  /** 文档中心下发的页内批注 pin(PDF 页级 / PPTX 元素级) */
+  annotationPins?: readonly PreviewAnnotationPin[]
+  focusedAnnotationId?: string | null
+  onAnnotationSelect?: (id: string) => void
 }
 
 export function FilePreview({
@@ -113,6 +118,9 @@ export function FilePreview({
   gallery,
   galleryIndex,
   onGalleryIndexChange,
+  annotationPins,
+  focusedAnnotationId,
+  onAnnotationSelect,
 }: FilePreviewProps) {
   const normalizedExt = ext?.replace(/^\./, '').toLowerCase() ?? ''
   const detectedType = React.useMemo(() => {
@@ -140,7 +148,15 @@ export function FilePreview({
   }
 
   if (detectedType === 'pdf') {
-    return <PDFViewer url={url} className={className} />
+    return (
+      <PDFViewer
+        url={url}
+        className={className}
+        annotationPins={annotationPins}
+        focusedAnnotationId={focusedAnnotationId}
+        onAnnotationSelect={onAnnotationSelect}
+      />
+    )
   }
 
   if (detectedType === 'office') {
@@ -156,6 +172,9 @@ export function FilePreview({
         src={url}
         ext={normalizedExt || previewExtFromHref(url)}
         className={className}
+        annotationPins={annotationPins}
+        focusedAnnotationId={focusedAnnotationId}
+        onAnnotationSelect={onAnnotationSelect}
       />
     )
   }
