@@ -661,6 +661,7 @@ class ConversationService:
         allowed_tools: list[str] | None = None,
         max_iterations: int = 3,
         user_id: str | None = None,
+        system_prompt: str | None = None,
     ) -> ConversationResult:
         """完整对话流程:intent → tool select → LLM → tool exec → response。
 
@@ -670,6 +671,7 @@ class ConversationService:
             model: 模型名称(空用默认)。
             allowed_tools: 允许的工具列表(空则尝试自动选择)。
             max_iterations: tool loop 最大迭代次数。
+            system_prompt: 额外人格提示词（总管端点用；普通对话为空，不改变既有行为）。
 
         Returns:
             ConversationResult 包含完整 trace + 最终回复。
@@ -818,6 +820,10 @@ class ConversationService:
             # 4. 加载历史上下文
             history = await memory_store.get(sid, limit=20, user_id=memory_user_id)
             messages: list[dict[str, Any]] = []
+            # 人格提示词必须排在工具规范/画像之前：它是“谁在说话”，后者是“怎么说”。
+            # 空串/纯空白不注入，避免普通聊天多一条空 system 打乱缓存前缀。
+            if system_prompt and system_prompt.strip():
+                messages.append({"role": "system", "content": system_prompt.strip()})
             # 工具结果诚实报告指令:防止 LLM 在 tool 失败时幻觉"已完成"
             if tools:
                 guidance = (

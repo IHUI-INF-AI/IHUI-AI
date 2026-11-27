@@ -18,22 +18,33 @@ from . import (
     knowledge_fs,
     knowledge_graph,
     knowledge_write,
+    master_chat,
     rag,
     sag2_lexical,
 )
 
 api_v1_router = APIRouter()
 api_v1_router.include_router(chat.router, prefix="/ai", tags=["v1-chat"])
+# 总管人格固定三工具；普通 chat 不受影响（2026-11-28，P3-01/P3-02）
+api_v1_router.include_router(master_chat.router, prefix="/ai/master", tags=["v1-master-chat"])
 api_v1_router.include_router(agent.router, prefix="/ai", tags=["v1-agent"])
 api_v1_router.include_router(rag.router, prefix="/ai", tags=["v1-rag"])
 # 知识图谱(G5 - 2026-07-21)
-api_v1_router.include_router(knowledge_graph.router, prefix="/ai/knowledge-graph", tags=["v1-knowledge-graph"])
+api_v1_router.include_router(
+    knowledge_graph.router, prefix="/ai/knowledge-graph", tags=["v1-knowledge-graph"]
+)
 # 知识文件系统(G2 - 2026-10-31,对齐 Trae ckg Cfs* 读半边,只读)
-api_v1_router.include_router(knowledge_fs.router, prefix="/ai/knowledge-fs", tags=["v1-knowledge-fs"])
+api_v1_router.include_router(
+    knowledge_fs.router, prefix="/ai/knowledge-fs", tags=["v1-knowledge-fs"]
+)
 # 外部运行时导入(2026-10-31,对齐 Qoder 导入数据 4 维命名空间)
-api_v1_router.include_router(external_import.router, prefix="/ai/external-import", tags=["v1-external-import"])
+api_v1_router.include_router(
+    external_import.router, prefix="/ai/external-import", tags=["v1-external-import"]
+)
 # 知识卡片 agent 写面(b43,2026-10-31,遵循统一工程规范)
-api_v1_router.include_router(knowledge_write.router, prefix="/ai/knowledge-write", tags=["v1-knowledge-write"])
+api_v1_router.include_router(
+    knowledge_write.router, prefix="/ai/knowledge-write", tags=["v1-knowledge-write"]
+)
 # SAG2 词法多跳检索通道(2026-11-08,复现 SAG Wiki 行为与设计并超越:零模型建库 + 查询时关联 + 显式降级留痕)
 api_v1_router.include_router(sag2_lexical.router, prefix="/ai/sag2", tags=["v1-sag2-lexical"])
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
