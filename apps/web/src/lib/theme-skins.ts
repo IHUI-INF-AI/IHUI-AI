@@ -15,20 +15,20 @@ import type { CustomThemeConfig } from '@/stores/appearance-settings'
 export const PINK_SKIN: CustomThemeConfig = {
   enabled: true,
   light: {
-    primary: '#db2777',
-    background: '#fff1f7',
-    foreground: '#3f1f2d',
-    card: '#fff8fb',
-    muted: '#ffdcec',
-    border: '#f5bcd5',
+    primary: '#e0218a',
+    background: '#ffd6e8',
+    foreground: '#4a0f2e',
+    card: '#ffe8f4',
+    muted: '#ffc2de',
+    border: '#ff94c8',
   },
   dark: {
-    primary: '#f472b6',
-    background: '#201017',
-    foreground: '#fbe9f1',
-    card: '#2b1520',
-    muted: '#3a1e2b',
-    border: '#532c3f',
+    primary: '#ff5cbf',
+    background: '#2a0a1b',
+    foreground: '#ffe0f0',
+    card: '#3f1130',
+    muted: '#57193f',
+    border: '#a03a74',
   },
 }
 
@@ -58,7 +58,7 @@ export function resolveSkinChoice(
   return 'system'
 }
 
-/** 应用皮肤选择:中性档关闭 customTheme 并同步明暗档;粉色档套 PINK_SKIN 并跟随系统明暗 */
+/** 应用皮肤选择:中性档关闭 customTheme 并同步明暗档;粉色档套 PINK_SKIN 并固定亮档(芭比粉只做亮色,暗档会发灰黑) */
 export function applySkinChoice(
   choice: SkinChoice,
   deps: {
@@ -70,7 +70,7 @@ export function applySkinChoice(
   const { update, setTheme, customTheme } = deps
   if (choice === 'pink') {
     update({ accentColor: 'rose', customTheme: { ...PINK_SKIN } })
-    setTheme('system')
+    setTheme('light')
     return
   }
   update({ accentColor: 'default', customTheme: { ...customTheme, enabled: false } })
