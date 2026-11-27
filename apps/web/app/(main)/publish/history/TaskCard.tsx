@@ -110,10 +110,15 @@ function fmtDuration(ms?: number): string {
 export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps) {
   const t = useTranslations('publish')
   const toast = useToast()
-  const [acting, setActing] = React.useState<'cancel' | 'retry' | 'confirm' | null>(null)
+  const [acting, setActing] = React.useState<
+    'cancel' | 'retry' | 'confirm' | 'reschedule' | null
+  >(null)
   const [confirmMode, setConfirmMode] = React.useState<'now' | 'later'>('now')
   const [confirmAt, setConfirmAt] = React.useState('')
   const [confirmError, setConfirmError] = React.useState<string | null>(null)
+  const [rescheduling, setRescheduling] = React.useState(false)
+  const [rescheduleAt, setRescheduleAt] = React.useState('')
+  const [rescheduleError, setRescheduleError] = React.useState<string | null>(null)
   const [draftPreview, setDraftPreview] = React.useState<string | null>(null)
   const [previewLoading, setPreviewLoading] = React.useState(false)
   const [editing, setEditing] = React.useState(false)
@@ -154,6 +159,8 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
     if (!expanded) {
       setEditing(false)
       setEditError(null)
+      setRescheduling(false)
+      setRescheduleError(null)
     }
   }, [expanded])
   // 2026-08-17:有真实单平台结果(platforms)时优先用它统计/渲染,否则回退 targets
@@ -166,12 +173,15 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
     : targets.filter((tg) => tg.status === 'failed').length
   const total = usePlatforms ? platforms.length : targets.length
   const running = task.status === 'running' || task.status === 'pending'
-  const canCancel = task.status === 'running' || task.status === 'pending'
+  const canCancel =
+    task.status === 'running' || task.status === 'pending' || task.status === 'scheduled'
+  const canReschedule = task.status === 'scheduled' || task.status === 'pending'
   const canRetry = task.status === 'failed' || task.status === 'partial'
   const canConfirm = task.status === 'draft'
 
   async function handleAction(action: 'cancel' | 'retry') {
     if (!task.taskId) return
+    if (action === 'cancel' && !window.confirm(t('history.cancelPrompt'))) return
     setActing(action)
     const label = action === 'cancel' ? t('history.cancel') : t('history.retry')
     try {
@@ -182,7 +192,7 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
         toast.error(r.error || label)
         return
       }
-      toast.success(label)
+      toast.success(action === 'cancel' ? t('history.cancelled') : label)
       onChanged?.()
     } catch (e) {
       toast.error((e as Error).message)
@@ -227,6 +237,47 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
       onChanged?.()
     } catch (e) {
       toast.error((e as Error).message)
+    } finally {
+      setActing(null)
+    }
+  }
+
+  function openReschedule() {
+    const base = task.scheduledAt ? new Date(task.scheduledAt) : new Date(Date.now() + 60 * 60 * 1000)
+    setRescheduleAt(toLocalDateTimeInputValue(base))
+    setRescheduleError(null)
+    setRescheduling(true)
+  }
+
+  async function handleReschedule() {
+    if (!task.taskId) return
+    const built = buildConfirmBody({ mode: 'later', localDateTime: rescheduleAt })
+    if (!built.ok) {
+      setRescheduleError(
+        built.errorCode === 'MISSING_TIME'
+          ? t('history.confirmTimeRequired')
+          : built.errorCode === 'INVALID_TIME'
+            ? t('history.confirmTimeInvalid')
+            : t('history.confirmTimePast'),
+      )
+      return
+    }
+    setRescheduleError(null)
+    setActing('reschedule')
+    try {
+      const r = await fetchApi<unknown>(`/api/publish/tasks/${task.taskId}/reschedule`, {
+        method: 'POST',
+        body: JSON.stringify(built.body),
+      })
+      if (!r.success) {
+        setRescheduleError(r.error || t('history.confirmTimeInvalid'))
+        return
+      }
+      toast.success(t('history.rescheduled', { time: rescheduleAt.replace('T', ' ') }))
+      setRescheduling(false)
+      onChanged?.()
+    } catch (e) {
+      setRescheduleError((e as Error).message)
     } finally {
       setActing(null)
     }
@@ -472,6 +523,53 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
                 {task.error}
               </pre>
             )}
+            {canReschedule && rescheduling && (
+              <div className="space-y-2 rounded-md border border-input bg-background p-3">
+                <label className="flex flex-wrap items-center gap-2" htmlFor={`reschedule-${task.id}`}>
+                  <span className="text-label text-muted-foreground">{t('history.rescheduleAt')}</span>
+                  <input
+                    id={`reschedule-${task.id}`}
+                    type="datetime-local"
+                    value={rescheduleAt}
+                    min={toLocalDateTimeInputValue(new Date(Date.now() + 60_000))}
+                    disabled={acting === 'reschedule'}
+                    onChange={(e) => {
+                      setRescheduleAt(e.target.value)
+                      setRescheduleError(null)
+                    }}
+                    className="rounded-md border border-input bg-transparent px-2 py-1 text-body"
+                  />
+                </label>
+                {rescheduleError && (
+                  <p role="alert" className="text-label text-rose-600 dark:text-rose-400">
+                    {rescheduleError}
+                  </p>
+                )}
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    disabled={!task.taskId || acting !== null}
+                    onClick={() => void handleReschedule()}
+                  >
+                    {acting === 'reschedule' ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : null}
+                    {t('history.rescheduleSave')}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={acting !== null}
+                    onClick={() => {
+                      setRescheduling(false)
+                      setRescheduleError(null)
+                    }}
+                  >
+                    {t('history.cancelEdit')}
+                  </Button>
+                </div>
+              </div>
+            )}
             {canConfirm && !editing && (
               <div className="space-y-2 rounded-md border border-input bg-background p-2">
                 <div className="flex flex-wrap items-center gap-2">
@@ -529,7 +627,7 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
                 )}
               </div>
             )}
-            {(canCancel || canRetry || canConfirm) && (
+            {(canCancel || canRetry || canConfirm || canReschedule) && (
               <div className="flex items-center gap-2 pt-1">
                 {canConfirm && !editing && (
                   <Button
@@ -556,6 +654,16 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
                       <Loader2 className="h-3 w-3 opacity-0" />
                     )}
                     {confirmMode === 'later' ? t('history.confirmLater') : t('history.confirm')}
+                  </Button>
+                )}
+                {canReschedule && !rescheduling && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!task.taskId || acting !== null}
+                    onClick={openReschedule}
+                  >
+                    {t('history.reschedule')}
                   </Button>
                 )}
                 {canCancel && (
