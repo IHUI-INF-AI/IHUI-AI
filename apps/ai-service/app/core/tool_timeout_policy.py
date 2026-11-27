@@ -102,10 +102,28 @@ def run_command_budget_s(args: Mapping[str, Any] | None) -> float:
     )
     if max_timeout < 1:
         max_timeout = 1
-    timeout = _as_int(
-        data.get("timeout", RUN_COMMAND_DEFAULT_TIMEOUT_S),
-        RUN_COMMAND_DEFAULT_TIMEOUT_S,
-    )
+    # B2-05(2026-11-27 立):模型侧工具契约给的是 `timeout_ms`(毫秒),本函数此前只读秒级
+    # `timeout` ⇒ 传 `timeout_ms=30000`(想要 30 秒)被当成"没给",静默退回默认值。
+    # 毫秒显式给出即优先;换算**向上取整**(29_500ms → 30s),向下取整会让调用比预期早被杀。
+    # bool 是 int 子类,显式排除 —— `timeout_ms=True` 不该变成 1 毫秒。
+    timeout_ms_raw = data.get("timeout_ms")
+    if timeout_ms_raw is not None and not isinstance(timeout_ms_raw, bool):
+        try:
+            _ms = int(timeout_ms_raw)
+        except (TypeError, ValueError):
+            _ms = 0
+        if _ms > 0:
+            timeout = max(1, (_ms + 999) // 1000)
+        else:
+            timeout = _as_int(
+                data.get("timeout", RUN_COMMAND_DEFAULT_TIMEOUT_S),
+                RUN_COMMAND_DEFAULT_TIMEOUT_S,
+            )
+    else:
+        timeout = _as_int(
+            data.get("timeout", RUN_COMMAND_DEFAULT_TIMEOUT_S),
+            RUN_COMMAND_DEFAULT_TIMEOUT_S,
+        )
     if timeout < 1:
         timeout = 1
     timeout = min(timeout, max_timeout)
