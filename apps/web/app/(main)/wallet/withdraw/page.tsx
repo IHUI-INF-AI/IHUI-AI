@@ -58,11 +58,15 @@ export default function WithdrawPage() {
   })
   const bankCards: WithdrawBankCardOption[] = React.useMemo(
     () =>
-      (cardsQ.data ?? []).map((card) => ({
-        id: card.id,
-        label: `${card.bankName || '银行卡'} ${card.number}`,
-        isDefault: card.isDefault,
-      })),
+      (cardsQ.data ?? [])
+        // 历史提现投影只有掩码、没有可被服务端解密的绑定 id；它们不能进选择列表，
+        // 否则用户选中后提交会得到“未找到银行卡”。与 RN/小程序壳的过滤保持一致。
+        .filter((card) => !card.readOnly)
+        .map((card) => ({
+          id: card.id,
+          label: `${card.bankName || '银行卡'} ${card.number}`,
+          isDefault: card.isDefault,
+        })),
     [cardsQ.data],
   )
 
