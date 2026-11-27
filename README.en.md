@@ -99,6 +99,7 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-27**
+- 🐞 Fix:V2-08 任务3 扫描器 --staged/--head 取材面修正 (22c660521)
 - 🚀 Feature/Improvement:V2-08 任务5 名称规范 normalizeAgentName (0fe0a247f)
 - 🚀 Feature/Improvement:V2-08 任务4 types 包 DTO 与契约镜像 (98d3b6bd5)
 - 🚀 Feature/Improvement:V2-08 任务3 旧枚举降级 + 单一源扫描 (c281ce8f2)
