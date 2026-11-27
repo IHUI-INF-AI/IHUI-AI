@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
   emptyIcon: {
     width: 56,
     height: 56,
-    borderRadius: rnRadius['2xl'],
+    borderRadius: rnRadiusFor.hero,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: tokens.surface.muted,
