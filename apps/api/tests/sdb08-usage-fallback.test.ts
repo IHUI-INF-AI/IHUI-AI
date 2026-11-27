@@ -10,7 +10,7 @@
  * 1. 上游完全无 usage → prompt 按请求体估算、completion 按正文估算(含 forwardToChannel 生产接线);
  * 2. 只有 total_tokens → completion=total、prompt=0,并留 usage_fallback 告警;
  * 3. prompt/completion 正常 → 不触发兜底(即使 total 缺失);
- * 4. 只有 completion → 不触发兜底;
+ * 4. 只有 completion → prompt 按请求体补齐,不把 input 永久记 0;
  * 5. trae-protocol.extractUsage 只有 total_tokens 时不再返回 null。
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -134,9 +134,12 @@ describe('SDB-08 usage 兜底', () => {
   })
 
   it('只有 total_tokens：completion=total、prompt=0，并留 usage_fallback 告警', async () => {
-    const stats = await pipeChannelStream(sse([contentLine('abc'), usageLine({ total_tokens: 50 }), DONE]), {
-      promptText: JSON.stringify([{ role: 'user', content: 'x'.repeat(400) }]),
-    })
+    const stats = await pipeChannelStream(
+      sse([contentLine('abc'), usageLine({ total_tokens: 50 }), DONE]),
+      {
+        promptText: JSON.stringify([{ role: 'user', content: 'x'.repeat(400) }]),
+      },
+    )
 
     expect(stats.promptTokens).toBe(0)
     expect(stats.completionTokens).toBe(50)
@@ -149,7 +152,11 @@ describe('SDB-08 usage 兜底', () => {
 
   it('prompt/completion 正常：不触发兜底，正文长度不覆盖上游明细', async () => {
     const stats = await pipeChannelStream(
-      sse([contentLine('y'.repeat(400)), usageLine({ prompt_tokens: 40, completion_tokens: 10 }), DONE]),
+      sse([
+        contentLine('y'.repeat(400)),
+        usageLine({ prompt_tokens: 40, completion_tokens: 10 }),
+        DONE,
+      ]),
       { promptText: JSON.stringify([{ role: 'user', content: 'z'.repeat(400) }]) },
     )
 
@@ -158,15 +165,19 @@ describe('SDB-08 usage 兜底', () => {
     expect(mockLoggerWarn).not.toHaveBeenCalled()
   })
 
-  it('只有 completion：不触发兜底(prompt 保持上游给的 0)', async () => {
+  it('只有 completion：补缺失的 prompt(不再把 input 永久记 0)', async () => {
+    const promptText = JSON.stringify([{ role: 'user', content: 'z'.repeat(400) }])
     const stats = await pipeChannelStream(
       sse([contentLine('y'.repeat(400)), usageLine({ completion_tokens: 9 }), DONE]),
-      { promptText: JSON.stringify([{ role: 'user', content: 'z'.repeat(400) }]) },
+      { promptText },
     )
 
-    expect(stats.promptTokens).toBe(0)
+    expect(stats.promptTokens).toBe(Math.ceil(promptText.length / 4))
+    expect(stats.promptTokens).toBeGreaterThan(0)
     expect(stats.completionTokens).toBe(9)
-    expect(mockLoggerWarn).not.toHaveBeenCalled()
+    // 补了缺失的一侧就应留一条告警,方便对账时区分“上游真实 usage”与“估算兜底”。
+    expect(mockLoggerWarn).toHaveBeenCalledTimes(1)
+    expect(mockLoggerWarn.mock.calls[0]![0]).toContain('one_side_missing')
   })
 })
 

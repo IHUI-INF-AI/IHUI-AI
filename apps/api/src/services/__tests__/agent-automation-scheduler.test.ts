@@ -301,7 +301,7 @@ describe('parseNextRun(按行 timezone 的墙钟,与宿主时区无关)', () => 
     const from = utc('2026-09-07T01:00:00Z')
     const cases: ReadonlyArray<readonly [string, string]> = [
       ['BYHOUR=9;BYMINUTE=0', '缺 FREQ'],
-      ['FREQ=MONTHLY;BYMONTHDAY=1', 'FREQ 不支持'],
+      ['FREQ=YEARLY;BYMONTH=1', 'FREQ 不支持'],
       ['FREQ=DAILY;BYHOUR=24', 'BYHOUR 越界'],
       ['FREQ=DAILY;BYMINUTE=60', 'BYMINUTE 越界'],
       ['FREQ=WEEKLY;BYDAY=XX;BYHOUR=9', 'BYDAY 非法'],

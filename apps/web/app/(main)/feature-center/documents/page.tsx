@@ -376,9 +376,7 @@ export default function DocumentsPage() {
     const handler = (event: Event): void => {
       const detail = (event as CustomEvent<AnchorReferenceDetail>).detail
       if (!detail?.anchor || typeof detail.text !== 'string') return
-      const note =
-        detail.note?.trim() ||
-        detail.text.replace(/^\[[^\]]*\]\s*/, '').trim()
+      const note = detail.note?.trim() || detail.text.replace(/^\[[^\]]*\]\s*/, '').trim()
       if (!note) return
       const close = detail.text.startsWith('[') ? detail.text.indexOf(']') : -1
       const label = close > 0 ? detail.text.slice(1, close).trim() : ''
@@ -1012,18 +1010,19 @@ export default function DocumentsPage() {
               </div>
             )}
           </CardContent>
-          {annotationsOpen && filePreviewSrc ? (
-            <div className="fixed inset-y-2 right-2 z-[80] w-[min(92vw,380px)]">
-              <DocumentAnnotationsPanel
-                documentId={previewDoc.id}
-                documentTitle={previewDoc.title}
-                refreshKey={annotationsRefreshKey}
-                onClose={() => setAnnotationsOpen(false)}
-              />
-            </div>
-          ) : null}
         </Card>
       )}
+
+      {annotationsOpen && filePreviewSrc && previewDoc ? (
+        <div className="fixed inset-y-2 right-2 z-[80] w-[min(92vw,380px)]">
+          <DocumentAnnotationsPanel
+            documentId={previewDoc.id}
+            documentTitle={previewDoc.title}
+            refreshKey={annotationsRefreshKey}
+            onClose={() => setAnnotationsOpen(false)}
+          />
+        </div>
+      ) : null}
 
       {fileAiTarget ? (
         <FileViewerDialog

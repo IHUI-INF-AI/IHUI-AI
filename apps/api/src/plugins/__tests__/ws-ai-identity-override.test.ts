@@ -82,6 +82,24 @@ vi.mock('../../plugins/ws-auto-recovery.js', () => ({
   })),
 }))
 
+// 身份覆盖用例不起账:WS capability 的积分预扣/结算直接放行,只保留身份合并逻辑。
+vi.mock('../../services/ai-points-billing.js', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return {
+    ...actual,
+    reserveLlmPoints: vi.fn(async () => ({ ok: true, quote: { points: 1 }, referenceId: 't' })),
+    settleLlmPointsUsage: vi.fn(async () => ({ deducted: 1, shortfall: 0 })),
+  }
+})
+
+vi.mock('../../services/points-service.js', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return {
+    ...actual,
+    releasePointsHold: vi.fn(async () => undefined),
+  }
+})
+
 import fastifyWebsocket from '@fastify/websocket'
 import { wsAi } from '../ws-ai.js'
 

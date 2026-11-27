@@ -102,6 +102,16 @@ vi.mock('../src/db/chat-queries.js', () => ({
   findConversationById: mockFindConversationById,
 }))
 
+// 计费不是本用例的被测面(持久化/广播才是),预扣与结算直接放行。
+vi.mock('../src/services/ai-points-billing.js', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return {
+    ...actual,
+    ensureLlmPointsBalance: async () => true,
+    settleLlmPointsUsage: async () => ({ points: 0, deducted: 0, shortfall: 0 }),
+  }
+})
+
 import { aiChatStreamRoutes } from '../src/routes/ai-chat-stream.js'
 
 const USER_ID = '00000000-0000-4000-8000-000000000001'

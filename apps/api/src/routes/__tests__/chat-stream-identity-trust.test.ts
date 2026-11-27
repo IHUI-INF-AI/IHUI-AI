@@ -61,7 +61,24 @@ vi.mock('../../db/index.js', () => ({
     execute: vi.fn().mockResolvedValue([]),
     transaction: vi.fn(),
   },
+  dbRead: {
+    select: vi.fn().mockReturnThis(),
+    from: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockResolvedValue([]),
+    execute: vi.fn().mockResolvedValue([]),
+  },
 }))
+
+// 计费不是身份信任边界的被测面:预扣/结算直接放行。
+vi.mock('../../services/ai-points-billing.js', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return {
+    ...actual,
+    ensureLlmPointsBalance: async () => true,
+    settleLlmPointsUsage: async () => ({ points: 0, deducted: 0, shortfall: 0 }),
+  }
+})
 
 vi.mock('../../db/chat-queries.js', () => ({
   bindConversationWorkspace: vi.fn(),

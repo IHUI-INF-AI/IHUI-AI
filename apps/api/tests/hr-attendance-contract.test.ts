@@ -375,6 +375,19 @@ const WRITE_CASES: WriteCase[] = [
     path: '/employees',
     body: { employeeNo: 'E001', name: '张三', departmentId: DEPT_ID },
     okStatus: 201,
+    // 入职会自动挂社保增员待办,服务层随后按 id 回查员工;空世界状态会抛 404。
+    // 假 insert 的 returning 固定给第一行 id=row-new-0,预置同一行即可穿过回查。
+    seed: () => {
+      H.rowsByTable.set('hr_employee', [
+        {
+          id: 'row-new-0',
+          employeeNo: 'E001',
+          name: '张三',
+          departmentId: DEPT_ID,
+          status: 'active',
+        },
+      ])
+    },
   },
   {
     name: 'PUT /attendance/rule',

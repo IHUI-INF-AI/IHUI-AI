@@ -211,7 +211,7 @@ export const authSsoRoutes: FastifyPluginAsync = async (server) => {
       config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
       schema: {
         summary: '生成 SSO 一次性授权码',
-        description: '已登录用户生成一次性 code（30 秒有效），用于跨子项目共享登录态',
+        description: '已登录用户生成一次性 code（90 秒有效），用于跨子项目共享登录态',
         tags: ['sso'],
         body: {
           type: 'object',
