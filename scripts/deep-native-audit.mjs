@@ -330,7 +330,8 @@ const ENTRIES = [
   {
     id: 'B3-09', title: 'RTC 音视频原生桥',
     probes: [
-      { path: 'apps/desktop/src-tauri/src/rtc_bridge.rs', label: 'RTC 模块' },
+      { path: 'apps/cli/src/rtc/bridge.ts', pattern: 'createRtcBridge|issueRoomToken', label: 'RTC 桥' },
+      { path: 'apps/cli/src/rtc/signaling.ts', pattern: 'createRtcSignalingServer|RtcIceServer', label: '信令服务' },
     ],
   },
   {
@@ -371,7 +372,8 @@ const ENTRIES = [
   {
     id: 'B4-12', title: '会话历史清理按路由意图',
     probes: [
-      { path: 'apps/cli/src/commands/**/*.ts', pattern: 'history.*clean|cleanHistory|routeIntent', label: '路由意图判据' },
+      { path: 'apps/cli/src/commands/history-clean.ts', pattern: 'cleanHistory|classifyRouteIntent', label: '意图分类与清理计划' },
+      { path: 'apps/cli/src/commands/history-clean.ts', pattern: 'scope_mismatch|confirm_required', label: 'scope 校验三态' },
     ],
   },
 ]
