@@ -29,7 +29,7 @@
 - **禁 `any`**:`@typescript-eslint/no-explicit-any: error`。要用 `unknown` + 类型守卫;确属例外必须写 `// FIXME(any): 原因 + 移除计划 + 截止版本`。
 - **新源码文件必须加水印**:每新建一个 git 跟踪的源文件,立刻跑
   `node scripts/watermark.mjs inject <该文件>`(pre-commit 门禁会验载荷,漏了会让别人提交被拦)。
-- **圆角单一源头**:`borderRadius: rnRadius.lg`(RN/内联)、`var(--radius-lg)`(CSS),禁止数字字面量与 `rounded-[任意值]`(守门 77 blocking)。
+- **圆角单一源头**:`borderRadius: rnRadiusFor.<角色>`(RN/内联;禁止 `rnRadius.<step>` 借档)、`var(--radius-*)`(CSS,按角色选档),禁止数字字面量与 `rounded-[任意值]`(守门 77 blocking + 门 150 角色档)。
 - **品牌 CTA 成对**:主按钮实底 `brand.cta` + 文字 `brand.ctaForeground`;类名侧 `--color-cta` / `--color-cta-foreground`。禁止自造 `ctaFill`/`ctaText`(守门 83)。
 - **图标一律矢量库**:web 用 `lucide-react`,RN 用 `lucide-react-native`,小程序用 `apps/miniapp-taro/src/static/images/icons/*.svg`。**禁止 emoji 充当图标**,禁止用字符 `›`/`»`/`>` 当箭头(守门 102)。
 - **禁止分割线** `<hr>` / `divide-y` / 单边 `border-t` 当分隔;禁止 `mask-image`/`linear-gradient` 遮罩;禁止 `alert/confirm/prompt` 与 `title` 属性,提示用项目 `Tooltip`。
