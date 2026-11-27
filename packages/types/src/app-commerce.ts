@@ -224,6 +224,13 @@ export interface WithdrawMethodOption {
   icon?: string
 }
 
+/** 提现页可选的已绑定银行卡（只暴露掩码，完整卡号由服务端按 id 解密）。 */
+export interface WithdrawBankCardOption {
+  id: string
+  label: string
+  isDefault?: boolean
+}
+
 /** 提现屏文案覆盖(web/小程序注入 i18n;未传时回落到既有 key) */
 export interface WithdrawScreenTexts {
   title?: string
@@ -260,6 +267,13 @@ export interface WithdrawScreenProps {
   methods?: WithdrawMethodOption[]
   method?: string
   onMethodChange?: (id: string) => void
+  /**
+   * 已绑定银行卡选择(web 注入)：选中后提交 bankCardId，由服务端按 id 解密完整卡号，
+   * 客户端不再需要手输完整卡号；未注入时保持原 accountInfo 输入。
+   */
+  bankCards?: WithdrawBankCardOption[]
+  selectedBankCardId?: string
+  onSelectBankCard?: (id: string) => void
   /** 第三方账户(微信/支付宝/银行卡),与 methods 搭配 */
   accountInfo?: string
   onAccountInfoChange?: (text: string) => void

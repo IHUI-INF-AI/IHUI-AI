@@ -151,6 +151,7 @@ export function BankCardScreen({
             <Text style={styles.label}>{t('bankCard.bankName')}</Text>
             <TextField
               colorScheme={colorScheme}
+              testID="bank-card-bank-name"
               style={styles.input}
               value={bankName}
               onChangeText={setBankName}
@@ -164,6 +165,7 @@ export function BankCardScreen({
             <Text style={styles.label}>{t('bankCard.holder')}</Text>
             <TextField
               colorScheme={colorScheme}
+              testID="bank-card-holder"
               style={styles.input}
               value={holder}
               onChangeText={setHolder}
@@ -177,6 +179,7 @@ export function BankCardScreen({
             <Text style={styles.label}>{t('bankCard.number')}</Text>
             <TextField
               colorScheme={colorScheme}
+              testID="bank-card-number"
               style={styles.input}
               value={number}
               onChangeText={setNumber}
@@ -194,6 +197,7 @@ export function BankCardScreen({
             onPress={() => setFormDefault((value) => !value)}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: formDefault }}
+            testID="bank-card-form-default"
           >
             <View style={[styles.toggleBox, formDefault ? styles.toggleBoxOn : null]}>
               {formDefault ? <Text style={styles.toggleCheck}>✓</Text> : null}
@@ -217,6 +221,7 @@ export function BankCardScreen({
               onPress={() => void submitAdd()}
               disabled={formBusy}
               accessibilityRole="button"
+              testID="bank-card-save"
             >
               <Text style={styles.primaryBtnText}>
                 {formBusy ? t('bankCard.saving') : t('common.save')}

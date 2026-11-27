@@ -279,6 +279,61 @@ describe('wallet-routes — 钱包需鉴权真实 DB 集成测试', () => {
     expect(margin!.frozenQuantity).toBe(294)
   })
 
+  it('POST /api/wallet/withdraw — 选择 bankCardId 时服务端解密完整卡号并按 bank 落库', async () => {
+    const user = await createUser('1001', '用户')
+    await createMargin({ userId: user.id, tokenQuantity: 1000 })
+    await createCommission({ userId: user.id, amount: 300 })
+    setMockUser(user.id)
+
+    const addRes = await server.inject({
+      method: 'POST',
+      url: '/api/wallet/bank-cards',
+      body: {
+        number: '4111 1111 1111 1111',
+        holder: '测试持卡人',
+        bankName: '测试银行',
+      },
+    })
+    expect(addRes.statusCode).toBe(201)
+    const cardId = addRes.json().data.id as string
+
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/wallet/withdraw',
+      body: { amount: 300, accountType: 'bank', bankCardId: cardId },
+    })
+    expect(res.statusCode).toBe(201)
+    const body = res.json()
+    expect(body.data.method).toBe('bank')
+    // 客户端只传 id；落库必须由服务端解密出完整卡号，而不是把 id/掩码当账号。
+    expect(body.data.accountInfo.account).toBe('4111111111111111')
+    expect(body.data.accountInfo.bankCardId).toBe(cardId)
+
+    const [margin] = await db
+      .select()
+      .from(userMargins)
+      .where(eq(userMargins.userId, user.id))
+      .limit(1)
+    expect(margin!.tokenQuantity).toBe(700)
+    expect(margin!.frozenQuantity).toBe(294)
+  })
+
+  it('POST /api/wallet/withdraw — 未绑定 bankCardId / 类型不匹配返回 400', async () => {
+    const user = await createUser('1001', '用户')
+    setMockUser(user.id)
+    const missing = await server.inject({
+      method: 'POST',
+      url: '/api/wallet/withdraw',
+      body: { amount: 300, accountType: 'bank', bankCardId: 'not-exist' },
+    })
+    expect(missing.statusCode).toBe(400)
+
+    const mismatch = await server.inject({
+      method: 'POST',
+      url: '/api/wallet/withdraw',
+      body: { amount: 300, accountType: 'wechat', bankCardId: 'not-exist' },
+    })
+    expect(mismatch.statusCode).toBe(400)
   it('POST /api/wallet/withdraw — 余额不足返回 400', async () => {
     const user = await createUser('1001', '用户')
     await createMargin({ userId: user.id, tokenQuantity: 100 })
