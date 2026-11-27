@@ -402,6 +402,8 @@ export function DocumentAnnotationsPanel({
                             typeof rawAnchor.element === 'string' ? rawAnchor.element : undefined,
                           excerpt: root.excerpt ?? undefined,
                           note: root.body,
+                          autoSend: true,
+                          autoSendPrompt: '请基于这条 AI 预审结论，给出可执行的修订方案。',
                         })
                       }}
                       data-testid="annotation-ai-handoff"

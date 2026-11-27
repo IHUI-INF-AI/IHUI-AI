@@ -24,6 +24,7 @@ import {
   BankCardStoreError,
   addStoredBankCard,
   deleteStoredBankCard,
+  listStoredBankCards,
   listWalletBankCards,
   setDefaultStoredBankCard,
   toBankCardItem,
@@ -41,11 +42,22 @@ const rechargeSchema = z.object({
   couponId: z.string().optional(),
 })
 
-const withdrawSchema = z.object({
-  amount: z.number().int().min(1, '提现金额必须大于 0'),
-  account: z.string().min(1, '请输入收款账号'),
-  accountType: z.string().min(1, '请选择账号类型'),
-})
+const withdrawSchema = z
+  .object({
+    amount: z.number().int().min(1, '提现金额必须大于 0'),
+    accountType: z.string().min(1, '请选择账号类型'),
+    account: z.string().trim().min(1, '请输入收款账号').optional(),
+    /** 已绑定银行卡：服务端按 id 解密完整卡号，客户端无需回传。 */
+    bankCardId: z.string().trim().min(1).max(64).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (!data.bankCardId && !data.account) {
+      ctx.addIssue({ code: 'custom', message: '请输入收款账号或选择已绑定银行卡' })
+    }
+    if (data.bankCardId && data.accountType !== 'bank') {
+      ctx.addIssue({ code: 'custom', message: '使用银行卡提现时账号类型必须为 bank' })
+    }
+  })
 
 const bankCardAddSchema = z.object({
   number: z.string().trim().min(12, '请输入银行卡号').max(32, '银行卡号过长'),
@@ -288,14 +300,33 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const { amount, account, accountType } = parsed.data
+      const { amount, account, accountType, bankCardId } = parsed.data
       try {
+        let payoutAccount = account
+        let payoutAccountType = accountType
+        if (bankCardId) {
+          const cards = await listStoredBankCards(userId)
+          const card = cards.find((item) => item.id === bankCardId)
+          if (!card) {
+            return reply.status(400).send(error(400, '未找到该银行卡，请重新选择'))
+          }
+          // 完整卡号只在服务端内存中使用；落库仍走 applyWithdrawal 的 accountInfo 加密链路。
+          payoutAccount = card.number
+          payoutAccountType = 'bank'
+        }
+        if (!payoutAccount) {
+          return reply.status(400).send(error(400, '请输入收款账号或选择已绑定银行卡'))
+        }
         const flow = await applyWithdrawal(
           {
             userId,
             amount,
-            method: accountType,
-            accountInfo: { accountType, account },
+            method: payoutAccountType,
+            accountInfo: {
+              accountType: payoutAccountType,
+              account: payoutAccount,
+              ...(bankCardId ? { bankCardId } : {}),
+            },
             // F-63:与 /finance/withdrawal 同口径,仅佣金可提现
             requireCommissionEligibility: true,
           },

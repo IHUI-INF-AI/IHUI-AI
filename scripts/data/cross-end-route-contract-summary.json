@@ -1,17 +1,17 @@
 {
   "face": "worktree",
-  "webRoutes": 933,
+  "webRoutes": 934,
   "rnScreens": 361,
   "miniPages": 343,
   "registryEntries": 260,
   "carrierLedgerRows": 278,
   "categories": {
-    "web-only": 535,
+    "web-only": 536,
     "mini-native": 214,
     "mini-webview": 97,
-    "rn-only": 63,
+    "rn-only": 62,
     "mini-native-direct": 10,
-    "mini-native-own": 13,
+    "mini-native-own": 14,
     "rn-pending": 1
   },
   "gaps": {
@@ -28,23 +28,26 @@
     "portalPageMissing": []
   },
   "review": {
-    "rnOnly": 63,
-    "rnOnlyScreens": 52,
-    "rnOnlyDecided": 10,
-    "rnOnlyNeedsReview": 42,
+    "rnOnly": 62,
+    "rnOnlyScreens": 51,
+    "rnOnlyDecided": 51,
+    "rnOnlyNeedsReview": 0,
+    "rnOnlyPlatformDifference": 41,
+    "rnOnlyVerdicts": "scripts/data/cross-end-rn-only-verdicts.jsonl",
     "rnOnlyReview": "scripts/data/cross-end-route-contract-rn-only-review.json",
     "rnPending": 1,
-    "miniNativeOwn": 13,
+    "miniNativeOwn": 14,
     "miniNativeDirect": 10,
-    "note": "rn-only 是 RN 有屏但既无共享屏登记、也无小程序直接 shell 承载的按平台差候选；其中已有 not-applicable 裁决的 10 屏不重复派单，其余 42 屏待产品/端侧复核；rn-pending 是待真机验收；mini-native-direct 是小程序直接 import RN shell 的真实承载；mini-native-own 是页头显式声明对齐 RN 屏的小程序手写页。四者都不冒充共享屏全量承载"
+    "note": "rn-only 是 RN 有屏但小程序无同对象原生页/共享壳的平台差；当前 51/51 屏已完成逐屏裁决（41 屏落 cross-end-rn-only-verdicts.jsonl，另有既有 not-applicable 裁决），0 屏待审；有同对象页的已改判 mini-native-own。rn-pending 是待真机验收；mini-native-direct 是小程序直接 import RN shell 的真实承载；mini-native-own 是页头/人工复核显式声明的自有页。四者都不冒充共享屏全量承载"
   },
-  "contractHash": "e38bf05b931d714f9cb0d772bad8f8582834d88a4716eb830dc2c24805bd8b2f",
-  "contractRows": 933,
+  "contractHash": "2482724b5b9bc2c744e214b2d3d9efbf4087620406e509351b2491196249e14e",
+  "contractRows": 934,
   "sources": [
     "scripts/data/cross-end-screen-registry.json",
     "scripts/data/web-mp-route-carrier-ledger.jsonl",
     "scripts/data/web-rn-screen-map.jsonl",
     "scripts/data/miniapp-mirror-verdicts.jsonl",
+    "scripts/data/cross-end-rn-only-verdicts.jsonl",
     "scripts/data/cross-end-mini-own-manual.json",
     "apps/miniapp-taro/src/app.config.ts"
   ]

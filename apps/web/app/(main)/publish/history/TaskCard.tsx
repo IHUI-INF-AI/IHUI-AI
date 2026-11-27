@@ -21,6 +21,7 @@ import { fetchApi } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { PLATFORM_KEY } from '../helpers'
 import { TaskProgressBar } from '@/components/publish/TaskProgressBar'
+import { buildConfirmBody, toLocalDateTimeInputValue } from './confirm-helpers'
 
 interface Target {
   readonly platform: string
@@ -48,6 +49,7 @@ export interface TaskCardProps {
     readonly title: string
     readonly status: string
     readonly createdAt?: string
+    readonly scheduledAt?: string | null
     readonly platformCount?: number
     readonly format?: string
     readonly targets?: ReadonlyArray<Target>
@@ -109,6 +111,9 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
   const t = useTranslations('publish')
   const toast = useToast()
   const [acting, setActing] = React.useState<'cancel' | 'retry' | 'confirm' | null>(null)
+  const [confirmMode, setConfirmMode] = React.useState<'now' | 'later'>('now')
+  const [confirmAt, setConfirmAt] = React.useState('')
+  const [confirmError, setConfirmError] = React.useState<string | null>(null)
   const [draftPreview, setDraftPreview] = React.useState<string | null>(null)
   const [previewLoading, setPreviewLoading] = React.useState(false)
   const [editing, setEditing] = React.useState(false)
@@ -165,16 +170,10 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
   const canRetry = task.status === 'failed' || task.status === 'partial'
   const canConfirm = task.status === 'draft'
 
-  async function handleAction(action: 'cancel' | 'retry' | 'confirm') {
+  async function handleAction(action: 'cancel' | 'retry') {
     if (!task.taskId) return
-    if (action === 'confirm' && !window.confirm(t('history.confirmPrompt'))) return
     setActing(action)
-    const label =
-      action === 'cancel'
-        ? t('history.cancel')
-        : action === 'retry'
-          ? t('history.retry')
-          : t('history.confirm')
+    const label = action === 'cancel' ? t('history.cancel') : t('history.retry')
     try {
       const r = await fetchApi<unknown>(`/api/publish/tasks/${task.taskId}/${action}`, {
         method: 'POST',
@@ -183,7 +182,48 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
         toast.error(r.error || label)
         return
       }
-      toast.success(action === 'confirm' ? t('history.confirmed') : label)
+      toast.success(label)
+      onChanged?.()
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setActing(null)
+    }
+  }
+
+  async function handleConfirm() {
+    if (!task.taskId) return
+    const built = buildConfirmBody({ mode: confirmMode, localDateTime: confirmAt })
+    if (!built.ok) {
+      setConfirmError(
+        built.errorCode === 'MISSING_TIME'
+          ? t('history.confirmTimeRequired')
+          : built.errorCode === 'INVALID_TIME'
+            ? t('history.confirmTimeInvalid')
+            : t('history.confirmTimePast'),
+      )
+      return
+    }
+    setConfirmError(null)
+    const prompt =
+      confirmMode === 'later'
+        ? t('history.confirmLaterPrompt', { time: confirmAt.replace('T', ' ') })
+        : t('history.confirmPrompt')
+    if (!window.confirm(prompt)) return
+
+    setActing('confirm')
+    try {
+      const r = await fetchApi<unknown>(`/api/publish/tasks/${task.taskId}/confirm`, {
+        method: 'POST',
+        body: JSON.stringify(built.body),
+      })
+      if (!r.success) {
+        toast.error(r.error || t('history.confirm'))
+        return
+      }
+      toast.success(
+        confirmMode === 'later' ? t('history.confirmScheduled') : t('history.confirmed'),
+      )
       onChanged?.()
     } catch (e) {
       toast.error((e as Error).message)
@@ -250,6 +290,11 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
                 {task.createdAt ? TIME_FMT.format(new Date(task.createdAt)) : '-'}
               </span>
               {typeof task.platformCount === 'number' && <span>平台数: {task.platformCount}</span>}
+              {task.scheduledAt && (
+                <span>
+                  {t('history.scheduledAt')}: {TIME_FMT.format(new Date(task.scheduledAt))}
+                </span>
+              )}
               {task.format && <span className="font-mono">{task.format}</span>}
             </div>
           </div>
@@ -427,6 +472,63 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
                 {task.error}
               </pre>
             )}
+            {canConfirm && !editing && (
+              <div className="space-y-2 rounded-md border border-input bg-background p-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-muted-foreground">{t('history.confirmWhen')}</span>
+                  <button
+                    type="button"
+                    aria-pressed={confirmMode === 'now'}
+                    onClick={() => {
+                      setConfirmMode('now')
+                      setConfirmError(null)
+                    }}
+                    className={
+                      confirmMode === 'now'
+                        ? 'rounded-md border border-primary bg-primary/10 px-2 py-1 text-primary'
+                        : 'rounded-md border px-2 py-1 text-muted-foreground hover:bg-muted/40'
+                    }
+                  >
+                    {t('history.confirmNow')}
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={confirmMode === 'later'}
+                    onClick={() => {
+                      setConfirmMode('later')
+                      setConfirmError(null)
+                    }}
+                    className={
+                      confirmMode === 'later'
+                        ? 'rounded-md border border-primary bg-primary/10 px-2 py-1 text-primary'
+                        : 'rounded-md border px-2 py-1 text-muted-foreground hover:bg-muted/40'
+                    }
+                  >
+                    {t('history.confirmLater')}
+                  </button>
+                  {confirmMode === 'later' && (
+                    <label className="flex flex-wrap items-center gap-2">
+                      <span className="text-muted-foreground">{t('history.confirmAt')}</span>
+                      <input
+                        type="datetime-local"
+                        value={confirmAt}
+                        min={toLocalDateTimeInputValue(new Date(Date.now() + 60_000))}
+                        onChange={(e) => {
+                          setConfirmAt(e.target.value)
+                          setConfirmError(null)
+                        }}
+                        className="rounded-md border border-input bg-transparent px-2 py-1 text-body"
+                      />
+                    </label>
+                  )}
+                </div>
+                {confirmError && (
+                  <p role="alert" className="text-label text-rose-600 dark:text-rose-400">
+                    {confirmError}
+                  </p>
+                )}
+              </div>
+            )}
             {(canCancel || canRetry || canConfirm) && (
               <div className="flex items-center gap-2 pt-1">
                 {canConfirm && !editing && (
@@ -446,14 +548,14 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
                   <Button
                     size="sm"
                     disabled={!task.taskId || acting !== null}
-                    onClick={() => void handleAction('confirm')}
+                    onClick={() => void handleConfirm()}
                   >
                     {acting === 'confirm' ? (
                       <Loader2 className="h-3 w-3 animate-spin" />
                     ) : (
                       <Loader2 className="h-3 w-3 opacity-0" />
                     )}
-                    {t('history.confirm')}
+                    {confirmMode === 'later' ? t('history.confirmLater') : t('history.confirm')}
                   </Button>
                 )}
                 {canCancel && (
