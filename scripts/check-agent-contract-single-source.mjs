@@ -168,8 +168,8 @@ function readContents(face, paths) {
       else map.set(rel, text)
     }
   } else {
-    const prefix = face === 'head' ? 'HEAD:' : ''
-    const specs = paths.map((rel) => `${prefix}${rel}`)
+    // 面口径：head=`HEAD:<path>`；index=`:<path>`（git cat-file 的暂存面写法，不能省冒号）
+    const specs = paths.map((rel) => (face === 'head' ? `HEAD:${rel}` : `:${rel}`))
     const got = catBatch(ROOT, specs, { timeout: 120_000 })
     for (let i = 0; i < paths.length; i += 1) {
       const text = got.get(specs[i])

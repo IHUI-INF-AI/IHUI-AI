@@ -84,6 +84,7 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 ## Recent updates (auto-maintained)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-27**
+- 🚀 新功能/改进:V2-08 任务5 名称规范 normalizeAgentName (0fe0a247f)
 - 🚀 新功能/改进:V2-08 任务4 types 包 DTO 与契约镜像 (98d3b6bd5)
 - 🚀 新功能/改进:V2-08 任务3 旧枚举降级 + 单一源扫描 (c281ce8f2)
 - 🚀 新功能/改进:V2-08 任务2 封闭状态/错误码/作用域 (5e9a5b435)

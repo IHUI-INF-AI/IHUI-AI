@@ -2227,6 +2227,7 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-27**
+- 🚀 기능/개선:V2-08 任务5 名称规范 normalizeAgentName (0fe0a247f)
 - 🚀 기능/개선:V2-08 任务4 types 包 DTO 与契约镜像 (98d3b6bd5)
 - 🚀 기능/개선:V2-08 任务3 旧枚举降级 + 单一源扫描 (c281ce8f2)
 - 🚀 기능/개선:V2-08 任务2 封闭状态/错误码/作用域 (5e9a5b435)
