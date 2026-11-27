@@ -14,6 +14,7 @@
 - create_artifact: G3 统一交付物工具(artifact_tools,html_report/slides/sheet/doc/video_ref);
 - generate_content: 内容出稿工具(content_tools,一句话→标题+正文,走 auto 模型路由);
 - precheck_content: 发布前合规自检(content_compliance_tools,标题/字数/话题词/承诺词/硬引导);
+- prepare_publish_draft: 一句话出稿→合规→落草稿(pipeline_tools,先查账号再生成,合规阻断不落库);
 - list_publish_accounts / publish_preflight / create_publish_draft / get_publish_stats: 发布账号清单、只读预检、落草稿与发布统计(publish_tools,不解密凭据/不执行发布);
 - update_publish_draft: 编辑草稿(publish_tools,重新预检且仍保持 draft,不替人确认);
 - get_publish_task: 单任务详情(publish_tools,只读状态/逐平台结果/失败原因/指标,供 Agent 诊断);
@@ -74,6 +75,7 @@ from .hr_tools import (
 )
 from .init_agents_md import init_agents_md
 from .payroll_handoff_tools import ai_payroll_handoff
+from .pipeline_tools import prepare_publish_draft
 from .publish_tools import (
     create_publish_draft,
     get_publish_acceptance,
@@ -96,6 +98,7 @@ __all__ = [
     "create_automation",
     "generate_content",
     "precheck_content",
+    "prepare_publish_draft",
     "list_publish_accounts",
     "publish_preflight",
     "create_publish_draft",

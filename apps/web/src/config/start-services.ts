@@ -14,14 +14,7 @@
  */
 
 export type StartServiceIcon =
-  | 'pen'
-  | 'send'
-  | 'chart'
-  | 'users'
-  | 'book'
-  | 'image'
-  | 'cap'
-  | 'wrench'
+  'pen' | 'send' | 'chart' | 'users' | 'book' | 'image' | 'cap' | 'wrench'
 
 export type StartSurface = 'web' | 'agent'
 
@@ -40,17 +33,33 @@ export interface StartService {
 export const START_SERVICES: readonly StartService[] = [
   {
     id: 'content.generate',
-    capabilityIds: ['content.generate', 'content.compliance', 'content.rewrite', 'content.title', 'content.script'],
+    capabilityIds: [
+      'content.pipeline',
+      'content.generate',
+      'content.compliance',
+      'content.rewrite',
+      'content.title',
+      'content.script',
+    ],
     title: 'AI 内容生产',
-    desc: '一句需求出稿，按平台改写成口播、图文、标题',
+    desc: '一句话出稿、合规自检并落下草稿，人工确认后才发布',
     href: '/ai-generation',
     icon: 'pen',
     surfaces: ['web'],
-    agentTool: 'generate_content',
+    agentTool: 'prepare_publish_draft',
   },
   {
     id: 'publish.dispatch',
-    capabilityIds: ['publish.draft', 'publish.edit', 'publish.preflight', 'publish.task', 'publish.queue', 'publish.platforms', 'publish.dispatch', 'publish.schedule'],
+    capabilityIds: [
+      'publish.draft',
+      'publish.edit',
+      'publish.preflight',
+      'publish.task',
+      'publish.queue',
+      'publish.platforms',
+      'publish.dispatch',
+      'publish.schedule',
+    ],
     title: '多平台发布',
     desc: '先出草稿并预检，人工确认后才分发到已接账号',
     href: '/publish/new',
