@@ -251,6 +251,23 @@ n/a 唯一一条是 B3-10（硬件专用键盘钩子），取证文档自己写�
 
 测试类型面整体不是绿的，这点必须照实写：117 条错误没有一条属于本轮落点，但"不属于我"不等于"绿"。整包源码面 rc=0 是硬的，测试面只能做到"归因清楚"。
 
+**契约轴补一条全量证据：127 枚工具逐条过谓词，而不是抽查两枚。**
+`tests/test_tool_contract_registry_sweep.py`（**20 passed**，ruff 全清；连带 `test_tool_contract.py` 19 + `test_agent_loop_contract_axis.py` 4 = **23 passed** 无回归）。
+
+此前对真实导出物的验证是**点检**：`test_tool_contract.py` 只断言 `run_command` 不要人批、`ai_delete` 要人批，证明"这两条判对了"，证不了"其余 125 条判得下去"。夹具测试更证不了——夹具是手写形状，导出物是导出器从 125 个源文件抽出来的形状，边界条件不同（`permission` 缺席、`alwaysAsk` 为 null、`shape` 里没 `visibleToProvider`，都只在真实数据里出现）。
+
+新用例钉的不变量（每条都**点名违规者**，不报"总数不对"）：
+
+- 声明 `requiresApproval: true` ⇒ `human_approval_mandated()` 必须为真（单向，不假红）；
+- `requiresApproval` 不为真且 `alwaysAsk` 不为真 ⇒ 不得凭空判要批（否则契约轴自己给自己加审批，用户每调一次工具被问一次）；
+- 每个已知名字 `lookup` 必须回 `declared` 且带条目；未知名字必须回 `absent`；注册表不可用时未知名字必须回 `unjudged`（三态严禁混读）；
+- `schema` 不符（v9.9）/ 缺席 ⇒ `INVALID` 且 reason 点名实际版本；只有 schema 正确且有条目才 `LOADED`；
+- 条目数只钉**下限 120**（不钉 127：本仓每天有人加工具，钉死会立刻假红；下限的作用是"导出器写残/注册表被截断"能抓到）。
+
+实测分布：`riskLevel` read 62 / write 46 / dangerous 19，`effectScope` system 44 / workspace 33 / network 24 / repository 23 / none 2 / ask-user 1，`requiresApproval=True` 与 `mandated=True` 都恰好 3 条（`ai_delete`、`api_delete`、`exit_worktree`）。
+
+**这一节也记一次我自己的失误**：看到 `registry.source.get("schema")` 返回 `None`，我先判"Python 加载器完全忽略 schema，v0.2 导出物会被当 v0.1 静默接受"，差点写成一条新缺口。回读 `load_registry` 第 213-220 行发现它**早就**在校验 schema、不符即 `INVALID`。真实原因是 `registry.source` 只是 JSON 里嵌套的 `source` 子对象，不含顶层 `schema`。教训与第九节同源：**"某个字段读不到"要先分清是"没有这个字段"还是"我读的位置不对"**，混淆这两者就会把自己的读取姿势写成人家的能力缺陷。
+
 **复核器与棘轮（当次读数）**：`node scripts/deep-native-audit.mjs` → **present 43 / partial 0 / absent 0 / n/a 1**；`--check` → 绿，44 条无退档，rc=0。三端逐 sha：HEAD = origin = gitee = `918682bfa0750b15d80dedb3538487ce3a247dea`。
 
 **未决问题一：`test_output_ring.py` 的 `REPO_ROOT` 是否算错一层 —— 结案：怀疑不成立。**
