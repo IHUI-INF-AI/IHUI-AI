@@ -947,7 +947,13 @@ export default function DocumentsPage() {
       )}
 
       {fileAiTarget ? (
-        <FileViewerDialog target={fileAiTarget} onClose={() => setFileAiTarget(null)} />
+        <FileViewerDialog
+          target={fileAiTarget}
+          onClose={() => {
+            setFileAiTarget(null)
+            setPreviewId(null)
+          }}
+        />
       ) : null}
     </div>
   )
