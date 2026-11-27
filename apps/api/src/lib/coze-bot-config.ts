@@ -90,7 +90,25 @@ function versionOf(value: unknown): string | null {
   return trimmed ? trimmed.slice(0, CONFIG_VERSION_MAX_LEN) : null
 }
 
+/** Coze 图标/背景图是带 x-expires / x-signature 的临时签名 URL，每次请求都会变。
+ *  配置哈希必须先剥掉这两个查询参数，否则每次同步都会误判成"配置变了"并写一条快照。 */
+function stripVolatileSignature(value: string): string {
+  if (!/^https?:\/\//i.test(value)) return value
+  try {
+    const url = new URL(value)
+    if (!url.searchParams.has('x-expires') && !url.searchParams.has('x-signature')) return value
+    url.searchParams.delete('x-expires')
+    url.searchParams.delete('x-signature')
+    // 同一对象会在 lf6-/lf9- 等 CDN 节点间轮换，节点前缀也不属于配置本身。
+    url.hostname = url.hostname.replace(/^lf\d+-/i, '')
+    return url.toString()
+  } catch {
+    return value
+  }
+}
+
 function stableStringify(value: unknown): string {
+  if (typeof value === 'string') return JSON.stringify(stripVolatileSignature(value))
   if (value === null || typeof value !== 'object') return JSON.stringify(value)
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`
   const record = value as Record<string, unknown>

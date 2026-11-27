@@ -88,6 +88,41 @@ const basePayload = {
 }
 
 describe('mapCozeBotConfig', () => {
+  it('treats rotating signed CDN URLs as the same config version', () => {
+    const first = mapCozeBotConfig(
+      {
+        ...basePayload,
+        icon_url:
+          'https://lf6-appstore-sign.oceancloudapi.com/icon.png?x-expires=1796413404&x-signature=abc',
+        background_image_info: {
+          web_background_image: {
+            image_url:
+              'https://lf6-appstore-sign.oceancloudapi.com/bg.png?x-expires=1796413404&x-signature=def',
+          },
+        },
+      },
+      'get_bot_config',
+    )
+    const second = mapCozeBotConfig(
+      {
+        ...basePayload,
+        icon_url:
+          'https://lf6-appstore-sign.oceancloudapi.com/icon.png?x-expires=1796415159&x-signature=xyz',
+        background_image_info: {
+          web_background_image: {
+            image_url:
+              'https://lf9-appstore-sign.oceancloudapi.com/bg.png?x-expires=1796415159&x-signature=uvw',
+          },
+        },
+      },
+      'get_bot_config',
+    )
+
+    expect(second.hash).toBe(first.hash)
+    // 原始 payload 仍保留当次签名 URL，不能被哈希规范化污染。
+    expect(second.patch.cozeIconUrl).toContain('x-expires=1796415159')
+  })
+
   it('maps every BotInfo field into structured columns', () => {
     const mapped = mapCozeBotConfig(basePayload, 'get_bot_config')
     const p = mapped.patch
