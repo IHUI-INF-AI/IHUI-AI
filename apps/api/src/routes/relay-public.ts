@@ -45,11 +45,11 @@ interface PublicRelayModelItem {
   providerCode: string
   /** 上下文长度 */
   contextLength: number
-  /** 基础输入价(分/千 token,来自 aiModelConfigModels.inputPricePer1k) */
+  /** 计费基础输入价(分/千 token;token 模式与 calculateCost 同源,取 ai_pricing 最新 token 行,缺失回退配置表) */
   inputPricePer1k: number
-  /** 基础输出价(分/千 token) */
+  /** 计费基础输出价(分/千 token) */
   outputPricePer1k: number
-  /** 官方/上游参考输入价(分/千 token,与 inputPricePer1k 同值,语义化为对比锚点) */
+  /** 官方/上游参考输入价(分/千 token,来自 aiModelConfigModels,仅作对比锚点) */
   officialInputPricePer1k: number
   /** 官方/上游参考输出价(分/千 token) */
   officialOutputPricePer1k: number
@@ -157,6 +157,9 @@ const relayPublicRoutes: FastifyPluginAsync = async (server) => {
           perUnitPrice: aiPricing.perUnitPrice,
           tieredCallPrices: aiPricing.tieredCallPrices,
           videoUnit: aiPricing.videoUnit,
+          // token 模式的计费基础价(calculateCost 实际使用的价格)
+          inputTokenPrice: aiPricing.inputTokenPrice,
+          outputTokenPrice: aiPricing.outputTokenPrice,
           // 长上下文加价 + 推理输出倍率(G,2026-09-16):公示用,未配置为 null(不加价)
           longContextMultiplier: aiPricing.longContextMultiplier,
           longContextThresholdTokens: aiPricing.longContextThresholdTokens,
@@ -171,9 +174,15 @@ const relayPublicRoutes: FastifyPluginAsync = async (server) => {
         )
         .orderBy(desc(aiPricing.effectiveAt))
       const pricingMap = new Map<string, (typeof pricingRows)[number]>()
+      // token 模式单独取最新 token 行:同一模型可能同时有更新的图片/视频行,
+      // 不能拿媒体行的 inputTokenPrice(=0)去覆盖 token 公示价。
+      const tokenPricingMap = new Map<string, (typeof pricingRows)[number]>()
       for (const p of pricingRows) {
         const k = normalizeModelId(p.modelId)
         if (!pricingMap.has(k)) pricingMap.set(k, p)
+        if ((p.billingMode ?? 'token') === 'token' && !tokenPricingMap.has(k)) {
+          tokenPricingMap.set(k, p)
+        }
       }
 
       // 订阅专享映射(2026-09-16 立):套餐 modelWhitelist 非空时,白名单内模型
@@ -205,12 +214,19 @@ const relayPublicRoutes: FastifyPluginAsync = async (server) => {
         if (seenModelIds.has(key)) continue
         seenModelIds.add(key)
         const multiplier = Math.max(0, toNumber(r.relayPriceMultiplier, 1))
-        // OpenRouter 动态路由模型用 -100000 作为「按实际成本」哨兵价,
-        // 直接透出会让客户端看到负价格;公开目录按 0 展示,billingMode 仍标 dynamic_cost。
-        const inputBase = Math.max(0, toNumber(r.inputPricePer1k, 0))
-        const outputBase = Math.max(0, toNumber(r.outputPricePer1k, 0))
+        // 官方/上游参考价来自配置表,只作“官方价”对比锚点。
+        const configInput = Math.max(0, toNumber(r.inputPricePer1k, 0))
+        const configOutput = Math.max(0, toNumber(r.outputPricePer1k, 0))
         const p = pricingMap.get(key)
         const billingMode = (p?.billingMode as PublicRelayModelItem['billingMode']) ?? 'token'
+        // 2026-11-27:token 公示价必须与 calculateCost 同源(ai_pricing 最新 token 行)。
+        // 此前用配置表基础价,13 个模型的公示价与实际结算价相差 2~8 倍。
+        const tokenRow = tokenPricingMap.get(key)
+        const tokenPriceIn = tokenRow ? Math.max(0, toNumber(tokenRow.inputTokenPrice, 0)) : 0
+        const tokenPriceOut = tokenRow ? Math.max(0, toNumber(tokenRow.outputTokenPrice, 0)) : 0
+        const inputBase = billingMode === 'token' && tokenPriceIn > 0 ? tokenPriceIn : configInput
+        const outputBase =
+          billingMode === 'token' && tokenPriceOut > 0 ? tokenPriceOut : configOutput
         const perUnit = toNumber(p?.perUnitPrice, 0)
         const tiered = p?.tieredCallPrices as {
           le256k?: unknown
@@ -231,8 +247,8 @@ const relayPublicRoutes: FastifyPluginAsync = async (server) => {
           contextLength: toNumber(r.contextLength, 0),
           inputPricePer1k: inputBase,
           outputPricePer1k: outputBase,
-          officialInputPricePer1k: inputBase,
-          officialOutputPricePer1k: outputBase,
+          officialInputPricePer1k: configInput,
+          officialOutputPricePer1k: configOutput,
           relayPriceMultiplier: multiplier,
           // 2026-09-13: 价格列已 numeric,小数分价是常态;Math.round 会把 0.0126 抹成 0
           relayInputPricePer1k: inputBase * multiplier,
