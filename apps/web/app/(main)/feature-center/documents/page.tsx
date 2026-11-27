@@ -858,6 +858,9 @@ export default function DocumentsPage() {
                     annotationPins={annotationPins}
                     focusedAnnotationId={focusedAnnotationId}
                     onAnnotationSelect={selectAnnotation}
+                    documentId={previewDocId}
+                    documentName={filePreviewName}
+                    onAnnotationsMutated={handleAnnotationsMutated}
                   />
                 ) : (
                   <div className="flex items-center justify-center py-8 text-muted-foreground">

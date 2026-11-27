@@ -25,8 +25,20 @@ export interface DocumentAnnotationRecord {
   anchor: Record<string, unknown> | null
   excerpt: string | null
   status: 'open' | 'resolved'
+  /** human = 人工批注;ai = AI 预审官结论。旧数据缺省按 human。 */
+  origin?: 'human' | 'ai'
   createdAt: string
   updatedAt: string
+}
+
+export interface AiReviewFinding {
+  readonly title: string
+  readonly severity: 'high' | 'medium' | 'low'
+  readonly detail: string
+  readonly evidence: string
+  readonly suggestion: string
+  /** PPTX 元素名;由服务端校验必须来自调用方给定元素集合 */
+  readonly element?: string
 }
 
 /** 页内标记:只支持有稳定页面/元素坐标的 PDF 与 PPTX。 */
@@ -139,4 +151,41 @@ export async function deleteDocumentAnnotation(id: string, documentId: string): 
     body: JSON.stringify({ documentId }),
   })
   if (!res.success) throw new Error(res.error)
+}
+
+/**
+ * AI 预审官:对已定位的文档片段生成带证据的 findings。
+ * 片段由查看器从已打开的 PDF/PPTX 中提取,服务端不按路径二次读盘。
+ */
+export async function reviewDocumentFragment(input: {
+  title: string
+  anchor: Record<string, unknown>
+  text: string
+  elements?: readonly { name: string; text: string }[]
+}): Promise<AiReviewFinding[]> {
+  const res = await fetchApi<{ findings: AiReviewFinding[] }>('/api/office/review', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  if (!res.success) throw new Error(res.error)
+  return res.data.findings
+}
+
+/** 把 AI findings 落成页内 pin;同一位置同一结论由服务端去重。 */
+export async function saveAiFindings(input: {
+  documentId: string
+  label: string
+  anchorKind: string
+  anchor: Record<string, unknown>
+  findings: readonly AiReviewFinding[]
+}): Promise<{ created: DocumentAnnotationRecord[]; skipped: number }> {
+  const res = await fetchApi<{ created: DocumentAnnotationRecord[]; skipped: number }>(
+    '/api/feature-center/documents/annotations/ai',
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  )
+  if (!res.success) throw new Error(res.error)
+  return res.data
 }

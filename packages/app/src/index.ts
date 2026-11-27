@@ -785,6 +785,7 @@ export type {
   AgentReviewDetailItem,
   AgentReviewDetailScreenProps,
   BankCardItem,
+  BankCardInput,
   BankCardScreenProps,
   BusinessCardItem,
   BusinessCardScreenProps,
