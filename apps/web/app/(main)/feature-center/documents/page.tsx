@@ -1013,7 +1013,7 @@ export default function DocumentsPage() {
             )}
           </CardContent>
           {annotationsOpen && filePreviewSrc ? (
-            <div className="absolute inset-y-0 right-0 z-30 w-[min(92vw,380px)] p-2 pl-0">
+            <div className="fixed inset-y-2 right-2 z-[80] w-[min(92vw,380px)]">
               <DocumentAnnotationsPanel
                 documentId={previewDoc.id}
                 documentTitle={previewDoc.title}
