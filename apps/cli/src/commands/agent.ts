@@ -52,6 +52,12 @@ import {
   type Tool,
   type ToolContext,
 } from '../tools/index.js';
+import { toolCrashResult } from '../tools/tool-crash.js';
+import {
+  buildNativeToolsBody,
+  shouldRetryNativeTools,
+  type ToolChoice,
+} from '../tools/native-tools-body.js';
 import { createToolSearchTool } from '../tools/tool-search.js';
 import { composeSystemPrompt } from '../prompts/compose.js';
 import { parseWelcomeMode, parseInteractionMode } from '../prompts/mode-matrix.js';
@@ -797,6 +803,12 @@ export interface RunToolLoopOptions {
   messages: ChatMessage[];
   ctx: ToolContext;
   maxIterations: number;
+  /**
+   * 原生 function calling 的 `tool_choice`。缺省**不写进请求体**(与改动前逐字节同请求);
+   * `'required'` = 本轮必须调工具,对象形 = 必须调指定那一枚。
+   * 只在携带 tools 时才生效(prompt 降级模式下无意义)。
+   */
+  toolChoice?: ToolChoice;
   signal?: AbortSignal;
   /** 关联会话 ID(用于 hook 埋点传递) */
   sessionId?: string;
@@ -2209,6 +2221,8 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       : settings.nativeFunctionCalling ?? 'auto';
   // true/'auto' → 携带 tools 下发;false → 完全走 prompt 正则路径;auto 探测失败自动降级
   let nativeToolsEnabled = nativeToolsMode !== false;
+  /** 降级发生的轮次;null=从未降级。满 NATIVE_TOOLS_RETRY_INTERVAL 轮重试一次原生。 */
+  let nativeToolsDowngradeAt: number | null = null;
 
   // 生态扩展:本地 provider(Ollama / vLLM openai-compatible)直连采样。
   // resolveProvider 返回 kind 时,runToolLoop 用 streamOpenAiCompatible 替换默认 streamChat 远端路径;
@@ -2482,10 +2496,19 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       // auto 模式下 nativeToolsEnabled 探测失败会被置 false,后续迭代永久降级 prompt 模式
       // 2026-11-05:下发前按**同一个权限判据**过滤(广告面=可执行面),无头会话不再被引诱去撞
       // 结构上执行不了的墙(实测 run_command 40 次调用几乎全拒,每次烧掉一整轮迭代)。
+      // 2026-11-27 P0:降级不再永久 —— 满 NATIVE_TOOLS_RETRY_INTERVAL 轮重试一次原生
+      if (shouldRetryNativeTools(nativeToolsEnabled, nativeToolsDowngradeAt, iterations)) {
+        nativeToolsEnabled = true;
+        nativeToolsDowngradeAt = null;
+        process.stderr.write(chalk.dim('[native-fc] 距上次降级已满重试间隔,重试原生 tools\n'));
+      }
       let nativeToolEvents: ParsedToolCall[] = [];
       const advertisedTools = advertisableTools(listTools());
       const useNativeTools = nativeToolsEnabled && advertisedTools.length > 0;
-      const nativeExtraBody = useNativeTools ? { tools: toolsToProviderSchema(advertisedTools) } : undefined;
+      // P0 tool_choice:缺省不写字段(逐字节兼容);buildNativeToolsBody 空 tools 返回 undefined
+      const nativeExtraBody = useNativeTools
+        ? buildNativeToolsBody(toolsToProviderSchema(advertisedTools), opts.toolChoice)
+        : undefined;
 
       // 每轮一条流:换册前先收尾旧册(finalizeLedger 幂等 —— 上一轮尾已收尾则此处为 no-op;
       // 走过 continue 早退路径的旧册则在此交账,已提前发起的执行不得没有记录)。
@@ -2665,6 +2688,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       // auto 探测降级:provider 拒绝 tools("not supported")→ 本轮降级 prompt 模式重试,后续不再携带 tools
       if (samplerResult.error && useNativeTools && isToolsUnsupportedError(samplerResult.error)) {
         nativeToolsEnabled = false;
+        nativeToolsDowngradeAt = iterations;
         iterationText = '';
         nativeToolEvents = [];
         // 重读同一条逻辑流:旧账本先收尾交账再作废(否则上一趟的登记会被误判成 stranded,
@@ -3170,22 +3194,29 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
               };
             }
           }
-          // 经账本发起执行:流式期已提前跑起来的,这里复用同一个 promise(绝不重复执行);
-          // 匹配按 (工具名+参数指纹) 而非下标 —— 上游解析器丢条目时下标会整体错位一格。
-          const ledgerEntry = ledger.matchForCall(call.name, call.arguments);
-          const result = ledgerEntry
-            ? (await ledger.runOnce(ledgerEntry, () => executeToolCall(call, toolCtx))).value
-            : await executeToolCall(call, toolCtx);
-          if (call.name === 'dispatch_subagent') {
-            const subId = String(call.arguments.subagentId ?? call.arguments.task ?? '').slice(0, 80);
-            await runHook('subagentStop', {
-              workspacePath: opts.ctx.workspacePath,
-              sessionId: opts.sessionId,
-              subagentId: subId,
-              reason: result.success ? 'completed' : 'failed',
-            }, { signal: opts.signal });
+          try {
+            // 经账本发起执行:流式期已提前跑起来的,这里复用同一个 promise(绝不重复执行);
+            // 匹配按 (工具名+参数指纹) 而非下标 —— 上游解析器丢条目时下标会整体错位一格。
+            const ledgerEntry = ledger.matchForCall(call.name, call.arguments);
+            const result = ledgerEntry
+              ? (await ledger.runOnce(ledgerEntry, () => executeToolCall(call, toolCtx))).value
+              : await executeToolCall(call, toolCtx);
+            if (call.name === 'dispatch_subagent') {
+              const subId = String(call.arguments.subagentId ?? call.arguments.task ?? '').slice(0, 80);
+              await runHook('subagentStop', {
+                workspacePath: opts.ctx.workspacePath,
+                sessionId: opts.sessionId,
+                subagentId: subId,
+                reason: result.success ? 'completed' : 'failed',
+              }, { signal: opts.signal });
+            }
+            return { call, result, durationMs: Date.now() - startTime };
+          } catch (error) {
+            // P0 并发韧性:一枚工具真抛异常时折成"这一枚失败",不得让 Promise.all 炸掉
+            // 同批其余结果与后续批次(旧语义已登记在 tool-call-scheduler.ts 头注)。
+            // 归因:保留原始 message(排障要原文),errorType=tool_crashed 不在可重试闭集。
+            return { call, result: toolCrashResult(call, error), durationMs: Date.now() - startTime };
           }
-          return { call, result, durationMs: Date.now() - startTime };
         }),
       );
       for (const { call, result, durationMs } of parallelResults) {

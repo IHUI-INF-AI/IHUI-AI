@@ -37,7 +37,7 @@
  * 平台特有:依赖 RN Animated/PanResponder/Modal/SafeAreaContext,不适合共享。
  */
 import { tokens } from '../theme/active-tokens'
-import { ELEVATION_STEPS, rnGeometry, rnRadius, rnRadiusFor, rnSpacing } from '@ihui/design-tokens'
+import { ELEVATION_STEPS, rnGeometry, rnRadiusFor, rnSpacing } from '@ihui/design-tokens'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Animated,
@@ -1443,7 +1443,7 @@ const styles = StyleSheet.create({
   renameCard: {
     width: '82%' as const,
     padding: rnSpacing.md,
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadiusFor.panel,
     backgroundColor: tokens.surface.card,
   },
   renameTitle: {
@@ -1491,7 +1491,7 @@ const styles = StyleSheet.create({
     // 不写 px 字面量)。原写 `rnRadiusFor.chip`(md=6)是"导航项/chip"那一档,与小程序端
     // 同一枚元素差两档 ⇒ 守门 128 的 RD 维实测为"圆角 3 > 锚点 2"那一笔红的来源。
     // 定档依据:仓内头像族(UserInfoCard 两端)逐档同值取 2xl,本端照抄同一档而不是各取直觉。
-    borderRadius: rnRadius['2xl'],
+    borderRadius: rnRadiusFor.hero,
   },
   userAvatarFallback: {
     alignItems: 'center',

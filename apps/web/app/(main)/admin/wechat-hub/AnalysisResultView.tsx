@@ -27,9 +27,9 @@ function Bars({ rows }: { rows: BarRow[] }) {
           <span className="w-28 shrink-0 truncate text-muted-foreground" title={row.label}>
             {row.label}
           </span>
-          <div className="relative h-1.5 min-w-0 flex-1 rounded-sm bg-muted">
+          <div className="relative h-1.5 min-w-0 flex-1 rounded-xs bg-muted">
             <div
-              className="absolute inset-y-0 left-0 rounded-sm bg-primary"
+              className="absolute inset-y-0 left-0 rounded-xs bg-primary"
               style={{ width: `${Math.max(2, Math.round(row.ratio * 100))}%` }}
             />
           </div>

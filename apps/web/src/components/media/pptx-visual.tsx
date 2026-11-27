@@ -1020,7 +1020,7 @@ function ShapeHit({
       type="button"
       aria-label={label}
       title={label}
-      className="absolute z-20 rounded-sm border-0 bg-transparent p-0 transition-colors hover:bg-primary/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
+      className="absolute z-20 border-0 bg-transparent p-0 transition-colors hover:bg-primary/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
       style={{
         left: `${shape.x * 100}%`,
         top: `${shape.y * 100}%`,
@@ -1049,7 +1049,7 @@ function VisualSlideView({
   return (
     <figure data-testid="pptx-visual-slide" className="mx-auto w-full max-w-[880px]">
       <div
-        className="relative w-full overflow-hidden rounded-sm shadow-sm ring-1 ring-border"
+        className="relative w-full overflow-hidden rounded-lg shadow-sm ring-1 ring-border"
         style={
           {
             aspectRatio: `${cx} / ${cy}`,

@@ -32,7 +32,7 @@ export default function GroupActionPlanCard({
   onConfirm,
 }: GroupActionPlanCardProps) {
   return (
-    <div className="space-y-2 rounded-md border border-stroke-field p-3">
+    <div className="space-y-2 rounded-lg border border-stroke-field p-3">
       <div className="flex items-center justify-between gap-2">
         <p className="flex items-center gap-2 text-body font-medium">
           <Users className="h-4 w-4" />

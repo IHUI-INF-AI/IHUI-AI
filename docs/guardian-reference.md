@@ -1136,9 +1136,9 @@
 ```
 
   💡 圆角档位唯一真相源 = packages/design-tokens/src/radius.js(xs2/md6/lg8/xl12/2xl16)。
-     RN/内联 style : borderRadius: rnRadius.lg      (import { rnRadius } from '@ihui/design-tokens')
-     CSS/SCSS      : border-radius: var(--radius-lg)
-     类名          : rounded-lg(禁止 rounded-[24rpx] 这类任意值)
+     RN/组件 style : borderRadius: rnRadiusFor.chip  (import { rnRadiusFor } from '@ihui/design-tokens';按角色取,禁止 rnRadius.<step> 借档)
+     CSS/SCSS      : border-radius: var(--radius-lg)(按角色选档)
+     类名          : rounded-lg(按角色选档;禁止 rounded-[24rpx] 这类任意值)
      真圆/头像/胶囊: 用 size/2 几何表达式或等于档位值的档;项目不允许胶囊,也没有豁免标记 —— 写标记本门 B8 判红
      档位漂移      : 改 radius.js 一处后跑 node scripts/check-radius-single-source.mjs --self-test,
                      CSS 端同步 tokens.css 并按端内脚本重跑 design-tokens 同步。

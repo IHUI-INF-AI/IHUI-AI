@@ -399,7 +399,7 @@ export default function NotificationsPage() {
                         role="radio"
                         aria-checked={checked}
                         onClick={() => void handleSelectRingtone(ring.id)}
-                        className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stroke-focus ${
+                        className={`flex w-full items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stroke-focus ${
                           checked ? 'border-stroke-strong bg-muted/40' : 'border-stroke-light'
                         }`}
                       >

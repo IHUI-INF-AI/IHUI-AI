@@ -112,7 +112,7 @@ export function ThemeCard() {
               aria-checked={skin.active}
               onClick={skin.onClick}
               data-testid={`appearance-skin-${skin.id}`}
-              className={`flex items-center gap-2 rounded-sm border px-2 py-2 text-body transition-colors ${skin.active ? BTN.active : BTN.idle}`}
+              className={`flex items-center gap-2 rounded-md border px-2 py-2 text-body transition-colors ${skin.active ? BTN.active : BTN.idle}`}
             >
               {skin.swatch}
               <span className="whitespace-nowrap font-medium">{skin.label}</span>
@@ -138,7 +138,7 @@ export function ThemeCard() {
             { value: 'rounded', label: t('radiusRounded') },
           ]}
         />
-        <div className="flex justify-center rounded-sm border bg-muted/30 p-2">
+        <div className="flex justify-center rounded-lg border bg-muted/30 p-2">
           <div
             className="h-10 w-24 bg-primary/15 ring-1 ring-stroke-selected/30"
             style={{ borderRadius: 'var(--radius-lg)' }}

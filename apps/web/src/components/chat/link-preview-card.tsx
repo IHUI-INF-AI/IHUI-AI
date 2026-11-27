@@ -163,7 +163,7 @@ export function LinkPreviewCard({
       role="status"
       title={preview.status === 'ok' ? preview.url : undefined}
       className={cn(
-        'mx-1 mb-1.5 flex items-center gap-2.5 rounded-xl border border-border/60 bg-card/85 px-2 py-1.5 text-label shadow-sm backdrop-blur-sm transition-colors hover:border-border',
+        'mx-1 mb-1.5 flex items-center gap-2.5 rounded-lg border border-border/60 bg-card/85 px-2 py-1.5 text-label shadow-sm backdrop-blur-sm transition-colors hover:border-border',
         className,
       )}
     >
@@ -180,7 +180,7 @@ export function LinkPreviewCard({
             decoding="async"
             referrerPolicy="no-referrer"
             onError={() => setFailedIcon(preview.icon ?? null)}
-            className="h-5 w-5 rounded-[3px] object-contain"
+            className="h-5 w-5 rounded-xs object-contain"
           />
         ) : preview.status === 'ok' && monogram ? (
           <span className="text-[13px] font-semibold tracking-tight">{monogram}</span>
