@@ -1014,7 +1014,7 @@ export default function DocumentsPage() {
       )}
 
       {annotationsOpen && filePreviewSrc && previewDoc ? (
-        <div className="fixed inset-y-2 right-2 z-[80] w-[min(92vw,380px)]">
+        <div className="fixed inset-y-2 right-2 z-popover w-[min(92vw,380px)]">
           <DocumentAnnotationsPanel
             documentId={previewDoc.id}
             documentTitle={previewDoc.title}
