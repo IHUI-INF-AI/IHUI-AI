@@ -183,6 +183,7 @@ describe('D91 XLSX 单元格选区 → 批注锚 → 注事件', () => {
     expect(received[0]?.source).toBe('xlsx-selection')
     expect(received[0]?.sheet).toBe('表A')
     expect(received[0]?.range).toBe('A1')
+    expect(received[0]?.note).toBe('把表头加粗')
     received.release()
   })
 

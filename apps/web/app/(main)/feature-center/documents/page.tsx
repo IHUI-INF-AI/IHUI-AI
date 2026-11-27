@@ -18,6 +18,7 @@ import {
   Check,
   List,
   Sparkles,
+  MessageSquare,
   X,
   ChevronLeft,
   ChevronRight,
@@ -33,6 +34,12 @@ import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import { FeatureCenterHeader, FeatureCenterNav } from '@/components/feature-center'
 import { FileViewerDialog, type FileViewerTarget } from '@/components/media/file-viewer-dialog'
 import { UniversalFilePreview } from '@/components/media/universal-file-preview'
+import { DocumentAnnotationsPanel } from '@/components/docs/document-annotations-panel'
+import {
+  ADD_TEXT_REFERENCE_EVENT,
+  type AnchorReferenceDetail,
+} from '@/components/chat/annotation-anchor'
+import { toast } from '@/components/common'
 import { formatDateOnly } from '@/lib/date-utils'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 
@@ -318,12 +325,15 @@ export default function DocumentsPage() {
   const filePreviewName = previewDoc
     ? previewDoc.description.split('/').pop() || previewDoc.title || ''
     : ''
+  const previewDocId = previewDoc?.id ?? ''
   // 文件档带鉴权取字节:直接给 <img>/<iframe> 用裸 URL 不会带 Authorization,
   // 顶层文档(仅管理员)会 401;统一取 blob 后再渲染,和项目文件/IDE 同一条路径。
   const [filePreviewUrl, setFilePreviewUrl] = React.useState('')
   const [filePreviewBlob, setFilePreviewBlob] = React.useState<Blob | null>(null)
   const [filePreviewFailed, setFilePreviewFailed] = React.useState(false)
   const [fileAiTarget, setFileAiTarget] = React.useState<FileViewerTarget | null>(null)
+  const [annotationsOpen, setAnnotationsOpen] = React.useState(false)
+  const [annotationsRefreshKey, setAnnotationsRefreshKey] = React.useState(0)
   React.useEffect(() => {
     if (!filePreviewSrc) {
       setFilePreviewUrl('')
@@ -352,6 +362,50 @@ export default function DocumentsPage() {
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
   }, [filePreviewSrc])
+
+  /**
+   * D91 锚点 → 文档线程持久化(2026-11-27 立)。
+   *
+   * 采集卡只发 `ihui:add-text-reference`;文档中心在“添加到任务”时旁路一份到服务端,
+   * 用户不必再点第二个“保存批注”按钮。事件 detail 里 note 是增量字段,
+   * 旧派发方没有 note 时从 text 的 `[坐标] 备注` 中兜底解析。
+   */
+  React.useEffect(() => {
+    if (!previewDocId || !filePreviewSrc) return
+    const documentId = previewDocId
+    const handler = (event: Event): void => {
+      const detail = (event as CustomEvent<AnchorReferenceDetail>).detail
+      if (!detail?.anchor || typeof detail.text !== 'string') return
+      const note =
+        detail.note?.trim() ||
+        detail.text.replace(/^\[[^\]]*\]\s*/, '').trim()
+      if (!note) return
+      const close = detail.text.startsWith('[') ? detail.text.indexOf(']') : -1
+      const label = close > 0 ? detail.text.slice(1, close).trim() : ''
+      void fetchApi('/api/feature-center/documents/annotations', {
+        method: 'POST',
+        body: JSON.stringify({
+          documentId,
+          body: note,
+          label,
+          anchorKind: detail.anchor.kind,
+          anchor: detail.anchor,
+          excerpt: detail.excerpt ?? '',
+        }),
+      })
+        .then((res) => {
+          if (res.success) {
+            setAnnotationsRefreshKey((v) => v + 1)
+            toast.success('批注已同步')
+          } else {
+            toast.error(res.error || '批注同步失败')
+          }
+        })
+        .catch(() => toast.error('批注同步失败'))
+    }
+    window.addEventListener(ADD_TEXT_REFERENCE_EVENT, handler)
+    return () => window.removeEventListener(ADD_TEXT_REFERENCE_EVENT, handler)
+  }, [previewDocId, filePreviewSrc])
 
   // 从当前显示内容提取 TOC
   const tocItems = React.useMemo(() => extractToc(displayContent), [displayContent])
@@ -475,6 +529,7 @@ export default function DocumentsPage() {
     setPreviewId(null)
     setNavigatedSlug(null)
     setFileAiTarget(null)
+    setAnnotationsOpen(false)
   }
 
   // 上一篇/下一篇导航:切换 previewId 并清空 navigated 状态(滚动到顶部由 displaySlug effect 处理)
@@ -482,6 +537,7 @@ export default function DocumentsPage() {
     setPreviewId(doc.id)
     setNavigatedSlug(null)
     setFileAiTarget(null)
+    setAnnotationsOpen(false)
   }
 
   return (
@@ -628,7 +684,7 @@ export default function DocumentsPage() {
       )}
 
       {previewDoc && (
-        <Card className="fixed inset-4 z-modal flex flex-col overflow-hidden min-[768px]:inset-x-1/4 min-[768px]:top-1/4 min-[768px]:bottom-1/4">
+        <Card className="fixed inset-4 z-modal flex flex-col overflow-hidden min-[768px]:inset-x-1/4 min-[768px]:top-1/4 min-[768px]:bottom-1/4 relative">
           <CardContent className="min-[640px]:p-3 flex flex-1 flex-col gap-3 p-3">
             <div className="flex shrink-0 items-center justify-between gap-2">
               <h3 className="flex min-w-0 flex-1 items-center gap-2 text-lg font-semibold">
@@ -662,6 +718,19 @@ export default function DocumentsPage() {
                     <List className="h-4 w-4" />
                   </Button>
                 )}
+                {filePreviewSrc ? (
+                  <Button
+                    variant={annotationsOpen ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => setAnnotationsOpen((v) => !v)}
+                    className="gap-1.5"
+                    aria-label="打开文档批注"
+                    title="打开文档批注"
+                  >
+                    <MessageSquare className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                    <span className="hidden text-xs sm:inline">批注</span>
+                  </Button>
+                ) : null}
                 {filePreviewSrc ? (
                   <Button
                     variant="ghost"
@@ -943,6 +1012,16 @@ export default function DocumentsPage() {
               </div>
             )}
           </CardContent>
+          {annotationsOpen && filePreviewSrc ? (
+            <div className="absolute inset-y-0 right-0 z-30 w-[min(92vw,380px)] p-2 pl-0">
+              <DocumentAnnotationsPanel
+                documentId={previewDoc.id}
+                documentTitle={previewDoc.title}
+                refreshKey={annotationsRefreshKey}
+                onClose={() => setAnnotationsOpen(false)}
+              />
+            </div>
+          ) : null}
         </Card>
       )}
 
