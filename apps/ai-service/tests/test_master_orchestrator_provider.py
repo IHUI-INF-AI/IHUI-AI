@@ -96,3 +96,45 @@ async def test_without_provider_keeps_in_memory_registry(monkeypatch: pytest.Mon
 
     assert result.status == "completed"
     assert result.definition_id is None
+
+
+@pytest.mark.asyncio
+async def test_run_ledger_records_status_and_tool_steps(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeSession:
+        def __init__(self) -> None:
+            self.events: list[tuple[str, dict[str, Any]]] = []
+
+        async def status(self, status: str, **kwargs: Any) -> None:
+            self.events.append(("status", {"status": status, **kwargs}))
+
+        async def append(self, event_type: str, payload: dict[str, Any]) -> None:
+            self.events.append((event_type, payload))
+
+    class FakeLedger:
+        def __init__(self) -> None:
+            self.session_obj = FakeSession()
+
+        def session(self, _run_id: str) -> FakeSession:
+            return self.session_obj
+
+    ledger = FakeLedger()
+    orchestrator = AgentOrchestrator(registry=AgentRegistry(), run_ledger=ledger)  # type: ignore[arg-type]
+
+    async def fake_run(agent, user_input, *args, **kwargs):  # type: ignore[no-untyped-def]
+        return AgentStepResult(
+            agent_name=agent.name,
+            input=user_input,
+            output="ok",
+            status="completed",
+            tool_calls=[{"tool": "read_file", "ok": True}],
+        )
+
+    monkeypatch.setattr(orchestrator, "_run_agent", fake_run)
+    result = await orchestrator.invoke("researcher", "调研", run_id="run-1")
+
+    assert result.status == "completed"
+    assert ledger.session_obj.events == [
+        ("status", {"status": "running"}),
+        ("status", {"status": "completed", "error_code": None, "error_message": None}),
+        ("step", {"iteration": 1, "tool": "read_file", "ok": True, "blocked": False}),
+    ]

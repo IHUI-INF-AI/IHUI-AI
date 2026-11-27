@@ -55,6 +55,7 @@ from .agent_resolver import AgentResolveError
 from .mcp_server import mcp_server
 from .memory import memory_store
 from .prompt_registry import prompt_registry
+from .run_ledger import RunLedgerClient, RunLedgerSession
 from .tool_context_boundary import scan_and_frame_tool_result
 
 logger = logging.getLogger(__name__)
@@ -312,9 +313,11 @@ class AgentOrchestrator:
         self,
         registry: AgentRegistry | None = None,
         definition_provider: Callable[[str], RuntimeAgentDefinition] | None = None,
+        run_ledger: RunLedgerClient | None = None,
     ) -> None:
         self._registry = registry or AgentRegistry()
         self._definition_provider = definition_provider
+        self._run_ledger = run_ledger
 
     @property
     def registry(self) -> AgentRegistry:
@@ -351,6 +354,7 @@ class AgentOrchestrator:
         permission_mode: str | None = None,
         tool_allow: list[str] | None = None,
         tool_deny: list[str] | None = None,
+        run_id: str | None = None,
     ) -> AgentStepResult:
         """调用单个 agent 执行任务。
 
@@ -365,29 +369,57 @@ class AgentOrchestrator:
                                 **绝不**在本处再猜一个方向。
         """
         start = time.monotonic()
+        ledger_session: RunLedgerSession | None = None
+        if self._run_ledger is not None and run_id:
+            ledger_session = self._run_ledger.session(run_id)
+            await ledger_session.status("running")
+
+        async def finish(result: AgentStepResult) -> AgentStepResult:
+            if ledger_session is not None:
+                await ledger_session.status(
+                    result.status,
+                    error_code=result.error_code,
+                    error_message=result.error if result.status == "failed" else None,
+                )
+                for index, call in enumerate(result.tool_calls, start=1):
+                    await ledger_session.append(
+                        "step",
+                        {
+                            "iteration": index,
+                            "tool": call.get("tool"),
+                            "ok": call.get("ok"),
+                            "blocked": bool(call.get("blocked")),
+                        },
+                    )
+            return result
+
         runtime: RuntimeAgentDefinition | None
         try:
             runtime = self._get_runtime(agent_name)
         except AgentResolveError as exc:
-            return AgentStepResult(
-                agent_name=agent_name,
-                input=user_input,
-                output="",
-                status="failed",
-                duration_ms=round((time.monotonic() - start) * 1000, 2),
-                error=exc.message,
-                error_code=exc.code,
+            return await finish(
+                AgentStepResult(
+                    agent_name=agent_name,
+                    input=user_input,
+                    output="",
+                    status="failed",
+                    duration_ms=round((time.monotonic() - start) * 1000, 2),
+                    error=exc.message,
+                    error_code=exc.code,
+                )
             )
         agent = runtime.to_legacy() if runtime is not None else self._get_agent(agent_name)
         if not agent:
-            return AgentStepResult(
-                agent_name=agent_name,
-                input=user_input,
-                output="",
-                status="failed",
-                duration_ms=round((time.monotonic() - start) * 1000, 2),
-                error=f"Agent 不存在: {agent_name}",
-                error_code="AGENT_NOT_FOUND",
+            return await finish(
+                AgentStepResult(
+                    agent_name=agent_name,
+                    input=user_input,
+                    output="",
+                    status="failed",
+                    duration_ms=round((time.monotonic() - start) * 1000, 2),
+                    error=f"Agent 不存在: {agent_name}",
+                    error_code="AGENT_NOT_FOUND",
+                )
             )
         result = await self._run_agent(
             agent,
@@ -404,7 +436,7 @@ class AgentOrchestrator:
             result.definition_id = runtime.id
             result.definition_version = runtime.version
             result.prompt_hash = runtime.prompt_hash
-        return result
+        return await finish(result)
 
     # =========================================================================
     # Pipeline(串行)
