@@ -17,6 +17,9 @@ export interface DesktopFeedAsset {
 export interface DesktopFeedUpdaterEntry {
   url: string
   signature: string
+  /** v2 客户端解析 `platforms` 时 size/sha256 必填；legacy 更新器忽略这两个字段。 */
+  size?: number
+  sha256?: string
 }
 
 export interface DesktopFeed {
