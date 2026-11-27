@@ -942,7 +942,7 @@ export function AiPipMonitor({
                   aria-expanded
                   aria-label={labels.collapseTask}
                   title={labels.collapseTask}
-                  className="grid h-5 w-5 flex-none place-items-center rounded text-slate-400 hover:bg-white/10 hover:text-slate-200"
+                  className="grid h-5 w-5 flex-none place-items-center rounded-md text-slate-400 hover:bg-white/10 hover:text-slate-200"
                 >
                   <ChevronUp className="h-3 w-3" />
                 </button>

@@ -37,7 +37,7 @@
  * 平台特有:依赖 RN Animated/PanResponder/Modal/SafeAreaContext,不适合共享。
  */
 import { tokens } from '../theme/active-tokens'
-import { ELEVATION_STEPS, rnGeometry, rnRadius, rnRadiusFor, rnSpacing } from '@ihui/design-tokens'
+import { ELEVATION_STEPS, rnGeometry, rnRadiusFor, rnSpacing } from '@ihui/design-tokens'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Animated,
@@ -1443,7 +1443,7 @@ const styles = StyleSheet.create({
   renameCard: {
     width: '82%' as const,
     padding: rnSpacing.md,
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadiusFor.panel,
     backgroundColor: tokens.surface.card,
   },
   renameTitle: {

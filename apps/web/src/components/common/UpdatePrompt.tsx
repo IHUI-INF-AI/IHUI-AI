@@ -45,7 +45,7 @@ export function UpdatePrompt() {
           <button
             type="button"
             onClick={() => void openExternalUrl('https://aizhs.top/')}
-            className="h-9 shrink-0 rounded-xl bg-cta px-3.5 text-label font-medium text-cta-foreground transition-colors hover:bg-cta/90"
+            className="h-9 shrink-0 rounded-md bg-cta px-3.5 text-label font-medium text-cta-foreground transition-colors hover:bg-cta/90"
           >
             {t('bootstrapAction')}
           </button>
@@ -79,7 +79,7 @@ export function UpdatePrompt() {
           <button
             type="button"
             onClick={dismissRollbackNotice}
-            className="h-9 shrink-0 rounded-xl border border-border px-3.5 text-label font-medium text-foreground transition-colors hover:bg-muted"
+            className="h-9 shrink-0 rounded-md border border-border px-3.5 text-label font-medium text-foreground transition-colors hover:bg-muted"
           >
             {t('rollbackNoticeDismiss')}
           </button>
@@ -122,7 +122,7 @@ export function UpdatePrompt() {
           onClick={() => void restart()}
           disabled={restarting}
           className={cn(
-            'flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-cta px-3.5',
+            'flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-cta px-3.5',
             'text-label font-medium text-cta-foreground transition-colors hover:bg-cta/90',
             'disabled:cursor-default disabled:opacity-70',
           )}

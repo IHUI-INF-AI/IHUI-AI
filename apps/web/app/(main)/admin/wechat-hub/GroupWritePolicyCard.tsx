@@ -88,7 +88,7 @@ export default function GroupWritePolicyCard({
     (targetsLimit !== policy.maxTargetsPerAction || actionsLimit !== policy.maxActionsPerHour)
 
   return (
-    <div className="space-y-3 rounded-md border border-stroke-field p-3">
+    <div className="space-y-3 rounded-lg border border-stroke-field p-3">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-4 w-4" />
