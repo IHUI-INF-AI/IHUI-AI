@@ -216,6 +216,22 @@ const memory_recall: Tool = {
   description:
     '语义检索记忆:用 query 在 semantic 层做 cosine similarity 检索,返回 top_k 相关记忆条目。适合回忆用户偏好、历史决策、知识点。属主由本地登录态绑定,无需(也不允许)指定用户 ID。',
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'memory.recall',
+      reason: '只读语义检索记忆,不改记忆库,无需批准',
+      riskLevel: 'read',
+      effectScope: 'workspace',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     query: { type: 'string', description: '语义检索查询文本' },
     top_k: {
@@ -270,6 +286,22 @@ const memory_save: Tool = {
   description:
     '保存新记忆到指定层(working/episodic/semantic/procedural)。working=当前会话缓冲;episodic=历史会话片段;两者分区由宿主会话号自动带上,模型不指定;semantic=向量知识(自动生成 embedding);procedural=工具用法模式(需 metadata.pattern/tool_name/success)。',
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'memory.save',
+      reason: '保存新记忆到记忆库,写入持久层,须人确认',
+      riskLevel: 'read',
+      effectScope: 'workspace',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     content: { type: 'string', description: '记忆内容' },
     layer: {
@@ -337,6 +369,22 @@ const memory_dream: Tool = {
   description:
     '触发梦境固化(Dream consolidation):扫描 episodic_memory 未固化条目,调用 LLM 提取跨会话模式 → 生成 semantic_memory + 更新 procedural_memory。适合空闲时定时调用,把短期记忆固化为长期知识。属主由本地登录态绑定。',
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'memory.dream',
+      reason: '触发梦境固化,扫描并整合 episodic 记忆,改变记忆库,须人确认',
+      riskLevel: 'read',
+      effectScope: 'workspace',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {},
   required: [],
   async execute(): Promise<ToolResult> {
@@ -371,6 +419,22 @@ const memory_forget: Tool = {
   description:
     '触发遗忘曲线衰减:基于 decay_factor *= 0.95^(days_since_access) 衰减 episodic_memory,importance_score < threshold 的删除。适合定期清理低价值记忆。属主由本地登录态绑定。',
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'memory.forget',
+      reason: '触发遗忘曲线衰减,改变记忆强度,须人确认',
+      riskLevel: 'read',
+      effectScope: 'workspace',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     threshold: {
       type: 'number',

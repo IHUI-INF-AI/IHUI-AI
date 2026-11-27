@@ -268,6 +268,106 @@ async def list_file_history(
     )
 
 
+# ---------------------------------------------------------------------------
+# 消息定点反查(B2-11 只读查询面,2026-11-27 立)
+# ---------------------------------------------------------------------------
+
+#: 合成 message_id 的分隔符。`checkpoint_id` 是 uuid4(不含 `#`),index 是非负整数,
+#: 因此 `{checkpoint_id}#{index}` 在单个会话内唯一且可逆。
+_MESSAGE_ID_SEPARATOR = "#"
+
+
+def compose_message_id(checkpoint_id: str, index: int) -> str:
+    """把 `(checkpoint_id, index)` 合成为稳定 `message_id`。
+
+    立因:checkpoint 里的 `messages` 是**裸 dict**(只有 role/content/timestamp),
+    **没有消息级主键** —— "回滚后想定位具体那条消息"只能靠调用方自己数下标,拿不到稳定引用。
+    本函数给出可逆的合成 id(纯派生,不写回存储),让只读反查可用而不改写入侧;
+    要真正落主键得改 checkpoint 写入契约,那一笔失败面(历史快照无主键)不划算。
+    """
+    return f"{checkpoint_id}{_MESSAGE_ID_SEPARATOR}{index}"
+
+
+def split_message_id(message_id: str) -> tuple[str, int] | None:
+    """把合成 `message_id` 拆回 `(checkpoint_id, index)`。形状不合法返回 `None`。
+
+    只按**最后一个**分隔符切:uuid4 不含 `#`,但按最后一个切可以容忍未来 checkpoint
+    命名里出现 `#` 而不误判 —— 前段整体当 id,后段必须是纯十进制下标。
+    """
+    pos = message_id.rfind(_MESSAGE_ID_SEPARATOR)
+    if pos <= 0:
+        return None
+    index_part = message_id[pos + 1 :]
+    if not index_part.isdigit():
+        return None
+    checkpoint_id = message_id[:pos]
+    if not checkpoint_id:
+        return None
+    return checkpoint_id, int(index_part)
+
+
+class MessageLookupResponse(BaseModel):
+    """按 `message_id` 反查到的单条消息(只读,不含其它消息内容)。"""
+
+    message_id: str
+    checkpoint_id: str
+    session_id: str
+    iteration: int
+    index: int
+    role: str
+    content: str
+    timestamp: Any = None
+    total_in_checkpoint: int
+
+
+@router.get("/messages/{message_id}", response_model=MessageLookupResponse)
+async def get_message_by_id(
+    message_id: str,
+    request: Request,
+    session_id: str = Query(..., min_length=1, description="会话 id"),
+) -> MessageLookupResponse:
+    """按合成 `message_id` 反查 checkpoint 里的单条消息(只读)。
+
+    判序:**身份与归属先于数据** —— 先 `_authorize_session`(JWT + 会话归属),
+    再 `load_checkpoint`,最后校验 `checkpoint.session_id == session_id`。
+    三者任一不满足都不返回消息体,避免"知道 id 就能跨会话读到别人的对话"。
+
+    返回单条消息是刻意收窄:checkpoint 里有几条、index 越界上限多少都告诉你,
+    但**不**顺带把整段历史吐出来 —— 要整段就该走 `restore`(它另有分支代数 bump 的语义)。
+    """
+    _authorize_session(request, session_id)
+    parts = split_message_id(message_id)
+    if parts is None:
+        raise HTTPException(
+            status_code=400,
+            detail="message_id 形状非法(期望 <checkpoint_id>#<index>)",
+        )
+    checkpoint_id, index = parts
+    manager = get_agent_checkpoint_manager()
+    cp = await manager.load_checkpoint(checkpoint_id)
+    if cp is None:
+        raise HTTPException(status_code=404, detail="checkpoint 不存在或已过期")
+    if cp.session_id != session_id:
+        raise HTTPException(status_code=400, detail="checkpoint 不属于该会话")
+    if index >= len(cp.messages):
+        raise HTTPException(
+            status_code=404,
+            detail=f"index 越界(checkpoint 内共 {len(cp.messages)} 条)",
+        )
+    msg = cp.messages[index]
+    return MessageLookupResponse(
+        message_id=message_id,
+        checkpoint_id=cp.checkpoint_id,
+        session_id=cp.session_id,
+        iteration=cp.iteration,
+        index=index,
+        role=str(msg.get("role", "")),
+        content=str(msg.get("content", "")),
+        timestamp=msg.get("timestamp"),
+        total_in_checkpoint=len(cp.messages),
+    )
+
+
 @router.post("/{checkpoint_id}/restore", response_model=RestoreResponse)
 async def restore_checkpoint(
     checkpoint_id: str,

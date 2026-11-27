@@ -14,6 +14,8 @@
 - POST   /publish/tasks                - 创建发布任务(立即执行或定时)
 - GET    /publish/tasks                - 列出任务
 - GET    /publish/tasks/{task_id}      - 任务详情
+- POST   /publish/tasks/{task_id}/confirm  - 人工确认草稿转 scheduled
+- PATCH  /publish/tasks/{task_id}/draft    - 编辑草稿(重新预检,仍保持 draft)
 - POST   /publish/tasks/{task_id}/cancel  - 取消任务
 - POST   /publish/tasks/{task_id}/retry  - 重试失败平台
 - GET    /publish/history              - 历史记录
@@ -32,6 +34,7 @@ from __future__ import annotations
 
 import asyncio
 import csv
+import hashlib
 import io
 import json
 import os
@@ -53,6 +56,7 @@ from app.core.jwt_auth import (
     resolve_request_role_id,
 )
 from app.core.logging import get_logger
+from app.services.publish.acceptance import build_acceptance_matrix
 from app.services.publish.account_state import (
     cookie_health_payload,
     days_until_expiry,
@@ -73,6 +77,7 @@ from app.services.publish.metrics_collector import (
     persist_style_check,
 )
 from app.services.publish.post_publish_verifier import verify_published
+from app.services.publish.preflight import run_preflight
 from app.services.publish.scheduler import publish_scheduler
 
 logger = get_logger(__name__)
@@ -133,7 +138,7 @@ async def _ensure_accounts_table(conn: asyncpg.Connection) -> None:
             return
         try:
             await _ensure_accounts_table_ddl(conn)
-        except (asyncio.TimeoutError, TimeoutError) as e:
+        except TimeoutError as e:
             # 全局 command_timeout 撞锁 → 503 让调用方重试,不产生 500 traceback
             logger.warning("[publish] ensure_accounts_table 超时(DB 锁争用): %s", e)
             raise HTTPException(status_code=503, detail="db busy, retry later") from e
@@ -257,6 +262,37 @@ class TaskCreate(BaseModel):
     extra: dict[str, Any] = Field(default_factory=dict)
     targets: list[PublishTarget]
     scheduled_at: datetime | None = Field(default=None, description="定时发布时间(UTC),空则立即执行")
+    # 2026-11-27:Agent 重试防重发。同一个 key + 同一个请求哈希只落一条任务。
+    idempotency_key: str | None = Field(default=None, max_length=128)
+    # 默认开启发布前预检;紧急绕过只对内部调用开放,Agent 不应传 False。
+    preflight: bool = True
+    # Agent 只落草稿:status='draft',不执行、不排期;必须人工确认后才进调度。
+    draft: bool = False
+
+
+class ConfirmDraftRequest(BaseModel):
+    """人工确认草稿:空表示确认后立即进调度(下一轮轮询执行)。"""
+
+    scheduled_at: datetime | None = Field(default=None, description="计划发布时间(UTC),空则立即进调度")
+
+
+class DraftUpdateRequest(BaseModel):
+    """人工编辑草稿:只传要改的字段,没传的保留原值。"""
+
+    title: str | None = Field(default=None, max_length=500)
+    format: str | None = Field(default=None, pattern=r"^(md|docx|html|pdf|image|video)$")
+    text: str | None = None
+    file_path: str | None = None
+    cover_path: str | None = None
+    images: list[str] | None = None
+    targets: list[PublishTarget] | None = None
+    profile: str | None = None
+    hashtags: str | list[str] | None = None
+    min_chars: int | None = None
+    max_chars: int | None = None
+    title_length: int | None = None
+    hashtag_count: int | None = None
+    require_ai_disclosure: bool | None = None
 
 
 class RescheduleRequest(BaseModel):
@@ -282,6 +318,28 @@ async def list_platforms() -> dict[str, Any]:
     return _wrap_ok({"items": items, "count": len(items)})
 
 
+@router.get("/acceptance")
+async def publish_acceptance(
+    request: Request,
+    platform: str | None = Query(None, description="只看一个平台"),
+) -> dict[str, Any]:
+    """发布能力验收矩阵。
+
+    把"有适配器"、"登录有效"、"真实发过"分开算:
+    - verified: 有真实发布成功且带 URL/content_id 的历史证据
+    - ready_unverified / browser_likely: 凭据/浏览器就绪,但还没真实发过
+    - login_only: 登录有效但当前适配器缺 API 凭据或需要网页版发布器
+    - untested / disabled / no_account / no_adapter
+    """
+    user_id = _get_user_id(request)
+    conn = await _get_conn()
+    try:
+        data = await build_acceptance_matrix(conn, user_id, platform_filter=platform)
+    finally:
+        await conn.close()
+    return _wrap_ok(data)
+
+
 # ===== 文件上传 =====
 
 # 允许的文件扩展名(按格式分类)
@@ -294,8 +352,9 @@ _ALLOWED_EXTENSIONS = {
     "html": {".html", ".htm"},
 }
 
-# 单文件最大 200MB(视频可能较大)
-_MAX_FILE_SIZE = 200 * 1024 * 1024
+# 单文件默认 4GB(PUBLISH_UPLOAD_MAX_BYTES 可调);不再把整包读进内存
+def _max_file_size() -> int:
+    return max(1, int(settings.publish_upload_max_bytes))
 
 # 上传根目录(可被 PUBLISH_UPLOAD_DIR 环境变量覆盖,默认 .uploads/publish)
 def _upload_root() -> Path:
@@ -374,19 +433,11 @@ async def upload_file(
             detail=f"unsupported file extension: {Path(file.filename).suffix}. allowed: {allowed}",
         )
 
-    # 读取内容并检查大小(2026-11-01:分块读到上限即断 —— 原先 `await file.read()`
-    # 把整包读进内存之后才判 200MB,单请求峰值不受上限约束)
-    from ..utils.upload_read import read_capped
+    # 2026-11-26:分块直接落盘,不再把整包读进内存。
+    # 4GB 默认上限由 PUBLISH_UPLOAD_MAX_BYTES 控制;超限时临时文件自动删除。
+    from ..utils.upload_read import write_capped
 
-    content_bytes = await read_capped(file, _MAX_FILE_SIZE)
-    if content_bytes is None:
-        raise HTTPException(
-            status_code=413,
-            detail=f"file too large > max {_MAX_FILE_SIZE} bytes (200MB)",
-        )
-    size = len(content_bytes)
-    if size == 0:
-        raise HTTPException(status_code=400, detail="file is empty")
+    limit = _max_file_size()
 
     # 构造存储路径(user_id 已由 JWT 校验,必定非空)
     user_dir = "".join(c for c in user_id if c.isalnum() or c in "-_") or "anonymous"
@@ -396,17 +447,24 @@ async def upload_file(
     # 安全文件名(去除路径分隔符)
     safe_name = "".join(c for c in Path(file.filename).stem if c.isalnum() or c in "-_")[:50] or "file"
     save_dir = _upload_root() / user_dir / yyyymmdd
-    save_dir.mkdir(parents=True, exist_ok=True)
     save_path = save_dir / f"{safe_name}_{unique}{suffix}"
 
-    # 写入磁盘
+    # 流式写盘
     try:
-        await asyncio.to_thread(save_path.write_bytes, content_bytes)
+        size = await write_capped(file, save_path, limit)
     except OSError as e:
         raise HTTPException(
             status_code=500,
             detail=f"failed to write file: {type(e).__name__}: {e}",
         )
+    if size is None:
+        raise HTTPException(
+            status_code=413,
+            detail=f"file too large > max {limit} bytes ({limit // (1024 * 1024)}MB)",
+        )
+    if size == 0:
+        save_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail="file is empty")
 
     logger.info(
         "[publish.upload] user=%s filename=%s format=%s size=%d saved=%s",
@@ -831,6 +889,105 @@ async def _assert_targets_owned(
         )
 
 
+def _task_request_hash(body: TaskCreate, targets: list[dict[str, Any]]) -> str:
+    """请求指纹:同 key 不同内容/目标必须报冲突,不能拿旧任务冒充新发布。"""
+    payload = {
+        "title": body.title,
+        "format": body.format,
+        "text": body.text,
+        "file_path": body.file_path,
+        "cover_path": body.cover_path,
+        "images": list(body.images or []),
+        "extra": body.extra or {},
+        "scheduled_at": body.scheduled_at,
+        "targets": targets,
+    }
+    raw = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+async def _find_idempotent_task(
+    conn: asyncpg.Connection,
+    user_id: str,
+    idempotency_key: str,
+    request_hash: str,
+) -> dict[str, Any] | None:
+    """返回已有任务;同 key 不同指纹抛 409。"""
+    row = await conn.fetchrow(
+        """
+        SELECT task_id, status, request_hash, scheduled_at, created_at
+        FROM publish_tasks
+        WHERE user_id = $1 AND idempotency_key = $2
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        user_id,
+        idempotency_key,
+    )
+    if not row:
+        return None
+    if row["request_hash"] and row["request_hash"] != request_hash:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "idempotency_conflict",
+                "message": "同一个 idempotency_key 已被不同内容/目标使用",
+                "task_id": row["task_id"],
+            },
+        )
+    return {
+        "ok": True,
+        "task_id": row["task_id"],
+        "status": row["status"],
+        "idempotent_replay": True,
+        "scheduled_at": row["scheduled_at"].isoformat() if row["scheduled_at"] else None,
+        "created_at": row["created_at"].isoformat() if row["created_at"] else None,
+    }
+
+
+@router.post("/preflight")
+async def preflight_task(body: TaskCreate, request: Request) -> dict[str, Any]:
+    """发布前预检(不创建任务)。
+
+    返回每个 target 的 ok/code/message/nextAction/warnings。Agent 应先调这里,
+    只有 ok=true 才创建任务;这样"登录成功但账号没实名/没配额"能提前暴露。
+    """
+    user_id = _get_user_id(request)
+    if not body.targets:
+        raise HTTPException(status_code=400, detail="targets cannot be empty")
+    for t in body.targets:
+        if get_adapter(t.platform) is None:
+            raise HTTPException(status_code=400, detail=f"unsupported platform: {t.platform}")
+
+    conn = await _get_conn()
+    try:
+        await _ensure_accounts_table(conn)
+        from app.services.publish import account_pool
+        await account_pool.ensure_tables(conn)
+        body.targets = await account_pool.resolve_targets(conn, user_id, body.targets)
+        await _assert_targets_owned(conn, user_id, body.targets)
+        targets = [t.model_dump() for t in body.targets]
+    finally:
+        await conn.close()
+
+    content = PublishContent(
+        format=body.format,
+        title=body.title,
+        text=body.text,
+        file_path=body.file_path,
+        cover_path=body.cover_path,
+        images=body.images,
+        extra=body.extra,
+    )
+
+    conn = await _get_conn()
+    try:
+        result = await run_preflight(conn, user_id, targets, content)
+    finally:
+        await conn.close()
+    return _wrap_ok(result)
+
+
 @router.post("/tasks")
 async def create_task(body: TaskCreate, request: Request) -> dict[str, Any]:
     """创建发布任务(立即执行或定时)。
@@ -852,6 +1009,11 @@ async def create_task(body: TaskCreate, request: Request) -> dict[str, Any]:
     conn = await _get_conn()
     try:
         await _ensure_accounts_table(conn)
+        # 任务表也要先就位:幂等键查询依赖 idempotency_key/request_hash 两列。
+        # 测试里 publish_scheduler 可能被替换成不带私有建表方法的桩,缺方法就跳过。
+        ensure_tables = getattr(publish_scheduler, "_ensure_tables", None)
+        if ensure_tables is not None:
+            await ensure_tables(conn)
         # 账号池:targets 里没写 account_id 的,由池按"健康 → 优先级 → 最久未用"取号。
         # 池里全失效 → 409,不静默落到一个掉线号上(发布失败要让人当场知道)。
         from app.services.publish import account_pool
@@ -860,6 +1022,21 @@ async def create_task(body: TaskCreate, request: Request) -> dict[str, Any]:
         await _assert_targets_owned(conn, user_id, body.targets)
     finally:
         await conn.close()
+
+    targets_dicts = [t.model_dump() for t in body.targets]
+    request_hash = _task_request_hash(body, targets_dicts)
+
+    # 幂等快速路径:同一 key 已经落过任务,直接返回原任务,不再走预检/文件校验。
+    if body.idempotency_key:
+        conn = await _get_conn()
+        try:
+            existing = await _find_idempotent_task(
+                conn, user_id, body.idempotency_key, request_hash,
+            )
+            if existing:
+                return _wrap_ok(existing)
+        finally:
+            await conn.close()
 
     # 构造 PublishContent
     content = PublishContent(
@@ -897,8 +1074,26 @@ async def create_task(body: TaskCreate, request: Request) -> dict[str, Any]:
         checked_images.append(str(resolved_img))
     body.images = checked_images
 
+    # 发布前预检:账号状态/凭据/格式/平台权限不通过就直接 409,不创建任务。
+    if body.preflight:
+        conn = await _get_conn()
+        try:
+            preflight = await run_preflight(conn, user_id, targets_dicts, content)
+        finally:
+            await conn.close()
+        if not preflight["ok"]:
+            blocked = [t for t in preflight["targets"] if not t.get("ok")]
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "publish_preflight_blocked",
+                    "message": "发布前预检未通过,任务未创建",
+                    "targets": blocked,
+                    "warningCount": preflight.get("warnings", 0),
+                },
+            )
+
     task_id = f"pub-{uuid.uuid4().hex[:12]}-{int(time.time())}"
-    targets_dicts = [t.model_dump() for t in body.targets]
 
     result = await publish_scheduler.submit_task(
         task_id=task_id,
@@ -906,6 +1101,9 @@ async def create_task(body: TaskCreate, request: Request) -> dict[str, Any]:
         content=content,
         targets=targets_dicts,
         scheduled_at=body.scheduled_at,
+        idempotency_key=body.idempotency_key,
+        request_hash=request_hash,
+        as_draft=body.draft,
     )
     return _wrap_ok(result)
 
@@ -967,6 +1165,8 @@ def _serialize_results_to_platforms(results: Any) -> list[dict[str, Any]]:
             "publishedUrl": r.get("published_url"),
             "platformContentId": r.get("platform_content_id"),
             "errorMessage": r.get("error_message"),
+            "errorKind": r.get("error_kind"),
+            "challenge": r.get("challenge"),
             "durationMs": r.get("duration_ms"),
         })
     return platforms
@@ -1034,6 +1234,141 @@ async def list_tasks(
         await conn.close()
 
 
+@router.post("/tasks/{task_id}/confirm")
+async def confirm_draft(
+    task_id: str,
+    request: Request,
+    body: ConfirmDraftRequest | None = None,
+) -> dict[str, Any]:
+    """人工确认草稿:只允许任务归属者把 status='draft' 转成 scheduled。
+
+    Agent 不能调这个端点(它只暴露给登录用户的 UI);确认前重新跑一次预检,
+    账号掉线/被禁用/内容不合规时保持 draft,不把坏任务送进调度器。
+    scheduled_at 为空 → 立即进调度(下一轮轮询执行),不直接在本请求里发布。
+    """
+    user_id = _get_user_id(request)
+    conn = await _get_conn()
+    try:
+        task = await conn.fetchrow(
+            """
+            SELECT task_id, user_id, title, format, content, targets, status
+            FROM publish_tasks
+            WHERE task_id=$1 AND user_id=$2
+            """,
+            task_id,
+            user_id,
+        )
+        if not task:
+            raise HTTPException(status_code=404, detail="草稿不存在或不属于当前用户")
+        if task["status"] != "draft":
+            raise HTTPException(
+                status_code=409,
+                detail=f"只有草稿可以确认,当前状态是 {task['status']}",
+            )
+
+        content_raw = _json_or_raw(task["content"]) or {}
+        targets_raw = _json_or_raw(task["targets"]) or []
+        if not isinstance(content_raw, dict):
+            content_raw = {}
+        if not isinstance(targets_raw, list) or not targets_raw:
+            raise HTTPException(status_code=409, detail="草稿缺少发布目标,无法确认")
+
+        content = PublishContent(
+            format=task["format"],
+            title=task["title"],
+            text=content_raw.get("text"),
+            file_path=content_raw.get("file_path"),
+            cover_path=content_raw.get("cover_path"),
+            html=content_raw.get("html"),
+            images=content_raw.get("images") or [],
+            extra=content_raw.get("extra") or {},
+        )
+        preflight = await run_preflight(conn, user_id, targets_raw, content)
+        if not preflight["ok"]:
+            blocked = [t for t in preflight["targets"] if not t.get("ok")]
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "publish_preflight_blocked",
+                    "message": "确认前预检未通过,草稿保持未发布",
+                    "targets": blocked,
+                },
+            )
+
+        scheduled_at = body.scheduled_at if body else None
+        updated = await conn.fetchrow(
+            """
+            UPDATE publish_tasks
+            SET status='scheduled', scheduled_at=COALESCE($2, NOW()), updated_at=NOW()
+            WHERE task_id=$1 AND user_id=$3 AND status='draft'
+            RETURNING task_id, status, scheduled_at
+            """,
+            task_id,
+            scheduled_at,
+            user_id,
+        )
+        if not updated:
+            raise HTTPException(status_code=409, detail="草稿状态已变化,请刷新后重试")
+        return _wrap_ok({
+            "taskId": updated["task_id"],
+            "status": updated["status"],
+            "scheduledAt": updated["scheduled_at"].isoformat() if updated["scheduled_at"] else None,
+            "hint": "已进入调度队列,失败可在发布历史里取消或重试",
+        })
+    finally:
+        await conn.close()
+
+
+@router.patch("/tasks/{task_id}/draft")
+async def update_draft(
+    task_id: str,
+    request: Request,
+    body: DraftUpdateRequest,
+) -> dict[str, Any]:
+    """人工编辑草稿:走与 Agent 同一个 update_publish_draft 工具。
+
+    只改 draft;修改后重新预检,失败不写库;成功仍是 draft,确认仍要另一次点击。
+    """
+    user_id = _get_user_id(request)
+    from app.tools.publish_tools import update_publish_draft as update_draft_tool
+
+    arguments = body.model_dump(exclude_unset=True)
+    arguments.update({"__user_id": user_id, "task_id": task_id})
+    result = await update_draft_tool(arguments)
+    if result.get("ok"):
+        return _wrap_ok({
+            "taskId": result.get("taskId"),
+            "status": result.get("status"),
+            "title": result.get("title"),
+            "format": result.get("format"),
+            "targets": result.get("targets"),
+            "contentHash": result.get("contentHash"),
+            "changedFields": result.get("changedFields") or [],
+            "warnings": result.get("warnings", 0),
+            "preflight": result.get("preflight") or [],
+            "updatedAt": result.get("updatedAt"),
+            "confirm": result.get("confirm"),
+        })
+
+    code = str(result.get("errorCode") or "DRAFT_UPDATE_FAILED")
+    status_code = {
+        "TASK_NOT_FOUND": 404,
+        "DB_UNAVAILABLE": 503,
+        "EDIT_FAILED": 500,
+        "PREFLIGHT_BLOCKED": 409,
+        "NOT_DRAFT": 409,
+        "DRAFT_STATE_CHANGED": 409,
+    }.get(code, 400)
+    detail: dict[str, Any] = {
+        "code": code,
+        "message": result.get("message") or "草稿修改失败",
+    }
+    for key in ("taskId", "blocked", "warnings", "contentCheck", "targets"):
+        if key in result:
+            detail[key] = result[key]
+    raise HTTPException(status_code=status_code, detail=detail)
+
+
 @router.get("/tasks/{task_id}")
 async def get_task(task_id: str, request: Request) -> dict[str, Any]:
     """任务详情(含每个平台的结果)。
@@ -1077,6 +1412,11 @@ async def get_task(task_id: str, request: Request) -> dict[str, Any]:
         results = _json_or_raw(task["results"])
         if not isinstance(results, list):
             results = []
+        challenges = [
+            r.get("challenge")
+            for r in results
+            if isinstance(r, dict) and r.get("challenge")
+        ]
         return _wrap_ok({
             "taskId": task["task_id"],
             "userId": task["user_id"],
@@ -1087,6 +1427,7 @@ async def get_task(task_id: str, request: Request) -> dict[str, Any]:
             "targets": _serialize_targets(task["targets"]),
             "results": results,
             "platforms": platforms,
+            "challenges": challenges,
             "scheduledAt": task["scheduled_at"].isoformat() if task["scheduled_at"] else None,
             "startedAt": task["started_at"].isoformat() if task["started_at"] else None,
             "finishedAt": task["finished_at"].isoformat() if task["finished_at"] else None,
@@ -1215,6 +1556,95 @@ async def retry_task(task_id: str, request: Request, platforms: list[str] | None
     return _wrap_ok(result)
 
 
+@router.post("/tasks/{task_id}/resume")
+async def resume_task(task_id: str, request: Request, platforms: list[str] | None = None) -> dict[str, Any]:
+    """人工处理完 challenge 后继续任务。
+
+    只允许对 auth_required 的失败平台 resume;账号仍是 reauth_required/expired
+    就返回 409 + 当前 challenge,避免 Agent 在没登录成功时盲目重试。
+    """
+    user_id = _get_user_id(request)
+    conn = await _get_conn()
+    try:
+        row = await conn.fetchrow(
+            "SELECT user_id, results, targets FROM publish_tasks WHERE task_id=$1", task_id
+        )
+        if not row:
+            raise HTTPException(status_code=404, detail=f"task not found: {task_id}")
+        if row["user_id"] != user_id:
+            raise HTTPException(status_code=403, detail="无权操作他人任务")
+
+        results = _json_or_raw(row["results"])
+        targets = _json_or_raw(row["targets"])
+        if not isinstance(results, list):
+            results = []
+        if not isinstance(targets, list):
+            targets = []
+
+        challenge_rows = [
+            r for r in results
+            if isinstance(r, dict) and not r.get("success") and r.get("challenge")
+        ]
+        auth_challenges = [
+            r for r in challenge_rows
+            if r.get("error_kind") == "auth_required"
+            or (r.get("challenge") or {}).get("type") == "reauth"
+        ]
+        if not auth_challenges:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "no_auth_challenge",
+                    "message": "该任务没有待处理的登录失效挑战,不需要 resume",
+                    "challenges": [r.get("challenge") for r in challenge_rows],
+                },
+            )
+
+        target_platforms = set(platforms or [
+            str((r.get("challenge") or {}).get("platform") or r.get("platform"))
+            for r in auth_challenges
+        ])
+        still_bad: list[dict[str, Any]] = []
+        for p in sorted(target_platforms):
+            account_id = None
+            for t in targets:
+                if isinstance(t, dict) and t.get("platform") == p:
+                    account_id = t.get("account_id")
+                    break
+            if account_id is None:
+                still_bad.append({
+                    "platform": p, "accountId": None, "status": "missing_account",
+                    "message": "任务里找不到该平台账号",
+                })
+                continue
+            sess = await conn.fetchrow(
+                "SELECT status, last_error FROM publish_session_state WHERE account_id=$1",
+                account_id,
+            )
+            if sess and str(sess["status"]) in {"reauth_required", "expired", "disabled"}:
+                still_bad.append({
+                    "platform": p, "accountId": account_id,
+                    "status": sess["status"], "message": sess["last_error"] or "登录态仍未恢复",
+                })
+        if still_bad:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "auth_still_required",
+                    "message": "账号登录态还没恢复,先完成重新登录/扫码",
+                    "targets": still_bad,
+                    "challenges": [r.get("challenge") for r in auth_challenges],
+                },
+            )
+    finally:
+        await conn.close()
+
+    result = await publish_scheduler.retry_platforms(task_id, sorted(target_platforms))
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("error", "resume failed"))
+    return _wrap_ok(result)
+
+
 # ===== 历史记录 =====
 
 @router.get("/history")
@@ -1311,6 +1741,7 @@ async def get_stats(
                 count(*) FILTER (WHERE status='success') as success,
                 count(*) FILTER (WHERE status='failed') as failed,
                 count(*) FILTER (WHERE status='partial') as partial,
+                count(*) FILTER (WHERE status='draft') as draft,
                 count(*) FILTER (WHERE status='cancelled') as cancelled,
                 count(*) FILTER (WHERE status='running') as running,
                 count(*) FILTER (WHERE status='scheduled') as scheduled
@@ -1355,6 +1786,7 @@ async def get_stats(
                 "success": task_stats["success"],
                 "failed": task_stats["failed"],
                 "partial": task_stats["partial"],
+                "draft": task_stats["draft"],
                 "cancelled": task_stats["cancelled"],
                 "running": task_stats["running"],
                 "scheduled": task_stats["scheduled"],

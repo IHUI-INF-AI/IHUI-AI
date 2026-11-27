@@ -187,9 +187,9 @@ describe('第三方 OAuth 通用回调 · 用户协议同意闸', () => {
     const state = 'one-time-state-0123456789'
     await seedConsent(state, { platform: 'wechat', agreementAccepted: true })
 
-    // 第一次过了同意闸:微信未配置 ⇒ 400,证明请求已走到平台分支(不是 403 闸门)
+    // 第一次过了同意闸:微信未配置 ⇒ 503,证明请求已走到平台分支(不是 403 闸门)
     const first = await callback(app, 'wechat', state)
-    expect(first.statusCode).toBe(400)
+    expect(first.statusCode).toBe(503)
     expect(first.json().message).toContain('微信')
     // 同意记录已被消费
     expect(await redis.get(OAUTH_CONSENT_KEY_PREFIX + state)).toBeNull()

@@ -69,8 +69,8 @@ describe('未配置的第三方通道 ⇒ 400/503 响亮失败,绝不回 200 moc
   for (const [method, url, platform] of routes) {
     it(`${url} ⇒ 未配置就失败且点名缺哪些键`, async () => {
       const res = await app.inject({ method: method as 'GET', url })
-      // 统一登录凭据缺失走 400;能明确判定平台通道未配置的入口走 503。两者都不是 200。
-      expect([400, 503]).toContain(res.statusCode)
+      // 2026-11-27 契约统一:未配置必须是 503,不再保留 400 分叉。
+      expect(res.statusCode).toBe(503)
       const body = res.json()
       expect(body.code).toBe(res.statusCode)
       // 反向锁:响应体里不得再出现 mock 这个"看起来像成功"的形状

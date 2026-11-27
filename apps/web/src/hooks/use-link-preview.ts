@@ -193,6 +193,9 @@ export function useLinkPreview(): UseLinkPreviewReturn {
   // 记账在发请求之前:同一 URL 的并发重复触发与 resolved 后重复触发都挡住。
   const probedUrlsRef = React.useRef<Set<string>>(new Set())
   const inflightUrlRef = React.useRef<string | null>(null)
+  // 当前卡展示的是哪一个 URL:用来区分"同一 URL 的重复粘贴"(可挡)和
+  // "先看 A、再看 B、又粘回 A"(必须重新探测,否则卡片会停在 B 上)。
+  const displayedUrlRef = React.useRef<string | null>(null)
   // 单调序号:先粘 A 再粘 B 时,A 的迟到响应必须丢弃,否则会把 B 的卡覆盖成 A 的;
   // reset(发送后关卡)后迟到的 A 也不得把卡"复活"在已发出的消息下方。
   const seqRef = React.useRef(0)
@@ -200,9 +203,12 @@ export function useLinkPreview(): UseLinkPreviewReturn {
   const probeFromPaste = React.useCallback((text: string): void => {
     const url = detectPastedUrl(text)
     if (!url) return
-    if (probedUrlsRef.current.has(url) || inflightUrlRef.current === url) return
+    // 同一 URL 已经显示在卡上 ⇒ 重复粘贴不再发请求;但 A→B→A 必须重探(后端有短缓存,成本很低)。
+    if (probedUrlsRef.current.has(url) && displayedUrlRef.current === url) return
+    if (inflightUrlRef.current === url) return
     probedUrlsRef.current.add(url)
     inflightUrlRef.current = url
+    displayedUrlRef.current = url
     const mySeq = ++seqRef.current
     setPreview({ status: 'loading', url })
 
@@ -278,7 +284,10 @@ export function useLinkPreview(): UseLinkPreviewReturn {
       }
       if (seqRef.current !== mySeq) return
       // 两次都未判定 ⇒ 解除该 URL 的"只探一次"记账,让用户再粘一次仍能重新探测。
-      if (outcome.next.status === 'undetermined') probedUrlsRef.current.delete(url)
+      if (outcome.next.status === 'undetermined') {
+        probedUrlsRef.current.delete(url)
+        if (displayedUrlRef.current === url) displayedUrlRef.current = null
+      }
       finish(outcome.next)
     })()
   }, [])
@@ -286,6 +295,7 @@ export function useLinkPreview(): UseLinkPreviewReturn {
   const reset = React.useCallback((): void => {
     seqRef.current++
     inflightUrlRef.current = null
+    displayedUrlRef.current = null
     setPreview(null)
   }, [])
 

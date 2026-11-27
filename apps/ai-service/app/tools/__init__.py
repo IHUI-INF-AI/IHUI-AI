@@ -12,6 +12,14 @@
   逐格 provenance + 依赖图 + 结构化错误,零新增依赖);
 - init_agents_md: AGENTS.md 草稿生成器(init_agents_md,D118 /init 式生成器);
 - create_artifact: G3 统一交付物工具(artifact_tools,html_report/slides/sheet/doc/video_ref);
+- generate_content: 内容出稿工具(content_tools,一句话→标题+正文,走 auto 模型路由);
+- precheck_content: 发布前合规自检(content_compliance_tools,标题/字数/话题词/承诺词/硬引导);
+- prepare_publish_draft: 一句话出稿→合规→落草稿(pipeline_tools,先查账号再生成,合规阻断不落库);
+- list_publish_accounts / publish_preflight / create_publish_draft / get_publish_stats: 发布账号清单、只读预检、落草稿与发布统计(publish_tools,不解密凭据/不执行发布);
+- update_publish_draft: 编辑草稿(publish_tools,重新预检且仍保持 draft,不替人确认);
+- get_publish_task: 单任务详情(publish_tools,只读状态/逐平台结果/失败原因/指标,供 Agent 诊断);
+- list_publish_tasks: 发布任务队列(publish_tools,只读草稿/定时/失败任务摘要,不含正文与凭据);
+- get_publish_acceptance: 发布验收矩阵(publish_tools,只读适配器/登录/真实发布证据三态,不触发平台请求);
 - create_automation: G2 对话式自动化创建工具(automation_tools,经 apps/api automations 端点);
 - ai_bookkeeping / ai_tax_filing: 财务部板块插件(RP-46,2026-11-12,finance_tools,
   AI 一键代账/一键报税,分阶段可续跑,过程经 tool-call 帧实时回显);
@@ -27,6 +35,8 @@ from .artifact_tools import create_artifact
 from .automation_tools import create_automation
 from .browser_selfcheck import capture_screenshot, selfcheck_report
 from .chart_tools import generate_chart
+from .content_compliance_tools import precheck_content
+from .content_tools import generate_content
 from .document_asset_tools import document_tables, extract_document_assets
 from .document_tools import parse_document
 from .finance_ops_tools import (
@@ -35,6 +45,12 @@ from .finance_ops_tools import (
     finance_ledger_ops,
     finance_tax_ops,
 )
+from .finance_tools import (
+    AI_BOOKKEEPING_DESCRIPTION,
+    AI_TAX_FILING_DESCRIPTION,
+    ai_bookkeeping,
+    ai_tax_filing,
+)
 from .hr_ops_tools import (
     HR_GAP_DESCRIPTION,
     HR_LIFECYCLE_DESCRIPTION,
@@ -42,12 +58,6 @@ from .hr_ops_tools import (
     hr_gap_ops,
     hr_lifecycle_ops,
     hr_payout_ops,
-)
-from .finance_tools import (
-    AI_BOOKKEEPING_DESCRIPTION,
-    AI_TAX_FILING_DESCRIPTION,
-    ai_bookkeeping,
-    ai_tax_filing,
 )
 from .hr_tools import (
     HR_INSURANCE_READINESS_DESCRIPTION,
@@ -65,6 +75,17 @@ from .hr_tools import (
 )
 from .init_agents_md import init_agents_md
 from .payroll_handoff_tools import ai_payroll_handoff
+from .pipeline_tools import prepare_publish_draft
+from .publish_tools import (
+    create_publish_draft,
+    get_publish_acceptance,
+    get_publish_stats,
+    get_publish_task,
+    list_publish_accounts,
+    list_publish_tasks,
+    publish_preflight,
+    update_publish_draft,
+)
 from .reimbursement_tools import AI_REIMBURSEMENT_DESCRIPTION, ai_reimbursement
 from .report_tools import generate_report
 from .social_insurance_tools import SOCIAL_INSURANCE_DESCRIPTION, social_insurance_calc
@@ -75,6 +96,17 @@ from .web_crawl_tools import crawl_site, extract_web, fetch_readable, map_site
 __all__ = [
     "create_artifact",
     "create_automation",
+    "generate_content",
+    "precheck_content",
+    "prepare_publish_draft",
+    "list_publish_accounts",
+    "publish_preflight",
+    "create_publish_draft",
+    "get_publish_stats",
+    "get_publish_task",
+    "list_publish_tasks",
+    "get_publish_acceptance",
+    "update_publish_draft",
     "generate_chart",
     "generate_report",
     "parse_document",
@@ -110,6 +142,7 @@ __all__ = [
     "FINANCE_TAX_DESCRIPTION",
     "HR_LIFECYCLE_DESCRIPTION",
     "HR_PAYOUT_DESCRIPTION",
+    "HR_GAP_DESCRIPTION",
     "AI_BOOKKEEPING_DESCRIPTION",
     "AI_TAX_FILING_DESCRIPTION",
     "AI_REIMBURSEMENT_DESCRIPTION",
@@ -120,5 +153,6 @@ __all__ = [
     "HR_MY_ATTENDANCE_DESCRIPTION",
     "HR_MY_LEAVES_DESCRIPTION",
     "HR_PAYROLL_CALC_DESCRIPTION",
+    "HR_INSURANCE_READINESS_DESCRIPTION",
 ]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

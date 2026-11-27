@@ -47,6 +47,60 @@ export const URL_PREVIEW_MAX_BYTES = 128 * 1024
 const MAX_REDIRECTS = 3
 const PROBE_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+
+/**
+ * 走本机出站代理的固定域名白名单(2026-11-27)。
+ *
+ * 生产 API 服务注入了 HTTP_PROXY/HTTPS_PROXY(http://127.0.0.1:7897)与 NODE_USE_ENV_PROXY=1,
+ * 但本路由为了 SSRF 建连守卫显式传了 dispatcher,undici 因此不再读环境代理 —— 表现为
+ * GitHub 这类国际站点直连 10s+ 后失败,而系统代理明明 400ms 就能拿到 200。
+ *
+ * 这里只对**固定白名单**启用 ProxyAgent:这些域名由代码写死、不随用户输入扩展,
+ * 走代理时不存在"用户可控域名经代理解析到内网"的绕过面;其余任意 URL 仍走
+ * ssrfGuardedDispatcher 的判定=建连同源路径。
+ */
+const PREVIEW_PROXY_HOSTS = [
+  'github.com',
+  'githubusercontent.com',
+  'githubassets.com',
+  'wikipedia.org',
+  'stackoverflow.com',
+  'medium.com',
+  'npmjs.com',
+  'nytimes.com',
+  'google.com',
+  'youtube.com',
+  'x.com',
+  'twitter.com',
+  'reddit.com',
+  'linkedin.com',
+  'apple.com',
+  'microsoft.com',
+  'openai.com',
+]
+
+let cachedPreviewProxy: { url: string; agent: ProxyAgent } | null = null
+
+export function isPreviewProxyHost(hostname: string): boolean {
+  const h = hostname.toLowerCase()
+  return PREVIEW_PROXY_HOSTS.some((d) => h === d || h.endsWith(`.${d}`))
+}
+
+function previewProxyAgent(hostname: string): ProxyAgent | null {
+  if (!isPreviewProxyHost(hostname)) return null
+  const proxyUrl = (
+    process.env.HTTPS_PROXY ??
+    process.env.HTTP_PROXY ??
+    process.env.PROXY_URL ??
+    ''
+  ).trim()
+  if (!/^https?:\/\//i.test(proxyUrl)) return null
+  if (!cachedPreviewProxy || cachedPreviewProxy.url !== proxyUrl) {
+    if (cachedPreviewProxy) void cachedPreviewProxy.agent.close().catch(() => {})
+    cachedPreviewProxy = { url: proxyUrl, agent: new ProxyAgent(proxyUrl) }
+  }
+  return cachedPreviewProxy.agent
+}
 /** 站点图标抓取上限(200KB):20px 展示位用不到更大,但 180×180 的 apple-touch-icon 常超 64KB。 */
 const ICON_MAX_BYTES = 200 * 1024
 /** SVG 单独上限:矢量图标通常只有几 KB,给 96KB 已足够,也避免把大文档内联进响应。 */
@@ -82,7 +136,7 @@ import { isPrivateIPv4Literal as isPrivateIPv4 } from '../utils/ssrf-guard.js'
 
 import { isPrivateIPv6Literal as isPrivateIPv6 } from '../utils/ssrf-guard.js'
 
-import { fetch as undiciFetch } from 'undici'
+import { ProxyAgent, fetch as undiciFetch } from 'undici'
 import { ssrfGuardedDispatcher } from '../utils/ssrf-guard.js'
 
 function isForbiddenHost(hostname: string): boolean {
@@ -520,11 +574,19 @@ export async function probeUrl(
   // 保持原样不受守卫影响。
   const doFetch: typeof fetch =
     options.fetchImpl ??
-    (((url: string, init?: RequestInit) =>
-      undiciFetch(url, {
+    (((url: string, init?: RequestInit) => {
+      let hostname = ''
+      try {
+        hostname = new URL(url).hostname
+      } catch {
+        // 非法 URL 会在更早的 probeUrl 入口被拒;这里保持直连守卫兜底。
+      }
+      const dispatcher = previewProxyAgent(hostname) ?? ssrfGuardedDispatcher()
+      return undiciFetch(url, {
         ...init,
-        dispatcher: ssrfGuardedDispatcher(),
-      }) as unknown as Promise<Response>) as typeof fetch)
+        dispatcher,
+      }) as unknown as Promise<Response>
+    }) as typeof fetch)
   const timeoutMs = options.timeoutMs ?? URL_PREVIEW_TIMEOUT_MS
   const maxBytes = options.maxBytes ?? URL_PREVIEW_MAX_BYTES
   const maxRedirects = options.maxRedirects ?? MAX_REDIRECTS

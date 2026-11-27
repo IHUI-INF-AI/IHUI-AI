@@ -94,6 +94,22 @@ export const get_diagnostics: Tool = {
   name: 'get_diagnostics',
   description: '获取 TypeScript 类型错误和 ESLint 诊断。参数:path(限定路径,可选),linter(tsc|eslint|auto,默认 auto 两个都跑)。',
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'diag.get',
+      reason: '只读获取 TypeScript/ESLint 诊断,不修改文件,无需批准',
+      riskLevel: 'read',
+      effectScope: 'workspace',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     path: { type: 'string', description: '限定检查路径(可选,仅 eslint 生效)' },
     linter: { type: 'string', description: 'tsc | eslint | auto(默认 auto)' },

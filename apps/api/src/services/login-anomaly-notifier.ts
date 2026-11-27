@@ -8,7 +8,9 @@
  * 职责:
  * 1. notifyLoginAnomaly:异地登录 / 新设备登录 / 频繁失败登录时,按优先级发送通知
  *    - 站内信(notifications 表)→ 邮件(若用户开启)→ Webhook(若订阅 security 事件)
- *    - 6 小时内同类事件不重复通知(Redis 去重 key: anomaly:notified:{userId}:{eventHash})
+ *    - 去重键是设备指纹(无指纹退化为 UA 摘要),窗口按事件区分:
+ *      新设备 30 天 / 异地(设备+地区)24 小时 / 频繁失败 6 小时
+ *      (Redis key: anomaly:notified:{userId}:{eventHash})
  *    - 异步执行,失败 try-catch + logger.warn,不阻塞登录流程
  * 2. recordLoginAttempt:记录登录尝试到 Redis,失败 ≥5 次(5 分钟内)触发 notifyLoginAnomaly
  * 3. getRecentAnomalies:查最近 30 天异常记录(从 securityLogs 表)
@@ -28,6 +30,9 @@ import { sendEmail } from './email-service.js'
 import { renderSecurityLoginEmail } from './email-templates.js'
 import { logger } from '../utils/logger.js'
 import { notifyRelayEvent } from './webhook-relay-notifier.js'
+import { getGeoIpService } from './geoip.js'
+import { isLoopbackOrInternalIp } from '../utils/code-echo-guard.js'
+import { ipRegionKey } from '../utils/ip-region.js'
 
 /* -------------------------------------------------------------------------- */
 /* 类型                                                                        */
@@ -76,8 +81,19 @@ export interface AnomalyRecord {
 const ATTEMPT_WINDOW_SEC = 5 * 60
 /** 频繁失败阈值 */
 const ATTEMPT_FAILURE_THRESHOLD = 5
-/** 去重 TTL(6 小时) */
+/** 去重 TTL(默认 6 小时,按事件类型另取) */
 const DEDUP_TTL_SEC = 6 * 60 * 60
+/**
+ * 分事件去重窗口(2026-11-27):
+ *  - 新设备:按设备指纹,30 天内同一台设备只提醒一次;
+ *  - 异地:按「设备指纹 + 地区」,同一设备在同一地区 24 小时只提醒一次;
+ *  - 频繁失败:保持 6 小时(撞库要持续可见)。
+ */
+const DEDUP_TTL_BY_EVENT: Record<AnomalyEventType, number> = {
+  remote_login: 24 * 60 * 60,
+  new_device_login: 30 * 24 * 60 * 60,
+  frequent_login_failure: DEDUP_TTL_SEC,
+}
 /** 查询最近异常天数 */
 const RECENT_ANOMALY_DAYS = 30
 /** 站内信类型(写入 notifications.type) */
@@ -129,13 +145,15 @@ export function configureLoginAnomalyNotifier(redis: Redis | null): void {
  * 触发登录异常通知。
  *
  * 通知优先级:站内信 → 邮件(若开启)→ Webhook(若订阅 security 事件)。
- * 6 小时内同类事件不重复通知(Redis 去重 key: anomaly:notified:{userId}:{eventHash})。
+ * 同设备同类事件在去重窗口内不重复通知(窗口见 DEDUP_TTL_BY_EVENT)。
  * 异步执行,失败 try-catch + logger.warn,不阻塞登录流程。
  */
-export async function notifyLoginAnomaly(input: LoginAnomalyInput): Promise<void> {
+export async function notifyLoginAnomaly(rawInput: LoginAnomalyInput): Promise<void> {
+  // 0. 补登录地点(仅文案增强:查不到/超时都不影响告警本身)
+  const input = await withLocation(rawInput)
   const { userId, eventType } = input
 
-  // 1. 计算事件 hash(用于去重,包含 eventType + ip + deviceFingerprint)
+  // 1. 计算事件 hash(用于去重;键是设备指纹,不再是 IP —— 2026-11-27)
   const eventHash = computeEventHash(input)
 
   // 2. 去重检查(6 小时内同类事件不重复通知)
@@ -171,7 +189,7 @@ export async function notifyLoginAnomaly(input: LoginAnomalyInput): Promise<void
   // 留待下一次登录重试,避免基础设施抖动期间安全告警被静默吞掉。
   const delivered = results.some((r) => r.status === 'fulfilled' && r.value === true)
   if (delivered) {
-    await markNotified(userId, eventHash)
+    await markNotified(userId, eventHash, DEDUP_TTL_BY_EVENT[eventType])
   } else {
     logger.warn('login-anomaly: all channels failed, keep dedup open for retry', {
       userId,
@@ -262,13 +280,57 @@ export async function getRecentAnomalies(userId: string): Promise<AnomalyRecord[
 }
 
 /* -------------------------------------------------------------------------- */
+/* 内部:地理位置                                                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * 补「登录地点」。
+ *
+ * 回环/内网不查(没有地理含义);远程查询失败/超时一律原样返回 ——
+ * 地点只是文案增强,不允许因为它阻塞或吞掉一条安全告警。
+ */
+async function withLocation(input: LoginAnomalyInput): Promise<LoginAnomalyInput> {
+  if (input.location || !input.ip || isLoopbackOrInternalIp(input.ip)) return input
+  try {
+    const geo = await getGeoIpService().lookup(input.ip)
+    const parts = [geo?.country, geo?.region, geo?.city].filter(
+      (v): v is string => typeof v === 'string' && v !== '',
+    )
+    if (parts.length === 0) return input
+    return { ...input, location: Array.from(new Set(parts)).join(' · ') }
+  } catch {
+    return input
+  }
+}
+
+/* -------------------------------------------------------------------------- */
 /* 内部:去重                                                                    */
 /* -------------------------------------------------------------------------- */
 
-/** 计算事件 hash:eventType + ip + deviceFingerprint 的 SHA-256 前 16 字符。 */
+/**
+ * 计算事件 hash。
+ *
+ * 2026-11-27 改口径:键是「设备」而不是「IP」。
+ *  - 有设备指纹 ⇒ fp:<指纹>;
+ *  - 无指纹(脚本/CLI)⇒ ua:<User-Agent 摘要>,同一类客户端只算一台"设备";
+ *  - 异地登录再叠加地区键(同一设备换地区才算新事件);
+ *  - 频繁失败仍叠加 IP(换 IP 撞库必须能再次看到)。
+ */
 function computeEventHash(input: LoginAnomalyInput): string {
-  const raw = `${input.eventType}|${input.ip ?? ''}|${input.deviceFingerprint ?? ''}`
-  return createHash('sha256').update(raw).digest('hex').slice(0, 16)
+  const fingerprint = input.deviceFingerprint?.trim()
+  const ua = input.userAgent?.trim() ?? ''
+  const device = fingerprint
+    ? `fp:${fingerprint}`
+    : `ua:${createHash('sha256')
+        .update(ua || 'unknown')
+        .digest('hex')
+        .slice(0, 12)}`
+
+  const parts: string[] = [input.eventType]
+  if (input.eventType === 'frequent_login_failure') parts.push(input.ip ?? '')
+  if (input.eventType === 'remote_login') parts.push(ipRegionKey(input.ip ?? ''))
+  parts.push(device)
+  return createHash('sha256').update(parts.join('|')).digest('hex').slice(0, 16)
 }
 
 /** 检查是否已通知过(6 小时内)。 */
@@ -293,15 +355,19 @@ async function checkDedup(userId: string, eventHash: string): Promise<boolean> {
 }
 
 /** 标记已通知(设置 TTL)。 */
-async function markNotified(userId: string, eventHash: string): Promise<void> {
+async function markNotified(
+  userId: string,
+  eventHash: string,
+  ttlSec: number = DEDUP_TTL_SEC,
+): Promise<void> {
   const key = K_NOTIFIED(userId, eventHash)
   if (!redisClient) {
     if (memNotified.size >= MEM_NOTIFIED_MAX) trimMemNotified()
-    memNotified.set(key, Date.now() + DEDUP_TTL_SEC * 1000)
+    memNotified.set(key, Date.now() + ttlSec * 1000)
     return
   }
   try {
-    await redisClient.set(key, '1', 'EX', DEDUP_TTL_SEC)
+    await redisClient.set(key, '1', 'EX', ttlSec)
   } catch (e) {
     if (memNotified.size >= MEM_NOTIFIED_MAX) trimMemNotified()
     memNotified.set(key, Date.now() + DEDUP_TTL_SEC * 1000)

@@ -125,6 +125,22 @@ export function createToolSearchTool(opts: ToolSearchOptions): Tool {
     name: TOOL_SEARCH_TOOL_NAME,
     description: '按关键词或工具名检索工具,返回命中工具的完整参数 schema;用于按需揭示延迟装载的工具。',
     dangerLevel: 'read',
+    contract: {
+      shape: { visibleToProvider: true, input: { type: 'object' } },
+      permission: {
+        permissionKey: 'tool.search',
+        reason: '只读内存中的工具目录并返回 schema:不碰文件、不触网、不改任何状态',
+        riskLevel: 'read',
+        effectScope: 'none',
+        requiresApproval: false,
+      },
+      resultBudget: {
+        inlineLimitBytes: 32 * 1024,
+        providerVisibleLimitBytes: 72_000,
+        policy: 'truncate',
+        preview: { bytes: 3_600, lines: 120, from: 'head' },
+      },
+    },
     // 显式声明:它是延迟目录的开口,自身永远常驻。
     deferLoading: false,
     parameters: {

@@ -1,5 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * BankCard 可写存储（2026-11-27）。
@@ -29,6 +30,9 @@ export const BANK_CARD_GROUP = USER_PREFERENCE_GROUPS.bankCards
 export const BANK_CARD_MAX = 20
 const CARD_MIN_DIGITS = 12
 const CARD_MAX_DIGITS = 19
+
+/** 进程内 per-user 串行队列；键为 userId，值为队尾 promise。 */
+const bankCardUserQueues = new Map<string, Promise<void>>()
 
 export type BankCardErrorCode = 'invalid-number' | 'exists' | 'limit'
 
@@ -157,6 +161,32 @@ export function sortStoredBankCards(cards: readonly StoredBankCard[]): StoredBan
 }
 
 export async function listStoredBankCards(userId: string): Promise<StoredBankCard[]> {
+  return withBankCardUserLock(userId, () => loadStoredBankCards(userId))
+}
+
+/**
+ * 每用户串行队列：add / delete / setDefault / list 共用同一把进程内锁，
+ * 防止并发 POST 先读后写绕过重复卡号检查。跨进程/多实例仍需数据库唯一键，
+ * 这里解决单实例内最接近用户操作的竞态，不承诺分布式互斥。
+ */
+async function withBankCardUserLock<T>(userId: string, task: () => Promise<T>): Promise<T> {
+  const previous = bankCardUserQueues.get(userId) ?? Promise.resolve()
+  let release!: () => void
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const tail = previous.then(() => gate)
+  bankCardUserQueues.set(userId, tail)
+  await previous
+  try {
+    return await task()
+  } finally {
+    release()
+    if (bankCardUserQueues.get(userId) === tail) bankCardUserQueues.delete(userId)
+  }
+}
+
+async function loadStoredBankCards(userId: string): Promise<StoredBankCard[]> {
   const { list } = await findUserPreferences(userId, BANK_CARD_GROUP)
   const cards = list
     .map((row) => parseStoredBankCard(row.key, row.value))
@@ -175,53 +205,60 @@ export async function addStoredBankCard(
   const number = normalizeBankCardNumber(input.number)
   if (!number) throw new BankCardStoreError('invalid-number')
 
-  const existing = await listStoredBankCards(userId)
-  if (existing.some((card) => card.number === number)) throw new BankCardStoreError('exists')
-  if (existing.length >= BANK_CARD_MAX) throw new BankCardStoreError('limit')
+  return withBankCardUserLock(userId, async () => {
+    const existing = await loadStoredBankCards(userId)
+    if (existing.some((card) => card.number === number)) throw new BankCardStoreError('exists')
+    if (existing.length >= BANK_CARD_MAX) throw new BankCardStoreError('limit')
 
-  const now = new Date().toISOString()
-  const makeDefault = input.isDefault === true || existing.length === 0 || !existing.some((card) => card.isDefault)
-  if (makeDefault) {
-    for (const card of existing) {
-      if (!card.isDefault) continue
-      await persistCard(userId, { ...card, isDefault: false })
+    const now = new Date().toISOString()
+    const makeDefault =
+      input.isDefault === true || existing.length === 0 || !existing.some((card) => card.isDefault)
+    if (makeDefault) {
+      for (const card of existing) {
+        if (!card.isDefault) continue
+        await persistCard(userId, { ...card, isDefault: false })
+      }
     }
-  }
 
-  const card: StoredBankCard = {
-    id: randomUUID(),
-    number,
-    holder: input.holder.trim() || '—',
-    bankName: input.bankName.trim() || '银行卡',
-    isDefault: makeDefault,
-    createdAt: now,
-  }
-  await persistCard(userId, card)
-  return card
+    const card: StoredBankCard = {
+      id: randomUUID(),
+      number,
+      holder: input.holder.trim() || '—',
+      bankName: input.bankName.trim() || '银行卡',
+      isDefault: makeDefault,
+      createdAt: now,
+    }
+    await persistCard(userId, card)
+    return card
+  })
 }
 
 /** 只删显式绑定卡；历史提现投影的 id 找不到时返回 false，不误删流水。 */
 export async function deleteStoredBankCard(userId: string, id: string): Promise<boolean> {
-  const existing = await listStoredBankCards(userId)
-  const target = existing.find((card) => card.id === id)
-  if (!target) return false
+  return withBankCardUserLock(userId, async () => {
+    const existing = await loadStoredBankCards(userId)
+    const target = existing.find((card) => card.id === id)
+    if (!target) return false
 
-  await deleteUserPreference(userId, BANK_CARD_GROUP, id)
-  if (target.isDefault) {
-    const remaining = existing.filter((card) => card.id !== id)
-    const newest = sortStoredBankCards(remaining)[0]
-    if (newest) await persistCard(userId, { ...newest, isDefault: true })
-  }
-  return true
+    await deleteUserPreference(userId, BANK_CARD_GROUP, id)
+    if (target.isDefault) {
+      const remaining = existing.filter((card) => card.id !== id)
+      const newest = sortStoredBankCards(remaining)[0]
+      if (newest) await persistCard(userId, { ...newest, isDefault: true })
+    }
+    return true
+  })
 }
 
 export async function setDefaultStoredBankCard(userId: string, id: string): Promise<boolean> {
-  const existing = await listStoredBankCards(userId)
-  if (!existing.some((card) => card.id === id)) return false
-  for (const card of existing) {
-    await persistCard(userId, { ...card, isDefault: card.id === id })
-  }
-  return true
+  return withBankCardUserLock(userId, async () => {
+    const existing = await loadStoredBankCards(userId)
+    if (!existing.some((card) => card.id === id)) return false
+    for (const card of existing) {
+      await persistCard(userId, { ...card, isDefault: card.id === id })
+    }
+    return true
+  })
 }
 
 /** GET 合并：显式绑定卡优先，历史提现投影去重后补位；默认卡排最前。 */
@@ -232,3 +269,4 @@ export async function listWalletBankCards(
   const stored = await listStoredBankCards(userId)
   return mergeBankCards(stored, projectBankCards(projectedRows, userId))
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -745,6 +745,23 @@ const browserNavigate: Tool = {
   },
   required: ['url'],
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'browser.navigate',
+      reason: '打开指定 URL 并加载页面,浏览器会访问外部网络,触网须人确认',
+      riskLevel: 'write',
+      effectScope: 'network',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   async execute(args) {
     try {
       const url = requireString(args, 'url');
@@ -779,6 +796,22 @@ const browserSnapshot: Tool = {
   },
   required: [],
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'browser.snapshot',
+      reason: '只读获取页面可读快照(标题/URL/文本/交互元素),不改页面状态,无需批准',
+      riskLevel: 'read',
+      effectScope: 'system',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   async execute(args) {
     try {
       const { session } = await getBrowserSession();
@@ -802,6 +835,23 @@ const browserScreenshot: Tool = {
   },
   required: [],
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'browser.screenshot',
+      reason: '对页面截图并保存为 PNG 文件(写入工作区),须人确认',
+      riskLevel: 'write',
+      effectScope: 'workspace',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   async execute(args, ctx) {
     try {
       const { session } = await getBrowserSession();
@@ -847,6 +897,23 @@ const browserClick: Tool = {
   },
   required: [],
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'browser.click',
+      reason: '点击页面元素,触发页面行为(可能提交/跳转),须人确认',
+      riskLevel: 'write',
+      effectScope: 'system',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   async execute(args) {
     try {
       const choice = parseTargetChoice(args);
@@ -943,6 +1010,23 @@ const browserType: Tool = {
   },
   required: ['text'],
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'browser.type',
+      reason: '向页面输入框输入文本,改变页面输入状态,须人确认',
+      riskLevel: 'write',
+      effectScope: 'system',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   async execute(args) {
     try {
       const choice = parseTargetChoice(args);
@@ -1049,6 +1133,23 @@ const browserPressKey: Tool = {
   },
   required: ['key'],
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'browser.pressKey',
+      reason: '向聚焦元素发送真实按键,可能提交/导航,须人确认',
+      riskLevel: 'write',
+      effectScope: 'system',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   async execute(args) {
     try {
       const key = requireString(args, 'key');
@@ -1103,6 +1204,23 @@ const browserEvaluate: Tool = {
   },
   required: ['expression'],
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'browser.evaluate',
+      reason: '在页面执行任意 JavaScript,可在页面上下文跑任意代码,危险动作须人确认',
+      riskLevel: 'write',
+      effectScope: 'system',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   async execute(args) {
     try {
       const expression = requireString(args, 'expression');
@@ -1159,6 +1277,22 @@ const browserGetBoundingBox: Tool = {
   },
   required: [],
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'browser.getBoundingBox',
+      reason: '只读读取元素在视口内的位置与尺寸,不改变页面状态,无需批准',
+      riskLevel: 'read',
+      effectScope: 'system',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   async execute(args) {
     try {
       const choice = parseTargetChoice(args);
@@ -1211,6 +1345,22 @@ const browserGetState: Tool = {
   },
   required: [],
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'browser.getState',
+      reason: '只读读取元素可交互状态(可见/启用),不改变页面状态,无需批准',
+      riskLevel: 'read',
+      effectScope: 'system',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   async execute(args) {
     const STATE_BODY = `const cs = getComputedStyle(el);
       const r = el.getBoundingClientRect();
@@ -1276,6 +1426,22 @@ const browserGetAttribute: Tool = {
   },
   required: ['attribute'],
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'browser.getAttribute',
+      reason: '只读读取元素属性或表单值,不改变页面状态,无需批准',
+      riskLevel: 'read',
+      effectScope: 'system',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   async execute(args) {
     const attr = requireString(args, 'attribute');
     const ATTR_BODY = `const attr = ${JSON.stringify(attr)};
@@ -1319,6 +1485,23 @@ const browserClose: Tool = {
   parameters: {},
   required: [],
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'browser.close',
+      reason: '关闭浏览器会话并可能终止浏览器进程,须人确认',
+      riskLevel: 'write',
+      effectScope: 'system',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   async execute() {
     try {
       if (activeSession) {

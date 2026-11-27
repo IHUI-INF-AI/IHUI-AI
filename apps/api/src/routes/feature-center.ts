@@ -348,6 +348,10 @@ interface StoredDocumentAnnotation {
   anchor: Record<string, unknown> | null
   excerpt: string | null
   status: DocumentAnnotationStatus
+  /** human = 人工批注;ai = AI 预审官结论。旧数据缺省按 human。 */
+  origin?: 'human' | 'ai'
+  /** AI 预审去重键;同一文档同一位置同一结论不重复落库。 */
+  aiKey?: string
   createdAt: string
   updatedAt: string
 }
@@ -414,10 +418,7 @@ async function writeAnnotationStore(store: DocumentAnnotationStore): Promise<voi
 // 后写覆盖先写，表现为“刚发的评论消失”。多实例部署时仍应迁移到数据库事务。
 const annotationLocks = new Map<string, Promise<void>>()
 
-async function withAnnotationLock<T>(
-  documentId: string,
-  task: () => Promise<T>,
-): Promise<T> {
+async function withAnnotationLock<T>(documentId: string, task: () => Promise<T>): Promise<T> {
   const previous = annotationLocks.get(documentId) ?? Promise.resolve()
   let release!: () => void
   const gate = new Promise<void>((resolve) => {
@@ -576,6 +577,7 @@ export const featureCenterRoutes: FastifyPluginAsync = async (server) => {
         anchor: parentId ? null : anchor,
         excerpt: parentId ? null : excerpt || null,
         status: 'open',
+        origin: 'human',
         createdAt: now,
         updatedAt: now,
       }
@@ -584,6 +586,100 @@ export const featureCenterRoutes: FastifyPluginAsync = async (server) => {
       return created
     })
     return reply.send(success(toAnnotationDto(documentId, annotation)))
+  })
+
+  /**
+   * AI 预审官落库:接收已在服务端结构化校验过的 findings,按 位置 + 结论 去重。
+   * 故意不信任客户端的 author/userId,AI 线程统一署名,且 origin=ai 方便侧栏识别。
+   */
+  server.post('/documents/annotations/ai', async (request, reply) => {
+    const { userId, roleId } = await requireDocumentUser(request)
+    const body = (request.body ?? {}) as Record<string, unknown>
+    const documentId = requireDocumentId(body.documentId)
+    await assertDocumentReadable(documentId, roleId)
+
+    const label = trimmedText(body.label, '批注位置', 200, false)
+    const anchor = optionalAnchor(body.anchor)
+    const anchorKind =
+      anchor && typeof anchor.kind === 'string'
+        ? anchor.kind
+        : trimmedText(body.anchorKind, '锚点类型', 24, false) || null
+    if (!anchor) throw new AppError('AI 预审缺少锚点', 400, 'VALIDATION_FAILED')
+
+    const findingsInput = body.findings
+    if (!Array.isArray(findingsInput) || findingsInput.length === 0 || findingsInput.length > 5) {
+      throw new AppError('findings 数量无效', 400, 'VALIDATION_FAILED')
+    }
+    const findings = findingsInput.map((item, index) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) {
+        throw new AppError(`findings[${index}] 格式错误`, 400, 'VALIDATION_FAILED')
+      }
+      const value = item as Record<string, unknown>
+      const title = trimmedText(value.title, `findings[${index}].title`, 80)
+      const detail = trimmedText(value.detail, `findings[${index}].detail`, 1000)
+      const evidence = trimmedText(value.evidence, `findings[${index}].evidence`, 300, false)
+      const suggestion = trimmedText(value.suggestion, `findings[${index}].suggestion`, 600, false)
+      const severity =
+        value.severity === 'high' || value.severity === 'medium' || value.severity === 'low'
+          ? value.severity
+          : 'medium'
+      return { title, detail, evidence, suggestion, severity }
+    })
+
+    const created = await withAnnotationLock(documentId, async () => {
+      const store = await readAnnotationStore(documentId)
+      const now = new Date().toISOString()
+      const rows: StoredDocumentAnnotation[] = []
+      for (const finding of findings) {
+        const aiKey = createHash('sha256')
+          .update(
+            JSON.stringify({
+              documentId,
+              anchorKind,
+              anchor,
+              title: finding.title,
+              detail: finding.detail,
+            }),
+          )
+          .digest('hex')
+        if (store.annotations.some((item) => item.aiKey === aiKey)) continue
+        const bodyText = [
+          `${finding.severity === 'high' ? '【高】' : finding.severity === 'low' ? '【低】' : '【中】'}${finding.title}`,
+          finding.detail,
+          finding.evidence ? `证据: ${finding.evidence}` : '',
+          finding.suggestion ? `建议: ${finding.suggestion}` : '',
+        ]
+          .filter(Boolean)
+          .join('\n\n')
+        const row: StoredDocumentAnnotation = {
+          id: randomUUID(),
+          parentId: null,
+          userId,
+          author: 'AI 审阅官',
+          body: bodyText,
+          label,
+          anchorKind,
+          anchor,
+          excerpt: finding.evidence || null,
+          status: 'open',
+          origin: 'ai',
+          aiKey,
+          createdAt: now,
+          updatedAt: now,
+        }
+        store.annotations.push(row)
+        rows.push(row)
+      }
+      if (rows.length > 0) await writeAnnotationStore(store)
+      return { rows, skipped: findings.length - rows.length }
+    })
+
+    return reply.send(
+      success({
+        created: created.rows.map((item) => toAnnotationDto(documentId, item)),
+        skipped: created.skipped,
+      }),
+    )
   })
 
   server.patch('/documents/annotations/:id', async (request, reply) => {
@@ -632,9 +728,7 @@ export const featureCenterRoutes: FastifyPluginAsync = async (server) => {
       // 删回复只删这一条；删主批注才把整条线程(所有回复)一起清掉。
       store.annotations = target.parentId
         ? store.annotations.filter((item) => item.id !== target.id)
-        : store.annotations.filter(
-            (item) => item.id !== target.id && item.parentId !== target.id,
-          )
+        : store.annotations.filter((item) => item.id !== target.id && item.parentId !== target.id)
       await writeAnnotationStore(store)
     })
     return reply.send(success({ id }))

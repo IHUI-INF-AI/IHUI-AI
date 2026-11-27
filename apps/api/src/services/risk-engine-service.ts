@@ -31,8 +31,10 @@ export type RiskAction = 'ALLOW' | 'DENY' | 'REVIEW' | 'CHALLENGE' | 'SCORE'
 export interface RiskContext {
   userId?: string
   ip?: string
-  /** 登录地与常用地是否不一致 */
+  /** 本次登录地区是否「新」(最近 LOGIN_REGION_MEMORY_DAYS 天内没在这个地区登录过) */
   loginRegionChanged?: boolean
+  /** 本次登录是否来自该用户从未见过的设备指纹(登录路由判定,首设备不算) */
+  newDevice?: boolean
   /** 滑动窗口内退款次数 */
   recentRefundCount?: number
   /** 退款统计窗口 (秒) */
@@ -126,7 +128,7 @@ export const DEFAULT_RULES: RiskRule[] = [
     score: 30,
     priority: 80,
     enabled: true,
-    description: '登录地域与常用地域不一致，触发二次验证',
+    description: '登录地区是最近 N 天内未出现的新地区，触发二次验证',
   },
   {
     ruleId: 'R002_HIGH_FREQ_REFUND',
@@ -485,49 +487,54 @@ const LOGIN_ANOMALY_RULE_IDS = new Set(['R001_REMOTE_LOGIN', 'R003_ABNORMAL_IP']
 /**
  * 评估登录风险并触发异常通知。
  *
- * 在 evaluateRisk 基础上,若检测到登录相关异常(异地登录 / 异常 IP)且动作非 ALLOW,
- * 异步调用 notifyLoginAnomaly 发送站内信 / 邮件 / Webhook 通知。
+ * 通知策略(2026-11-27 收敛,原实现"换一次 IP 报一次"):
+ *  - 新设备登录:设备指纹从未出现过 ⇒ 发「新设备登录提醒」,按设备指纹去重 30 天;
+ *  - 新地区登录:最近 N 天没在该地区登录,且风控判定非 ALLOW ⇒ 发「异地登录提醒」,
+ *    按「设备指纹 + 地区」去重 24 小时;
+ *  - 其余(已知设备 + 已知地区、回环/内网/自动化出口)⇒ 静默。
  *
- * 降级:notifier 内部已 try-catch 各通道 + 6h Redis 去重;调用失败仅 logger.warn,
+ * 降级:notifier 内部已 try-catch 各通道,调用失败仅 logger.warn,
  * 不影响返回的 risk result,登录主流程按原 action 继续处理。
  */
 export function evaluateLoginRisk(ctx: RiskContext): RiskEvaluationResult {
   const result = evaluateRisk(ctx)
 
-  // 无 userId 或无命中 → 跳过通知
   const userId = ctx.userId
-  if (!userId || result.hits.length === 0) return result
+  if (!userId) return result
 
-  // 查找首条登录相关命中(异地登录 / 异常 IP)
+  const newDevice = ctx.newDevice === true
   const loginHit = result.hits.find((h) => LOGIN_ANOMALY_RULE_IDS.has(h.ruleId))
-  if (!loginHit) return result
 
-  // 仅在非 ALLOW(中/高风险)时通知;R001=CHALLENGE / R003=DENY 均满足
-  if (result.action === 'ALLOW') return result
+  // 既不是新设备,也没有命中登录类规则 ⇒ 无事可报
+  if (!newDevice && !loginHit) return result
+  // 命中规则但风控本身判为放行,且不是新设备 ⇒ 不打扰
+  if (!newDevice && result.action === 'ALLOW') return result
 
-  // 异步触发通知(不阻塞主流程);notifier 自带 6h 去重 + 各通道独立 try-catch,
-  // 此处 .catch 仅作 call-site 兜底(notifier 本身不会 reject)
+  // 新设备优先单独成事件(短信模板也只接这一类);否则才是异地登录
+  const eventType = newDevice ? 'new_device_login' : 'remote_login'
+
   void notifyLoginAnomaly({
     userId,
-    eventType: 'remote_login',
+    eventType,
     ip: ctx.ip,
     userAgent: pickString(ctx, 'userAgent'),
     location: pickString(ctx, 'location'),
     deviceFingerprint: pickString(ctx, 'deviceFingerprint'),
     metadata: {
-      ruleId: loginHit.ruleId,
-      ruleName: loginHit.name,
-      reason: loginHit.reason,
+      ruleId: loginHit?.ruleId ?? null,
+      ruleName: loginHit?.name ?? null,
+      reason: loginHit?.reason ?? 'new_device',
       totalScore: result.totalScore,
       action: result.action,
       riskLevel: riskLevelOf(result),
+      newDevice,
       timestamp: new Date().toISOString(),
     },
   }).catch((err) => {
     logger.warn('risk-engine: login anomaly notify failed', {
       err,
       userId,
-      ruleId: loginHit.ruleId,
+      eventType,
     })
   })
 

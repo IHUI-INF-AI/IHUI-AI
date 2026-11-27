@@ -235,19 +235,19 @@ describe('Auth Apple Callback — POST /auth/:platform/callback', () => {
     expect(res.statusCode).toBe(400)
   })
 
-  it('未配置 APPLE_CLIENT_ID 返回 400 Apple OAuth 未配置', async () => {
+  it('未配置 APPLE_CLIENT_ID 返回 503 Apple OAuth 未配置', async () => {
     delete process.env.APPLE_CLIENT_ID
     const res = await app.inject({
       method: 'POST',
       url: '/api/auth/apple/callback',
       payload: { code: 'test-code', state: 'test-state' },
     })
-    expect(res.statusCode).toBe(400)
+    expect(res.statusCode).toBe(503)
     expect(res.json().message).toContain('Apple OAuth 未配置')
     expect(res.json().message).toContain('APPLE_CLIENT_ID')
   })
 
-  it('仅配置 APPLE_CLIENT_ID 无 APPLE_CLIENT_SECRET 返回框架响应', async () => {
+  it('仅配置 APPLE_CLIENT_ID 无 APPLE_CLIENT_SECRET 返回 503(不再是 200 框架成功)', async () => {
     process.env.APPLE_CLIENT_ID = 'com.example.app'
     delete process.env.APPLE_CLIENT_SECRET
 
@@ -256,14 +256,10 @@ describe('Auth Apple Callback — POST /auth/:platform/callback', () => {
       url: '/api/auth/apple/callback',
       payload: { code: 'test-code', state: 'test-state' },
     })
-    expect(res.statusCode).toBe(200)
+    expect(res.statusCode).toBe(503)
     const body = res.json()
-    expect(body.code).toBe(0)
-    expect(body.data.status).toBe('apple_callback_received')
-    expect(body.data.code).toBe('test-code')
-    expect(body.data.state).toBe('test-state')
-    expect(body.data.note).toContain('APPLE_CLIENT_SECRET')
-    expect(body.data.missing.clientSecret).toBe(true)
+    expect(body.message).toContain('APPLE_CLIENT_SECRET')
+    expect(JSON.stringify(body)).not.toMatch(/apple_callback_received/)
   })
 
   it('Apple token 交换失败(id_token 缺失)返回 400', async () => {

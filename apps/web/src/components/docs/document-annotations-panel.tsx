@@ -5,11 +5,22 @@
 'use client'
 
 import * as React from 'react'
-import { Check, Loader2, MessageSquare, RefreshCw, RotateCcw, Send, Trash2, X } from 'lucide-react'
+import { Check, Loader2, MessageSquare, RefreshCw, RotateCcw, Send, Sparkles, Trash2, X } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 
-import { fetchApi } from '@/lib/api'
+import {
+  createDocumentAnnotation,
+  deleteDocumentAnnotation,
+  fetchDocumentAnnotations,
+  updateDocumentAnnotation,
+  type DocumentAnnotationRecord,
+} from '@/lib/document-annotations'
+import { emitAnchorReference } from '@/components/chat/annotation-anchor'
+import { useOptionalPaneId } from '@/stores/chat-pane-context'
+import type { AnnotationAnchor } from '@ihui/shared/chat/annotation-anchors'
 import { cn } from '@/lib/utils'
+
+export type { DocumentAnnotationRecord } from '@/lib/document-annotations'
 
 /**
  * 文档级批注/评论线程(2026-11-27 立)。
@@ -23,26 +34,15 @@ import { cn } from '@/lib/utils'
  * 本面板只消费 API,避免四类预览器各写一套线程 UI。
  */
 
-export interface DocumentAnnotationRecord {
-  id: string
-  documentId: string
-  parentId: string | null
-  author: string
-  body: string
-  label: string
-  anchorKind: string | null
-  anchor: Record<string, unknown> | null
-  excerpt: string | null
-  status: 'open' | 'resolved'
-  createdAt: string
-  updatedAt: string
-}
-
 interface Props {
   documentId: string
   documentTitle?: string
   /** 外部(锚点自动保存)新增后递增,触发重新拉取 */
   refreshKey?: number
+  /** 从页内 pin 跳转过来时要聚焦的线程根 id */
+  focusId?: string | null
+  /** 线程发生增删改后通知宿主刷新页内 pin */
+  onMutated?: () => void
   className?: string
   onClose?: () => void
 }
@@ -58,51 +58,12 @@ function formatTime(value: string): string {
   })
 }
 
-async function fetchAnnotations(documentId: string): Promise<DocumentAnnotationRecord[]> {
-  const res = await fetchApi<DocumentAnnotationRecord[]>(
-    `/api/feature-center/documents/annotations?documentId=${encodeURIComponent(documentId)}`,
-  )
-  if (!res.success) throw new Error(res.error)
-  return res.data
-}
-
-async function createAnnotation(input: {
-  documentId: string
-  body: string
-  parentId?: string
-}): Promise<DocumentAnnotationRecord> {
-  const res = await fetchApi<DocumentAnnotationRecord>('/api/feature-center/documents/annotations', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  })
-  if (!res.success) throw new Error(res.error)
-  return res.data
-}
-
-async function updateAnnotation(
-  id: string,
-  documentId: string,
-  status: 'open' | 'resolved',
-): Promise<void> {
-  const res = await fetchApi(`/api/feature-center/documents/annotations/${id}`, {
-    method: 'PATCH',
-    body: JSON.stringify({ documentId, status }),
-  })
-  if (!res.success) throw new Error(res.error)
-}
-
-async function deleteAnnotation(id: string, documentId: string): Promise<void> {
-  const res = await fetchApi(`/api/feature-center/documents/annotations/${id}`, {
-    method: 'DELETE',
-    body: JSON.stringify({ documentId }),
-  })
-  if (!res.success) throw new Error(res.error)
-}
-
 export function DocumentAnnotationsPanel({
   documentId,
   documentTitle,
   refreshKey = 0,
+  focusId = null,
+  onMutated,
   className,
   onClose,
 }: Props) {
@@ -114,12 +75,14 @@ export function DocumentAnnotationsPanel({
   const [replyTarget, setReplyTarget] = React.useState<string | null>(null)
   const [replyBody, setReplyBody] = React.useState('')
   const [replyBusy, setReplyBusy] = React.useState(false)
+  const asideRef = React.useRef<HTMLElement>(null)
+  const paneId = useOptionalPaneId()
 
   const load = React.useCallback(async () => {
     setLoading(true)
     setError('')
     try {
-      const list = await fetchAnnotations(documentId)
+      const list = await fetchDocumentAnnotations(documentId)
       setItems(list)
     } catch (e) {
       setError(e instanceof Error ? e.message : '批注加载失败')
@@ -151,15 +114,29 @@ export function DocumentAnnotationsPanel({
     return map
   }, [items])
 
+  // 页内 pin 点进来时把对应线程滚到可视区;线程列表是异步加载的,必须等 items 到齐再找。
+  React.useEffect(() => {
+    if (!focusId) return
+    const timer = window.setTimeout(() => {
+      const target = asideRef.current?.querySelector<HTMLElement>(
+        `[data-annotation-id="${focusId}"]`,
+      )
+      target?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      target?.focus({ preventScroll: true })
+    }, 60)
+    return () => window.clearTimeout(timer)
+  }, [focusId, items])
+
   const submitRoot = async () => {
     const text = composer.trim()
     if (!text || submitting) return
     setSubmitting(true)
     setError('')
     try {
-      const created = await createAnnotation({ documentId, body: text })
+      const created = await createDocumentAnnotation({ documentId, body: text })
       setItems((current) => [...current, created])
       setComposer('')
+      onMutated?.()
     } catch (e) {
       setError(e instanceof Error ? e.message : '批注保存失败')
     } finally {
@@ -173,7 +150,7 @@ export function DocumentAnnotationsPanel({
     setReplyBusy(true)
     setError('')
     try {
-      const created = await createAnnotation({ documentId, body: text, parentId: rootId })
+      const created = await createDocumentAnnotation({ documentId, body: text, parentId: rootId })
       setItems((current) => [...current, created])
       setReplyBody('')
       setReplyTarget(null)
@@ -188,7 +165,7 @@ export function DocumentAnnotationsPanel({
     const next = root.status === 'resolved' ? 'open' : 'resolved'
     setError('')
     try {
-      await updateAnnotation(root.id, documentId, next)
+      await updateDocumentAnnotation(root.id, documentId, next)
       setItems((current) =>
         current.map((item) =>
           item.id === root.id
@@ -196,6 +173,7 @@ export function DocumentAnnotationsPanel({
             : item,
         ),
       )
+      onMutated?.()
     } catch (e) {
       setError(e instanceof Error ? e.message : '状态更新失败')
     }
@@ -205,10 +183,11 @@ export function DocumentAnnotationsPanel({
     if (!window.confirm('删除这条批注及其全部回复?')) return
     setError('')
     try {
-      await deleteAnnotation(root.id, documentId)
+      await deleteDocumentAnnotation(root.id, documentId)
       setItems((current) =>
         current.filter((item) => item.id !== root.id && item.parentId !== root.id),
       )
+      onMutated?.()
     } catch (e) {
       setError(e instanceof Error ? e.message : '删除失败')
     }
@@ -216,8 +195,9 @@ export function DocumentAnnotationsPanel({
 
   return (
     <aside
+      ref={asideRef}
       className={cn(
-        'flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-stroke-subtle bg-background shadow-xl',
+        'flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-stroke-subtle bg-background shadow-xl',
         className,
       )}
       data-testid="document-annotations-panel"
@@ -302,25 +282,35 @@ export function DocumentAnnotationsPanel({
           <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-xs text-muted-foreground">
             <MessageSquare className="h-5 w-5 opacity-40" />
             <p>还没有批注</p>
-            <p className="text-[10px]">在正文选中文字或点击 PPTX 元素,备注后会同步到这里</p>
+            <p className="text-[10px]">点查看器里的「AI 预审」让 AI 自动落点,也可选中文字留下人工上下文</p>
           </div>
         ) : (
           roots.map((root) => {
             const rootReplies = replies.get(root.id) ?? []
+            const focused = root.id === focusId
             return (
               <article
                 key={root.id}
+                tabIndex={-1}
                 className={cn(
-                  'rounded-lg border p-2.5',
+                  'rounded-lg border p-2.5 outline-none transition-shadow',
                   root.status === 'resolved'
                     ? 'border-emerald-200/80 bg-emerald-50/40 dark:border-emerald-900/40 dark:bg-emerald-950/10'
                     : 'border-stroke-subtle bg-muted/20',
+                  focused && 'ring-2 ring-violet-500/70 ring-offset-1',
                 )}
                 data-testid="document-annotation-thread"
+                data-annotation-id={root.id}
                 data-annotation-status={root.status}
+                data-annotation-focused={focused ? 'true' : undefined}
               >
                 <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
                   <span className="font-medium text-foreground">{root.author}</span>
+                  {root.origin === 'ai' ? (
+                    <span className="rounded bg-violet-500/10 px-1 py-0.5 font-medium text-violet-700 dark:text-violet-300">
+                      AI 预审
+                    </span>
+                  ) : null}
                   <span>{formatTime(root.createdAt)}</span>
                   {root.status === 'resolved' ? (
                     <span className="rounded bg-emerald-500/10 px-1 py-0.5 text-emerald-700 dark:text-emerald-300">
@@ -393,6 +383,33 @@ export function DocumentAnnotationsPanel({
                 ) : null}
 
                 <div className="mt-2 flex flex-wrap items-center gap-1">
+                  {root.origin === 'ai' && root.anchor ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 gap-1 px-1.5 text-[10px] text-violet-700 hover:bg-violet-50 dark:text-violet-300 dark:hover:bg-violet-950/40"
+                      title="把这条 AI 结论带回主 AI 对话继续处理"
+                      onClick={() => {
+                        const rawAnchor = root.anchor as Record<string, unknown>
+                        emitAnchorReference({
+                          text: `[${root.label || 'AI 预审'}] ${root.body.slice(0, 1200)}\n\n请基于这条 AI 预审意见,给出可执行的修订方案,并指出需要补充的证据。`,
+                          anchor: rawAnchor as unknown as AnnotationAnchor,
+                          source: 'ai-finding',
+                          paneId,
+                          page: typeof rawAnchor.page === 'number' ? rawAnchor.page : undefined,
+                          slide: typeof rawAnchor.slide === 'number' ? rawAnchor.slide : undefined,
+                          element:
+                            typeof rawAnchor.element === 'string' ? rawAnchor.element : undefined,
+                          excerpt: root.excerpt ?? undefined,
+                          note: root.body,
+                        })
+                      }}
+                      data-testid="annotation-ai-handoff"
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      交给主 AI
+                    </Button>
+                  ) : null}
                   <Button
                     variant="ghost"
                     size="sm"

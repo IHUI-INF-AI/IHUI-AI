@@ -6,9 +6,16 @@
 
 import * as React from 'react'
 import type JSZip from 'jszip'
-import { Loader2 } from 'lucide-react'
+import { Loader2, MessageSquare, Sparkles } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import type { AiReviewFinding, PreviewAnnotationPin } from '@/lib/document-annotations'
+import {
+  reviewDocumentBlocks,
+  reviewDocumentFragment,
+  saveAiFindings,
+} from '@/lib/document-annotations'
 import { AnnotationAnchorCapture } from '@/components/chat/annotation-anchor'
+import { toast } from '@/components/common'
 
 /**
  * PPTX 版式化预览(2026-11-26 立)。
@@ -1004,6 +1011,28 @@ function TableShapeView({ shape }: { shape: PptxTableShape }) {
   )
 }
 
+function shapeNameOf(shape: PptxVisualShape, index: number): string {
+  return shape.name || `#${index + 1}`
+}
+
+function shapeTextOf(shape: PptxVisualShape): string {
+  if (shape.kind === 'text') {
+    return shape.paragraphs
+      .map((paragraph) =>
+        paragraph.runs
+          .map((run) => run.text)
+          .join('')
+          .trim(),
+      )
+      .filter(Boolean)
+      .join('\n')
+  }
+  if (shape.kind === 'table') {
+    return shape.rows.map((row) => row.join(' | ')).join('\n')
+  }
+  return ''
+}
+
 function ShapeHit({
   shape,
   label,
@@ -1020,7 +1049,7 @@ function ShapeHit({
       type="button"
       aria-label={label}
       title={label}
-      className="absolute z-20 border-0 bg-transparent p-0 transition-colors hover:bg-primary/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
+      className="absolute z-20 rounded-sm border-0 bg-transparent p-0 transition-colors hover:bg-primary/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
       style={{
         left: `${shape.x * 100}%`,
         top: `${shape.y * 100}%`,
@@ -1040,16 +1069,39 @@ function VisualSlideView({
   cx,
   cy,
   onSelect,
+  annotationPins = [],
+  focusedAnnotationId = null,
+  onAnnotationSelect,
+  onAiReview,
+  aiReviewBusy = false,
 }: {
   slide: PptxVisualSlide
   cx: number
   cy: number
   onSelect?: (slide: number, element: string) => void
+  annotationPins?: readonly PreviewAnnotationPin[]
+  focusedAnnotationId?: string | null
+  onAnnotationSelect?: (id: string) => void
+  onAiReview?: () => void
+  aiReviewBusy?: boolean
 }) {
+  const slidePins = annotationPins.filter((pin) => pin.kind === 'pptx' && pin.slide === slide.index)
+  const pinsByShape = new Map<number, PreviewAnnotationPin[]>()
+  for (const pin of slidePins) {
+    const shapeIndex = pin.element
+      ? slide.shapes.findIndex((shape, index) => shapeNameOf(shape, index) === pin.element)
+      : -1
+    if (shapeIndex < 0) continue
+    const list = pinsByShape.get(shapeIndex) ?? []
+    list.push(pin)
+    pinsByShape.set(shapeIndex, list)
+  }
+  const stacks = new Map<string, number>()
+
   return (
     <figure data-testid="pptx-visual-slide" className="mx-auto w-full max-w-[880px]">
       <div
-        className="relative w-full overflow-hidden rounded-lg shadow-sm ring-1 ring-border"
+        className="relative w-full overflow-hidden rounded-sm shadow-sm ring-1 ring-border"
         style={
           {
             aspectRatio: `${cx} / ${cy}`,
@@ -1088,16 +1140,96 @@ function VisualSlideView({
               <ShapeHit
                 key={`hit-${index}`}
                 shape={shape}
-                label={shape.name || `#${index + 1}`}
+                label={shapeNameOf(shape, index)}
                 slide={slide.index}
                 onSelect={onSelect}
               />
             ))
           : null}
+        {Array.from(pinsByShape.entries()).map(([shapeIndex, pins]) => {
+          const shape = slide.shapes[shapeIndex]
+          if (!shape) return null
+          const hasOpen = pins.some((pin) => pin.status === 'open')
+          return (
+            <div
+              key={`annotation-shape-${shapeIndex}`}
+              className={
+                hasOpen
+                  ? 'pointer-events-none absolute z-10 border-2 border-violet-500/80 bg-violet-500/5'
+                  : 'pointer-events-none absolute z-10 border-2 border-emerald-500/70 bg-emerald-500/5'
+              }
+              style={{
+                left: `${shape.x * 100}%`,
+                top: `${shape.y * 100}%`,
+                width: `${shape.w * 100}%`,
+                height: `${shape.h * 100}%`,
+                transform: shape.rotation ? `rotate(${shape.rotation}deg)` : undefined,
+              }}
+              data-testid="pptx-annotation-shape"
+            />
+          )
+        })}
+        {slidePins.map((pin) => {
+          const stackKey = pin.element ?? `slide-${slide.index}`
+          const stack = stacks.get(stackKey) ?? 0
+          stacks.set(stackKey, stack + 1)
+          const shapeIndex = pin.element
+            ? slide.shapes.findIndex((shape, index) => shapeNameOf(shape, index) === pin.element)
+            : -1
+          const shape = shapeIndex >= 0 ? slide.shapes[shapeIndex] : undefined
+          const left = shape ? Math.min(96, Math.max(2, (shape.x + shape.w) * 100)) : 96
+          const top = shape
+            ? Math.min(88, Math.max(4, shape.y * 100 + 2 + stack * 6))
+            : 6 + stack * 7
+          return (
+            <button
+              key={pin.id}
+              type="button"
+              aria-label={`${pin.label}: ${pin.body}`}
+              title={pin.body}
+              onClick={(event) => {
+                event.stopPropagation()
+                onAnnotationSelect?.(pin.id)
+              }}
+              data-testid="pptx-annotation-pin"
+              data-annotation-id={pin.id}
+              data-annotation-status={pin.status}
+              data-annotation-focused={focusedAnnotationId === pin.id ? 'true' : undefined}
+              className={[
+                'absolute z-30 flex h-7 min-w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center gap-1 rounded-full px-1.5 text-[10px] font-semibold text-white shadow-md ring-2 ring-white/80 transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500',
+                pin.status === 'resolved' ? 'bg-emerald-600' : 'bg-violet-600',
+                focusedAnnotationId === pin.id ? 'ring-4 ring-violet-300' : '',
+              ].join(' ')}
+              style={{ left: `${left}%`, top: `${top}%` }}
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              <span className="tabular-nums">{stack + 1}</span>
+            </button>
+          )
+        })}
         {slide.shapes.length === 0 ? (
           <p className="absolute inset-0 flex items-center justify-center text-label text-muted-foreground">
             —
           </p>
+        ) : null}
+      </div>
+      <div className="mt-1 flex items-center justify-between px-0.5 text-[10px] text-muted-foreground">
+        <span>第 {slide.index} 张</span>
+        {onAiReview ? (
+          <button
+            type="button"
+            onClick={onAiReview}
+            disabled={aiReviewBusy}
+            className="flex items-center gap-1 rounded bg-violet-600 px-1.5 py-0.5 font-medium text-white transition-colors hover:bg-violet-700 disabled:opacity-60"
+            aria-label={`AI 预审第 ${slide.index} 张`}
+          >
+            {aiReviewBusy ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Sparkles className="h-3 w-3" />
+            )}
+            AI 预审
+          </button>
         ) : null}
       </div>
       {(slide.notes || slide.index > 0) && (
@@ -1110,14 +1242,174 @@ function VisualSlideView({
   )
 }
 
-export function PptxPreview({ data }: { data: ArrayBuffer }) {
+export function PptxPreview({
+  data,
+  annotationPins = [],
+  focusedAnnotationId = null,
+  onAnnotationSelect,
+  documentId,
+  documentName,
+  onAnnotationsMutated,
+}: {
+  data: ArrayBuffer
+  annotationPins?: readonly PreviewAnnotationPin[]
+  focusedAnnotationId?: string | null
+  onAnnotationSelect?: (id: string) => void
+  documentId?: string
+  documentName?: string
+  onAnnotationsMutated?: () => void
+}) {
   const t = useTranslations('chat')
   const [deck, setDeck] = React.useState<PptxVisualDeck | null>(null)
   const [failed, setFailed] = React.useState(false)
+  const [aiReviewSlide, setAiReviewSlide] = React.useState<number | null>(null)
+  const [aiFullReviewBusy, setAiFullReviewBusy] = React.useState(false)
   const [selected, setSelected] = React.useState<{
     readonly slide: number
     readonly element: string
   } | null>(null)
+
+  const runAiReview = React.useCallback(
+    async (slide: PptxVisualSlide) => {
+      if (!documentId || aiReviewSlide !== null || aiFullReviewBusy) return
+      const elements = slide.shapes
+        .map((shape, index) => ({ name: shapeNameOf(shape, index), text: shapeTextOf(shape) }))
+        .filter((item) => item.text)
+      const text = elements.map((item) => `[${item.name}]\n${item.text}`).join('\n\n')
+      if (text.length < 20) {
+        toast.error('这张幻灯片没有可审阅的文字')
+        return
+      }
+      setAiReviewSlide(slide.index)
+      try {
+        const findings = await reviewDocumentFragment({
+          title: documentName || 'PPTX 演示文稿',
+          anchor: { kind: 'pptx', slide: slide.index },
+          text: text.slice(0, 12_000),
+          elements,
+        })
+        if (findings.length === 0) {
+          toast.success('AI 预审完成：这张没有发现需要标注的问题')
+          return
+        }
+        const fallback = elements[0]?.name
+        const groups = new Map<string, AiReviewFinding[]>()
+        for (const finding of findings) {
+          const element =
+            finding.element && elements.some((item) => item.name === finding.element)
+              ? finding.element
+              : fallback
+          if (!element) continue
+          const group = groups.get(element) ?? []
+          group.push(finding)
+          groups.set(element, group)
+        }
+        let created = 0
+        for (const [element, group] of groups) {
+          const saved = await saveAiFindings({
+            documentId,
+            label: `第 ${slide.index} 张 · ${element} · AI 预审`,
+            anchorKind: 'pptx',
+            anchor: { kind: 'pptx', slide: slide.index, element },
+            findings: group,
+          })
+          created += saved.created.length
+        }
+        onAnnotationsMutated?.()
+        toast.success(
+          created > 0 ? `AI 预审发现 ${created} 条新意见` : 'AI 预审没有新增意见（同一位置已去重）',
+        )
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'AI 预审失败，请稍后重试')
+      } finally {
+        setAiReviewSlide(null)
+      }
+    },
+    [aiFullReviewBusy, aiReviewSlide, documentId, documentName, onAnnotationsMutated],
+  )
+
+  const runFullAiReview = React.useCallback(async () => {
+    if (!documentId || !deck || aiReviewSlide !== null || aiFullReviewBusy) return
+    setAiFullReviewBusy(true)
+    try {
+      const blocks: {
+        anchor: Record<string, unknown>
+        text: string
+        elements: { name: string; text: string }[]
+      }[] = []
+      let totalChars = 0
+      for (const slide of deck.slides.slice(0, 20)) {
+        if (totalChars >= 30_000) break
+        const elements = slide.shapes
+          .map((shape, index) => ({ name: shapeNameOf(shape, index), text: shapeTextOf(shape) }))
+          .filter((item) => item.text)
+        const text = elements.map((item) => `[${item.name}]\n${item.text}`).join('\n\n')
+        if (text.length < 20) continue
+        const remaining = 30_000 - totalChars
+        blocks.push({
+          anchor: { kind: 'pptx', slide: slide.index },
+          text: text.slice(0, remaining),
+          elements,
+        })
+        totalChars += Math.min(text.length, remaining)
+      }
+      if (blocks.length === 0) {
+        toast.error('这份演示文稿没有可审阅的文字')
+        return
+      }
+      const findings = await reviewDocumentBlocks({
+        title: documentName || 'PPTX 演示文稿',
+        blocks,
+      })
+      if (findings.length === 0) {
+        toast.success(`AI 已通读 ${blocks.length} 张幻灯片：没有发现需要标注的问题`)
+        return
+      }
+      const groups = new Map<
+        string,
+        { slide: PptxVisualSlide; element: string; items: AiReviewFinding[] }
+      >()
+      for (const finding of findings) {
+        const blockNumber = finding.block
+        if (!blockNumber || blockNumber < 1 || blockNumber > blocks.length) continue
+        const block = blocks[blockNumber - 1]
+        if (!block) continue
+        const slide = deck.slides.find((item) => item.index === Number(block.anchor.slide))
+        if (!slide) continue
+        const elements = block.elements
+        const element =
+          finding.element && elements.some((item) => item.name === finding.element)
+            ? finding.element
+            : elements[0]?.name
+        if (!element) continue
+        const key = `${slide.index}:${element}`
+        const group = groups.get(key) ?? { slide, element, items: [] }
+        group.items.push(finding)
+        groups.set(key, group)
+      }
+      let created = 0
+      for (const { slide, element, items } of groups.values()) {
+        const saved = await saveAiFindings({
+          documentId,
+          label: `第 ${slide.index} 张 · ${element} · AI 全文`,
+          anchorKind: 'pptx',
+          anchor: { kind: 'pptx', slide: slide.index, element },
+          findings: items,
+        })
+        created += saved.created.length
+      }
+      onAnnotationsMutated?.()
+      toast.success(
+        created > 0
+          ? `AI 已通读 ${blocks.length} 张幻灯片，发现 ${created} 条新意见`
+          : `AI 已通读 ${blocks.length} 张幻灯片：同一位置的意见已存在`,
+      )
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'AI 全文预审失败，请稍后重试')
+    } finally {
+      setAiFullReviewBusy(false)
+    }
+  }, [aiFullReviewBusy, aiReviewSlide, deck, documentId, documentName, onAnnotationsMutated])
 
   React.useEffect(() => {
     let cancelled = false
@@ -1163,6 +1455,24 @@ export function PptxPreview({ data }: { data: ArrayBuffer }) {
           />
         </div>
       ) : null}
+      {documentId && deck.slides.length > 1 ? (
+        <div className="flex justify-end border-b bg-background px-3 py-1.5">
+          <button
+            type="button"
+            onClick={() => void runFullAiReview()}
+            disabled={aiReviewSlide !== null || aiFullReviewBusy}
+            aria-label="AI 全文预审"
+            className="flex items-center gap-1 rounded-md border border-violet-300 px-2 py-1 text-[11px] font-medium text-violet-700 transition-colors hover:bg-violet-50 disabled:opacity-60 dark:border-violet-800 dark:text-violet-300 dark:hover:bg-violet-950/40"
+          >
+            {aiFullReviewBusy ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="h-3.5 w-3.5" />
+            )}
+            AI 全文预审
+          </button>
+        </div>
+      ) : null}
       <div className="max-h-[480px] space-y-4 overflow-auto bg-muted/30 p-3">
         {deck.slides.map((slide) => (
           <VisualSlideView
@@ -1171,6 +1481,11 @@ export function PptxPreview({ data }: { data: ArrayBuffer }) {
             cx={deck.cx}
             cy={deck.cy}
             onSelect={(slideNumber, element) => setSelected({ slide: slideNumber, element })}
+            annotationPins={annotationPins}
+            focusedAnnotationId={focusedAnnotationId}
+            onAnnotationSelect={onAnnotationSelect}
+            onAiReview={documentId ? () => void runAiReview(slide) : undefined}
+            aiReviewBusy={aiReviewSlide === slide.index}
           />
         ))}
       </div>

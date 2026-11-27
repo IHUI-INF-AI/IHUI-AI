@@ -214,5 +214,48 @@ describe('parsePptxVisual', () => {
     expect(received[0]?.slide).toBe(1)
     expect(received[0]?.element).toBe('正文 1')
   })
+
+  it('已有线程按 slide/element 落到 shape 上,pin 点击回传线程 id', async () => {
+    const onSelect = vi.fn()
+    render(
+      <PptxPreview
+        data={await makePptx()}
+        annotationPins={[
+          {
+            id: 'pin-1',
+            kind: 'pptx',
+            label: '第 2 张 · 标题 1',
+            body: '把标题改成年度合规总结',
+            excerpt: null,
+            status: 'open',
+            slide: 2,
+            element: '标题 1',
+          },
+        ]}
+        onAnnotationSelect={onSelect}
+      />,
+    )
+
+    const pin = await screen.findByTestId('pptx-annotation-pin')
+    expect(pin.getAttribute('data-annotation-id')).toBe('pin-1')
+    expect(pin.getAttribute('data-annotation-status')).toBe('open')
+    expect(screen.getAllByTestId('pptx-annotation-shape')).toHaveLength(1)
+    fireEvent.click(pin)
+    expect(onSelect).toHaveBeenCalledWith('pin-1')
+  })
+
+  it('文档中心场景给每张幻灯片 AI 预审入口,聊天附件不出现', async () => {
+    const data = await makePptx()
+    render(<PptxPreview data={data} documentId="file:developer/demo.pptx" />)
+    await screen.findByTestId('pptx-visual-deck')
+    expect(screen.getAllByRole('button', { name: /AI 预审第/ })).toHaveLength(2)
+    expect(screen.getByRole('button', { name: 'AI 全文预审' })).toBeTruthy()
+
+    cleanup()
+    render(<PptxPreview data={data} />)
+    await screen.findByTestId('pptx-visual-deck')
+    expect(screen.queryByRole('button', { name: /AI 预审第/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'AI 全文预审' })).toBeNull()
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

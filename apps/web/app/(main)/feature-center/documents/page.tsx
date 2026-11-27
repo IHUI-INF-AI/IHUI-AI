@@ -36,6 +36,11 @@ import { FileViewerDialog, type FileViewerTarget } from '@/components/media/file
 import { UniversalFilePreview } from '@/components/media/universal-file-preview'
 import { DocumentAnnotationsPanel } from '@/components/docs/document-annotations-panel'
 import {
+  fetchDocumentAnnotations,
+  toPreviewAnnotationPin,
+  type PreviewAnnotationPin,
+} from '@/lib/document-annotations'
+import {
   ADD_TEXT_REFERENCE_EVENT,
   type AnchorReferenceDetail,
 } from '@/components/chat/annotation-anchor'
@@ -334,6 +339,42 @@ export default function DocumentsPage() {
   const [fileAiTarget, setFileAiTarget] = React.useState<FileViewerTarget | null>(null)
   const [annotationsOpen, setAnnotationsOpen] = React.useState(false)
   const [annotationsRefreshKey, setAnnotationsRefreshKey] = React.useState(0)
+  const [annotationPins, setAnnotationPins] = React.useState<readonly PreviewAnnotationPin[]>([])
+  const [focusedAnnotationId, setFocusedAnnotationId] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    setFocusedAnnotationId(null)
+    setAnnotationsOpen(false)
+  }, [previewDocId])
+
+  React.useEffect(() => {
+    if (!previewDocId || !filePreviewSrc) {
+      setAnnotationPins([])
+      return
+    }
+    let cancelled = false
+    void fetchDocumentAnnotations(previewDocId)
+      .then((records) => {
+        if (cancelled) return
+        setAnnotationPins(
+          records.map(toPreviewAnnotationPin).filter((pin): pin is PreviewAnnotationPin => !!pin),
+        )
+      })
+      .catch(() => {
+        if (!cancelled) setAnnotationPins([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [previewDocId, filePreviewSrc, annotationsRefreshKey])
+
+  const selectAnnotation = React.useCallback((id: string) => {
+    setFocusedAnnotationId(id)
+    setAnnotationsOpen(true)
+  }, [])
+  const handleAnnotationsMutated = React.useCallback(() => {
+    setAnnotationsRefreshKey((value) => value + 1)
+  }, [])
   React.useEffect(() => {
     if (!filePreviewSrc) {
       setFilePreviewUrl('')
@@ -376,6 +417,9 @@ export default function DocumentsPage() {
     const handler = (event: Event): void => {
       const detail = (event as CustomEvent<AnchorReferenceDetail>).detail
       if (!detail?.anchor || typeof detail.text !== 'string') return
+      // 「交给主 AI」是 AI 结论回主对话的通道,不是人工“添加到任务”;
+      // 若旁路落库会制造一条与 AI 线程重复的人类署名批注。
+      if (detail.source === 'ai-finding') return
       const note = detail.note?.trim() || detail.text.replace(/^\[[^\]]*\]\s*/, '').trim()
       if (!note) return
       const close = detail.text.startsWith('[') ? detail.text.indexOf(']') : -1
@@ -720,7 +764,12 @@ export default function DocumentsPage() {
                   <Button
                     variant={annotationsOpen ? 'secondary' : 'ghost'}
                     size="sm"
-                    onClick={() => setAnnotationsOpen((v) => !v)}
+                    onClick={() => {
+                      setAnnotationsOpen((value) => {
+                        if (value) setFocusedAnnotationId(null)
+                        return !value
+                      })
+                    }}
                     className="gap-1.5"
                     aria-label="打开文档批注"
                     title="打开文档批注"
@@ -809,6 +858,12 @@ export default function DocumentsPage() {
                     src={filePreviewUrl}
                     name={filePreviewName}
                     className="max-h-[60vh]"
+                    annotationPins={annotationPins}
+                    focusedAnnotationId={focusedAnnotationId}
+                    onAnnotationSelect={selectAnnotation}
+                    documentId={previewDocId}
+                    documentName={filePreviewName}
+                    onAnnotationsMutated={handleAnnotationsMutated}
                   />
                 ) : (
                   <div className="flex items-center justify-center py-8 text-muted-foreground">
@@ -1019,7 +1074,12 @@ export default function DocumentsPage() {
             documentId={previewDoc.id}
             documentTitle={previewDoc.title}
             refreshKey={annotationsRefreshKey}
-            onClose={() => setAnnotationsOpen(false)}
+            focusId={focusedAnnotationId}
+            onMutated={handleAnnotationsMutated}
+            onClose={() => {
+              setAnnotationsOpen(false)
+              setFocusedAnnotationId(null)
+            }}
           />
         </div>
       ) : null}

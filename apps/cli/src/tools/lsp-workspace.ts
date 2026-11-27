@@ -165,6 +165,22 @@ export const lsp_workspace_symbol: Tool = {
   description:
     '使用 LSP workspace/symbol 进行全局符号搜索(对齐 OpenCode)。输入查询字符串,返回全工作区匹配的符号列表(name/kind/location)。用于 "找 AuthService 在哪定义" 场景。支持指定 language 限定搜索的语言 LSP server(默认 typescript)。LSP 不可用时返回空列表 + 提示。',
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'lsp.workspaceSymbol',
+      reason: '只读 LSP 全局符号搜索,不修改文件,无需批准',
+      riskLevel: 'read',
+      effectScope: 'workspace',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     query: { type: 'string', description: '符号搜索查询字符串(支持模糊匹配,如 "AuthService" / "authService" / "AuthService.login")' },
     limit: { type: 'number', description: '最大返回数量(默认 50)' },
@@ -234,6 +250,23 @@ export const lsp_rename_symbol: Tool = {
   description:
     '使用 LSP textDocument/rename 进行符号重命名(对齐 OpenCode)。输入文件路径 + 0-based 行号/列号 + 新名称,返回所有受影响文件的 edits 预览。设置 apply=true + confirm=true 可自动应用 edits 到磁盘文件。危险操作(修改多文件),apply 时必须 confirm=true。LSP 不可用时降级提示。',
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'lsp.rename',
+      reason: 'LSP 符号重命名,跨文件修改代码,须人确认',
+      riskLevel: 'write',
+      effectScope: 'workspace',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     file: { type: 'string', description: '文件路径(相对于工作区根目录)' },
     line: { type: 'number', description: '行号(0-based,LSP 标准,从 0 开始)' },
@@ -326,6 +359,22 @@ export const lsp_code_actions: Tool = {
   description:
     '使用 LSP textDocument/codeAction 获取快速修复/重构建议(对齐 OpenCode)。输入文件路径 + 0-based 行号/列号,返回可用的 code action 列表(title/kind/edit/command)。可选 kind 过滤(quickfix/refactor/refactor.extract/refactor.inline/refactor.rewrite/source/source.organizeImports)。LSP 不可用时降级提示。',
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'lsp.codeActions',
+      reason: '只读 LSP 获取快速修复/重构建议,不应用修改,无需批准',
+      riskLevel: 'read',
+      effectScope: 'workspace',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     file: { type: 'string', description: '文件路径(相对于工作区根目录)' },
     line: { type: 'number', description: '行号(0-based,LSP 标准,从 0 开始)' },

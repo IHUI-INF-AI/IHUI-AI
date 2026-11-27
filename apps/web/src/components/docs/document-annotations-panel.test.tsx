@@ -1,6 +1,5 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -10,6 +9,7 @@ vi.mock('@/lib/api', () => ({
 }))
 
 import { fetchApi } from '@/lib/api'
+import { ADD_TEXT_REFERENCE_EVENT, type AnchorReferenceDetail } from '@/components/chat/annotation-anchor'
 import {
   DocumentAnnotationsPanel,
   type DocumentAnnotationRecord,
@@ -74,6 +74,18 @@ describe('DocumentAnnotationsPanel', () => {
     expect(screen.getByText('PDF 第 1 页')).toBeTruthy()
   })
 
+  it('focusId 命中线程根时打上聚焦标记', async () => {
+    fetchMock.mockResolvedValueOnce({ success: true, data: [record()] } as never)
+
+    render(<DocumentAnnotationsPanel documentId="file:developer/demo.pdf" focusId="a1" />)
+
+    await waitFor(() =>
+      expect(
+        screen.getByTestId('document-annotation-thread').getAttribute('data-annotation-focused'),
+      ).toBe('true'),
+    )
+  })
+
   it('发表批注 POST 带 documentId,成功后无需刷新即可看到新线程', async () => {
     fetchMock.mockResolvedValueOnce({ success: true, data: [] } as never)
     fetchMock.mockResolvedValueOnce({
@@ -117,5 +129,36 @@ describe('DocumentAnnotationsPanel', () => {
       status: 'resolved',
     })
   })
+
+  it('AI 线程可把带坐标的结论交回主 AI 对话', async () => {
+    fetchMock.mockResolvedValueOnce({
+      success: true,
+      data: [
+        record({
+          author: 'AI 审阅官',
+          origin: 'ai',
+          label: 'PDF 第 2 页 · AI 全文',
+          body: '【高】第 2 页缺少兜底\n\n正文承诺不依赖服务端,但没有兜底策略。',
+          anchor: { kind: 'pdf', page: 2 },
+        }),
+      ],
+    } as never)
+
+    render(<DocumentAnnotationsPanel documentId="file:developer/demo.pdf" />)
+    const received: AnchorReferenceDetail[] = []
+    const listener = (e: Event): void => {
+      received.push((e as CustomEvent<AnchorReferenceDetail>).detail)
+    }
+    window.addEventListener(ADD_TEXT_REFERENCE_EVENT, listener)
+    fireEvent.click(await screen.findByTestId('annotation-ai-handoff'))
+    window.removeEventListener(ADD_TEXT_REFERENCE_EVENT, listener)
+
+    expect(received).toHaveLength(1)
+    expect(received[0]?.source).toBe('ai-finding')
+    expect(received[0]?.paneId).toBeNull()
+    expect(received[0]?.anchor).toEqual({ kind: 'pdf', page: 2 })
+    expect(received[0]?.page).toBe(2)
+    expect(received[0]?.text).toContain('PDF 第 2 页 · AI 全文')
+    expect(received[0]?.text).toContain('请基于这条 AI 预审意见')
+  })
 })
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

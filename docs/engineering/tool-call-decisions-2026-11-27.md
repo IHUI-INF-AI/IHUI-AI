@@ -82,6 +82,7 @@ node scripts/sync-itcp-package.mjs --check                   # 独立包与源�
 - 不做“没有失效正确性来源”的缓存。
 - 落地器收尾报红不回滚，但也不许替它报绿；红面属存量时如实标注，属本票引入时当场修。
 - 报告里出现的“已入库”必须有 `git show HEAD:<path>` 能取到的证据（本票有过一次失实：`aea20418d` 整票回滚后仍被写成已入库）。
+- 断言“全仓没有 X”之前必须给出搜索面（文件/glob），且至少覆盖 `apps/cli/src/**` 与 `packages/**` 两个根。本票三次同类失实的第三次就在这里：只在 `apps/cli/src/tools/index.ts` 里查 `Promise.all` 零命中，就断言“执行串行、并行度 1”；真相是 `apps/cli/src/commands/agent.ts:3152` **早就有 `Promise.all`** 的全并行，两处 `for (const call of toolCalls)` 只是“执行前顺序触发副作用”（3118 起）与“执行后保序写账”（3230 起）。**不得再把这两处 `for` 读成串行执行器**。
 
 ## 五、并行会话下的提交安全（2026-11-27 事故复盘）
 
@@ -136,4 +137,20 @@ node scripts/sync-itcp-package.mjs --check                   # 独立包与源�
 改完重跑守门与契约面测试（48 条），整票即可入库。**在那之前，15/129 是唯一诚实的读数；129/129 不能靠削输出换。**
 
 另附一层已核代码的安全结论（非推测）：这 114 枚全部 `requiresApproval: false`，但**不会放宽任何危险门**——`permissions.ts:165` 的契约轴是单向的（"只能把自动放行升成要人批准，不能反向，也不碰 deny"），`dangerLevel` 的 mode 矩阵先算完，契约只在 `allow` 上做升级。所以审批面无风险；唯一风险就是上面那笔输出预算。
+
+## 八、W4-14（工具并行化）的真实状态：已完工，待整链交付（2026-11-27 夜）
+
+逐条给位置，不写推测：
+
+- **票号自证**：`tool-executor.ts:5`、`tool-exec-budget-policy.ts:5`、`tool-call-scheduler.ts:5` 三处都标 W4-14。
+- **零件齐**：`tool-call-scheduler.ts`（零 import；批内 `Promise.all`、批间串行、结果保序；上限默认 10 / 硬顶 64 / `IHUI_MAX_PARALLEL_TOOL_CALLS` 可覆盖，每批开始重读）、`tool-exec-budget-policy.ts`（零 import，墙钟预算第二轴）、`tool-executor.ts`（只 import `./index.js`，native 薄封装 + ptc 只读绑定接缝）、`tool-registration.ts`（import `./index.js` + `../audit.js`）。
+- **接线已完成**（工作树）：`apps/cli/src/commands/agent.ts:3414` 已是 `executeToolCallsInBatches(...)`，`:57-58` 两个 import，`:273` / `:951` `maxParallelToolCalls?: number`。
+- **测试齐**：`tool-call-scheduler.test.ts` 8 条 + `tool-parallelism-cost-guard.test.ts` 8 条（mock `streamChat` 的端到端）。
+- **HEAD 仍是"全并行、无上限"**：`agent.ts:3152` 是裸 `Promise.all(toolCalls.map(...))`。同一份能力，HEAD 是无上限版、工作树是有上限版——差别只在极端枚数下的自我保护，常规 1–8 枚时两者行为等价（一批即跑完）。
+
+**为什么不能拆件入库**：`ptc-tool.ts` 的相对导入指向 `ptc-executor.ts` / `tool-executor.ts`，`agent.ts` 重构版与 `index.ts` / `permissions.ts` 的 MM 版互为前提；拆任何一件都会让 HEAD 编译断裂。**整链交付的验收判据**：`tsc --noEmit` EXIT=0 + 上述 16 条 + 契约面 90 条，缺一不算完成。
+
+**为什么这一节必须写**：这条链完工却没有登记、没有租约（`PROJECT_PLAN.md` 搜 `W4` / `parallel` 零命中，`lock-lease.json` 只有一枚 safe-commit 锁）。它被反复误读成"缺并行""差接线""在别人票上"——本票自己就误读了三次（见第四节第 6 条）。登记它，是为了下一个接手的人不必重新考古。
+
+**读法纪律**：判断"某项能力在不在"，必须同时看 HEAD 与工作树两个面。HEAD 是交付面，工作树是正在做的面；只看一个面必然得出半张结论——本票三次失实全部出在这里。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

@@ -302,6 +302,22 @@ export const clipboard_read: Tool = {
   name: 'clipboard_read',
   description: '读取系统剪贴板的纯文本内容(用于"分析用户刚复制的错误"等场景)。',
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'clipboard.read',
+      reason: '只读读取系统剪贴板纯文本,不改剪贴板内容,无需批准',
+      riskLevel: 'read',
+      effectScope: 'system',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {},
   required: [],
   async execute(): Promise<ToolResult> {
@@ -335,6 +351,23 @@ export const clipboard_write: Tool = {
   name: 'clipboard_write',
   description: '把文本写入系统剪贴板(覆盖现有内容)。',
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'clipboard.write',
+      reason: '把文本写入系统剪贴板(覆盖现有内容),须人确认',
+      riskLevel: 'write',
+      effectScope: 'system',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     text: { type: 'string', description: '要写入剪贴板的文本(必填)' },
   },
@@ -371,6 +404,22 @@ export const clipboard_token: Tool = {
   description:
     '读取系统剪贴板的变更序号(token):每次剪贴板被改写都 +1。用于不搬运全文就判断"内容变没变"或轮询等待用户复制新内容。当前仅 Windows 可用。',
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'clipboard.token',
+      reason: '只读读取剪贴板变更序号,不改剪贴板内容,无需批准',
+      riskLevel: 'read',
+      effectScope: 'system',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {},
   required: [],
   async execute(): Promise<ToolResult> {
@@ -393,6 +442,22 @@ export const clipboard_rich_read: Tool = {
   description:
     '读取系统剪贴板的富格式内容。format=html|rtf 返回富文本字符串;format=files 返回文件拖放路径列表(每行一个绝对路径)。当前仅 Windows 可用。',
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'clipboard.richRead',
+      reason: '只读读取剪贴板富格式内容,不改剪贴板内容,无需批准',
+      riskLevel: 'read',
+      effectScope: 'system',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     format: {
       type: 'string',
@@ -422,6 +487,23 @@ export const clipboard_rich_write: Tool = {
   description:
     '写入富格式到系统剪贴板。format=html|rtf 时 value 为富文本字符串;format=files 时 value 为换行分隔的绝对路径(路径必须存在)。当前仅 Windows 可用。',
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'clipboard.richWrite',
+      reason: '写入富格式到系统剪贴板(覆盖现有内容),须人确认',
+      riskLevel: 'write',
+      effectScope: 'system',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     format: { type: 'string', description: '要写入的富格式:html(默认) | rtf | files' },
     value: { type: 'string', description: '富文本内容(format=html|rtf)或换行分隔的绝对路径(format=files)' },

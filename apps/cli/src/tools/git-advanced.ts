@@ -29,6 +29,23 @@ const git_branch_create: Tool = {
   name: 'git_branch_create',
   description: '创建新 git 分支(git branch / git checkout -b)。参数:name(分支名,必填),from(起点引用,默认 HEAD)。',
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'git.branch.create',
+      reason: '创建 git 分支,不改动既有分支与提交,属可逆的仓库元数据写入',
+      riskLevel: 'write',
+      effectScope: 'repository',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     name: { type: 'string', description: '新分支名' },
     from: { type: 'string', description: '起点引用(默认 HEAD,可为分支名/标签/commit SHA)' },
@@ -57,6 +74,23 @@ const git_branch_switch: Tool = {
   name: 'git_branch_switch',
   description: '切换 git 分支(git checkout / git switch)。参数:name(分支名,必填),create(布尔,不存在时创建)。',
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'git.branch.switch',
+      reason: '切换当前分支,改变工作区内容指向,须人确认',
+      riskLevel: 'write',
+      effectScope: 'repository',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     name: { type: 'string', description: '目标分支名' },
     create: { type: 'boolean', description: '若分支不存在则创建(git checkout -b / git switch -c)' },
@@ -86,6 +120,23 @@ const git_branch_delete: Tool = {
   name: 'git_branch_delete',
   description: 'DANGEROUS: 删除 git 分支(git branch -d/-D)。参数:name(分支名,必填),force(布尔,强制删除未合并的分支,-D)。force=true 时需 args.confirm===true 才执行。',
   dangerLevel: 'dangerous',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'git.branch.delete',
+      reason: '删除 git 分支(-d/-D),-D 强删会丢弃未合并提交,属破坏性动作,须人确认',
+      riskLevel: 'dangerous',
+      effectScope: 'repository',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     name: { type: 'string', description: '要删除的分支名' },
     force: { type: 'boolean', description: '强制删除未合并分支(-D),需 confirm=true' },
@@ -124,6 +175,22 @@ const git_branch_list: Tool = {
   },
   required: [],
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'git.branch.list',
+      reason: '只读列出 git 分支,不修改仓库与文件,无需批准',
+      riskLevel: 'read',
+      effectScope: 'repository',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   async execute(args, ctx): Promise<ToolResult> {
     const remote = args.remote === true;
     const merged = args.merged === true;
@@ -143,6 +210,23 @@ const git_merge: Tool = {
   name: 'git_merge',
   description: 'DANGEROUS: 合并指定分支到当前分支(git merge)。参数:branch(分支名,必填),no_ff(布尔,禁用 fast-forward,--no-ff),squash(布尔,压缩合并,--squash),message(合并提交信息)。需 args.confirm===true 才执行。',
   dangerLevel: 'dangerous',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'git.merge',
+      reason: '合并分支到当前分支,可能产生冲突或改变历史,属破坏性动作,须人确认',
+      riskLevel: 'dangerous',
+      effectScope: 'repository',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     branch: { type: 'string', description: '要合并的分支名' },
     no_ff: { type: 'boolean', description: '禁用 fast-forward(--no-ff,生成合并提交)' },
@@ -182,6 +266,23 @@ const git_rebase: Tool = {
   name: 'git_rebase',
   description: 'DANGEROUS: 将当前分支变基到指定上游(git rebase)。参数:upstream(上游分支,必填),branch(要变基的分支,缺省当前),interactive(布尔,-i 交互式)。需 args.confirm===true 才执行。注意:交互式 rebase 需要终端,在 Agent 中通常不可用。',
   dangerLevel: 'dangerous',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'git.rebase',
+      reason: '变基当前分支,会重写提交历史,属破坏性动作,须人确认',
+      riskLevel: 'dangerous',
+      effectScope: 'repository',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     upstream: { type: 'string', description: '上游分支(如 origin/main)' },
     branch: { type: 'string', description: '要变基的分支(缺省当前分支)' },
@@ -220,6 +321,23 @@ const git_stash_push: Tool = {
   name: 'git_stash_push',
   description: '暂存当前工作区改动(git stash push)。参数:message(暂存描述,-m),include_untracked(布尔,包含未跟踪文件,-u)。',
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'git.stash.push',
+      reason: '暂存当前改动到 stash,工作区改动被收起,须人确认',
+      riskLevel: 'write',
+      effectScope: 'repository',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     message: { type: 'string', description: '暂存描述(-m)' },
     include_untracked: { type: 'boolean', description: '包含未跟踪文件(-u)' },
@@ -248,6 +366,23 @@ const git_stash_pop: Tool = {
   name: 'git_stash_pop',
   description: '恢复暂存的改动(git stash pop / apply)。参数:index(暂存索引,默认 0,即 stash@{0}),apply(布尔,仅应用不删除该 stash,--apply)。',
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'git.stash.pop',
+      reason: '恢复 stash 改动到工作区并弹出该条,冲突时可能丢改动,须人确认',
+      riskLevel: 'write',
+      effectScope: 'repository',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     index: { type: 'number', description: '暂存索引(默认 0,即 stash@{0})' },
     apply: { type: 'boolean', description: '仅应用不删除(--apply,默认 pop 会删除)' },
@@ -277,6 +412,22 @@ const git_stash_list: Tool = {
   parameters: {},
   required: [],
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'git.stash.list',
+      reason: '只读列出 stash 条目,不修改仓库与文件,无需批准',
+      riskLevel: 'read',
+      effectScope: 'repository',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   async execute(_args, ctx): Promise<ToolResult> {
     const r = execGit(['stash', 'list'], ctx.workspacePath);
     return formatGitResult(r);
@@ -292,6 +443,22 @@ const git_conflict_status: Tool = {
   parameters: {},
   required: [],
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'git.conflict.status',
+      reason: '只读查看冲突文件状态,不修改仓库与文件,无需批准',
+      riskLevel: 'read',
+      effectScope: 'repository',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   async execute(_args, ctx): Promise<ToolResult> {
     const r = execGit(['diff', '--name-only', '--diff-filter=U'], ctx.workspacePath);
     const result = formatGitResult(r);
@@ -309,6 +476,23 @@ const git_conflict_resolve: Tool = {
   name: 'git_conflict_resolve',
   description: '解决指定文件的冲突(git checkout --ours/--theirs + git add)。参数:file(文件路径,必填),strategy(策略:ours/theirs/manual,必填)。manual 仅标记为已解决(git add),不修改文件内容。',
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'git.conflict.resolve',
+      reason: '用 --ours/--theirs 解决冲突并暂存,会覆盖冲突文件一侧,须人确认',
+      riskLevel: 'write',
+      effectScope: 'repository',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     file: { type: 'string', description: '冲突文件路径' },
     strategy: { type: 'string', description: '解决策略:ours(保留当前)/theirs(保留对方)/manual(手动解决后标记)' },
@@ -349,6 +533,23 @@ const git_tag_create: Tool = {
   name: 'git_tag_create',
   description: '创建 git 标签(git tag)。参数:name(标签名,必填),message(附注信息,-a -m),annotated(布尔,创建附注标签,-a)。',
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'git.tag.create',
+      reason: '创建 git 标签,写入仓库元数据,须人确认',
+      riskLevel: 'write',
+      effectScope: 'repository',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     name: { type: 'string', description: '标签名' },
     message: { type: 'string', description: '附注信息(-m,annotated=true 时使用)' },
@@ -389,6 +590,22 @@ const git_tag_list: Tool = {
   },
   required: [],
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'git.tag.list',
+      reason: '只读列出 git 标签,不修改仓库与文件,无需批准',
+      riskLevel: 'read',
+      effectScope: 'repository',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   async execute(args, ctx): Promise<ToolResult> {
     const pattern = args.pattern as string | undefined;
     const cmdArgs = ['tag', '-l'];
@@ -405,6 +622,23 @@ const git_remote_add: Tool = {
   name: 'git_remote_add',
   description: '添加远程仓库(git remote add)。参数:name(远程名,必填,如 origin),url(仓库 URL,必填)。',
   dangerLevel: 'write',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'git.remote.add',
+      reason: '添加远程仓库地址,写入仓库配置,须人确认',
+      riskLevel: 'write',
+      effectScope: 'repository',
+      requiresApproval: false,
+      confirmation: { mode: 'interactive' },
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   parameters: {
     name: { type: 'string', description: '远程名(如 origin)' },
     url: { type: 'string', description: '仓库 URL(如 https://github.com/user/repo.git)' },
@@ -434,6 +668,22 @@ const git_remote_list: Tool = {
   parameters: {},
   required: [],
   dangerLevel: 'read',
+  contract: {
+    shape: { visibleToProvider: true, input: { type: 'object' } },
+    permission: {
+      permissionKey: 'git.remote.list',
+      reason: '只读列出远程仓库,不修改仓库与文件,无需批准',
+      riskLevel: 'read',
+      effectScope: 'repository',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 16 * 1024,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
   async execute(_args, ctx): Promise<ToolResult> {
     const r = execGit(['remote', '-v'], ctx.workspacePath);
     return formatGitResult(r);
