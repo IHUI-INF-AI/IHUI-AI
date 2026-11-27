@@ -158,6 +158,36 @@ describe('useLinkPreview 三态映射(票面验收 ①)', () => {
     expect(result.current.preview).toMatchObject({ reason: 'http_502' })
   })
 
+  it('首次瞬时超时 ⇒ 自动重试一次并成功(卡片不再被一次抖动钉死)', async () => {
+    vi.mocked(fetchApi)
+      .mockResolvedValueOnce({
+        success: true,
+        data: { status: 'undetermined', url: 'https://example.com/', reason: 'timeout' },
+      } as never)
+      .mockResolvedValueOnce(okEnvelope as never)
+    const { result } = renderHook(() => useLinkPreview())
+    act(() => {
+      result.current.probeFromPaste('https://example.com/')
+    })
+    await waitFor(() => expect(result.current.preview?.status).toBe('ok'))
+    expect(result.current.preview).toMatchObject({ title: 'Example Domain' })
+    expect(vi.mocked(fetchApi)).toHaveBeenCalledTimes(2)
+  })
+
+  it('登录态问题(401)不触发无意义重试', async () => {
+    vi.mocked(fetchApi).mockResolvedValue({
+      success: true,
+      data: { status: 'undetermined', url: 'https://private.example.com/', reason: 'http_401' },
+    } as never)
+    const { result } = renderHook(() => useLinkPreview())
+    act(() => {
+      result.current.probeFromPaste('https://private.example.com/')
+    })
+    await waitFor(() => expect(result.current.preview?.status).toBe('undetermined'))
+    expect(result.current.preview).toMatchObject({ reason: 'http_401' })
+    expect(vi.mocked(fetchApi)).toHaveBeenCalledTimes(1)
+  })
+
   // 2026-11-26 实报端到端钉:粘贴"链接 + 中文正文"时,请求携带的必须是截断后的干净 URL,
   // 否则伪 IDN 主机进探测链 ⇒ 卡片只会显示"暂时无法判定"。
   it('中文正文紧贴链接:探测请求携带截断后的干净 URL', async () => {

@@ -384,8 +384,13 @@ async function readAnnotationStore(documentId: string): Promise<DocumentAnnotati
           (item.status === 'open' || item.status === 'resolved'),
       ),
     }
-  } catch {
-    return { version: 1, documentId, annotations: [] }
+  } catch (error) {
+    // 只把“文件还不存在”当作空线程；解析失败/权限/磁盘错误必须上报，
+    // 否则一次写入会把损坏文件静默覆盖成空线程，等于丢光历史批注。
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return { version: 1, documentId, annotations: [] }
+    }
+    throw error
   }
 }
 
@@ -396,10 +401,39 @@ async function writeAnnotationStore(store: DocumentAnnotationStore): Promise<voi
   await writeFile(temp, JSON.stringify(store), 'utf8')
   try {
     await rename(temp, file)
-  } catch {
-    // Windows 上目标已存在时 rename 可能拒绝覆盖;删旧后重试一次,仍失败才上报。
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code
+    // Windows 上目标已存在时 rename 可能拒绝覆盖;只对这一档删旧后重试一次。
+    if (code !== 'EEXIST' && code !== 'EPERM') throw error
     await rm(file, { force: true })
     await rename(temp, file)
+  }
+}
+
+// 同一 documentId 的读改写必须串行；否则两个用户同时批注会各自读到旧数组，
+// 后写覆盖先写，表现为“刚发的评论消失”。多实例部署时仍应迁移到数据库事务。
+const annotationLocks = new Map<string, Promise<void>>()
+
+async function withAnnotationLock<T>(
+  documentId: string,
+  task: () => Promise<T>,
+): Promise<T> {
+  const previous = annotationLocks.get(documentId) ?? Promise.resolve()
+  let release!: () => void
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const queued = previous.then(
+    () => gate,
+    () => gate,
+  )
+  annotationLocks.set(documentId, queued)
+  await previous.catch(() => undefined)
+  try {
+    return await task()
+  } finally {
+    release()
+    if (annotationLocks.get(documentId) === queued) annotationLocks.delete(documentId)
   }
 }
 
@@ -520,32 +554,35 @@ export const featureCenterRoutes: FastifyPluginAsync = async (server) => {
         ? null
         : trimmedText(body.parentId, '父批注', 64)
 
-    const store = await readAnnotationStore(documentId)
-    let parentId: string | null = null
-    if (parentIdInput) {
-      const parent = store.annotations.find((item) => item.id === parentIdInput)
-      if (!parent) throw new AppError('父批注不存在', 404, 'ANNOTATION_NOT_FOUND')
-      // 回复统一挂到线程根,避免前端拿到三层树还要递归。
-      parentId = parent.parentId ?? parent.id
-    }
+    const annotation = await withAnnotationLock(documentId, async () => {
+      const store = await readAnnotationStore(documentId)
+      let parentId: string | null = null
+      if (parentIdInput) {
+        const parent = store.annotations.find((item) => item.id === parentIdInput)
+        if (!parent) throw new AppError('父批注不存在', 404, 'ANNOTATION_NOT_FOUND')
+        // 回复统一挂到线程根,避免前端拿到三层树还要递归。
+        parentId = parent.parentId ?? parent.id
+      }
 
-    const now = new Date().toISOString()
-    const annotation: StoredDocumentAnnotation = {
-      id: randomUUID(),
-      parentId,
-      userId,
-      author: await authorOf(userId),
-      body: text,
-      label: parentId ? '' : label,
-      anchorKind: parentId ? null : anchorKind,
-      anchor: parentId ? null : anchor,
-      excerpt: parentId ? null : excerpt || null,
-      status: 'open',
-      createdAt: now,
-      updatedAt: now,
-    }
-    store.annotations.push(annotation)
-    await writeAnnotationStore(store)
+      const now = new Date().toISOString()
+      const created: StoredDocumentAnnotation = {
+        id: randomUUID(),
+        parentId,
+        userId,
+        author: await authorOf(userId),
+        body: text,
+        label: parentId ? '' : label,
+        anchorKind: parentId ? null : anchorKind,
+        anchor: parentId ? null : anchor,
+        excerpt: parentId ? null : excerpt || null,
+        status: 'open',
+        createdAt: now,
+        updatedAt: now,
+      }
+      store.annotations.push(created)
+      await writeAnnotationStore(store)
+      return created
+    })
     return reply.send(success(toAnnotationDto(documentId, annotation)))
   })
 
@@ -561,17 +598,20 @@ export const featureCenterRoutes: FastifyPluginAsync = async (server) => {
       throw new AppError('状态无效', 400, 'VALIDATION_FAILED')
     }
 
-    const store = await readAnnotationStore(documentId)
-    const target = store.annotations.find((item) => item.id === id)
-    if (!target) throw new AppError('批注不存在', 404, 'ANNOTATION_NOT_FOUND')
-    if (target.parentId) throw new AppError('只能处理主批注', 400, 'VALIDATION_FAILED')
-    if (target.userId !== userId && roleId < 1) {
-      throw new AppError('无权修改该批注', 403, 'ANNOTATION_FORBIDDEN')
-    }
-    target.status = status
-    target.updatedAt = new Date().toISOString()
-    await writeAnnotationStore(store)
-    return reply.send(success(toAnnotationDto(documentId, target)))
+    const updated = await withAnnotationLock(documentId, async () => {
+      const store = await readAnnotationStore(documentId)
+      const target = store.annotations.find((item) => item.id === id)
+      if (!target) throw new AppError('批注不存在', 404, 'ANNOTATION_NOT_FOUND')
+      if (target.parentId) throw new AppError('只能处理主批注', 400, 'VALIDATION_FAILED')
+      if (target.userId !== userId && roleId < 1) {
+        throw new AppError('无权修改该批注', 403, 'ANNOTATION_FORBIDDEN')
+      }
+      target.status = status
+      target.updatedAt = new Date().toISOString()
+      await writeAnnotationStore(store)
+      return target
+    })
+    return reply.send(success(toAnnotationDto(documentId, updated)))
   })
 
   server.delete('/documents/annotations/:id', async (request, reply) => {
@@ -582,17 +622,21 @@ export const featureCenterRoutes: FastifyPluginAsync = async (server) => {
     await assertDocumentReadable(documentId, roleId)
     const id = trimmedText(params.id, '批注 id', 64)
 
-    const store = await readAnnotationStore(documentId)
-    const target = store.annotations.find((item) => item.id === id)
-    if (!target) throw new AppError('批注不存在', 404, 'ANNOTATION_NOT_FOUND')
-    if (target.userId !== userId && roleId < 1) {
-      throw new AppError('无权删除该批注', 403, 'ANNOTATION_FORBIDDEN')
-    }
-    const rootId = target.parentId ?? target.id
-    store.annotations = store.annotations.filter(
-      (item) => item.id !== target.id && item.parentId !== rootId,
-    )
-    await writeAnnotationStore(store)
+    await withAnnotationLock(documentId, async () => {
+      const store = await readAnnotationStore(documentId)
+      const target = store.annotations.find((item) => item.id === id)
+      if (!target) throw new AppError('批注不存在', 404, 'ANNOTATION_NOT_FOUND')
+      if (target.userId !== userId && roleId < 1) {
+        throw new AppError('无权删除该批注', 403, 'ANNOTATION_FORBIDDEN')
+      }
+      // 删回复只删这一条；删主批注才把整条线程(所有回复)一起清掉。
+      store.annotations = target.parentId
+        ? store.annotations.filter((item) => item.id !== target.id)
+        : store.annotations.filter(
+            (item) => item.id !== target.id && item.parentId !== target.id,
+          )
+      await writeAnnotationStore(store)
+    })
     return reply.send(success({ id }))
   })
 
