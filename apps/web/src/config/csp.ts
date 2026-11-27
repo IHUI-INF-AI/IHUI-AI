@@ -88,7 +88,7 @@ export function buildCsp({ nonce, dev }: BuildCspOptions): string {
     "img-src 'self' data: blob: https://aizhs.top https://*.aizhs.top https://api.dicebear.com https://lh3.googleusercontent.com https://avatars.githubusercontent.com https://platform-lookaside.fbsx.com https://api.qrserver.com https://test-for-dp.oss-cn-guangzhou.aliyuncs.com",
     "font-src 'self' data:",
     dev
-      ? "connect-src 'self' https: wss: ws: http://localhost:* http://127.0.0.1:* http://ipc.localhost https://ipc.localhost"
+      ? "connect-src 'self' blob: https: wss: ws: http://localhost:* http://127.0.0.1:* http://ipc.localhost https://ipc.localhost"
       : // 2026-10-31 收口:生产档原为 `https: wss:` 通配 —— 那等于让"任意 https 域"都能当
         // XSS 之后的数据外泄信道(同源策略里 connect-src 是最后一道)。逐目标枚举过
         // (apps/web/src + app + packages,含 WS/EventSource/beacon/tauri-http 四类出口):
@@ -100,7 +100,11 @@ export function buildCsp({ nonce, dev }: BuildCspOptions): string {
         // 只放本机 ai-service 的精确地址,绝不引入 `127.0.0.1:*` / `localhost:*` 端口通配
         // —— 那等于开放用户机全部端口给 XSS 探测。守卫见 csp-connect-src-tight.test.ts:
         // ① 只禁裸通配 token(https:/wss:/*),带具体主机的照旧允许 → 加精确地址不破守卫。
-        "connect-src 'self' https://api.aizhs.top wss://api.aizhs.top http://ipc.localhost https://ipc.localhost http://127.0.0.1:8803",
+        // 2026-11-27 增补(统一文件查看器真实浏览器验收):先取件成 blob: 再交给预览器,
+        // `next/image` 校验尺寸、PDF.js 读字节、Office 解包都会 `fetch(blob:)`。blob: 只能由
+        // 同源脚本创建,不是外部域,放行它不引入跨域外泄面;不放则所有带鉴权文件预览显示
+        // “没有可预览内容”(生产首次部署已实测)。dev 档同样补,否则本地验证与生产分叉。
+        "connect-src 'self' blob: https://api.aizhs.top wss://api.aizhs.top http://ipc.localhost https://ipc.localhost http://127.0.0.1:8803",
     // 2026-10-30 末已根治收紧:视频/音频全部走同源代理(<video src="/api/media/stream?url=…">,
     // 经 web rewrites 同源访问,浏览器自动带 httpOnly auth cookie),故不需要 https: 通配;
     // 后端复用下载代理的 SSRF 闸门并透传 Range(播放器可拖拽 seek)。blob: 保留 —— 下载按钮
