@@ -1547,6 +1547,11 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       // 避免把旧文件与新文件一起塞满上下文。
       let contextAttachments = attachments ?? []
       let attachmentSource: 'current' | 'conversation' = 'current'
+      // 2026-11-27 追加:附件正文注入后,必须让主 Agent 直接消费正文,而不是把
+      // `> 📎 文件名` 当成工作区路径再派生子代理去 list_files/read_file。
+      // 这是「文件已上传但 AI 说看不到」的真实断点:主轮正文其实有,子代理任务只带文件名。
+      let attachmentUsageGuard = ''
+      let effectiveSystemPrompt = systemPrompt
       if (contextAttachments.length === 0 && metadata?.conversationId && request.userId) {
         // 优先读会话级索引:上下文压缩会 replaceMessages,消息级 metadata 随旧行消失,
         // 会话级 recentAttachments 仍保留最近一次上传的 fileId。
@@ -1591,6 +1596,15 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           { source: attachmentSource },
         )
         if (attachmentContext.text) {
+          attachmentUsageGuard = [
+            '【附件上下文强制规则】服务端已读取用户附件正文，并附在最后一条用户消息的 <attached_files> 中。',
+            '必须直接基于这些正文回答；禁止声称“附件没有实际传送”“看不到文件正文”。',
+            '禁止派生子代理去读取该附件；禁止调用 list_files/read_file/search_files/glob/grep 到工作区查找聊天附件。',
+            '只有正文块明确标记“附件读取失败/附件不可用”时，才可如实说明失败原因。',
+          ].join('\n')
+          effectiveSystemPrompt = effectiveSystemPrompt
+            ? `${effectiveSystemPrompt}\n\n${attachmentUsageGuard}`
+            : attachmentUsageGuard
           let lastUserIndex = -1
           for (let i = messages.length - 1; i >= 0; i -= 1) {
             if (messages[i]?.role === 'user') {
@@ -1601,13 +1615,26 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           if (lastUserIndex >= 0) {
             const lastUser = messages[lastUserIndex]
             if (lastUser) {
+              // 去掉只表示“有个附件”的 `> 📎 文件名` 行。正文已经由服务端提取,
+              // 保留这行会给 Agent 一个错误线索:去工作区按文件名找文件。
+              const attachmentNames = new Set(contextAttachments.map((item) => item.name))
+              const withoutMarkers = lastUser.content
+                .split('\n')
+                .filter((line) => {
+                  const marker = line.trim().match(/^> 📎 (.+)$/)
+                  return !marker || !attachmentNames.has(marker[1]?.trim() ?? '')
+                })
+                .join('\n')
+                .trim()
+              const baseContent = withoutMarkers || lastUser.content
               messages[lastUserIndex] = {
                 ...lastUser,
-                content: `${lastUser.content}\n\n${attachmentContext.text}`,
+                content: `${baseContent}\n\n${attachmentUsageGuard}\n\n${attachmentContext.text}`,
               }
             }
           }
         }
+
         request.log.info(
           {
             userId: request.userId,
@@ -1803,6 +1830,24 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         }
       }
 
+      // 附件正文已在手时,明确从显式工具清单里摘掉“再去工作区找文件/派子代理找文件”的腿。
+      // 只裁剪本轮的显式 agentTools;未显式传工具清单的请求仍由 ai-service 默认策略决定,
+      // 但不能因为这里没传就反向放开,所以只做减法、不伪造白名单。
+      const attachmentToolDenylist = new Set([
+        'orchestrate_agents',
+        'dispatch_subagent',
+        'list_files',
+        'read_file',
+        'read_text_file',
+        'search_files',
+        'glob',
+        'grep',
+      ])
+      const effectiveAgentTools =
+        attachmentUsageGuard && agentTools
+          ? agentTools.filter((tool) => !attachmentToolDenylist.has(tool))
+          : agentTools
+
       return streamToClient(
         request,
         reply,
@@ -1818,7 +1863,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           workspaceContext,
           repoName,
           contextLimit,
-          agentTools,
+          agentTools: effectiveAgentTools,
           planMode,
           mode,
           // V3 #58(2026-09-26 立):权限模式档位,经上游请求体 permission_mode 字段透传
@@ -1836,7 +1881,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           topP,
           topK,
           maxTokens,
-          systemPrompt,
+          systemPrompt: effectiveSystemPrompt,
           // P1 #26(2026-09-16):知识库注入开关(默认开,false 关闭)
           knowledgeContext,
           metadata,
