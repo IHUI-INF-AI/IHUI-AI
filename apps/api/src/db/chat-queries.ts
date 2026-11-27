@@ -1379,6 +1379,10 @@ export async function createMessage(input: CreateMessageInput): Promise<ChatMess
     // 同文 user,只要最近写入发生在 3s 内,就视为同一轮补写并返回既有行。
     // 窗口从"前一条 user 的落库时间"改为"最后一条消息的落库时间":真实一轮模型耗时
     // 可能超过 2s,用前一条 user 计时会漏掉流尾补写(生产实测 2.35s)。
+    // 2026-11-28(失败重发加固):若最近一条本身就是同文 user(它还没有得到 assistant
+    // 回复),说明该轮仍在 pending;旧客户端在流失败后可能隔十几秒才补写,3s 窗口
+    // 接不住。此时把 10 分钟内的同文重发归并到同一个 pending turn,避免 user+user;
+    // 一旦该轮已有 assistant,后续同文消息就走上面的 3s 流尾窗口,不再无限折叠。
     if (role === 'user') {
       const tail = await tx
         .select()
@@ -1391,8 +1395,15 @@ export async function createMessage(input: CreateMessageInput): Promise<ChatMess
       const lastAgeMs = last
         ? Date.now() - new Date(last.createdAt).getTime()
         : Number.POSITIVE_INFINITY
+      if (
+        last?.role === 'user' &&
+        last.content === input.content &&
+        lastAgeMs >= 0 &&
+        lastAgeMs <= 10 * 60 * 1000
+      ) {
+        return last
+      }
       if (lastAgeMs >= 0 && lastAgeMs <= 3_000) {
-        if (last?.role === 'user' && last.content === input.content) return last
         if (
           last?.role === 'assistant' &&
           beforeLast?.role === 'user' &&
