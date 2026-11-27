@@ -84,6 +84,8 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 ## Recent updates (auto-maintained)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-27**
+- 🚀 新功能/改进:V2-08 任务3 旧枚举降级 + 单一源扫描 (c281ce8f2)
+- 🚀 新功能/改进:V2-08 任务2 封闭状态/错误码/作用域 (5e9a5b435)
 - 🚀 新功能/改进:V2-08 任务1 角色 10+custom / 编排模式 9+别名 (04cb2950c)
 - 🐞 修复:校准 5 条判据到真实符号,基线 20/5/18/1 → 24/1/18/1 (7e31d0f1d)
 - 🚀 新功能/改进:契约同源到 Python 侧 —— 导出器 + 契约层 + 决策链接线 (ddfdd9c88)
