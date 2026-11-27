@@ -326,6 +326,14 @@ push origin/main
 
 ### 6.1 手动操作
 
+> **AI 会话 / 自动化禁止执行下面四条直跑命令**:`pwsh -File` / `powershell -File` 会新开一个**可见控制台**并持续整个构建,桌面会长时间挂着窗口(2026-11-27 4688 已锁定创建者 = agent 沙箱 pwsh)。会话侧唯一入口是投递 marker,由 Session 0 的 `IHUI-DEPLOYLOOP` 无窗口执行:
+>
+> ```powershell
+> node D:\IHUI-AI\scripts\prod-deploy-now.mjs --no-wait   # 秒回;进度看 deploy\win\deploy-loop.log
+> ```
+
+以下四条只供**人工在自己已打开的终端里**排障:
+
 ```powershell
 cd D:\IHUI-AI
 powershell -ExecutionPolicy Bypass -File deploy\win\ihui-deploy.ps1 -dryrun        # 只 fetch+报告差距

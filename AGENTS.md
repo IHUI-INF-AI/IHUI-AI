@@ -323,3 +323,8 @@ React 事件对象的 `e.currentTarget` 在 handler 返回后置 null:异步回�
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
 - **防膨胀器物存活由门判**(`scripts/check-bloat-guards-alive.mjs`):按终态符号存在性判,不判 diff;git-guardian/prune-tmp-scratch 关键机制被整份退回即红;自查 `node scripts/check-bloat-guards-alive.mjs --self-test`,无应急跳过变量,档位以 runner 现值为准。
 - **横向边线单一源由门判**(`scripts/check-horizontal-gutter.mjs`):首页关键 padding/margin 必须走 `home-layout-spec`,新页面自造横向值即红;存量在 `scripts/data/horizontal-gutter-baseline.json` 差值棘轮;自查 `node scripts/check-horizontal-gutter.mjs`,无应急跳过变量。
+
+## 23. 桌面零窗口铁律:部署只准投递 marker(强制,2026-11-27 立)
+- **任何 agent/自动化会话都不得直跑 `deploy\win\ihui-deploy.ps1`**(含 `-dryrun` / `-diagnose` / `-deployLatest`)。`pwsh -File` 起进程时会在会话 1 新开一个**可见控制台**,而一轮部署要跑 10~30 分钟 ⇒ 桌面长时间挂着 `Administrator: …pwsh.exe`。2026-11-27 安全日志 4688 已锁定创建者是 agent 沙箱的 pwsh(`-File …\ihui-deploy.ps1 -deployLatest`),**不是** `IHUI-DEPLOYLOOP`、**不是**计划任务。
+- 唯一入口:`node scripts/prod-deploy-now.mjs --no-wait`(只新建 `deploy\win\.deploy-now.request`;由 Session 0 的 `IHUI-DEPLOYLOOP` 无窗口执行,`--no-wait` 秒回、不占会话超时)。进度看 `deploy\win\deploy-loop.log`,不要靠新开窗口看输出。
+- 人工在自己已打开的终端里排障可以直跑(**窗口是用户主动开的**);机器派生、脚本派生、agent 派生一律走上面唯一入口。Node 派生侧的 `windowsHide` 由 §5f 的机器级钩子兜底;PowerShell 派生同受本条约束。
