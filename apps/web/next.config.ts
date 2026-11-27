@@ -404,6 +404,12 @@ const nextConfig: NextConfig = {
         // rewrite"在实测面前不成立(证据见下面那条规则的注释)。web 端不再有本地磁盘路由
         // (原 app/cdn 与 app/uploads 的 route.ts 已删除)这一点没变,变的是出链形态:
         // 后端 FILE_CDN_BASE 要给客户端一个绝对 URL,而快臂上只有经 web 代理才拿得到。
+        // 2026-11-28:总管固定人格对话。浏览器带 auth_token cookie 同源请求,
+        // ai-service JWT 中间件已支持 cookie 兜底;必须放在 /api/:path* 之前。
+        {
+          source: '/api/master/chat',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/v1/ai/master/chat`,
+        },
         // 2026-07-29 新增:ai-skills 路由直接转发到 ai-service 8803
         // 原因:api server 8802 没有注册 /api/ai-skills 路由(404),
         // 而 ai-service 8803 有完整的 19 个 skill 元数据(GET /api/ai-skills) +

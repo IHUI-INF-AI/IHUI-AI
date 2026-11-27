@@ -5,6 +5,8 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 
+import { MasterChatPanel } from './MasterChatPanel'
+
 interface DefinitionView {
   id: string
   name: string
@@ -220,6 +222,10 @@ export function MasterRegistryConsole() {
           {showCreate ? '收起' : '新建定义'}
         </button>
       </header>
+
+      <div className="mb-6">
+        <MasterChatPanel />
+      </div>
 
       {(error || notice) && (
         <div className="mb-4 space-y-2">
