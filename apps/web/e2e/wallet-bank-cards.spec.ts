@@ -142,6 +142,47 @@ test.describe('钱包银行卡管理页', () => {
     expect(await listCards(page)).toEqual([])
   })
 
+  test('提现选卡过滤历史只读投影卡', async ({ authenticatedPage }) => {
+    const page = authenticatedPage
+    await page.route('**/api/wallet/bank-cards', async (route) => {
+      if (route.request().method() !== 'GET') {
+        await route.continue()
+        return
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 0,
+          message: 'success',
+          data: [
+            {
+              id: 'readonly-projection-1',
+              number: '**** **** **** 9999',
+              holder: '历史持卡人',
+              bankName: '历史银行',
+              isDefault: true,
+              readOnly: true,
+            },
+            {
+              id: 'editable-card-1',
+              number: '**** **** **** 1111',
+              holder: '可编辑持卡人',
+              bankName: '可编辑银行',
+              isDefault: false,
+              readOnly: false,
+            },
+          ],
+        }),
+      })
+    })
+    await page.goto('/wallet/withdraw')
+    await page.getByText('银行卡', { exact: true }).click()
+    await expect(page.getByText('可编辑银行')).toBeVisible({ timeout: 15_000 })
+    // 历史提现投影只有掩码、没有可解密绑定 id，不能出现在可选项里。
+    await expect(page.getByText('历史银行')).toHaveCount(0)
+  })
+
   test.afterEach(async ({ authenticatedPage }) => {
     try {
       await purgeEditableCards(authenticatedPage)
