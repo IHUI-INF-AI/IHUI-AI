@@ -5257,6 +5257,31 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                 agent_tools = _filter_agent_tools_for_chat_mode(
                     chat_mode, agent_tools, req.permission_mode
                 )
+                # 2026-11-27:附件正文已由 API 提取并注入最后一条 user 的 <attached_files>。
+                # 此时再让主 Agent 派子代理或去工作区 list_files/read_file，会把“正文已在手”
+                # 重新降级成“只拿到文件名”，实测表现为子代理搜索 apps/ai-service 后回答
+                # “看不到文件正文”。这里在工具清单层做减法，保证附件轮直接消费正文。
+                _has_attached_files = any(
+                    isinstance(_m.get("content"), str)
+                    and "<attached_files>" in _m["content"]
+                    for _m in messages[-4:]
+                )
+                if _has_attached_files and agent_tools:
+                    _attachment_tool_deny = {
+                        "orchestrate_agents",
+                        "dispatch_subagent",
+                        "list_files",
+                        "read_file",
+                        "read_text_file",
+                        "search_files",
+                        "glob",
+                        "grep",
+                    }
+                    agent_tools = [
+                        _tool_name
+                        for _tool_name in agent_tools
+                        if _tool_name not in _attachment_tool_deny
+                    ]
             if agent_tools:
                 from ..services.mcp_server import mcp_server as _mcp
                 all_tools = _mcp.list_tools()
