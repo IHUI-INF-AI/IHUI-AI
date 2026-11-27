@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
+import { AnnotationAnchorCapture } from '@/components/chat/annotation-anchor'
 import { PDFTextLayer } from './PDFTextLayer'
 
 interface PDFViewerProps {
@@ -55,6 +56,7 @@ async function loadPdfjs(): Promise<AnyPdfLib> {
 export function PDFViewer({ url, className, initialScale = 1.2 }: PDFViewerProps) {
   const t = useTranslations('a11y')
   const canvasRef = React.useRef<HTMLCanvasElement>(null)
+  const pageRef = React.useRef<HTMLDivElement>(null)
   const docRef = React.useRef<AnyPdfDoc | null>(null)
   const [numPages, setNumPages] = React.useState(0)
   const [page, setPage] = React.useState(1)
@@ -64,6 +66,10 @@ export function PDFViewer({ url, className, initialScale = 1.2 }: PDFViewerProps
   const [rendering, setRendering] = React.useState(false)
   const [textSelectable, setTextSelectable] = React.useState(true)
   const [pdfjsState, setPdfjsState] = React.useState<AnyPdfLib | null>(null)
+  const [pdfSelection, setPdfSelection] = React.useState<{
+    readonly page: number
+    readonly excerpt: string
+  } | null>(null)
   const [pageState, setPageState] = React.useState<{
     pdfPage: AnyPdfPage | null
     viewport: AnyViewport | null
@@ -148,6 +154,35 @@ export function PDFViewer({ url, className, initialScale = 1.2 }: PDFViewerProps
     // 这一格 effect 会命中 `!canvasRef.current` 直接 return;文档加载完 page/scale 并未变
     // ⇒ 原实现不再重跑,用户看到**只有工具条与页码、正文整片空白**,必须手动翻页才出画面。
   }, [page, scale, t, loading, url])
+
+  // D91 补口(2026-11-27):PDF 透明文本层已有真实选区能力，翻页/换文件时清掉旧页锚，
+  // mouseup 只在页面容器内采锚，避免把工具栏点击误判成选区。
+  React.useEffect(() => {
+    setPdfSelection(null)
+  }, [page, url])
+
+  React.useEffect(() => {
+    const container = pageRef.current
+    if (!container || !textSelectable) return
+    const handlePdfMouseUp = (): void => {
+      const sel = document.getSelection()
+      const text = sel?.toString().trim() ?? ''
+      if (!sel || sel.isCollapsed || !text) {
+        setPdfSelection(null)
+        return
+      }
+      const anchorNode = sel.anchorNode
+      if (!anchorNode || !container.contains(anchorNode)) {
+        setPdfSelection(null)
+        return
+      }
+      setPdfSelection({ page, excerpt: text.slice(0, 200) })
+    }
+    container.addEventListener('mouseup', handlePdfMouseUp)
+    return () => {
+      container.removeEventListener('mouseup', handlePdfMouseUp)
+    }
+  }, [page, pageState.viewport, textSelectable])
 
   if (loading) {
     return (
@@ -239,12 +274,15 @@ export function PDFViewer({ url, className, initialScale = 1.2 }: PDFViewerProps
           </div>
         )}
         <div
+          ref={pageRef}
+          data-testid="pdf-page"
           className="relative mx-auto"
           style={{
             width: pageState.viewport ? pageState.viewport.width : undefined,
             height: pageState.viewport ? pageState.viewport.height : undefined,
           }}
         >
+
           <canvas ref={canvasRef} className="block" />
           {pdfjsState && pageState.pdfPage && pageState.viewport && (
             <PDFTextLayer
@@ -259,6 +297,16 @@ export function PDFViewer({ url, className, initialScale = 1.2 }: PDFViewerProps
           )}
         </div>
       </div>
+      {pdfSelection ? (
+        <div className="border-t bg-background p-2" data-testid="pdf-anchor-capture">
+          <AnnotationAnchorCapture
+            anchor={{ kind: 'pdf', page: pdfSelection.page }}
+            initialNote={pdfSelection.excerpt}
+            source="pdf-selection"
+            onDispose={() => setPdfSelection(null)}
+          />
+        </div>
+      ) : null}
     </div>
   )
 }
