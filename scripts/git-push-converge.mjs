@@ -357,7 +357,56 @@ function healViaGuard() {
 let hasFailure = false
 const results = []
 
+/**
+ * 双远端预检(2026-11-27 分叉事故根治):
+ * 任何一边不可推/领先/分叉,本轮**一枚远端都不推**,避免"先推成功一边、另一边失败"留下
+ * origin 与 gitee 不一致。预检只读(ls-remote + 必要时 fetch),不产生 push。
+ */
+function inspectRemoteForPreflight(remote) {
+  const out = git(['ls-remote', remote, `refs/heads/${branch}`])
+  if (out === null || out.trim() === '') return { status: 'UNREACHABLE', why: 'ls-remote 失败/分支不存在' }
+  const remoteSha = out.split('\t')[0]
+  if (!/^[0-9a-f]{40,64}$/.test(remoteSha)) return { status: 'UNREACHABLE', why: '远端 sha 形态不合法' }
+  if (remoteSha === localHead) return { status: 'ALREADY', sha: remoteSha }
+  if (git(['cat-file', '-e', remoteSha]) === null) {
+    git(['fetch', remote, trackingFetchRefspec(remote, branch)], { timeout: TIMEOUT_MS })
+  }
+  const remoteIsAncestor =
+    git(['merge-base', '--is-ancestor', remoteSha, localHead]) !== null &&
+    git(['cat-file', '-e', remoteSha]) !== null
+  const localIsAncestor =
+    git(['merge-base', '--is-ancestor', localHead, remoteSha]) !== null &&
+    git(['cat-file', '-e', remoteSha]) !== null
+  if (localIsAncestor && !remoteIsAncestor) return { status: 'BEHIND', sha: remoteSha }
+  if (remoteIsAncestor && !localIsAncestor) return { status: 'PUSH', sha: remoteSha }
+  return { status: 'DIVERGED', sha: remoteSha }
+}
+
+let preflightBlocked = false
+// 双远端才做"一枚都不推"预检;单远端/显式 lease 场景没有两边分叉风险,保持旧语义。
+if (remotes.length >= 2 && !allowLease) {
+  for (const remote of remotes) {
+    const p = inspectRemoteForPreflight(remote)
+    if (p.status === 'ALREADY' || p.status === 'PUSH') {
+      console.log(`${remote.padEnd(8)} 🧭 PRECHECK ${p.status}(${p.sha.slice(0, 11)})`)
+    } else {
+      preflightBlocked = true
+      results.push({ remote, status: `PRECHECK_${p.status}` })
+      console.log(
+        `${remote.padEnd(8)} 🛑 PRECHECK ${p.status}${
+          p.sha ? `(${p.sha.slice(0, 11)})` : ''
+        }${p.why ? ` ${p.why}` : ''}`,
+      )
+    }
+  }
+}
+if (preflightBlocked) {
+  hasFailure = true
+  console.log('\n⛔ 双远端预检未通过:本轮不推任何远端(避免只推一边留下不一致);先收敛/恢复后再跑。')
+}
+
 for (const remote of remotes) {
+  if (preflightBlocked) break
   const label = remote.padEnd(8)
   // 1. 远端 tip(单次 ls-remote,比 fetch 轻得多)
   const remoteTip = git(['ls-remote', remote, `refs/heads/${branch}`])
@@ -365,7 +414,7 @@ for (const remote of remotes) {
     results.push({ remote, status: 'UNREACHABLE' })
     console.log(`${label} ❌ UNREACHABLE(网络/权限)`)
     hasFailure = true
-    continue
+    break
   }
   const remoteSha = remoteTip.split('\t')[0]
   if (remoteSha === localHead) {
@@ -394,7 +443,8 @@ for (const remote of remotes) {
     console.log(
       noteEvidence(startProv, ';本行结论依据 = ls-remote 现读远端 tip(当下量的),**本次未现推**'),
     )
-    continue
+    hasFailure = true
+    break
   }
   if (remoteIsAncestor && !localIsAncestor) {
     // 本地领先:若后台推送正在进行(guard 异步化),显示 PUSHING 而非重复触发
@@ -436,6 +486,7 @@ for (const remote of remotes) {
         console.log(noteEvidence(afterProv))
         hasFailure = true
       }
+      if (hasFailure) break
       continue
     }
     // 本地领先 → 推(镜像仓:直推但放宽超时,门禁由 CI 承担)
@@ -458,6 +509,7 @@ for (const remote of remotes) {
       results.push({ remote, status: 'PUSHED' })
       console.log(`${label} 🚀 PUSHED(${localHead.slice(0, 11)})`)
     }
+    if (hasFailure) break
     continue
   }
   // 既非祖先关系 → 分叉。
@@ -509,6 +561,7 @@ for (const remote of remotes) {
     )
   }
   hasFailure = true
+  break
 }
 
 // ─── 汇总 ───
@@ -520,8 +573,10 @@ console.log(`汇总出处: ${startProv.text}`)
 
 // ─── 双远端逐 sha 同源复核(2026-11-27 机主令)───
 // 逐行 PUSHED/ALREADY 不等于"两边已经一致":任何一边在推送窗口里被并发推进,这里必须再量一次。
+// 即使前面已经失败,也照量不误:失败后到底两边是"都落后"还是"一边已推/一边没推",必须现读才知道。
 // 判据只有一份(check-remote-parity.mjs),本器不另写一套 sha 比较。
-if (!hasFailure) {
+// 只在双远端档复核;单远端(--remotes=origin)与空远端夹具保持旧语义。
+if (remotes.length >= 2) {
   const parity = gitWithOutput(
     [
       'scripts/check-remote-parity.mjs',
