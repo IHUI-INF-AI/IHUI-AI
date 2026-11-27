@@ -50,10 +50,10 @@ export interface AiReviewBlock {
   readonly elements?: readonly { name: string; text: string }[]
 }
 
-/** 页内标记:只支持有稳定页面/元素坐标的 PDF 与 PPTX。 */
+/** 页内标记:PDF 页、PPTX 元素、DOCX 段落、XLSX 单元格/区域。 */
 export interface PreviewAnnotationPin {
   readonly id: string
-  readonly kind: 'pdf' | 'pptx'
+  readonly kind: 'pdf' | 'pptx' | 'docx' | 'xlsx'
   readonly label: string
   readonly body: string
   readonly excerpt: string | null
@@ -61,6 +61,12 @@ export interface PreviewAnnotationPin {
   readonly page?: number
   readonly slide?: number
   readonly element?: string
+  /** DOCX 段落序号(1 起);仅 kind='docx' */
+  readonly paragraph?: number
+  /** XLSX 工作表名;仅 kind='xlsx' */
+  readonly sheet?: string
+  /** XLSX 选区(如 A2:C9);仅 kind='xlsx' */
+  readonly range?: string
 }
 
 function positiveInt(value: unknown): number | null {
@@ -112,6 +118,36 @@ export function toPreviewAnnotationPin(
       status: record.status,
       slide,
       element: element || undefined,
+    }
+  }
+
+  if (kind === 'docx') {
+    const paragraph = positiveInt(anchor.paragraph)
+    if (paragraph === null) return null
+    return {
+      id: record.id,
+      kind: 'docx',
+      label: label || `文档第 ${paragraph} 段`,
+      body: record.body,
+      excerpt: record.excerpt,
+      status: record.status,
+      paragraph,
+    }
+  }
+
+  if (kind === 'xlsx') {
+    const sheet = textOf(anchor.sheet)
+    const range = textOf(anchor.range)
+    if (!sheet || !range) return null
+    return {
+      id: record.id,
+      kind: 'xlsx',
+      label: label || `${sheet} · ${range}`,
+      body: record.body,
+      excerpt: record.excerpt,
+      status: record.status,
+      sheet,
+      range,
     }
   }
 
