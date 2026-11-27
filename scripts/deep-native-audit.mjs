@@ -390,6 +390,56 @@ const order = { present: 0, partial: 1, absent: 2, 'n/a': 3 }
 results.sort((a, b) => order[a.state] - order[b.state] || a.id.localeCompare(b.id))
 
 const args = process.argv.slice(2)
+const RANK = { 'n/a': 0, absent: 1, partial: 2, present: 3 }
+const BASELINE_PATH = path.join(ROOT, 'scripts', 'data', 'deep-native-baseline.json')
+
+if (args.includes('--check')) {
+  let baseline
+  try {
+    baseline = JSON.parse(fs.readFileSync(BASELINE_PATH, 'utf8'))
+  } catch (error) {
+    console.error(`❌ 基线读取失败: ${BASELINE_PATH}\n   ${error.message}`)
+    console.error('   出路: 用 --write-baseline 生成基线后再 --check')
+    process.exit(2)
+  }
+  const regressions = []
+  let improved = 0
+  for (const r of results) {
+    const was = baseline.states?.[r.id]
+    if (typeof was !== 'string') {
+      regressions.push(`${r.id} 基线无此条目（当前 ${r.state}）—— 新增条目须先 --write-baseline 固化`)
+      continue
+    }
+    const before = RANK[was]
+    const now = RANK[r.state]
+    if (now < before) regressions.push(`${r.id} ${was} → ${r.state}（退档）`)
+    else if (now > before) improved += 1
+  }
+  if (improved > 0) console.log(`ℹ️ 有 ${improved} 条比基线更好（棘轮只挡退档，不挡进步）`)
+  if (regressions.length > 0) {
+    console.error(`❌ 棘轮判定红：${regressions.length} 条退档`)
+    for (const line of regressions) console.error(`   - ${line}`)
+    console.error('   出路: 要么改回实现，要么显式 --write-baseline 并说明为何降档')
+    process.exit(1)
+  }
+  const present = results.filter((r) => r.state === 'present').length
+  console.log(`✅ 棘轮判定绿：${results.length} 条无退档（present ${present}）`)
+  process.exit(0)
+}
+
+if (args.includes('--write-baseline')) {
+  const states = {}
+  for (const r of results) states[r.id] = r.state
+  fs.mkdirSync(path.dirname(BASELINE_PATH), { recursive: true })
+  fs.writeFileSync(
+    BASELINE_PATH,
+    `${JSON.stringify({ schema: 'deep-native-baseline/v0.1', states }, null, 2)}\n`,
+    'utf8',
+  )
+  console.log(`✅ 已写入基线: ${BASELINE_PATH}（${results.length} 条）`)
+  process.exit(0)
+}
+
 if (args.includes('--json')) {
   console.log(JSON.stringify({ generatedAt: new Date().toISOString(), results }, null, 2))
 } else {
