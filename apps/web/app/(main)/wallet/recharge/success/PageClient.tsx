@@ -14,6 +14,11 @@ import { QRCodeCanvas } from 'qrcode.react'
 import { CheckCircle2, Loader2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import {
+  PAYMENT_RESULT_MAX_POLLS,
+  PAYMENT_RESULT_POLL_INTERVAL_MS,
+  normalizePaymentResultStatus,
+} from '@ihui/shared/pay'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
   formatOrderAmount,
@@ -33,8 +38,8 @@ interface OrderDetail {
   }
 }
 
-const POLL_INTERVAL_MS = 3000
-const MAX_POLLS = 200 // 3s * 200 = 10 分钟,超时后仍可手动刷新
+const POLL_INTERVAL_MS = PAYMENT_RESULT_POLL_INTERVAL_MS
+const MAX_POLLS = PAYMENT_RESULT_MAX_POLLS
 
 function SuccessContent() {
   const t = useTranslations('wallet')
@@ -67,18 +72,22 @@ function SuccessContent() {
         if (stop) break
         count++
         try {
-          const r = await fetchApi<OrderDetail>(`/api/orders/${encodeURIComponent(orderNo)}`)
+          // I-08:三端统一走 /api/payment/orders/:orderNo（RN/小程序同源），
+          // 不再由 Web 单独调 /api/orders/:orderNo。
+          const r = await fetchApi<OrderDetail>(
+            `/api/payment/orders/${encodeURIComponent(orderNo)}`,
+          )
           if (!r.success) continue
           const next = r.data.order
           if (stop) break
           setOrder(next)
-          const s = next.status
-          if (s === 'paid') {
+          const normalized = normalizePaymentResultStatus(next.status)
+          if (normalized === 'paid') {
             setStatus('paid')
             void qc.invalidateQueries({ queryKey: ['wallet'] })
             return
           }
-          if (s === 'cancelled' || s === 'closed' || s === 'refunded') {
+          if (normalized === 'failed') {
             setStatus('timeout')
             return
           }
