@@ -35,6 +35,7 @@ import { rnSpacing, rnType } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { WEB_BASE_URL } from '../lib/config'
+import { resolveWebAssetUrl } from '../lib/web-asset-url'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -44,6 +45,7 @@ type AgentRow = {
   agentId?: string
   name?: string
   avatar?: string | null
+  cover?: string | null
   description?: string | null
   desc?: string | null
 }
@@ -98,7 +100,8 @@ function toAgent(row: AgentRow): CommunityHomeAgent | null {
   return {
     id,
     name: row.name || '',
-    avatar: row.avatar || undefined,
+    avatar: resolveWebAssetUrl(row.avatar),
+    cover: resolveWebAssetUrl(row.cover),
     description: row.description || row.desc || undefined,
   }
 }

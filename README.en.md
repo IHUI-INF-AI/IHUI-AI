@@ -98,6 +98,16 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-28**
+- 🐞 Fix:补齐社区/导航文案键并让 RN 社区卡片消费真实封面 (57dde470c2)
+- 📚 Docs:补记 d0a5f97e 提交回执与收口边界 (5d48a03f0c)
+- 🚀 Feature/Improvement:BankCard 已登录 E2E + 提现选卡 + OpenAPI/路由契约全量收口 (d0a5f97e4a)
+- 🚀 Feature/Improvement:草稿生成后直达那一条待确认任务 (f419a2e184)
+- 📚 Docs:第九节 —— 44 条基线全送达与 19 条判据失真的复盘 (5f7d83cf91)
+- 🚀 Feature/Improvement:B2-04/B4-11/B4-12 三条真缺补齐 —— 基线 44 条全送达 (e7d455cb06)
+- 🔧 Chore/Other:补齐一句话出稿文件的来源水印 (49d7b9802c)
+- 🐞 Fix:P0-2/B3-01 转 present —— 两条都是判据钉对方词表 (a12153d2a0)
+
 **2026-11-27**
 - 📚 Docs:决策账补'并行会话提交安全'复盘(amend 孤儿化事故 + 五条规矩) (9363c4923)
 - 🚀 Feature/Improvement:批注面板支持手动刷新协作线程 (627a29534)
