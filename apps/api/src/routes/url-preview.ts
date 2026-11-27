@@ -47,6 +47,12 @@ export const URL_PREVIEW_MAX_BYTES = 128 * 1024
 const MAX_REDIRECTS = 3
 const PROBE_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+/** 站点图标抓取上限(64KB):只用于 20px 展示位,超过即放弃,回落字母块。 */
+const ICON_MAX_BYTES = 64 * 1024
+/** 图标单独时限:页面已花掉一部分 3s 预算,图标再给 1.2s,总耗时仍落在前端 5s 传输超时内。 */
+const ICON_TIMEOUT_MS = 1200
+/** 允许内联的图标 MIME(SVG 是可渲染文档类型,一律不收)。 */
+const ICON_MIME_RE = /^image\/(?:png|jpe?g|gif|webp|avif|bmp|x-icon|vnd\.microsoft\.icon)$/i
 
 /** 三态封闭的探测结果(unavailable 与 undetermined 严禁合并)。 */
 export type UrlPreviewProbeResult =
@@ -170,9 +176,9 @@ function extractMetaContent(
 }
 
 // ─────────────────────────────────────────────────────────────
-// 站点图标提取(2026-11-27 立):卡片要有真实站点图标,而不是字母块兜底。
-// 只在已读到的 HTML 头部里挑 href,不在这里下载图标字节(字节交给
-// /api/media/image 同源代理,SSRF 闸门与白名单类型是同一道)。
+// 站点图标(2026-11-27 立):卡片要有真实站点图标,而不是字母块兜底。
+// 先从已读到的 HTML 头部挑 href,再把图标字节抓成 data URL 内联返回 ——
+// 浏览器只渲染 data:(CSP 已放行),不直连第三方,也不依赖媒体代理。
 // ─────────────────────────────────────────────────────────────
 
 /** 取一个 `<link>` 标签上的属性值,兼容双引号/单引号/裸值。 */
@@ -182,9 +188,10 @@ function linkAttr(tag: string, name: string): string | undefined {
 }
 
 /**
- * 按优先级挑站点图标:apple-touch-icon / 大尺寸 icon / 普通 icon / shortcut icon,
- * 都没有才回落 `/favicon.ico`。相对 href 以**重定向后的落点**为基准解析。
- * 只放行 http(s);`mask-icon`(SVG 单色)与 data: 跳过 —— 媒体代理不接受 SVG。
+ * 按优先级挑站点图标:apple-touch-icon / 大尺寸 icon / 普通 icon / shortcut icon。
+ * 只认页面里**显式声明**的 `<link rel=…icon…>`;相对 href 以重定向后的落点为基准解析。
+ * 只放行 http(s);`mask-icon`(SVG 单色)与 data: 跳过 —— 图标统一转 data URL 内联,
+ * 不把外部地址交给浏览器(避免 CSP 白名单与第三方直连问题)。
  */
 export function extractIconUrl(html: string, baseUrl: string): string | undefined {
   let best: { url: string; score: number } | undefined
@@ -214,12 +221,112 @@ export function extractIconUrl(html: string, baseUrl: string): string | undefine
     }
     if (!best || score > best.score) best = { url: abs.toString(), score }
   }
-  if (best) return best.url
+  return best?.url
+}
+
+/** 有上限的字节读取:超过上限直接取消连接并返回 null(不截断成坏图)。 */
+async function readCappedBytes(res: Response, maxBytes: number): Promise<Uint8Array | null> {
+  if (!res.body) return new Uint8Array(0)
+  const reader = res.body.getReader()
+  const chunks: Uint8Array[] = []
+  let total = 0
   try {
-    return new URL('/favicon.ico', baseUrl).toString()
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      if (value) {
+        total += value.byteLength
+        if (total > maxBytes) {
+          try {
+            await reader.cancel()
+          } catch {
+            // 连接回收失败不影响判定
+          }
+          return null
+        }
+        chunks.push(value)
+      }
+    }
+  } catch {
+    return null
+  }
+  const out = new Uint8Array(total)
+  let offset = 0
+  for (const chunk of chunks) {
+    out.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return out
+}
+
+/**
+ * 抓取站点图标并转成 `data:image/…;base64,…`。
+ *
+ * 与页面探测共用一道 SSRF 尺(字面量判定 + DNS 解析级复检 + 重定向逐跳复检),
+ * 只收位图类型、64KB 上限、1.2s 独立时限;任何一步失败都返回 undefined,
+ * 卡片回落字母块 —— 图标是装饰,绝不因为图标失败影响预览卡本身。
+ */
+async function fetchIconDataUrl(
+  iconUrl: string,
+  doFetch: typeof fetch,
+  resolveForbidden: (hostname: string) => Promise<boolean>,
+): Promise<string | undefined> {
+  let target: URL
+  try {
+    target = new URL(iconUrl)
   } catch {
     return undefined
   }
+  if (target.protocol !== 'http:' && target.protocol !== 'https:') return undefined
+  if (!isPlausibleHostname(target.hostname)) return undefined
+
+  const deadline = Date.now() + ICON_TIMEOUT_MS
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    if (isForbiddenHost(target.hostname) || (await resolveForbidden(target.hostname))) {
+      return undefined
+    }
+    const remaining = deadline - Date.now()
+    if (remaining <= 0) return undefined
+
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), remaining)
+    ;(timer as { unref?: () => void }).unref?.()
+
+    let res: Response
+    try {
+      res = await doFetch(target.toString(), {
+        method: 'GET',
+        headers: { 'user-agent': PROBE_UA, accept: 'image/*' },
+        credentials: 'omit',
+        redirect: 'manual',
+        signal: controller.signal,
+      })
+    } catch {
+      clearTimeout(timer)
+      return undefined
+    }
+    clearTimeout(timer)
+
+    if (res.status >= 300 && res.status < 400) {
+      const location = res.headers.get('location')
+      if (!location) return undefined
+      try {
+        target = new URL(location, target)
+      } catch {
+        return undefined
+      }
+      if (target.protocol !== 'http:' && target.protocol !== 'https:') return undefined
+      continue
+    }
+    if (res.status < 200 || res.status >= 300) return undefined
+
+    const mime = (res.headers.get('content-type') ?? '').split(';')[0]?.trim().toLowerCase() ?? ''
+    if (!ICON_MIME_RE.test(mime)) return undefined
+    const bytes = await readCappedBytes(res, ICON_MAX_BYTES)
+    if (!bytes || bytes.byteLength === 0) return undefined
+    return `data:${mime};base64,${Buffer.from(bytes).toString('base64')}`
+  }
+  return undefined
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -332,7 +439,8 @@ export async function probeUrl(
       }
       const html = await readHead(res, maxBytes)
       if (html === null) return undetermined('read_error')
-      const icon = extractIconUrl(html, current.toString())
+      const iconUrl = extractIconUrl(html, current.toString())
+      const icon = iconUrl ? await fetchIconDataUrl(iconUrl, doFetch, resolveForbidden) : undefined
       return {
         status: 'ok',
         url: rawUrl,

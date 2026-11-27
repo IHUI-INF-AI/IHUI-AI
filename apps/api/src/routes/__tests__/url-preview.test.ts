@@ -65,6 +65,13 @@ function htmlResponse(html: string, status = 200): Response {
   return new Response(html, { status, headers: { 'content-type': 'text/html; charset=utf-8' } })
 }
 
+function pngResponse(): Response {
+  return new Response(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), {
+    status: 200,
+    headers: { 'content-type': 'image/png' },
+  })
+}
+
 const OK_HTML =
   '<html><head><title>Example Domain</title>' +
   '<meta name="description" content="This domain is for use in examples."></head><body></body></html>'
@@ -180,41 +187,65 @@ describe('probeUrl 三态封闭', () => {
     expect(result).not.toHaveProperty('icon')
   })
 
-  it('ok 携带站点图标:相对 href 按落点解析,大尺寸 apple-touch-icon 优先', async () => {
+  it('ok 携带站点图标:相对 href 按落点解析,大尺寸 apple-touch-icon 优先并内联为 data URL', async () => {
     const html =
       '<html><head><title>T</title>' +
       '<link rel="icon" sizes="32x32" href="/fav-32.png">' +
       '<link rel="apple-touch-icon" sizes="180x180" href="/apple.png">' +
       '</head><body></body></html>'
-    const fetchImpl = vi.fn(async () => htmlResponse(html))
+    const fetchImpl = vi.fn(async (input: string | URL | Request) =>
+      String(input).includes('apple.png') ? pngResponse() : htmlResponse(html),
+    )
     const result = await probeUrl('https://example.com/page', {
       fetchImpl,
       resolveForbidden: resolveAllowed,
     })
-    expect(result).toMatchObject({ status: 'ok', icon: 'https://example.com/apple.png' })
+    expect(result.status).toBe('ok')
+    expect(result).toMatchObject({ icon: 'data:image/png;base64,' + 'iVBORw0KGgo=' })
+    // 页面一次 + 图标一次:只多抓图标本身,不重抓正文。
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
+    expect(String(vi.mocked(fetchImpl).mock.calls[1]?.[0])).toBe('https://example.com/apple.png')
   })
 
   it('重定向落点是图标解析基准(相对 href 不按原始 URL)', async () => {
     const html = '<html><head><title>T</title><link rel="icon" href="/i.png"></head></html>'
-    const fetchImpl = vi.fn(async (input: string | URL | Request) =>
-      String(input).startsWith('https://final.example.com')
-        ? htmlResponse(html)
-        : new Response(null, { status: 301, headers: { location: 'https://final.example.com/x' } }),
-    )
+    const fetchImpl = vi.fn(async (input: string | URL | Request) => {
+      const u = String(input)
+      if (u === 'https://final.example.com/i.png') return pngResponse()
+      if (u.startsWith('https://final.example.com')) return htmlResponse(html)
+      return new Response(null, {
+        status: 301,
+        headers: { location: 'https://final.example.com/x' },
+      })
+    })
     const result = await probeUrl('http://example.com/', {
       fetchImpl,
       resolveForbidden: resolveAllowed,
     })
-    expect(result).toMatchObject({ status: 'ok', icon: 'https://final.example.com/i.png' })
+    expect(result.status).toBe('ok')
+    expect(result).toMatchObject({ icon: 'data:image/png;base64,' + 'iVBORw0KGgo=' })
   })
 
-  it('页面没有 icon 声明 ⇒ 回落 /favicon.ico 绝对地址', async () => {
+  it('页面没有 icon 声明 ⇒ 不抓图标(回落字母块,不额外发请求)', async () => {
     const fetchImpl = vi.fn(async () => htmlResponse(OK_HTML))
     const result = await probeUrl('https://example.com/', {
       fetchImpl,
       resolveForbidden: resolveAllowed,
     })
-    expect(result).toMatchObject({ icon: 'https://example.com/favicon.ico' })
+    expect(result).not.toHaveProperty('icon')
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+  })
+
+  it('图标指向内网 ⇒ 不抓、不返回(SSRF 尺同样作用于图标)', async () => {
+    const html =
+      '<html><head><title>T</title><link rel="icon" href="http://127.0.0.1/icon.png"></head></html>'
+    const fetchImpl = vi.fn(async () => htmlResponse(html))
+    const result = await probeUrl('https://example.com/', {
+      fetchImpl,
+      resolveForbidden: resolveAllowed,
+    })
+    expect(result).not.toHaveProperty('icon')
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
   })
 
   it('重定向手动跟随:301 → 落点取标题(逐跳探测)', async () => {
