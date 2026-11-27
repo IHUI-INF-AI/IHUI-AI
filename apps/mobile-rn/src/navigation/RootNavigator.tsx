@@ -574,7 +574,7 @@ export type RootStackParamList = {
   About: undefined
   Status: undefined
   SignUp: undefined
-  CirclePost: undefined
+  CirclePost: { circleId?: string; circleName?: string } | undefined
   Invitations: undefined
   Letters: undefined
   LetterChat: { memberId: string; memberName: string }
