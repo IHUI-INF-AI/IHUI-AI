@@ -133,3 +133,5 @@ BankCard 原先只有 `withdrawal_flows.account_info` 的只读投影，没有�
 - **哈希**：`contractHash=2482724b5b9bc2c744e214b2d3d9efbf4087620406e509351b2491196249e14e`；随后 `--check` exit 0 `PASS`，原先卡住全量生成的 `community`、`publish/account-pool` 两处上游 gap 已由本轮工作树收口。
 - **连带产物**：`apps/mobile-rn/src/navigation/linking.screens.generated.ts` 同步重生成 301/301 行（240 屏 + 60 alias）；`apps/web/src/lib/ui-routes.generated.ts` 无变化（945 条）。
 - **真机**：本机无 adb / Android 模拟器 / iOS Simulator / 微信开发者工具，无法产出 RN、小程序真机截图；替代验收为 `pnpm --filter @ihui/miniapp-taro build:weapp` exit 0 + 共享屏单测 4/4 + Web E2E 1/1，真机项保留为环境受限。
+
+> 本轮提交：`d0a5f97e`（12 文件：E2E/testID、提现选卡、OpenAPI、934 行路由契约、RN linking、本文档）；`origin/main` 已推送。
