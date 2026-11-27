@@ -314,10 +314,13 @@ class AgentOrchestrator:
         registry: AgentRegistry | None = None,
         definition_provider: Callable[[str], RuntimeAgentDefinition] | None = None,
         run_ledger: RunLedgerClient | None = None,
+        available_tool_names: set[str] | None = None,
     ) -> None:
         self._registry = registry or AgentRegistry()
         self._definition_provider = definition_provider
         self._run_ledger = run_ledger
+        self._available_tool_names = available_tool_names
+        self._tool_names_loaded = available_tool_names is not None
 
     @property
     def registry(self) -> AgentRegistry:
@@ -338,6 +341,34 @@ class AgentOrchestrator:
         if runtime is not None:
             return runtime.to_legacy()
         return self._registry.get(agent_name)
+
+    def _known_tool_names(self) -> set[str]:
+        if not self._tool_names_loaded:
+            self._available_tool_names = {tool.name for tool in mcp_server.list_tools()}
+            self._tool_names_loaded = True
+        return self._available_tool_names or set()
+
+    def _validate_definition_tools(
+        self,
+        runtime: RuntimeAgentDefinition,
+        *,
+        tool_deny: list[str] | None,
+    ) -> None:
+        """派发前校验：未知工具、显式 deny 都拒绝；不做静默过滤。"""
+        unknown = [name for name in runtime.tools if name not in self._known_tool_names()]
+        if unknown:
+            raise AgentResolveError(
+                "AGENT_TOOL_UNKNOWN",
+                f"定义引用了未登记的 MCP 工具: {', '.join(sorted(unknown))}",
+                {"definitionId": runtime.id, "tools": unknown},
+            )
+        denied = [name for name in runtime.tools if name in set(tool_deny or ())]
+        if denied:
+            raise AgentResolveError(
+                "AGENT_TOOL_DENIED",
+                f"定义所需工具被显式禁止: {', '.join(sorted(denied))}",
+                {"definitionId": runtime.id, "tools": denied},
+            )
 
     # =========================================================================
     # Single agent invoke
@@ -396,6 +427,8 @@ class AgentOrchestrator:
         runtime: RuntimeAgentDefinition | None
         try:
             runtime = self._get_runtime(agent_name)
+            if runtime is not None:
+                self._validate_definition_tools(runtime, tool_deny=tool_deny)
         except AgentResolveError as exc:
             return await finish(
                 AgentStepResult(

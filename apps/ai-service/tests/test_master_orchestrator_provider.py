@@ -49,7 +49,9 @@ def _runtime(*, status: str = "active") -> RuntimeAgentDefinition:
 @pytest.mark.asyncio
 async def test_provider_hit_attaches_definition_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
     orchestrator = AgentOrchestrator(
-        registry=AgentRegistry(), definition_provider=lambda _ref: _runtime()
+        registry=AgentRegistry(),
+        definition_provider=lambda _ref: _runtime(),
+        available_tool_names={"read_file"},
     )
     seen: dict[str, Any] = {}
 
@@ -96,6 +98,57 @@ async def test_without_provider_keeps_in_memory_registry(monkeypatch: pytest.Mon
 
     assert result.status == "completed"
     assert result.definition_id is None
+
+
+def _runtime_with_tools(tools: list[str]) -> RuntimeAgentDefinition:
+    raw = _runtime().to_public_dict()
+    raw["systemPrompt"] = _runtime().system_prompt
+    raw["tools"] = tools
+    return RuntimeAgentDefinition.from_mapping(raw)
+
+
+@pytest.mark.asyncio
+async def test_unknown_tool_rejected_before_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    runtime = _runtime_with_tools(["shell_magic"])
+    orchestrator = AgentOrchestrator(
+        registry=AgentRegistry(),
+        definition_provider=lambda _ref: runtime,
+        available_tool_names={"read_file"},
+    )
+    called = False
+
+    async def fake_run(*args, **kwargs):  # type: ignore[no-untyped-def]
+        nonlocal called
+        called = True
+        return AgentStepResult(agent_name="x", input="", output="", status="completed")
+
+    monkeypatch.setattr(orchestrator, "_run_agent", fake_run)
+    result = await orchestrator.invoke("reviewer-readonly", "跑")
+
+    assert called is False
+    assert result.error_code == "AGENT_TOOL_UNKNOWN"
+
+
+@pytest.mark.asyncio
+async def test_denied_tool_rejected_before_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    runtime = _runtime_with_tools(["delete_file"])
+    orchestrator = AgentOrchestrator(
+        registry=AgentRegistry(),
+        definition_provider=lambda _ref: runtime,
+        available_tool_names={"delete_file"},
+    )
+    called = False
+
+    async def fake_run(*args, **kwargs):  # type: ignore[no-untyped-def]
+        nonlocal called
+        called = True
+        return AgentStepResult(agent_name="x", input="", output="", status="completed")
+
+    monkeypatch.setattr(orchestrator, "_run_agent", fake_run)
+    result = await orchestrator.invoke("reviewer-readonly", "跑", tool_deny=["delete_file"])
+
+    assert called is False
+    assert result.error_code == "AGENT_TOOL_DENIED"
 
 
 @pytest.mark.asyncio
