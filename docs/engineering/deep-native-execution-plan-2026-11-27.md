@@ -1,0 +1,89 @@
+<!--
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+-->
+
+# deep-native 44 条执行计划（2026-11-27 立）
+
+## 一、基线：44 条实测三态（唯一排期依据）
+
+复核器：`scripts/deep-native-audit.mjs`。判据钉在「文件 + 实现符号」上，不看注释、不看文档自述：一个 probe 命中另一个不命中记 `partial`，全不中记 `absent`，判据不可达**不冒绿**。
+
+```
+node scripts/deep-native-audit.mjs          # 人读
+node scripts/deep-native-audit.mjs --json   # 机读
+```
+
+读数：**present 20 / partial 5 / absent 18 / n/a 1**（合计 44）。
+
+**为什么不用取证文档的「IHUI 现状」列**：那是 2026-11-23 的读数，取证之后并行会话已推进多条（P0-1 审批四档、B1-01 `TOOL_TIMEOUT` 双码、B1-11 OTel 双通道、P0-3 注册表、P0-6 `.gnupg`、P0-8 索引审计…）。照旧表排期会把已完成的当欠账、把真欠账漏掉。**本文件的一切结论以复核器读数为准，每完成一条必须重跑复核器确认状态迁移。**
+
+已落地（present 20，不再排期）：
+P0-1 审批四档、P0-3 注册表三判据、P0-6 沙箱文件规则、P0-8 索引审计、B1-01 工具超时结果码、B1-03 重复调用分级 advisory、B1-05 沙箱三级、B1-07 retryId、B1-09 子代理双后端、B1-10 输出留存 omit、B1-11 OTel 双通道、B2-03 helper 中继、B2-10 沙箱埋点、B3-02 进程组判活、B3-05 通知权限、B3-07 请求元数据四层、B3-08 worker 行协议、B4-03 双 spawn 判据、B4-08 启动画像、B4-09 低内存 V8 启动档。
+
+## 二、超越轴：先定标准再排任务
+
+四家对标（Claude Code / Codex / Qoder / WorkBuddy）的公开面里，**没有一家有「工具契约协议 + 一致性读数器」**；IHUI 有（`packages/types/src/tool-contract.ts` 615 行 + ITCP v0.1 + conformance 三态）。所以「超越」不定义为功能条数，而是三条轴：
+
+1. **契约轴**：一份契约真相源，TS 与 Python 两侧消费同一份导出物；审批只能单向收紧（`allow→ask`），任何宿主不得反向放宽。
+2. **可测性轴**：每项能力落成纯判据 + 注入式夹具，验收方式是「跑一条命令得到确定读数」，不是「写完了」。
+3. **fail-closed 轴**：未声明 / 未判定 / 不支持一律拒绝或明确报 `unjudged`，不冒充通过、不回落裸跑。
+
+排期只做能压在这三条轴上的条目；纯「补一个功能」的不进计划。
+
+## 三、阶段 1：契约同源（本轮开工）
+
+目标：让 Python 侧（`apps/ai-service`）第一次拥有「工具契约」这个概念，且与 TS 侧共用同一份真相源。
+
+| 票 | 目标 | 落点 | 验收 |
+|---|---|---|---|
+| T1.1 | 契约导出器：从 CLI 129 枚工具抽出契约，落到语言无关 JSON | `scripts/itcp-export.mjs` → `protocol/itcp-registry.json`（schema `itcp-registry/v0.1`） | 跑两次输出 byte-identical（幂等）；工具数 = 守门口径 129 |
+| T1.2 | Python 契约类型 + 谓词 | `apps/ai-service/app/core/tool_contract.py` | `human_approval_mandated` 与 TS 版同判序（契约缺席 false / alwaysAsk true / requiresApproval 且碰外部世界） |
+| T1.3 | Python 注册表：加载导出物、按名索引、缺失即「未声明」 | `apps/ai-service/app/core/tool_contract_registry.py` | 缺文件 ⇒ 明确报 `unjudged`，不静默空表 |
+| T1.4 | 接线：工具执行前挂契约轴 | `apps/ai-service/app/services/agent_loop_v2.py` 执行前 | pytest：契约需审批 + profile=allow ⇒ 必须 ask；反向（契约不需要而 profile 拒）不得被放宽 |
+
+判据要点（不得走样）：`humanApprovalMandated` 判序第 1 条是**契约缺席即 false（本判据不参与）**——这是为了不改缺省语义，不是 fail-open。Python 侧逐字保持；「已声明契约」上的字段认不出才走 fail-closed（`touchesExternalWorld` 判碰）。
+
+## 四、阶段 2：把 5 条 partial 焊死
+
+半成品比全缺更危险（容易被读成「已做」）。优先焊死：
+
+| 票 | 现状 | 落点 | 验收 |
+|---|---|---|---|
+| T2.1 P0-5 | `terminal_session.rs:261` 有 drain 闸门，**Python 侧无有界输出环** | 新增 `apps/ai-service/app/services/background_job_registry.py`（有界环 + 双游标 + 控制器准入 + lossy 标记） | 窗口外读返回 lossy；结算只投递一轮；无控制器 owner 不得挂引用 |
+| T2.2 B1-10 | `spill_retention.py` 有 omit，缺 retainer 与 UTF-8 边界判据 | 扩 `spill_retention.py` | 未知计数不冒充精确（三态） |
+| T2.3 B2-11 | `checkpoint_rewind.py` 有回滚，缺按 `message_id` 反查与文件 diff 只读面 | 扩 `checkpoint_rewind.py` | 两个只读查询各一条测试 |
+| T2.4 B4-02 | `env-channel.ts` 有，缺白名单集 | 扩 `env-guard.ts` | 未登记键默认不进子进程 env |
+| T2.5 B3-03 / B3-04 | collab 只有 `exit-codes.ts`；commit charge 只有模块无符号 | `apps/cli/src/commands/collab/`、`system_memory.rs` | 身份三档断言无副作用；低余量拒绝派生 |
+
+## 五、阶段 3：18 条 absent 按 ROI
+
+**S 档（单文件、零依赖、可测，先做）**
+B4-11 崩溃看门狗重启腿 · B4-10 lazy chunk manifest 版本防污染 · B4-12 历史清理按路由意图 · B2-05 命令级 `timeout_ms` · B1-08 盘上快照兜底 · B2-04 分级看门狗重连 · B1-06 竞争裁决（需先定 PG 台账口径）
+
+**M 档（跨文件或跨端，次做）**
+P0-7 回合前上下文自检（AI 侧指纹 + 回源）· P0-2 反向守护（CLI 侧握手状态机纯判据）· B4-05 更新后自重启状态机 · B2-08 ContextFS 动词面 · B4-07 网络边界双引擎（先接口后载体）
+
+**L 档（需原生 / 远期，不进本轮）**
+P0-4 沙箱能力探测（需 Windows 原生探测面）· B2-02 IPC ACL · B2-07 原生 ABI · B3-01 浏览器桥 native host · B3-06 剪贴板令牌 · B3-09 RTC 桥
+
+**明确不做**
+B3-10 硬件专用键盘钩子（取证文档自己写「不建议照搬」，走全局快捷键配置化）。
+
+## 六、阶段 4：可证收口
+
+- conformance 严格模式从 `unknown` 转 `ok`（前置：门体与其配套重构同代提交）
+- 双仓同步：`PUSH_WINDOW=1 node scripts/git-sync-converge.mjs` → `git push gitee origin/main:refs/heads/main` → 三端 `rev-parse` / `ls-remote` 相等
+- 决策账增补第九节「deep-native 执行记录」，含每条的落地提交号与复核器前后读数
+
+## 七、验收纪律
+
+每条完成必须同时满足三条，缺一条不算完成：
+
+1. 复核器对应条目状态迁移（`absent→partial` 或 `partial→present`），读数写进提交信息；
+2. 该条自带测试或注入式夹具，`node node_modules/vitest/vitest.mjs run <该测试>` 全绿（Python 侧 `pytest`）；
+3. `tsc --noEmit` / Python 侧导入检查 EXIT=0。
+
+不许用「写了代码」代替「跑了读数」；不许用「文档已更新」代替「复核器已迁移」。
+<!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
