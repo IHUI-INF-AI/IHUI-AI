@@ -117,6 +117,12 @@ describe('FileViewerDialog', () => {
     fireEvent.click(screen.getByLabelText('aiAnalyze'))
 
     expect(await screen.findByText('aiTitle')).toBeTruthy()
+    // 布局回归:查看器曾把 `max-h-[60vh]` 传给面板,真实浏览器里算出 max-height:0,
+    // 面板只剩 2px 高(答案已在 DOM 里但看起来空白)。面板高度必须交给网格自然拉伸,
+    // 只保底 min-h,不得再挂会塌成 0 的 max-h 约束。
+    const panel = screen.getByLabelText('aiTitle')
+    expect(panel.className).toContain('min-h-[360px]')
+    expect(panel.className).not.toContain('max-h-[60vh]')
     await waitFor(() =>
       expect(fetchApi).toHaveBeenCalledWith(
         expect.stringContaining('/api/office/analyze?mode=summary'),

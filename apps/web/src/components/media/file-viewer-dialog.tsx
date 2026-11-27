@@ -261,7 +261,7 @@ export function FileViewerDialog({ target, onClose }: Props) {
               file={blob}
               name={target.name}
               onClose={() => setAiOpen(false)}
-              className="max-h-[60vh] lg:h-[60vh] lg:max-h-none"
+              className="min-h-[360px]"
             />
           ) : null}
         </div>
