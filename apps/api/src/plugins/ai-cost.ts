@@ -22,6 +22,7 @@ import { success, error } from '../utils/response.js'
 import { parsePositiveInt } from '../utils/positive-int.js'
 import { calculateCost, findActivePricingForMode } from '../services/pricing-service.js'
 import { resolvePrice, type ResolvedPrice } from '../services/pricing-engine.js'
+import { getLlmPointsRates } from '../services/llm-points-pricing.js'
 import { checkOrgSpendBudget } from '../services/org-policy-service.js'
 import { getUserDailyCostLimit } from '../services/budget-alert-service.js'
 import { config } from '../config/index.js'
@@ -509,6 +510,28 @@ export async function resolveAiCost(input: {
       timestamp: new Date(),
     })
     if (pricing) pricingKnown = true
+  }
+  if (cost === undefined && !pricing) {
+    // 平台成本优先用采购成本列(ai_model_config_models.cost_*),而不是 ai_pricing 的
+    // 零售价。零售价含成本加成,直接当成本会把毛利算没;采购成本缺失时才退回零售价
+    // 作为“未知成本的参考值”。供应商前缀(provider/model)由 getLlmPointsRates 归一。
+    try {
+      const rates = await getLlmPointsRates(input.model)
+      if (rates?.costBasis === 'config') {
+        const round6 = (v: number) => Math.round(v * 1e6) / 1e6
+        cost = round6(
+          (input.promptTokens / 1000) * rates.inputCostPer1k +
+            (input.completionTokens / 1000) * rates.outputCostPer1k,
+        )
+        pricingKnown = true
+        if (costCurrency === undefined) costCurrency = 'CNY'
+      }
+    } catch (err) {
+      // 成本查询失败不能阻塞成本落账,继续走下面的零售价回退。
+      logger.warn(
+        `[ai-cost] 采购成本解析失败,回退定价引擎: model=${input.model} err=${String(err)}`,
+      )
+    }
   }
   if (cost === undefined) {
     if (pricing) {

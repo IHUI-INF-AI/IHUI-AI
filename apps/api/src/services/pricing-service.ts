@@ -96,22 +96,40 @@ function computeDiscountMultiplier(discount: unknown, totalTokens: number): numb
 /**
  * 读取模型当前生效定价。
  * 优先取 effectiveAt <= now 且（expiresAt 为空 或 expiresAt > now）的最新一条。
+ *
+ * 2026-11-27 补：上游/回调常把模型写成 `provider/model` 或 `provider:model`，
+ * 而 ai_pricing 只存裸模型名。此前精确匹配不到会静默算成 0 成本/unknown，
+ * 内部标题、推荐问题等调用因此长期漏记成本。这里按“原样优先、裸名兜底”查，
+ * 与 llm-points-pricing 的候选口径保持一致。
  */
 export async function findActivePricing(modelId: string): Promise<AiPricing | undefined> {
   const now = new Date()
-  const rows = await db
-    .select()
-    .from(aiPricing)
-    .where(
-      and(
-        eq(aiPricing.modelId, modelId),
-        lte(aiPricing.effectiveAt, now),
-        or(isNull(aiPricing.expiresAt), gt(aiPricing.expiresAt, now)),
-      ),
-    )
-    .orderBy(desc(aiPricing.effectiveAt))
-    .limit(1)
-  return rows[0]
+  for (const candidate of pricingModelCandidates(modelId)) {
+    const rows = await db
+      .select()
+      .from(aiPricing)
+      .where(
+        and(
+          eq(aiPricing.modelId, candidate),
+          lte(aiPricing.effectiveAt, now),
+          or(isNull(aiPricing.expiresAt), gt(aiPricing.expiresAt, now)),
+        ),
+      )
+      .orderBy(desc(aiPricing.effectiveAt))
+      .limit(1)
+    if (rows[0]) return rows[0]
+  }
+  return undefined
+}
+
+/** 定价查找候选：原样 + 去掉 provider 前缀后的裸模型名。 */
+function pricingModelCandidates(modelId: string): string[] {
+  const raw = modelId.trim()
+  if (!raw) return []
+  const out = [raw]
+  if (raw.includes('/')) out.push(raw.split('/').pop()!)
+  if (raw.includes(':')) out.push(raw.split(':').pop()!)
+  return [...new Set(out.filter(Boolean))]
 }
 
 /**
@@ -126,20 +144,23 @@ export async function findActivePricingForMode(
   billingMode: AiPricing['billingMode'],
 ): Promise<AiPricing | undefined> {
   const now = new Date()
-  const rows = await db
-    .select()
-    .from(aiPricing)
-    .where(
-      and(
-        eq(aiPricing.modelId, modelId),
-        eq(aiPricing.billingMode, billingMode),
-        lte(aiPricing.effectiveAt, now),
-        or(isNull(aiPricing.expiresAt), gt(aiPricing.expiresAt, now)),
-      ),
-    )
-    .orderBy(desc(aiPricing.effectiveAt))
-    .limit(1)
-  return rows[0]
+  for (const candidate of pricingModelCandidates(modelId)) {
+    const rows = await db
+      .select()
+      .from(aiPricing)
+      .where(
+        and(
+          eq(aiPricing.modelId, candidate),
+          eq(aiPricing.billingMode, billingMode),
+          lte(aiPricing.effectiveAt, now),
+          or(isNull(aiPricing.expiresAt), gt(aiPricing.expiresAt, now)),
+        ),
+      )
+      .orderBy(desc(aiPricing.effectiveAt))
+      .limit(1)
+    if (rows[0]) return rows[0]
+  }
+  return undefined
 }
 
 /** 按 (modelId, effectiveAt) 精确定位一行；同毫秒视为同一行。 */
