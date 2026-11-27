@@ -306,6 +306,17 @@ const envSchema = z.object({
   //   scripts/check-ip-attribution-trust.mjs 看守（判机器状态，不进提交链 §12e）。
   TRUSTED_PROXIES: z.string().default('127.0.0.1,::1'),
 
+  // 登录异地提醒抑制名单(2026-11-27)
+  // 回环 / 内网恒不告警(见 services/login-region-memory.ts 的 INTERNAL_CIDRS);
+  // 本项只在回环/内网之外追加"自动化 / 代理出口"的 IP 或 CIDR,逗号分隔。
+  // 只影响「异地登录」站内信/邮件/Webhook 是否发送,不参与鉴权、限流、封禁。
+  //  例:LOGIN_REGION_ALERT_IGNORE_CIDRS=142.91.108.0/24,64.120.92.0/24
+  LOGIN_REGION_ALERT_IGNORE_CIDRS: z.string().default(''),
+
+  // 「已知登录地区」记忆天数:只有最近这么多天没出现过的地区,才算新地区并提醒。
+  // 之前是"和上一次登录比",换一次网络就报一次;改成记忆后,自家宽带/手机流量互切不再刷屏。
+  LOGIN_REGION_MEMORY_DAYS: z.coerce.number().int().min(1).max(365).default(90),
+
   // Swagger / OpenAPI 文档(2026-07-21 安全审计第十轮加固 + 2026-07-28 P0-4a 品牌化)
   // 生产环境必须 SWAGGER_ENABLED=true 才暴露 /docs 路由,默认 false(避免未授权 schema 泄露)
   // P1 修复(2026-08-06):同上,SWAGGER_ENABLED=false 不能被解析为 true
