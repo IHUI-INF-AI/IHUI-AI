@@ -68,6 +68,8 @@ export interface AnchorReferenceDetail {
   readonly element?: string
   /** 选中文本摘要 */
   readonly excerpt?: string
+  /** 用户填写的批注正文(增量字段;旧消费者不读) */
+  readonly note?: string
 }
 
 /** 单一派发点:window 级 CustomEvent,与 D22 消费者同通道同机制。 */
@@ -168,6 +170,7 @@ export function AnnotationAnchorCapture({
       slide: anchor.slide,
       element: anchor.element,
       excerpt: initialNote,
+      note: note.trim(),
     })
     setState((prev) => applyAnchorAction(prev, 'add'))
   }
