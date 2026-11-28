@@ -188,7 +188,7 @@ describe('产物中心页', () => {
 
     const rowHtml = await screen.findByTestId('artifact-row-art-html-1')
     expect(rowHtml.textContent).toContain('市场分析报告')
-    expect(rowHtml.textContent).toContain('artifacts.kind_html_report')
+    expect(rowHtml.textContent).toContain('artifacts.kindHtmlReport')
     expect(rowHtml.textContent).toContain('v2')
     expect(rowHtml.textContent).toContain('artifacts.minutesAgo')
     expect(screen.getByTestId('download-artifact-art-html-1').getAttribute('href')).toBe(
@@ -199,7 +199,7 @@ describe('产物中心页', () => {
     )
 
     const rowSheet = screen.getByTestId('artifact-row-art-sheet-1')
-    expect(rowSheet.textContent).toContain('artifacts.kind_sheet')
+    expect(rowSheet.textContent).toContain('artifacts.kindSheet')
     expect(rowSheet.textContent).toContain('artifacts.hoursAgo')
     expect(screen.getByTestId('artifact-row-art-video-1').textContent).toContain(
       'artifacts.daysAgo',
