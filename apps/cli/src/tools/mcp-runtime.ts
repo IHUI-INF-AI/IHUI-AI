@@ -56,6 +56,16 @@ import type { Tool, ToolResult, ToolContext, ToolParameter, ToolContentBlock } f
 import { getCredential, isExpired, setCredential } from './mcp-credentials.js';
 import { startOAuthFlow, refreshAccessToken, startEnterpriseManagedOAuthFlow, startClientCredentialsOAuthFlow, type OAuthConfig } from './mcp-oauth.js';
 import { discoverAuthorizationServer, resolveClientRegistration } from './mcp-auth-discovery.js';
+import {
+  fetchMcpServerCard,
+  pickMcpServerCardRemote,
+  type McpServerCard,
+} from './mcp-server-card.js';
+import {
+  createMcpSkillTools,
+  parseMcpSkillsCapability,
+  type McpSkillsCapability,
+} from './mcp-skills.js';
 
 export interface McpToolDef {
   name: string;
@@ -210,6 +220,10 @@ export interface McpConnection {
   serverInfo?: { name?: string; version?: string };
   /** `server/discover` 返回的 instructions（服务器自述用法）。 */
   serverInstructions?: string;
+  /** SEP-2127：显式配置并校验通过的 Server Card（advisory，不参与安全判定）。 */
+  serverCard?: McpServerCard;
+  /** SEP-2640：server 声明了 Skills 扩展时才存在。 */
+  mcpSkillsCapability?: McpSkillsCapability;
   /**
    * 2026-07-28 MRTR / Tasks input_required 的宿主应答器。
    * 缺席时 callMcpServer 抛 McpInputRequiredError，绝不静默替用户答“同意”。
@@ -651,6 +665,17 @@ function mcpConfigTrust(server: McpServer): SelfHostedTrust | undefined {
   return {
     source: 'user-settings',
     settingsKey: 'mcpServers[].url',
+    configuredEndpoint: configured,
+  };
+}
+
+/** Server Card URL 与连接 URL 可以是不同 host，信任基准取卡片 URL 自己。 */
+function mcpServerCardTrust(server: McpServer): SelfHostedTrust | undefined {
+  const configured = server.serverCardUrl?.trim();
+  if (!configured) return mcpConfigTrust(server);
+  return {
+    source: 'user-settings',
+    settingsKey: 'mcpServers[].serverCardUrl',
     configuredEndpoint: configured,
   };
 }
@@ -1308,6 +1333,28 @@ function cliClientInfo(): { name: string; version: string } {
 }
 
 /**
+ * 客户端扩展声明。2026 无状态请求放进 `_meta.clientCapabilities`，旧握手放进
+ * `initialize.params.capabilities`；两处共用一份，避免“新协议认、旧协议不认”的漂移。
+ */
+function mcpClientCapabilities(): Record<string, unknown> {
+  return {
+    extensions: {
+      'io.modelcontextprotocol/tasks': {},
+      'io.modelcontextprotocol/ui': { mimeTypes: ['text/html;profile=mcp-app'] },
+      'io.modelcontextprotocol/enterprise-managed-authorization': {},
+      'io.modelcontextprotocol/oauth-client-credentials': {},
+      'io.modelcontextprotocol/skills': {},
+    },
+  };
+}
+
+/** 旧握手的 initialize 结果也带 capabilities；存下来，让扩展判定不只在 2026 路径可用。 */
+function captureServerCapabilities(conn: McpConnection, result: unknown): void {
+  if (!isRecord(result)) return;
+  if (isRecord(result.capabilities)) conn.serverCapabilities = result.capabilities;
+}
+
+/**
  * 连接单个 MCP server:按 transport 完成 initialize + tools/list + resources/prompts 预加载。
  * 失败时调用 disconnectMcpServer 清理资源并抛错。
  *
@@ -1327,6 +1374,41 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
   };
 
   try {
+    // SEP-2127：卡片是连接前提示，不是安全判定源。显式配了 URL 才拉；
+    // 失败时 `requireServerCard` 才硬拒，缺省只告警后按原配置连接。
+    if (server.serverCardUrl) {
+      const checked = await fetchMcpServerCard(server.serverCardUrl, {
+        trust: mcpServerCardTrust(server),
+      });
+      if (!checked.ok || !checked.card) {
+        const message = `Server Card 校验失败: ${checked.errors.join('; ')}`;
+        if (server.requireServerCard === true) throw new Error(message);
+        console.warn(`[mcp-runtime] server=${server.name} ${message}（按兼容路径继续连接）`);
+      } else {
+        conn.serverCard = checked.card;
+        // stdio 不消费 remotes；只有 http/sse 才拿卡片端点做版本兼容预检。
+        if (transport !== 'stdio') {
+          const selectedVersion = server.protocolVersion ?? DEFAULT_PROTOCOL_VERSION;
+          const remote = pickMcpServerCardRemote(checked.card, {
+            transport,
+            protocolVersion: selectedVersion,
+          });
+          if (!remote && checked.card.remotes?.length) {
+            const message = `Server Card 没有与 transport=${transport} / protocol=${selectedVersion} 兼容的 remote`;
+            if (server.requireServerCard === true) throw new Error(message);
+            console.warn(`[mcp-runtime] server=${server.name} ${message}（按兼容路径继续连接）`);
+          } else if (
+            remote?.supportedProtocolVersions?.length &&
+            !remote.supportedProtocolVersions.includes(selectedVersion)
+          ) {
+            const message = `Server Card remote 只支持 ${remote.supportedProtocolVersions.join(', ')}，不支持 ${selectedVersion}`;
+            if (server.requireServerCard === true) throw new Error(message);
+            console.warn(`[mcp-runtime] server=${server.name} ${message}（以运行时协商为准）`);
+          }
+        }
+      }
+    }
+
     if (transport === 'stdio') {
       if (server.protocolVersion === MCP_STATELESS_PROTOCOL_VERSION) {
         throw new Error('当前实现只接 MCP 2026-07-28 的 http 无状态路径；stdio 请去掉 protocolVersion 走 2025 握手');
@@ -1376,11 +1458,12 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
       }
       stdioFraming.set(proc, server.framing === 'content-length' ? 'content-length' : 'ndjson');
 
-      await sendStdioRpc(proc, 'initialize', {
+      const initialized = await sendStdioRpc(proc, 'initialize', {
         protocolVersion: DEFAULT_PROTOCOL_VERSION,
         clientInfo: cliClientInfo(),
-        capabilities: {},
+        capabilities: mcpClientCapabilities(),
       }, server.requestTimeoutMs ?? 10_000);
+      captureServerCapabilities(conn, initialized);
       sendStdioNotification(proc, 'notifications/initialized', {});
     } else if (transport === 'http') {
       if (!server.url) throw new Error('http transport 需要 url');
@@ -1393,21 +1476,14 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
         // 2026-07-28:无握手、无会话。先声明版本，后续 tools/list 与 tools/call
         // 每个请求都由 sendHttpRpc 补 `_meta` + Mcp-Method/Mcp-Name。
         conn.protocolVersion = MCP_STATELESS_PROTOCOL_VERSION;
-        conn.clientCapabilities = {
-          extensions: {
-            // 本客户端已实现：Tasks（长任务）、MCP Apps（ui:// 模板）、EMA（ID-JAG）。
-            'io.modelcontextprotocol/tasks': {},
-            'io.modelcontextprotocol/ui': { mimeTypes: ['text/html;profile=mcp-app'] },
-            'io.modelcontextprotocol/enterprise-managed-authorization': {},
-            'io.modelcontextprotocol/oauth-client-credentials': {},
-          },
-        };
+        conn.clientCapabilities = mcpClientCapabilities();
       } else {
-        await sendHttpRpc(server.url, 'initialize', {
+        const initialized = await sendHttpRpc(server.url, 'initialize', {
           protocolVersion: DEFAULT_PROTOCOL_VERSION,
           clientInfo: cliClientInfo(),
-          capabilities: {},
+          capabilities: mcpClientCapabilities(),
         }, headers, server.requestTimeoutMs ?? 10_000, mcpConfigTrust(server), conn);
+        captureServerCapabilities(conn, initialized);
       }
     } else if (transport === 'sse') {
       if (server.protocolVersion === MCP_STATELESS_PROTOCOL_VERSION) {
@@ -1483,11 +1559,12 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
       if (!endpointReady) throw new Error('SSE 未在 5s 内推送 endpoint 事件');
 
       // 4. 发送 initialize(POST 到 endpoint,等 SSE 流响应)
-      await sendSseRpc(conn, 'initialize', {
+      const initialized = await sendSseRpc(conn, 'initialize', {
         protocolVersion: DEFAULT_PROTOCOL_VERSION,
         clientInfo: cliClientInfo(),
-        capabilities: {},
+        capabilities: mcpClientCapabilities(),
       });
+      captureServerCapabilities(conn, initialized);
     }
 
     // 2026-07-28:server/discover 是服务器的 MUST；客户端可选调用。
@@ -1536,6 +1613,9 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
     const toolsResult = await callMcpServer(conn, 'tools/list', {}) as { tools?: McpToolDef[] } | null;
     conn.tools = toolsResult?.tools ?? [];
     conn.connected = true;
+    // SEP-2640：只有 server 同时声明 resources 与 skills 扩展时才建立技能工具；
+    // 这里不预取 skills/list，更不读取 SKILL.md —— 列表/内容都由工具按需触发。
+    conn.mcpSkillsCapability = parseMcpSkillsCapability(conn.serverCapabilities) ?? undefined;
 
     // 可选预加载 resources/prompts:不支持这两个方法的 server 会返回错误,静默忽略
     try {
@@ -2378,6 +2458,19 @@ export function listConfiguredMcpServerNames(
   }
 }
 
+/**
+ * 把一个已连接 server 的 Skills 扩展接成 Tool。未声明扩展时返回空数组；
+ * 列表元数据不预取，`skill_load` 的批准闸在 Tool registration 上。
+ */
+export function mcpSkillToolsForConnection(conn: McpConnection): Tool[] {
+  if (!conn.mcpSkillsCapability) return [];
+  return createMcpSkillTools({
+    serverName: conn.server.name,
+    capability: conn.mcpSkillsCapability,
+    rpc: (method, params) => sendRpc(conn, method, params).then((r) => r.result),
+  });
+}
+
 export async function loadMcpTools(
   ctx: ToolContext,
   opts: McpProjectTrustOptions = {},
@@ -2395,6 +2488,7 @@ export async function loadMcpTools(
           if (!isMcpToolVisibleToModel(mcpTool)) continue;
           allTools.push(mcpToolToTool(conn, mcpTool));
         }
+        allTools.push(...mcpSkillToolsForConnection(conn));
       } catch (err) {
         // 单个 server 连接失败不阻塞其他;但**必须点名** —— 「连不上」不等于「没有这个 server」,
         // 静默吞掉会让用户以为配置里压根没这一项(2026-11-10 接线)。

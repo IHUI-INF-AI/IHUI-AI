@@ -144,6 +144,13 @@ export interface McpServer {
    * 缺省仍按 `DEFAULT_PROTOCOL_VERSION` 走旧握手,避免把未知 server 直接打红。
    */
   protocolVersion?: string;
+  /**
+   * SEP-2127 Server Card 的 URL。显式配置才拉取；客户端不猜 `<url>/server-card`
+   * （规范只把该路径列为推荐位置，真实 URL 应来自 AI Catalog / 用户配置）。
+   */
+  serverCardUrl?: string;
+  /** Server Card 缺失/不合规/版本不兼容时是否拒绝连接；缺省 false（只告警）。 */
+  requireServerCard?: boolean;
   headers?: Record<string, string>;
   api_key?: string;
   auth?: MCPAuth;
@@ -253,6 +260,23 @@ export function validateMcpConfig(config: unknown): McpValidationResult {
       (!Number.isSafeInteger(s.requestTimeoutMs) || s.requestTimeoutMs <= 0)
     ) {
       err('requestTimeoutMs 必须是正整数毫秒');
+      continue;
+    }
+    if (s.serverCardUrl !== undefined) {
+      if (
+        typeof s.serverCardUrl !== 'string' ||
+        !/^https?:\/\/[^\s]+$/i.test(s.serverCardUrl)
+      ) {
+        err('serverCardUrl 必须是 http(s) URL');
+        continue;
+      }
+    }
+    if (s.requireServerCard !== undefined && typeof s.requireServerCard !== 'boolean') {
+      err('requireServerCard 必须是布尔值');
+      continue;
+    }
+    if (s.requireServerCard === true && !s.serverCardUrl) {
+      err('requireServerCard=true 时必须配置 serverCardUrl');
       continue;
     }
     if (s.auth?.type === 'oauth') {
@@ -478,6 +502,8 @@ export interface AddMcpServerOptions {
   transport?: MCPTransport;
   url?: string;
   protocolVersion?: string;
+  serverCardUrl?: string;
+  requireServerCard?: boolean;
   headers?: Record<string, string>;
   api_key?: string;
   auth?: MCPAuth;
@@ -507,6 +533,8 @@ export function addMcpServer(
   if (options?.env) server.env = options.env;
   if (options?.url) server.url = options.url;
   if (options?.protocolVersion) server.protocolVersion = options.protocolVersion;
+  if (options?.serverCardUrl) server.serverCardUrl = options.serverCardUrl;
+  if (options?.requireServerCard !== undefined) server.requireServerCard = options.requireServerCard;
   if (options?.headers) server.headers = options.headers;
   if (options?.api_key) server.api_key = options.api_key;
   if (options?.auth) server.auth = options.auth;
