@@ -19,7 +19,13 @@
  * 本文件只回答"内核面相对页面已有行,到底哪里变了"。
  */
 
-import type { ChatSyncMessageSurface, ChatSyncTerminalState } from '@ihui/types'
+import type {
+  ChatSyncMessageSurface,
+  ChatSyncTerminalState,
+  PlanStep,
+  TerminalTask,
+  ToolCall,
+} from '@ihui/types'
 
 /**
  * 参与判据的页面行最小面。三端消息行结构兼容即可,其余展示字段由 apply 原样保留。
@@ -32,6 +38,9 @@ export interface ChatSyncSurfaceRow {
   role: string
   content: string
   reasoning?: string
+  toolCalls?: ToolCall[]
+  planSteps?: PlanStep[]
+  terminalTasks?: TerminalTask[]
   terminal?: ChatSyncTerminalState
   flagTargetId?: unknown
 }
@@ -41,6 +50,9 @@ export interface ChatSyncSurfaceUpdate {
   index: number
   content?: string
   reasoning?: string
+  toolCalls?: ToolCall[]
+  planSteps?: PlanStep[]
+  terminalTasks?: TerminalTask[]
   terminal?: ChatSyncTerminalState
 }
 
@@ -107,12 +119,30 @@ export function planChatSyncSurfaceMerge(
       // terminal 缺省 = 尚无终态(粘性,见文件头注);只有带值且不同才算变化。
       const terminalChanged =
         surface.terminal !== undefined && !sameTerminal(row.terminal, surface.terminal)
-      if (!contentChanged && !reasoningChanged && !terminalChanged) continue
+      // 执行面按引用判等:服务端每帧给的是新数组(未变则省略字段),引用不同即需覆盖。
+      const toolCallsChanged =
+        surface.toolCalls !== undefined && row.toolCalls !== surface.toolCalls
+      const planStepsChanged =
+        surface.planSteps !== undefined && row.planSteps !== surface.planSteps
+      const terminalTasksChanged =
+        surface.terminalTasks !== undefined && row.terminalTasks !== surface.terminalTasks
+      if (
+        !contentChanged &&
+        !reasoningChanged &&
+        !terminalChanged &&
+        !toolCallsChanged &&
+        !planStepsChanged &&
+        !terminalTasksChanged
+      )
+        continue
       updated.add(index)
       updates.push({
         index,
         ...(contentChanged ? { content: surface.content } : {}),
         ...(reasoningChanged ? { reasoning: surface.reasoning } : {}),
+        ...(toolCallsChanged ? { toolCalls: surface.toolCalls } : {}),
+        ...(planStepsChanged ? { planSteps: surface.planSteps } : {}),
+        ...(terminalTasksChanged ? { terminalTasks: surface.terminalTasks } : {}),
         ...(terminalChanged ? { terminal: surface.terminal } : {}),
       })
       continue
@@ -149,6 +179,9 @@ export function applyChatSyncSurfaceMerge<T extends ChatSyncSurfaceRow>(
       ...row,
       ...(update.content === undefined ? {} : { content: update.content }),
       ...(update.reasoning === undefined ? {} : { reasoning: update.reasoning }),
+      ...(update.toolCalls === undefined ? {} : { toolCalls: update.toolCalls }),
+      ...(update.planSteps === undefined ? {} : { planSteps: update.planSteps }),
+      ...(update.terminalTasks === undefined ? {} : { terminalTasks: update.terminalTasks }),
       ...(update.terminal === undefined ? {} : { terminal: update.terminal }),
     }
   }
@@ -159,6 +192,9 @@ export function applyChatSyncSurfaceMerge<T extends ChatSyncSurfaceRow>(
       role: surface.role,
       content: surface.content,
       ...(surface.reasoning === undefined ? {} : { reasoning: surface.reasoning }),
+      ...(surface.toolCalls === undefined ? {} : { toolCalls: surface.toolCalls }),
+      ...(surface.planSteps === undefined ? {} : { planSteps: surface.planSteps }),
+      ...(surface.terminalTasks === undefined ? {} : { terminalTasks: surface.terminalTasks }),
       ...(surface.terminal === undefined ? {} : { terminal: surface.terminal }),
     } as unknown as T)
   }

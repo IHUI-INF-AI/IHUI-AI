@@ -409,6 +409,117 @@ export interface AssistantExecutionViz {
 }
 
 /**
+ * 从服务端权威数组(chat_messages.metadata 或 chat-sync 执行面帧)归一为 RN 渲染快照。
+ *
+ * 与 N8n 屏的历史回放同一条纪律:逐条守卫,脏条目单条丢弃;结果为空返回 undefined,
+ * 不给 TaskStatusBar / ToolCallCard 造空态。工具名兼容 `toolName`(契约)与 `name`(旧 UI 形状)。
+ */
+export function buildAssistantExecutionViz(input: {
+  toolCalls?: readonly unknown[]
+  planSteps?: readonly unknown[]
+  terminalTasks?: readonly unknown[]
+}): AssistantExecutionViz | undefined {
+  const toolCalls: ToolCallItem[] = (input.toolCalls ?? []).flatMap((raw) => {
+    if (!raw || typeof raw !== 'object') return []
+    const c = raw as Record<string, unknown>
+    const id = typeof c.id === 'string' ? c.id : null
+    const name =
+      typeof c.toolName === 'string' ? c.toolName : typeof c.name === 'string' ? c.name : null
+    if (!id || !name) return []
+    const status: ToolCallStatus =
+      c.status === 'error' || c.error
+        ? 'error'
+        : c.status === 'success'
+          ? 'success'
+          : 'running'
+    return [
+      {
+        id,
+        name,
+        status,
+        ...(c.args && typeof c.args === 'object'
+          ? { args: c.args as Record<string, unknown> }
+          : {}),
+        ...(c.result !== undefined ? { result: c.result } : {}),
+        ...(c.serverSource === 'builtin' || c.serverSource === 'plugin' || c.serverSource === 'mcp'
+          ? { serverSource: c.serverSource }
+          : {}),
+        ...(typeof c.serverName === 'string' ? { serverName: c.serverName } : {}),
+        ...(typeof c.durationMs === 'number' ? { durationMs: c.durationMs } : {}),
+        ...(typeof c.image_url === 'string' ? { imageUrl: c.image_url } : {}),
+        ...(typeof c.audio_url === 'string' ? { audioUrl: c.audio_url } : {}),
+        ...(typeof c.video_url === 'string' ? { videoUrl: c.video_url } : {}),
+        ...(typeof c.task_id === 'string' ? { taskId: c.task_id } : {}),
+        ...(typeof c.partialDiff === 'string' ? { partialDiff: c.partialDiff } : {}),
+        ...(typeof c.partialSeq === 'number' ? { partialSeq: c.partialSeq } : {}),
+      },
+    ]
+  })
+  const planSteps: PlanStepItem[] = (input.planSteps ?? []).flatMap((raw, index) => {
+    if (!raw || typeof raw !== 'object') return []
+    const s = raw as Record<string, unknown>
+    if (typeof s.step !== 'string' || typeof s.status !== 'string') return []
+    return [
+      {
+        id: typeof s.id === 'string' ? s.id : `plan-${index}`,
+        step: s.step,
+        status:
+          s.status === 'completed' ||
+          s.status === 'failed' ||
+          s.status === 'skipped' ||
+          s.status === 'in_progress'
+            ? s.status
+            : 'pending',
+        ...(typeof s.durationMs === 'number' ? { durationMs: s.durationMs } : {}),
+        ...(typeof s.tokenUsage === 'number' ? { tokenUsage: s.tokenUsage } : {}),
+      },
+    ]
+  })
+  const terminalTasks: TerminalTaskItem[] = (input.terminalTasks ?? []).flatMap((raw) => {
+    if (!raw || typeof raw !== 'object') return []
+    const t = raw as Record<string, unknown>
+    if (typeof t.id !== 'string' || typeof t.command !== 'string') return []
+    return [
+      {
+        id: t.id,
+        command: t.command,
+        status:
+          t.status === 'completed' || t.status === 'failed' ? t.status : 'running',
+        ...(typeof t.output === 'string' ? { output: t.output } : {}),
+        ...(t.truncated === true ? { truncated: true } : {}),
+        ...(typeof t.totalChars === 'number' ? { totalChars: t.totalChars } : {}),
+        ...(typeof t.exitCode === 'number' ? { exitCode: t.exitCode } : {}),
+        ...(typeof t.durationMs === 'number' ? { durationMs: t.durationMs } : {}),
+      },
+    ]
+  })
+  if (toolCalls.length === 0 && planSteps.length === 0 && terminalTasks.length === 0) {
+    return undefined
+  }
+  return {
+    ...(toolCalls.length > 0 ? { toolCalls } : {}),
+    ...(planSteps.length > 0 ? { planSteps } : {}),
+    ...(terminalTasks.length > 0 ? { terminalTasks } : {}),
+    ...(typeof (input as { planExplanation?: unknown }).planExplanation === 'string'
+      ? { planExplanation: (input as { planExplanation: string }).planExplanation }
+      : {}),
+  }
+}
+
+/** metadata 里三类执行面数组的读取出口(历史回放用);没有/全坏返回 undefined。 */
+export function readAssistantExecutionVizFromMetadata(
+  metadata: unknown,
+): AssistantExecutionViz | undefined {
+  if (!metadata || typeof metadata !== 'object') return undefined
+  const meta = metadata as Record<string, unknown>
+  return buildAssistantExecutionViz({
+    ...(Array.isArray(meta.toolCalls) ? { toolCalls: meta.toolCalls } : {}),
+    ...(Array.isArray(meta.planSteps) ? { planSteps: meta.planSteps } : {}),
+    ...(Array.isArray(meta.terminalTasks) ? { terminalTasks: meta.terminalTasks } : {}),
+  })
+}
+
+/**
  * D135(承 V4 #93)主聊天屏接线出口:**只做组合,不承载第二份折叠实现**。
  * tool / delta / plan / terminal 各帧仍由上面五个既有 reducer 唯一折叠
  * (定向测试逐字等值锁定:同帧喂本出口与直喂 reducer 结果全等)。

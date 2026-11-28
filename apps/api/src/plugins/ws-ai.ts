@@ -37,7 +37,7 @@ const touchActivity = (): void => {
  */
 const localChatHistories = new Map<
   string,
-  Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
+  Array<{ role: 'user' | 'assistant'; content: string }>
 >()
 
 const send = (socket: WebSocket, obj: unknown): void => {
@@ -1402,16 +1402,31 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
             // 事件协议保持 conversation.*，前端（coze-agent-panel）零改动。
             // ============================================================
             const meta = agentMeta
-            const systemPrompt = String(meta?.agentPrompt ?? '').trim()
+            const basePrompt = String(meta?.agentPrompt ?? '').trim()
+            const botName = String(meta?.name ?? '').trim()
+            // Coze 时代的人格 = bot 名称 + 描述/指令（Coze 运行时默认把名称注入 system），
+            // 本地化后必须显式拼装，否则模型只会看到一句能力描述而自称底层模型。
+            const systemPrompt = botName
+              ? `你的名字是「${botName}」。${basePrompt ? `你的职责：${basePrompt}` : ''}\n回答时始终以「${botName}」的身份和口吻，不要自称其他 AI 产品或模型名。`
+              : basePrompt
             const localModel =
               String(meta?.agentModel ?? '').trim() || resolveDefaultChatModel()
             if (!conversationId) conversationId = `local_${randomUUID()}`
             const historyKey = `${userId}:${reqBotId}`
             const history = localChatHistories.get(historyKey) ?? []
+            // system 人格双写：messages[0] + system_prompt 字段（两条路都验证过 ai-service 生效），
+            // 另打一条结构化日志便于线上核对 prompt 是否取到。
             const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = []
             if (systemPrompt) messages.push({ role: 'system', content: systemPrompt })
             for (const h of history.slice(-12)) messages.push(h)
-            messages.push({ role: 'user', content: queryText })
+            // 三保险其二：人格再以首段形式并入 user 内容，即便 system 通道失效模型也一定能看到角色设定
+            const userContent = systemPrompt
+              ? `【角色设定】${systemPrompt}\n\n【用户问题】${queryText}`
+              : queryText
+            messages.push({ role: 'user', content: userContent })
+            server.log.info(
+              `ws-coze 本地执行 agentId=${meta?.agentId ?? 'none'} promptLen=${systemPrompt.length} model=${localModel}`,
+            )
 
             const resp = await aiServiceFetchStream(request, '/api/llm/complete/stream', {
               method: 'POST',
@@ -1419,6 +1434,8 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
               body: JSON.stringify({
                 messages,
                 model: localModel,
+                // 2026-11-28:人格走官方 system_prompt（置顶注入优先级最高），不再塞 messages.system。
+                system_prompt: systemPrompt || undefined,
                 metadata: { userId, provider: 'local' },
               }),
             })

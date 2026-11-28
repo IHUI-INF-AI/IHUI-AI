@@ -213,7 +213,9 @@ import {
   applyAssistantExecutionFrame,
   applyInjectionFrame,
   appendSteerFrames,
+  buildAssistantExecutionViz,
   foldElementPackFrames,
+  readAssistantExecutionVizFromMetadata,
   readSteerAppliedFromMetadata,
   type AssistantExecutionFrame,
   type AssistantExecutionViz,
@@ -347,6 +349,8 @@ type ChatMessageWithSteer = ChatMessage & {
   steerNotices?: SteerNotice[]
   /** D64⑤ 历史回放:metadata.elementPack 读回后的归并视图(流式消息无此字段) */
   elementPack?: SubagentReplayItem[]
+  /** 历史/远端同步的执行面快照;渲染统一走 executionVizById,该字段只作投影源。 */
+  executionViz?: AssistantExecutionViz
 }
 
 /**
@@ -1038,6 +1042,31 @@ export function ChatScreen() {
   // 计划走 applyPlanUpdate —— 屏内不自折,没有第二份真相。
   const [executionVizById, setExecutionVizById] = useState<Record<string, AssistantExecutionViz>>(
     {},
+  )
+
+  // 消息行上的执行面投影(历史 metadata / 远端 chat-sync 帧)与本地流式帧快照合并。
+  // 本地流式帧优先:同一消息正在本端生成时,SSE 帧是这一格的权威;其余消息读服务端面。
+  const derivedExecutionVizById = useMemo(() => {
+    const map: Record<string, AssistantExecutionViz> = {}
+    for (const message of messages) {
+      const direct = (message as ChatMessageWithSteer).executionViz
+      if (direct) {
+        map[message.id] = direct
+        continue
+      }
+      const viz = buildAssistantExecutionViz({
+        ...(Array.isArray(message.toolCalls) ? { toolCalls: message.toolCalls } : {}),
+        ...(Array.isArray(message.planSteps) ? { planSteps: message.planSteps } : {}),
+        ...(Array.isArray(message.terminalTasks) ? { terminalTasks: message.terminalTasks } : {}),
+      })
+      if (viz) map[message.id] = viz
+    }
+    return map
+  }, [messages])
+
+  const effectiveExecutionVizById = useMemo(
+    () => ({ ...derivedExecutionVizById, ...executionVizById }),
+    [derivedExecutionVizById, executionVizById],
   )
   // D135 交互帧(AI 提问 / 业务表单)
   //
@@ -2742,7 +2771,7 @@ export function ChatScreen() {
         setExpandedCodeBlocks={setExpandedCodeBlocks}
         expandedThinking={expandedThinking}
         setExpandedThinking={setExpandedThinking}
-        executionVizById={executionVizById}
+        executionVizById={effectiveExecutionVizById}
         maybeTriggerFirstShareReward={maybeTriggerFirstShareReward}
         showToast={showToast}
         onLongPressMessage={handleLongPressMessage}
@@ -2769,7 +2798,7 @@ export function ChatScreen() {
       isStreaming,
       expandedCodeBlocks,
       expandedThinking,
-      executionVizById,
+      effectiveExecutionVizById,
       maybeTriggerFirstShareReward,
       showToast,
       handleLongPressMessage,
@@ -3219,6 +3248,10 @@ export function ChatScreen() {
           // D64⑤ 收口:元素包历史读回 —— 收窄守卫在 shared(parseElementPackFrames,
           // 坏形态按空数组处理),归并在本端 foldElementPackFrames;无帧不写字段
           const elementPack = foldElementPackFrames(parseElementPackFrames(meta))
+          // 执行面历史读回(D24 同源):toolCalls/planSteps/terminalTasks 已由回调落库在
+          // metadata;此前本屏只覆盖流式帧,重进会话执行卡整段消失。守卫/归一在
+          // chat-render-model 的 buildAssistantExecutionViz,坏条目单条丢弃。
+          const executionViz = readAssistantExecutionVizFromMetadata(m.metadata)
           return {
             id: `${m.id}-${idx}`,
             role: m.role,
@@ -3234,6 +3267,7 @@ export function ChatScreen() {
             ...(injections && injections.length > 0 ? { injections } : {}),
             ...(steerNotices && steerNotices.length > 0 ? { steerNotices } : {}),
             ...(elementPack.length > 0 ? { elementPack } : {}),
+            ...(executionViz ? { executionViz } : {}),
           }
         })
         setMessages(loaded)
@@ -3242,9 +3276,8 @@ export function ChatScreen() {
         noticeReadyKeyRef.current = null
         setPrompt('')
         setMaterialCards([])
-        // D135:切会话,执行帧快照整体清。历史回放缺口被点名,而不是被读成"已还原":
-        // 历史消息 metadata 里的 toolCalls/planSteps 落库读回(映射)目前是 N8n 屏私有实现,
-        // 本屏 executionVizById 只覆盖流式帧 —— 重进历史会话看不到执行卡,是已知缺口不是已接。
+        // 切会话:只清流式帧快照;历史/远端执行面已随 messages.executionViz 投影,
+        // 由下方 derivedExecutionVizById 合并(重进会话工具卡/计划/终端不再消失)。
         setExecutionVizById({})
         // 记录当前对话 DB id(供收藏 batchOperateConversations 使用)
         setConversationId(id)
@@ -3493,11 +3526,11 @@ export function ChatScreen() {
     for (let i = messages.length - 1; i >= 0; i--) {
       const m = messages[i]
       if (m?.role !== 'assistant') continue
-      const viz = executionVizById[m.id]
+      const viz = effectiveExecutionVizById[m.id]
       if ((viz?.planSteps?.length ?? 0) > 0) return viz
     }
     return undefined
-  }, [messages, executionVizById])
+  }, [messages, effectiveExecutionVizById])
 
   // ── 共享组件数据准备 ──
   const sharedModels: ChatScreenModel[] = models.map(toChatScreenModel)

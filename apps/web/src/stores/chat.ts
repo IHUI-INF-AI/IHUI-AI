@@ -1377,6 +1377,9 @@ const buildChatState: ChatStateCreator = (set, get) => ({
             role: surface.role,
             content: surface.content,
             ...(surface.reasoning !== undefined ? { reasoning: surface.reasoning } : {}),
+            ...(surface.toolCalls !== undefined ? { toolCalls: surface.toolCalls } : {}),
+            ...(surface.planSteps !== undefined ? { planSteps: surface.planSteps } : {}),
+            ...(surface.terminalTasks !== undefined ? { terminalTasks: surface.terminalTasks } : {}),
             createdAt: Date.now(),
           },
         ],
@@ -1413,6 +1416,9 @@ const buildChatState: ChatStateCreator = (set, get) => ({
       ...messages[idx]!,
       content: surface.content,
       ...(surface.reasoning !== undefined ? { reasoning: surface.reasoning } : {}),
+      ...(surface.toolCalls !== undefined ? { toolCalls: surface.toolCalls } : {}),
+      ...(surface.planSteps !== undefined ? { planSteps: surface.planSteps } : {}),
+      ...(surface.terminalTasks !== undefined ? { terminalTasks: surface.terminalTasks } : {}),
       // snapshot 可推进内容但不清除既有终态(契约 §4 终态粘性),投影面一并对齐。
       ...(surface.terminal !== undefined ? { terminal: surface.terminal } : {}),
     }
@@ -1452,6 +1458,9 @@ const buildChatState: ChatStateCreator = (set, get) => ({
         role: snap.role,
         content: snap.content,
         ...(snap.reasoning !== undefined ? { reasoning: snap.reasoning } : {}),
+        ...(snap.toolCalls !== undefined ? { toolCalls: snap.toolCalls } : {}),
+        ...(snap.planSteps !== undefined ? { planSteps: snap.planSteps } : {}),
+        ...(snap.terminalTasks !== undefined ? { terminalTasks: snap.terminalTasks } : {}),
       })
       createdApplied = created.result.applied
       state = created.state
@@ -1464,6 +1473,9 @@ const buildChatState: ChatStateCreator = (set, get) => ({
       kind: 'snapshot',
       content: snap.content,
       ...(snap.reasoning !== undefined ? { reasoning: snap.reasoning } : {}),
+      ...(snap.toolCalls !== undefined ? { toolCalls: snap.toolCalls } : {}),
+      ...(snap.planSteps !== undefined ? { planSteps: snap.planSteps } : {}),
+      ...(snap.terminalTasks !== undefined ? { terminalTasks: snap.terminalTasks } : {}),
     })
     state = patched.state
 
@@ -1479,6 +1491,9 @@ const buildChatState: ChatStateCreator = (set, get) => ({
           role: surface.role,
           content: surface.content,
           ...(surface.reasoning !== undefined ? { reasoning: surface.reasoning } : {}),
+          ...(surface.toolCalls !== undefined ? { toolCalls: surface.toolCalls } : {}),
+          ...(surface.planSteps !== undefined ? { planSteps: surface.planSteps } : {}),
+          ...(surface.terminalTasks !== undefined ? { terminalTasks: surface.terminalTasks } : {}),
           createdAt: Date.now(),
         },
       ]
@@ -1489,6 +1504,9 @@ const buildChatState: ChatStateCreator = (set, get) => ({
         ...messages[idx]!,
         content: surface.content,
         ...(surface.reasoning !== undefined ? { reasoning: surface.reasoning } : {}),
+        ...(surface.toolCalls !== undefined ? { toolCalls: surface.toolCalls } : {}),
+        ...(surface.planSteps !== undefined ? { planSteps: surface.planSteps } : {}),
+        ...(surface.terminalTasks !== undefined ? { terminalTasks: surface.terminalTasks } : {}),
       }
       nextMessages = next
     }

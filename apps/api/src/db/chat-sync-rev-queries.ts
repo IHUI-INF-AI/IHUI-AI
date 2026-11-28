@@ -77,6 +77,8 @@ export interface ChatSyncSnapshotRow {
   role: string
   content: string
   reasoning: string | null
+  /** chat_messages.metadata(执行面 toolCalls/planSteps/terminalTasks 的落库处);旧行可为 null。 */
+  metadata: Record<string, unknown> | null
   rev: number
 }
 
@@ -96,6 +98,7 @@ export async function findChatSyncSnapshot(
       role: chatMessages.role,
       content: chatMessages.content,
       reasoning: chatMessages.reasoning,
+      metadata: chatMessages.metadata,
       rev: chatMessageSyncRevs.rev,
     })
     .from(chatMessages)
@@ -111,6 +114,10 @@ export async function findChatSyncSnapshot(
     role: row.role,
     content: row.content,
     reasoning: row.reasoning,
+    metadata:
+      row.metadata && typeof row.metadata === 'object'
+        ? (row.metadata as Record<string, unknown>)
+        : null,
     rev: row.rev ?? 0,
   }
 }

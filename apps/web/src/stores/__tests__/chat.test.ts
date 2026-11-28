@@ -699,6 +699,45 @@ describe('useChatStore', () => {
       expect(useChatStore.getState().messages).toHaveLength(1)
     })
 
+    it('执行面快照 ⇒ 工具卡/计划/终端投影到渲染行,后续快照缺省保持原值', () => {
+      useChatStore.getState().applyChatSync(created('m-1', 'A'))
+      const toolCalls = [
+        { id: 'call-1', toolName: 'read_file', args: { path: 'a.ts' }, status: 'running' as const },
+      ]
+      const planSteps = [{ id: 'p1', step: '读取', status: 'in_progress' as const }]
+      const terminalTasks = [
+        {
+          id: 't1',
+          command: 'ls',
+          status: 'running' as const,
+          startedAt: '2026-11-28T00:00:00.000Z',
+        },
+      ]
+      const withExecution: MessagePatchedEvent = {
+        event: 'message:patched',
+        data: {
+          ...base,
+          type: 'message:patched',
+          messageId: 'm-1',
+          rev: 1,
+          kind: 'snapshot',
+          content: 'A',
+          toolCalls,
+          planSteps,
+          terminalTasks,
+        },
+      }
+      useChatStore.getState().applyChatSync(withExecution)
+      const msg = useChatStore.getState().messages.find((m) => m.id === 'm-1')
+      expect(msg?.toolCalls).toEqual(toolCalls)
+      expect(msg?.planSteps).toEqual(planSteps)
+      expect(msg?.terminalTasks).toEqual(terminalTasks)
+      useChatStore.getState().applyChatSync(snapshot('m-1', 2, 'AB'))
+      expect(useChatStore.getState().messages.find((m) => m.id === 'm-1')?.toolCalls).toEqual(
+        toolCalls,
+      )
+    })
+
     it('patched delta rev=1 ⇒ 内容追加到既有行', () => {
       useChatStore.getState().applyChatSync(created('m-1', 'A'))
       useChatStore.getState().applyChatSync(delta('m-1', 1, 'B'))
