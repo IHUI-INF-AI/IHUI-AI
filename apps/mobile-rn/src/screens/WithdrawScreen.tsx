@@ -127,7 +127,8 @@ export function WithdrawScreen() {
       setSuccess(t('withdraw.success'))
       setAmount('')
       setAccountInfo('')
-      setSelectedBankCardId('')
+      // 保留 selectedBankCardId:成功后清空选卡会让共享屏回退到「收款账户」手输框,
+      // H5 实拍会出现一张空输入框(用户刚用过的卡反而不见了)。金额清空即可,卡继续选中。
       return 'ok'
     } catch {
       setError(t('withdraw.failed'))

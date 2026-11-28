@@ -145,16 +145,19 @@ BankCard 原先只有 `withdrawal_flows.account_info` 的只读投影，没有�
 - **最终口径**：production `HEAD=f03d92b6cb`；代码面 `f03d92b6cb` 已推 `origin/main`（本文档随后提交，后续并行任务可能继续推进 `origin/main`）；`8077b159`（RN/小程序提现契约）、`73121f8036`（数据库事务锁）、`f03d92b6cb`（Web 过滤只读投影 + `@ihui/types` DOM 构建修复）均已在生产。代码、测试、文档、远端提交与部署无未闭环项；真机截图不再作为验收前置，已由下节 H5 验收替代。
 
 ### H5 验收收口（2026-11-28，取代真机边界）
-- **构建**：`IHUI_MINIAPP_OUTPUT_ROOT=.tmp-h5 pnpm run build:h5` → `EXIT=0`，webpack 5.91.0 编译成功（约 154s，7 个非阻断 warning）；产物 `apps/miniapp-taro/.tmp-h5`。
+- **构建**：`IHUI_MINIAPP_OUTPUT_ROOT=.tmp-h5 pnpm run build:h5` → `EXIT=0`，webpack 5.91.0 编译成功（约 69s，13 个非阻断 warning）；产物 `apps/miniapp-taro/.tmp-h5`。
 - **H5 实拍**：390×844 视口下提现页正常渲染，默认卡「招商银行 **** **** **** 8888 · 默认」自动选中、第二张可编辑卡可见、`readOnly` 历史卡「历史银行」不出现；截图见 [withdraw-h5-2026-11-28.png](assets/withdraw-h5-2026-11-28.png)。
-- **交互**：Playwright 选择第二张卡 + 输入 20 元 + 确认，实际请求体为 `{"amount":2000,"accountType":"bank","bankCardId":"bc_h5_second"}`；`ASSERT_DEFAULT_CARD_AND_READONLY_FILTER=PASS`、`ASSERT_WITHDRAW_PAYLOAD=PASS`。截图见 [withdraw-h5-success-2026-11-28.png](assets/withdraw-h5-success-2026-11-28.png)。
+- **确认弹层**：选择第二张卡 + 输入 20 元 + 点提交，遮罩与底部白色卡片完整可见；截图见 [withdraw-h5-confirm-2026-11-28.png](assets/withdraw-h5-confirm-2026-11-28.png)。真实 Playwright `.click()` 命中确认按钮，非 DOM 合成事件。
+- **交互**：确认后实际请求体为 `{"amount":2000,"accountType":"bank","bankCardId":"bc_h5_second"}`；`ASSERT_DEFAULT_CARD_AND_READONLY_FILTER=PASS`、`ASSERT_WITHDRAW_PAYLOAD=PASS`。成功态截图见 [withdraw-h5-success-2026-11-28.png](assets/withdraw-h5-success-2026-11-28.png)，第二张卡保持选中、无空手输框。
 - **修复项**：
   - `AppConfirmHost` 挂到小程序提现页（并固化进 `gen-miniapp-mirror.mjs` 的 WithdrawScreen 分支）——此前小程序/H5 没有 appAlert 宿主，确认弹层只改模块变量，提现永远发不出去；
+  - H5 的 rn-compat `Modal` 内容层 `transparent` 分支无宽度，父层居中对齐把 `BottomPops` 的 sheet 压成 0 宽（标题 x=195/宽 0）；已给 Modal 内容层 `{flex:1,width:'100%'}`、给 BottomPops root `width:'100%'`，修复后标题 x=20/宽 318；
   - `feeHint` 改为 `t('withdraw.feeHint', { fee: '0' })`，H5 实拍不再出现 `{fee}%` 占位；
-  - H5 workspace TS 编译面补 `babel-loader` 规则与 `@rn-components` alias；小程序/小程序 H5 两处 alias 同步。
-- **小程序产物**：`build:weapp` 于私有 `.tmp-weapp` 构建 **Compiled successfully in 2.74m**，主包 `1,861,073 B / 2,097,152 B`，余量 `236,079 B`；`pages/distribution/withdraw.js` 及其 sub-common 命中 `bankCardId` / `AppConfirmHost`。`check-miniapp-css-landing` 在私有输出根读旧 `dist` 报 `exit 2 未判定（C0 产物新鲜度）`，非构建失败。
-- **RN 回归**：wallet 3 文件 **19/19**（46.71s）。
-- **边界**：Taro H5 首帧直接打开子包深链 `#/pages/distribution/withdraw` 不挂载（标题已变、body 空）；验收走「首页启动 → 切 hash」的等价路径。真实后端链路已由 API real 25/25 + Web E2E 4/4 覆盖，H5 用 `{code:0}` 信封 route mock 聚焦壳层取数/选卡/提交体。
+  - H5 workspace TS 编译面补 `babel-loader` 规则与 `@rn-components` alias；小程序/小程序 H5 两处 alias 同步；
+  - 成功分支不再清空 `selectedBankCardId`，只清金额与手输账户，避免成功后回退到空手输框。
+- **小程序产物**：`build:weapp` 于私有 `.tmp-weapp` 构建 **Compiled successfully in 3.12m**，主包 `1,924,811 B / 2,097,152 B`，余量 `172,341 B`（按 app.json 21 个唯一分包根剔除后实测；旧 `dist` 门禁读到的 1,861,073 B 不适用于本次私有产物）；`pages/distribution/withdraw.js` 及其 sub-common 命中 `bankCardId` / `AppConfirmHost`。`check-miniapp-css-landing` 在私有输出根读旧 `dist` 报 `exit 2 未判定（C0 产物新鲜度）`，非构建失败。
+- **RN 回归**：wallet 3 文件 **19/19**（48.29s）。
+- **边界**：Taro H5 首帧直接打开子包深链 `#/pages/distribution/withdraw` 不挂载（标题已变、body 空）；验收走「首页启动 → 切 hash」的等价路径。真实后端链路已由 API real 25/25 + Web E2E 4/4 覆盖，H5 用 `{code:0}` 信封 route mock 聚焦壳层取数/选卡/确认弹层/提交体。
 - **报告**：`docs/engineering/h5-acceptance-2026-11-28.md`。
 
 > 本轮提交：`73121f8036`（DB 锁/真实库/跨进程脚本）、`8077b159`（RN/小程序提现接卡）、`f03d92b6cb`（Web 只读过滤 + types 构建修复）、`099a6b95`（Web 提现只读过滤回归用例）、`40cb38b6`（RN 提现只读过滤回归用例）；本文档随后单独提交。
