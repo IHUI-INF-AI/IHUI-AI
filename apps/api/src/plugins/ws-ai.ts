@@ -1427,11 +1427,10 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
             const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = []
             if (systemPrompt) messages.push({ role: 'system', content: systemPrompt })
             for (const h of history.slice(-12)) messages.push(h)
-            // 三保险其二：人格再以首段形式并入 user 内容，即便 system 通道失效模型也一定能看到角色设定
-            const userContent = systemPrompt
-              ? `【角色设定】${systemPrompt}\n\n【用户问题】${queryText}`
-              : queryText
-            messages.push({ role: 'user', content: userContent })
+            // 2026-11-28 实测：把同一段人格再塞进 user 首段（【角色设定】xxx）会让长提示词
+            // （≥700 字）的人格整段失效、模型退回自称底层模型；保留 messages[0] system +
+            // system_prompt 两路即可（两条通道都验证过生效）。user 消息只放真实问题。
+            messages.push({ role: 'user', content: queryText })
             server.log.info(
               `ws-coze 本地执行 agentId=${meta?.agentId ?? 'none'} promptLen=${systemPrompt.length} model=${localModel}`,
             )
