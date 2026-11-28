@@ -152,6 +152,13 @@ export function WalletScreen({
             >
               <Text style={styles.withdrawBtnText}>{t('wallet.withdraw')}</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.withdrawBtn}
+              onPress={() => onAction('income')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.withdrawBtnText}>{t('wallet.incomeDetail')}</Text>
+            </TouchableOpacity>
           </View>
         ) : null}
 

@@ -3781,6 +3781,7 @@
     "totalRecharge": "누적 충전",
     "totalWithdraw": "누적 출금",
     "withdraw": "출금",
+    "incomeDetail": "수익 내역",
     "flowsTitle": "자금 내역",
     "flowsEmpty": "내역이 없습니다",
     "flowsLoadFailed": "내역을 불러오지 못했습니다",

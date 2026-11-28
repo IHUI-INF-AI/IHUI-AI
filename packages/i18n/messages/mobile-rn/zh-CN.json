@@ -3781,6 +3781,7 @@
     "totalRecharge": "累计充值",
     "totalWithdraw": "累计提现",
     "withdraw": "提现",
+    "incomeDetail": "收益明细",
     "flowsTitle": "资金流水",
     "flowsEmpty": "暂无流水记录",
     "flowsLoadFailed": "流水加载失败",

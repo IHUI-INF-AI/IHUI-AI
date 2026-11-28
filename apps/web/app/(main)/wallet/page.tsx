@@ -56,6 +56,38 @@ interface FlowsData {
   total: number
 }
 
+interface CommissionFlowItem {
+  id: string
+  amount: number
+  token: number
+  type: number
+  status: number
+  remark: string | null
+  createdAt: string
+}
+
+interface CommissionFlowsData {
+  items: CommissionFlowItem[]
+  total: number
+}
+
+interface WithdrawalFlowItem {
+  id: string
+  amount: number
+  fee: number
+  originalAmount: number
+  status: number
+  method: string
+  createdAt: string
+}
+
+interface WithdrawalFlowsData {
+  items: WithdrawalFlowItem[]
+  total: number
+}
+
+type FlowTab = 'balance' | 'commission' | 'withdrawal'
+
 const PAGE_SIZE = 20
 
 export default function WalletPage() {
@@ -64,6 +96,7 @@ export default function WalletPage() {
   const locale = useLocale()
   const queryClient = useQueryClient()
   const [page, setPage] = React.useState(1)
+  const [flowTab, setFlowTab] = React.useState<FlowTab>('balance')
   const [convertAmount, setConvertAmount] = React.useState('100')
   const [converting, setConverting] = React.useState(false)
   const [convertMessage, setConvertMessage] = React.useState<string | null>(null)
@@ -79,7 +112,23 @@ export default function WalletPage() {
     queryKey: ['wallet', 'flows', page],
     queryFn: () =>
       apiOrThrow<FlowsData>(`/api/finance/margin/flows?page=${page}&limit=${PAGE_SIZE}`),
-    enabled: allow,
+    enabled: allow && flowTab === 'balance',
+  })
+  const commissionQ = useQuery({
+    queryKey: ['wallet', 'commission', page],
+    queryFn: () =>
+      apiOrThrow<CommissionFlowsData>(
+        `/api/finance/commission/list?page=${page}&limit=${PAGE_SIZE}`,
+      ),
+    enabled: allow && flowTab === 'commission',
+  })
+  const withdrawalQ = useQuery({
+    queryKey: ['wallet', 'withdrawal', page],
+    queryFn: () =>
+      apiOrThrow<WithdrawalFlowsData>(
+        `/api/finance/withdrawal/list?page=${page}&limit=${PAGE_SIZE}`,
+      ),
+    enabled: allow && flowTab === 'withdrawal',
   })
   // 统一账户总览：佣金累计 / 可提现 / 在途提现 / 已提现
   const overviewQ = useQuery({
@@ -88,9 +137,34 @@ export default function WalletPage() {
     enabled: allow,
   })
 
-  const total = flowsQ.data?.total ?? 0
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const activeTotal =
+    flowTab === 'balance'
+      ? (flowsQ.data?.total ?? 0)
+      : flowTab === 'commission'
+        ? (commissionQ.data?.total ?? 0)
+        : (withdrawalQ.data?.total ?? 0)
+  const totalPages = Math.max(1, Math.ceil(activeTotal / PAGE_SIZE))
   const items = flowsQ.data?.items ?? []
+  const commissionItems = commissionQ.data?.items ?? []
+  const withdrawalItems = withdrawalQ.data?.items ?? []
+  const activeLoading =
+    flowTab === 'balance'
+      ? flowsQ.isLoading
+      : flowTab === 'commission'
+        ? commissionQ.isLoading
+        : withdrawalQ.isLoading
+  const activeError =
+    flowTab === 'balance'
+      ? flowsQ.error
+      : flowTab === 'commission'
+        ? commissionQ.error
+        : withdrawalQ.error
+  const activeCount =
+    flowTab === 'balance'
+      ? items.length
+      : flowTab === 'commission'
+        ? commissionItems.length
+        : withdrawalItems.length
   const overview = overviewQ.data
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
@@ -103,6 +177,42 @@ export default function WalletPage() {
   const fmtDate = (v: string) => {
     const d = new Date(v)
     return Number.isNaN(d.getTime()) ? '-' : dateFmt.format(d)
+  }
+
+  const commissionTypeLabel = (type: number) => {
+    switch (type) {
+      case 1:
+        return t('commissionTypeVip')
+      case 2:
+        return t('commissionTypeTrader')
+      case 3:
+        return t('commissionTypeSkill')
+      default:
+        return t('commissionTypeRegular')
+    }
+  }
+
+  const commissionStatusLabel = (status: number) =>
+    status === 1 ? t('commissionActive') : t('commissionInvalid')
+
+  const withdrawalStatusLabel = (status: number) => {
+    switch (status) {
+      case 0:
+        return t('withdrawStatusPending')
+      case 1:
+        return t('withdrawStatusProcessing')
+      case 2:
+        return t('withdrawStatusCompleted')
+      default:
+        return t('withdrawStatusFailed')
+    }
+  }
+
+  const withdrawalMethodLabel = (method: string) => {
+    if (method === 'wechat') return t('methodWechat')
+    if (method === 'alipay') return t('methodAlipay')
+    if (method === 'bank_card') return t('methodBank')
+    return t('methodBank')
   }
 
   const onConvertToPoints = async () => {
@@ -260,40 +370,88 @@ export default function WalletPage() {
 
       {allow && (
         <div className="space-y-3">
-          <h2 className="text-lg font-semibold">{t('flows')}</h2>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold">{t('ledgerTitle')}</h2>
+            <div className="flex gap-1 rounded-lg border bg-muted/30 p-1" role="tablist">
+              {[
+                { id: 'balance' as const, label: t('flowTabBalance') },
+                { id: 'commission' as const, label: t('flowTabCommission') },
+                { id: 'withdrawal' as const, label: t('flowTabWithdrawal') },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={flowTab === tab.id}
+                  className={cn(
+                    'rounded-md px-3 py-1.5 text-label font-medium transition-colors',
+                    flowTab === tab.id
+                      ? 'bg-card text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                  onClick={() => {
+                    setFlowTab(tab.id)
+                    setPage(1)
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="overflow-hidden rounded-lg border">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead className="px-4 py-2.5">{t('flowType')}</TableHead>
-                  <TableHead className="px-4 py-2.5 text-right">{t('flowAmount')}</TableHead>
-                  <TableHead className="px-4 py-2.5 text-right">{t('flowBalance')}</TableHead>
-                  <TableHead className="px-4 py-2.5">{t('flowTime')}</TableHead>
-                  <TableHead className="px-4 py-2.5">{t('flowRemark')}</TableHead>
+                  {flowTab === 'balance' ? (
+                    <>
+                      <TableHead className="px-4 py-2.5">{t('flowType')}</TableHead>
+                      <TableHead className="px-4 py-2.5 text-right">{t('flowAmount')}</TableHead>
+                      <TableHead className="px-4 py-2.5 text-right">{t('flowBalance')}</TableHead>
+                      <TableHead className="px-4 py-2.5">{t('flowTime')}</TableHead>
+                      <TableHead className="px-4 py-2.5">{t('flowRemark')}</TableHead>
+                    </>
+                  ) : flowTab === 'commission' ? (
+                    <>
+                      <TableHead className="px-4 py-2.5">{t('flowType')}</TableHead>
+                      <TableHead className="px-4 py-2.5 text-right">{t('flowAmount')}</TableHead>
+                      <TableHead className="px-4 py-2.5">{t('flowStatus')}</TableHead>
+                      <TableHead className="px-4 py-2.5">{t('flowTime')}</TableHead>
+                      <TableHead className="px-4 py-2.5">{t('flowRemark')}</TableHead>
+                    </>
+                  ) : (
+                    <>
+                      <TableHead className="px-4 py-2.5 text-right">{t('flowAmount')}</TableHead>
+                      <TableHead className="px-4 py-2.5 text-right">{t('flowFee')}</TableHead>
+                      <TableHead className="px-4 py-2.5">{t('flowMethod')}</TableHead>
+                      <TableHead className="px-4 py-2.5">{t('flowStatus')}</TableHead>
+                      <TableHead className="px-4 py-2.5">{t('flowTime')}</TableHead>
+                    </>
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {flowsQ.isLoading ? (
+                {activeLoading ? (
                   <TableRow>
                     <TableCell colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
                       <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
                       {t('loading')}
                     </TableCell>
                   </TableRow>
-                ) : flowsQ.error ? (
+                ) : activeError ? (
                   <TableRow>
                     <TableCell colSpan={5} className="px-4 py-10 text-center text-destructive">
-                      {(flowsQ.error as Error).message}
+                      {(activeError as Error).message}
                     </TableCell>
                   </TableRow>
-                ) : items.length === 0 ? (
+                ) : activeCount === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
                       <Wallet className="mx-auto mb-2 h-8 w-8 opacity-40" />
                       {t('empty')}
                     </TableCell>
                   </TableRow>
-                ) : (
+                ) : flowTab === 'balance' ? (
                   items.map((it) => {
                     const meta = resolveWalletFlowMeta(it.opType, it.quantity)
                     return (
@@ -328,15 +486,69 @@ export default function WalletPage() {
                       </TableRow>
                     )
                   })
+                ) : flowTab === 'commission' ? (
+                  commissionItems.map((it) => (
+                    <TableRow key={it.id}>
+                      <TableCell className="px-4 py-2.5 font-medium">
+                        {commissionTypeLabel(it.type)}
+                      </TableCell>
+                      <TableCell
+                        className={cn(
+                          'px-4 py-2.5 text-right font-medium',
+                          it.status === 1
+                            ? 'text-emerald-600'
+                            : 'text-muted-foreground line-through',
+                        )}
+                      >
+                        {it.amount > 0
+                          ? formatCnyCents(it.amount, { digits: 2 })
+                          : `${it.token > 0 ? '+' : ''}${it.token} ${t('points')}`}
+                      </TableCell>
+                      <TableCell
+                        className={cn(
+                          'px-4 py-2.5 font-medium',
+                          it.status === 1 ? 'text-emerald-600' : 'text-muted-foreground',
+                        )}
+                      >
+                        {commissionStatusLabel(it.status)}
+                      </TableCell>
+                      <TableCell className="px-4 py-2.5 text-muted-foreground">
+                        {fmtDate(it.createdAt)}
+                      </TableCell>
+                      <TableCell className="px-4 py-2.5 text-muted-foreground">
+                        {it.remark ?? '-'}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  withdrawalItems.map((it) => (
+                    <TableRow key={it.id}>
+                      <TableCell className="px-4 py-2.5 text-right font-medium">
+                        {formatCnyCents(it.amount, { digits: 2 })}
+                      </TableCell>
+                      <TableCell className="px-4 py-2.5 text-right text-muted-foreground">
+                        {formatCnyCents(it.fee, { digits: 2 })}
+                      </TableCell>
+                      <TableCell className="px-4 py-2.5 text-muted-foreground">
+                        {withdrawalMethodLabel(it.method)}
+                      </TableCell>
+                      <TableCell className="px-4 py-2.5 font-medium text-muted-foreground">
+                        {withdrawalStatusLabel(it.status)}
+                      </TableCell>
+                      <TableCell className="px-4 py-2.5 text-muted-foreground">
+                        {fmtDate(it.createdAt)}
+                      </TableCell>
+                    </TableRow>
+                  ))
                 )}
               </TableBody>
             </Table>
           </div>
 
-          {total > PAGE_SIZE && (
+          {activeTotal > PAGE_SIZE && (
             <div className="flex items-center justify-between">
               <span className="text-body text-muted-foreground">
-                {total} / {totalPages}
+                {activeTotal} / {totalPages}
               </span>
               <div className="flex items-center gap-2">
                 <Button

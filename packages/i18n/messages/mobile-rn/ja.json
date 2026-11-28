@@ -3781,6 +3781,7 @@
     "totalRecharge": "累計チャージ",
     "totalWithdraw": "累計出金",
     "withdraw": "出金",
+    "incomeDetail": "収益明細",
     "flowsTitle": "資金履歴",
     "flowsEmpty": "履歴がありません",
     "flowsLoadFailed": "履歴の読み込みに失敗しました",

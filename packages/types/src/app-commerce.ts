@@ -140,8 +140,8 @@ export interface WalletScreenProps {
   loading: boolean
   error: string
   onRefresh: () => void
-  /** 点击充值/提现等操作回调,平台注入导航跳转 */
-  onAction?: (action: 'recharge' | 'withdraw') => void
+  /** 点击充值/提现/收益明细等操作回调,平台注入导航跳转 */
+  onAction?: (action: 'recharge' | 'withdraw' | 'income') => void
   onBack: () => void
   /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
   colorScheme?: 'light' | 'dark'

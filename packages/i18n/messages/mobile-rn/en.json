@@ -3781,6 +3781,7 @@
     "totalRecharge": "Total recharge",
     "totalWithdraw": "Total withdrawal",
     "withdraw": "Withdraw",
+    "incomeDetail": "Income details",
     "flowsTitle": "Fund flows",
     "flowsEmpty": "No transactions yet",
     "flowsLoadFailed": "Failed to load flows",

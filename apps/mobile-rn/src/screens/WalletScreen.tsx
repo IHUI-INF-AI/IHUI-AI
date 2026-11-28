@@ -200,7 +200,11 @@ export function WalletScreen() {
       loading={loading}
       error={error}
       onRefresh={() => void load()}
-      onAction={(action) => navigation.navigate(action === 'withdraw' ? 'Withdraw' : 'Recharge')}
+      onAction={(action) => {
+        if (action === 'withdraw') navigation.navigate('Withdraw')
+        else if (action === 'income') navigation.navigate('Income')
+        else navigation.navigate('Recharge')
+      }}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
       flows={flowsState}

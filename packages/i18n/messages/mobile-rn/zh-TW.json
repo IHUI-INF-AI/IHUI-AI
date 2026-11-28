@@ -3781,6 +3781,7 @@
     "totalRecharge": "累計儲值",
     "totalWithdraw": "累計提現",
     "withdraw": "提現",
+    "incomeDetail": "收益明細",
     "flowsTitle": "資金流水",
     "flowsEmpty": "暫無流水紀錄",
     "flowsLoadFailed": "流水載入失敗",
