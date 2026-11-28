@@ -2227,6 +2227,7 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-28**
+- 🐞 수정:补齐 publish:submit 权限点标签映射 (6041210595)
 - 📚 문서:同步 README 最近提交记录 (0a848fcc62)
 - 📚 문서:更新 dist 版 weapp 体积与 CSS 门读数 (824237c9a2)
 - 🐞 수정:恢复 sql.js 与 exceljs 类型边界 (57fa358590)

@@ -99,6 +99,7 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-28**
+- 🐞 Fix:补齐 publish:submit 权限点标签映射 (6041210595)
 - 📚 Docs:同步 README 最近提交记录 (0a848fcc62)
 - 📚 Docs:更新 dist 版 weapp 体积与 CSS 门读数 (824237c9a2)
 - 🐞 Fix:恢复 sql.js 与 exceljs 类型边界 (57fa358590)

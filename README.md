@@ -84,6 +84,7 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 ## Recent updates (auto-maintained)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-28**
+- 🐞 修复:补齐 publish:submit 权限点标签映射 (6041210595)
 - 📚 文档:同步 README 最近提交记录 (0a848fcc62)
 - 📚 文档:更新 dist 版 weapp 体积与 CSS 门读数 (824237c9a2)
 - 🐞 修复:恢复 sql.js 与 exceljs 类型边界 (57fa358590)

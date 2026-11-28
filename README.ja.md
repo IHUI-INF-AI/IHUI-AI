@@ -2227,6 +2227,7 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-28**
+- 🐞 修正:补齐 publish:submit 权限点标签映射 (6041210595)
 - 📚 ドキュメント:同步 README 最近提交记录 (0a848fcc62)
 - 📚 ドキュメント:更新 dist 版 weapp 体积与 CSS 门读数 (824237c9a2)
 - 🐞 修正:恢复 sql.js 与 exceljs 类型边界 (57fa358590)
