@@ -8,6 +8,7 @@ import * as React from 'react'
 
 import { formatFileSize } from '@ihui/shared/utils/format'
 import { fetchApi } from '@/lib/api'
+import { rememberChatAttachment } from '@/lib/chat-attachment-registry'
 
 /** 引用类型(2026-07-29 从 message-input.tsx 迁移至此) */
 export type ReferenceType = 'file' | 'url' | 'text' | 'image' | 'video'
@@ -340,6 +341,8 @@ export function useMessageReferences(): {
         retryCount: 0,
       }
       pendingFiles.current.set(ref.id, file)
+      // 主 AI 主动修订的字节来源:UI 桥按文件名取回同一个 File(见 chat-attachment-registry)
+      rememberChatAttachment(file)
       setReferences((prev) => [...prev, ref])
       uploadRef(ref.id, file)
       return []
