@@ -41,10 +41,15 @@ function lmEntry(model: string, rank: number, score: number): LmarenaEntry {
     vendor: 'Test Labs',
     score,
     ci: 5,
+    ciLow: score - 5,
+    ciHigh: score + 5,
+    variance: 10,
     votes: 1000 - rank,
     license: 'Proprietary',
     open: false,
     rank,
+    category: 'overall',
+    date: '2026-11-01',
   }
 }
 
@@ -126,6 +131,18 @@ describe('buildAuthoritativeLeaderboard', () => {
       intelligenceIndex: 1,
       isOpenWeights: true,
     })
+    aaModels[0] = {
+      ...aaModels[0],
+      isReasoning: true,
+      contextWindowTokens: 1_000_000,
+      price1mInputTokens: 2,
+      price1mOutputTokens: 10,
+      outputSpeed: 120,
+      timeToFirstToken: 3,
+      omniscience: 50,
+      paramClass: 'large',
+      scores: { 'gpqa-diamond': 0.7, 'aa-briefcase': 1600 },
+    }
 
     const bundle: AuthoritativeSourceBundle = {
       lmarena: {
@@ -136,6 +153,10 @@ describe('buildAuthoritativeLeaderboard', () => {
         chineseVotes: 1234,
         overallCount: 30,
         chineseCount: 5,
+        categories: [
+          { id: 'overall', label: '总榜', rows: overall, votes: 123456, count: 30 },
+          { id: 'chinese', label: '中文', rows: chinese, votes: 1234, count: 5 },
+        ],
       },
       aa: { asOf: '2026-11-02', models: aaModels },
       openrouter: {
@@ -153,7 +174,7 @@ describe('buildAuthoritativeLeaderboard', () => {
     const payload = buildAuthoritativeLeaderboard(bundle, {
       generatedAt: '2026-11-03T00:00:00.000Z',
     })
-    expect(payload.cross).toHaveLength(20)
+    expect(payload.cross).toHaveLength(30)
     expect(payload.cross[0]?.model).toBe('Model 1')
     expect(payload.cross[0]?.coverage).toBe(3)
     expect(payload.lmarena.overallCount).toBe(30)
@@ -161,6 +182,17 @@ describe('buildAuthoritativeLeaderboard', () => {
     expect(payload.sources.find((source) => source.id === 'aa')?.boardSize).toBe(30)
     expect(payload.sources.find((source) => source.id === 'openrouter')?.boardSize).toBe(50)
     expect(payload.refresh.schedule).toMatch(/^\d/)
+    expect(payload.schemaVersion).toBe(2)
+
+    // AA 全量字段必须真的接到契约里，不能只接一个 intelligenceIndex。
+    expect(payload.aa[0]?.contextWindow).toBe(1_000_000)
+    expect(payload.aa[0]?.inputPrice).toBe(2)
+    expect(payload.aa[0]?.outputSpeed).toBe(120)
+    expect(payload.aa[0]?.ttft).toBe(3)
+    expect(payload.aa[0]?.omniscience).toBe(50)
+    expect(payload.aa[0]?.benchmarks?.find((b) => b.key === 'gpqa-diamond')?.score).toBe(70)
+    expect(payload.aa[0]?.benchmarks?.find((b) => b.key === 'aa-briefcase')?.unit).toBe('raw')
+    expect(payload.lmarena.categories).toHaveLength(2)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

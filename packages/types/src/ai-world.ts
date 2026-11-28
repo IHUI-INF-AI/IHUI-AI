@@ -76,6 +76,14 @@ export interface AiWorldLeaderboardCrossRow {
   or: AiWorldLeaderboardCrossSource | null
 }
 
+/** Artificial Analysis 单项评测分数。percent 为 0-100，raw 为官方原始分（如 Elo）。 */
+export interface AiWorldLeaderboardAaBenchmark {
+  key: string
+  label: string
+  score: number
+  unit?: 'percent' | 'raw'
+}
+
 /** Artificial Analysis 单榜行。 */
 export interface AiWorldLeaderboardAaRow {
   rank: number
@@ -84,6 +92,33 @@ export interface AiWorldLeaderboardAaRow {
   score: number
   openWeights: boolean
   cn: boolean
+  /** 是否推理模型 */
+  reasoning?: boolean
+  /** 上下文窗口（tokens） */
+  contextWindow?: number | null
+  /** 输入价格，美元 / 百万 tokens */
+  inputPrice?: number | null
+  /** 输出价格，美元 / 百万 tokens */
+  outputPrice?: number | null
+  cacheHitPrice?: number | null
+  cacheWritePrice?: number | null
+  /** 输出速度，tokens / 秒 */
+  outputSpeed?: number | null
+  /** 首 token 延迟，秒 */
+  ttft?: number | null
+  /** 首答案 token 延迟，秒 */
+  ttfa?: number | null
+  /** AA 通识指数（-100 ~ 100） */
+  omniscience?: number | null
+  /** AA 单任务成本，美元 */
+  costPerTask?: number | null
+  /** AA 单任务耗时，秒 */
+  timePerTask?: number | null
+  paramClass?: string | null
+  priceClass?: string | null
+  release?: string | null
+  /** AA 全部单项评测，按官方原始分归一到 0-100 */
+  benchmarks?: AiWorldLeaderboardAaBenchmark[]
 }
 
 /** LMArena 单榜行。 */
@@ -96,6 +131,24 @@ export interface AiWorldLeaderboardLmRow {
   votes: number
   license: string
   open: boolean
+  /** 95% 置信区间下界 */
+  ciLow?: number
+  /** 95% 置信区间上界 */
+  ciHigh?: number
+  /** 官方方差 */
+  variance?: number
+}
+
+/** LMArena 单个分类榜。 */
+export interface AiWorldLeaderboardLmCategory {
+  id: string
+  label: string
+  /** 该分类全量模型数 */
+  count: number
+  /** 该分类全量票数 */
+  votes: number
+  /** 该分类榜单行（当前截取前列） */
+  rows: AiWorldLeaderboardLmRow[]
 }
 
 /** OpenRouter 真实用量单榜行。 */
@@ -143,6 +196,8 @@ export interface AiWorldAuthoritativeLeaderboard {
     chineseVotes: number
     overallCount: number
     chineseCount: number
+    /** LMArena 官方数据集里的全部分类榜 */
+    categories?: AiWorldLeaderboardLmCategory[]
   }
   openrouter: AiWorldLeaderboardOrRow[]
   refresh: AiWorldLeaderboardRefresh

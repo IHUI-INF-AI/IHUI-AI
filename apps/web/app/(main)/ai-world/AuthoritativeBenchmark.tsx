@@ -20,12 +20,17 @@ import {
 import {
   Card,
   CardContent,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
   Table,
-  TableHeader,
   TableBody,
-  TableHead,
-  TableRow,
   TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from '@ihui/ui-react'
 import type { AiWorldAuthoritativeLeaderboard } from '@ihui/types'
 import raw from '@/data/authoritative-leaderboard.json'
@@ -91,6 +96,35 @@ function formatVotes(n: number): string {
   return n.toLocaleString('zh-CN')
 }
 
+function formatContext(n: number | null | undefined): string | null {
+  if (n === null || n === undefined || !Number.isFinite(n)) return null
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`
+  if (n >= 1000) return `${Math.round(n / 1000)}K`
+  return n.toLocaleString('en-US')
+}
+
+function formatPrice(n: number | null | undefined): string | null {
+  if (n === null || n === undefined || !Number.isFinite(n)) return null
+  return n < 1 ? `$${n.toFixed(2)}` : `$${n.toFixed(2).replace(/\.00$/, '')}`
+}
+
+function formatSigned(n: number | null | undefined): string | null {
+  if (n === null || n === undefined || !Number.isFinite(n)) return null
+  return `${n >= 0 ? '+' : ''}${n.toFixed(1)}`
+}
+
+function formatSeconds(n: number | null | undefined): string | null {
+  if (n === null || n === undefined || !Number.isFinite(n)) return null
+  return `${n.toFixed(2)}s`
+}
+
+function PriceCell({ row }: { row: { inputPrice?: number | null; outputPrice?: number | null } }) {
+  const input = formatPrice(row.inputPrice)
+  const output = formatPrice(row.outputPrice)
+  if (!input && !output) return <span className="text-muted-foreground">—</span>
+  return <SourceValue value={`${input ?? '—'} / ${output ?? '—'}`} sub="输入 / 输出" />
+}
+
 function SourceValue({ value, sub }: { value: string | null; sub?: string }) {
   if (!value) return <span className="text-muted-foreground">—</span>
   return (
@@ -108,11 +142,13 @@ function ModelCell({
   vendor,
   openWeights,
   cn,
+  reasoning,
 }: {
   model: string
   vendor: string
   openWeights?: boolean
   cn?: boolean
+  reasoning?: boolean
 }) {
   return (
     <div className="min-w-[150px]">
@@ -120,6 +156,7 @@ function ModelCell({
         <span>{model}</span>
         {cn ? <Tag tone="cn">国产</Tag> : null}
         {openWeights ? <Tag tone="open">开源</Tag> : null}
+        {reasoning ? <Tag>推理</Tag> : null}
       </div>
       <span className="mt-0.5 block text-[10px] text-muted-foreground">{vendor}</span>
     </div>
@@ -215,12 +252,22 @@ function CrossTable({ data }: { data: Data }) {
   )
 }
 
+function DetailMetric({ label, value }: { label: string; value: string | null }) {
+  return (
+    <div className="rounded-md border bg-muted/20 px-2.5 py-2">
+      <div className="text-[10px] text-muted-foreground">{label}</div>
+      <div className="mt-0.5 text-sm font-semibold tabular-nums">{value ?? '—'}</div>
+    </div>
+  )
+}
+
 function AaTable({ data }: { data: Data }) {
+  const [selected, setSelected] = React.useState<Data['aa'][number] | null>(null)
   return (
     <div className="space-y-2">
       <p className="text-label leading-relaxed text-muted-foreground">
         Artificial Analysis Intelligence Index
-        v5.0.2，同一模型家族取最高档位；分数越高表示综合能力越强。
+        v5.0.2。这里只放关键指标；点每行“详情”可看上下文、价格、速度、单任务成本和全部单项评测。同一模型家族取智能指数最高的一档。
       </p>
       <div className="relative overflow-x-auto">
         <Table>
@@ -228,8 +275,12 @@ function AaTable({ data }: { data: Data }) {
             <TableRow className="hover:bg-transparent">
               <TableHead className="w-12">位次</TableHead>
               <TableHead>模型</TableHead>
-              <TableHead className="w-24">智能指数</TableHead>
-              <TableHead className="w-28">类型</TableHead>
+              <TableHead className="w-20">智能</TableHead>
+              <TableHead className="w-20">通识</TableHead>
+              <TableHead className="w-24">速度 / 首字</TableHead>
+              <TableHead className="w-24">上下文</TableHead>
+              <TableHead className="w-28">价格 $/M</TableHead>
+              <TableHead className="w-14">详情</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -244,61 +295,158 @@ function AaTable({ data }: { data: Data }) {
                     vendor={r.vendor}
                     openWeights={r.openWeights}
                     cn={r.cn}
+                    reasoning={r.reasoning}
                   />
                 </TableCell>
                 <TableCell className="font-medium tabular-nums">{r.score.toFixed(1)}</TableCell>
                 <TableCell>
-                  <div className="flex flex-wrap gap-1">
-                    {r.openWeights ? <Tag tone="open">开源权重</Tag> : <Tag>闭源</Tag>}
-                  </div>
+                  <SourceValue value={formatSigned(r.omniscience)} sub="通识指数" />
+                </TableCell>
+                <TableCell>
+                  <SourceValue
+                    value={r.outputSpeed ? `${r.outputSpeed.toFixed(1)} tok/s` : null}
+                    sub={r.ttft ? `首字 ${formatSeconds(r.ttft)}` : undefined}
+                  />
+                </TableCell>
+                <TableCell>
+                  <SourceValue value={formatContext(r.contextWindow)} sub="tokens" />
+                </TableCell>
+                <TableCell>
+                  <PriceCell row={r} />
+                </TableCell>
+                <TableCell>
+                  <button
+                    type="button"
+                    onClick={() => setSelected(r)}
+                    className="rounded border px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  >
+                    详情
+                  </button>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
+
+      <Dialog
+        open={selected !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelected(null)
+        }}
+      >
+        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{selected?.model ?? '模型详情'}</DialogTitle>
+            <DialogDescription>
+              {selected?.vendor ?? ''} · Artificial Analysis 官方数据
+              {selected?.release ? ` · ${selected.release}` : ''}
+            </DialogDescription>
+          </DialogHeader>
+          {selected ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-2 min-[640px]:grid-cols-4">
+                <DetailMetric label="智能指数" value={selected.score.toFixed(1)} />
+                <DetailMetric label="通识指数" value={formatSigned(selected.omniscience)} />
+                <DetailMetric
+                  label="输出速度"
+                  value={selected.outputSpeed ? `${selected.outputSpeed.toFixed(1)} tok/s` : null}
+                />
+                <DetailMetric label="首 token" value={formatSeconds(selected.ttft)} />
+                <DetailMetric label="上下文" value={formatContext(selected.contextWindow)} />
+                <DetailMetric label="输入价格 / M" value={formatPrice(selected.inputPrice)} />
+                <DetailMetric label="输出价格 / M" value={formatPrice(selected.outputPrice)} />
+                <DetailMetric label="缓存命中 / M" value={formatPrice(selected.cacheHitPrice)} />
+                <DetailMetric label="单任务成本" value={formatPrice(selected.costPerTask)} />
+                <DetailMetric
+                  label="单任务耗时"
+                  value={selected.timePerTask ? `${selected.timePerTask.toFixed(1)}s` : null}
+                />
+                <DetailMetric label="参数档位" value={selected.paramClass ?? null} />
+                <DetailMetric label="价格档位" value={selected.priceClass ?? null} />
+              </div>
+
+              <div>
+                <div className="mb-1.5 flex items-baseline justify-between gap-2">
+                  <h3 className="text-xs font-semibold">全部单项评测</h3>
+                  <span className="text-[10px] text-muted-foreground">
+                    百分比项为 0-100，Elo 等原始分原样展示；不是本站自建分
+                  </span>
+                </div>
+                {selected.benchmarks?.length ? (
+                  <div className="grid grid-cols-1 gap-1.5 min-[640px]:grid-cols-2">
+                    {selected.benchmarks.map((b) => (
+                      <div
+                        key={b.key}
+                        className="flex items-center justify-between gap-2 rounded border bg-muted/20 px-2 py-1.5"
+                        title={b.key}
+                      >
+                        <span className="truncate text-[11px] text-muted-foreground">{b.label}</span>
+                        <span className="shrink-0 text-[11px] font-medium tabular-nums">
+                          {b.score.toFixed(1)}
+                          {b.unit === 'percent' ? '%' : ''}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground">该模型没有公开单项评测分。</p>
+                )}
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
 
 function LmarenaTable({ data }: { data: Data }) {
-  const [scope, setScope] = React.useState<'overall' | 'chinese'>('overall')
-  const rows = scope === 'overall' ? data.lmarena.overall : data.lmarena.chinese
-  const votes = scope === 'overall' ? data.lmarena.overallVotes : data.lmarena.chineseVotes
+  const categories =
+    data.lmarena.categories && data.lmarena.categories.length > 0
+      ? data.lmarena.categories
+      : [
+          {
+            id: 'overall',
+            label: '全球总榜',
+            count: data.lmarena.overallCount,
+            votes: data.lmarena.overallVotes,
+            rows: data.lmarena.overall,
+          },
+          {
+            id: 'chinese',
+            label: '中文榜',
+            count: data.lmarena.chineseCount,
+            votes: data.lmarena.chineseVotes,
+            rows: data.lmarena.chinese,
+          },
+        ]
+  const [scope, setScope] = React.useState(categories[0]?.id ?? 'overall')
+  const active = categories.find((c) => c.id === scope) ?? categories[0]
+  const rows = active?.rows ?? []
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1 rounded-md border bg-card p-0.5">
-          <button
-            type="button"
-            onClick={() => setScope('overall')}
-            className={`rounded px-2 py-1 text-xs transition-colors ${
-              scope === 'overall'
-                ? 'bg-accent text-accent-foreground'
-                : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
-            }`}
-          >
-            全球总榜
-          </button>
-          <button
-            type="button"
-            onClick={() => setScope('chinese')}
-            className={`rounded px-2 py-1 text-xs transition-colors ${
-              scope === 'chinese'
-                ? 'bg-accent text-accent-foreground'
-                : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
-            }`}
-          >
-            中文榜
-          </button>
-        </div>
+        <select
+          value={active?.id ?? 'overall'}
+          onChange={(e) => setScope(e.target.value)}
+          className="h-7 rounded-md border bg-card px-2 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring"
+          aria-label="LMArena 分类榜"
+        >
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.label}（{c.count}）
+            </option>
+          ))}
+        </select>
         <span className="text-[11px] text-muted-foreground">
-          {scope === 'overall' ? data.lmarena.overallCount : data.lmarena.chineseCount} 个模型 ·{' '}
-          {formatVotes(votes)} 票
+          {active?.count ?? 0} 个模型 · {formatVotes(active?.votes ?? 0)} 票 · 本页前{' '}
+          {rows.length} 名
         </span>
       </div>
       <p className="text-label leading-relaxed text-muted-foreground">
-        LMArena Text Arena 官方数据集，Elo 来自盲测两两对比的人类偏好，不是正确率。
+        LMArena Text Arena 官方数据集，覆盖总榜、中文、编程、数学、创意写作、行业等全部分类。Elo
+        来自盲测两两对比的人类偏好，不是正确率；分类榜每榜只展示前 50 名。
       </p>
       <div className="relative overflow-x-auto">
         <Table>
@@ -307,13 +455,15 @@ function LmarenaTable({ data }: { data: Data }) {
               <TableHead className="w-12">位次</TableHead>
               <TableHead>模型</TableHead>
               <TableHead className="w-24">Arena 分</TableHead>
+              <TableHead className="w-28">95% CI</TableHead>
               <TableHead className="w-20">票数</TableHead>
+              <TableHead className="w-16">方差</TableHead>
               <TableHead className="w-16">许可</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.map((r) => (
-              <TableRow key={`${scope}-${r.rank}-${r.model}`} className="hover:bg-accent/40">
+              <TableRow key={`${active?.id}-${r.rank}-${r.model}`} className="hover:bg-accent/40">
                 <TableCell>
                   <RankBadge rank={r.rank} />
                 </TableCell>
@@ -328,7 +478,15 @@ function LmarenaTable({ data }: { data: Data }) {
                   <SourceValue value={r.score.toFixed(1)} sub={`±${r.ci.toFixed(2)}`} />
                 </TableCell>
                 <TableCell className="tabular-nums text-muted-foreground">
+                  {r.ciLow !== undefined && r.ciHigh !== undefined
+                    ? `${r.ciLow.toFixed(1)}–${r.ciHigh.toFixed(1)}`
+                    : '—'}
+                </TableCell>
+                <TableCell className="tabular-nums text-muted-foreground">
                   {r.votes.toLocaleString('zh-CN')}
+                </TableCell>
+                <TableCell className="tabular-nums text-muted-foreground">
+                  {r.variance !== undefined ? r.variance.toFixed(2) : '—'}
                 </TableCell>
                 <TableCell className="text-[11px] text-muted-foreground">
                   {r.license === 'Proprietary' ? '闭源' : r.license === 'Unknown' ? '—' : '开源'}
@@ -347,7 +505,8 @@ function OpenRouterTable({ data }: { data: Data }) {
     <div className="space-y-2">
       <p className="text-label leading-relaxed text-muted-foreground">
         OpenRouter 官方公开日榜，近 7 天 tokens
-        累计。这是真实调用量，不代表模型能力；同一模型不同构建分开统计。
+        累计。这是真实调用量，不代表模型能力；同一模型不同构建分开统计。官方 CSV
+        只有日期、模型、名次、tokens、占比五列，没有价格、上下文或参数量，这里不补假数据。
       </p>
       <div className="relative overflow-x-auto">
         <Table>
@@ -357,7 +516,7 @@ function OpenRouterTable({ data }: { data: Data }) {
               <TableHead>模型</TableHead>
               <TableHead className="w-24">7 天 tokens</TableHead>
               <TableHead className="w-20">占比</TableHead>
-              <TableHead className="w-28">构建</TableHead>
+              <TableHead className="w-32">构建 / 计费</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -376,7 +535,7 @@ function OpenRouterTable({ data }: { data: Data }) {
                   {(r.share * 100).toFixed(1)}%
                 </TableCell>
                 <TableCell className="text-[11px] text-muted-foreground">
-                  {r.build ?? '—'}
+                  {r.build ?? '—'} · {r.free ? '免费' : '付费'}
                 </TableCell>
               </TableRow>
             ))}
@@ -449,7 +608,7 @@ export function AuthoritativeBenchmark() {
     apiOrThrow<Data>('/api/ai-world/authoritative-leaderboard')
       .then((next) => {
         if (cancelled) return
-        if (next?.schemaVersion === 1 && Array.isArray(next.cross) && next.cross.length > 0) {
+        if (next?.schemaVersion && Array.isArray(next.cross) && next.cross.length > 0) {
           setData(next)
         }
       })
