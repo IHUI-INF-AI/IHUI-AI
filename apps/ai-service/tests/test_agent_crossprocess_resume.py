@@ -122,6 +122,7 @@ def _run_child(
         argv,
         cwd=str(_SERVICE_ROOT),
         env=env,
+        stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
         timeout=180,
