@@ -54,7 +54,7 @@ import { spawnParentWatchdog } from '../util/parent-bound.js';
 import { readCliPackage } from '../util/pkg-version.js';
 import type { Tool, ToolResult, ToolContext, ToolParameter, ToolContentBlock } from './index.js';
 import { getCredential, isExpired, setCredential } from './mcp-credentials.js';
-import { startOAuthFlow, refreshAccessToken, startEnterpriseManagedOAuthFlow, type OAuthConfig } from './mcp-oauth.js';
+import { startOAuthFlow, refreshAccessToken, startEnterpriseManagedOAuthFlow, startClientCredentialsOAuthFlow, type OAuthConfig } from './mcp-oauth.js';
 import { discoverAuthorizationServer, resolveClientRegistration } from './mcp-auth-discovery.js';
 
 export interface McpToolDef {
@@ -1115,6 +1115,42 @@ export async function resolveMcpAuthHeaders(server: McpServer): Promise<Record<s
     }
   }
 
+  // 2b. OAuth Client Credentials（MCP 稳定授权扩展）:机器对机器，无浏览器同意页。
+  if (
+    server.auth?.type === 'oauth-client-credentials' &&
+    server.oauthClientCredentials &&
+    server.url
+  ) {
+    const cc = server.oauthClientCredentials;
+    try {
+      const cred = await getCredential(server.url);
+      if (cred?.accessToken && !(await isExpired(cred))) {
+        headers['Authorization'] = `Bearer ${cred.accessToken}`;
+        return headers;
+      }
+      const result = await startClientCredentialsOAuthFlow({
+        serverUrl: server.url,
+        tokenEndpoint: cc.tokenEndpoint,
+        clientId: cc.clientId,
+        ...(cc.clientSecret ? { clientSecret: cc.clientSecret } : {}),
+        ...(cc.scope ? { scope: cc.scope } : {}),
+        ...(cc.resource ? { resource: cc.resource } : {}),
+        ...(cc.tokenEndpointAuthMethod ? { tokenEndpointAuthMethod: cc.tokenEndpointAuthMethod } : {}),
+        tokenEndpointTrust: {
+          source: 'user-settings',
+          settingsKey: 'mcpServers[].oauthClientCredentials.tokenEndpoint',
+          configuredEndpoint: cc.tokenEndpoint,
+        },
+      });
+      headers['Authorization'] = `Bearer ${result.accessToken}`;
+      return headers;
+    } catch (err) {
+      throw new Error(
+        `MCP server "${server.name}" OAuth Client Credentials 取 token 失败: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
   // 3. OAuth 路径:仅当显式声明 auth.type === 'oauth' 且提供 oauth 元数据时启用
   if (server.auth?.type === 'oauth' && server.oauth && server.url) {
     const oauthConfig = await resolveMcpOAuthConfig(server);
@@ -1363,6 +1399,7 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
             'io.modelcontextprotocol/tasks': {},
             'io.modelcontextprotocol/ui': { mimeTypes: ['text/html;profile=mcp-app'] },
             'io.modelcontextprotocol/enterprise-managed-authorization': {},
+            'io.modelcontextprotocol/oauth-client-credentials': {},
           },
         };
       } else {

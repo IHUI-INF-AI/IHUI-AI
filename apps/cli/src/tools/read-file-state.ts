@@ -109,6 +109,7 @@ const perContextStates = new WeakMap<object, ReadFileStateMap>();
  * 读后写校验会变成结构性死锁（真实模型表现为反复 FILE_NOT_READ）。
  * 因此再按稳定作用域（sessionId 优先，其次任务工作区/工作区路径）挂一份。
  */
+const PER_SCOPE_STATE_LIMIT = 500;
 const perScopeStates = new Map<string, ReadFileStateMap>();
 
 function readStateScope(context: object): string | undefined {
@@ -130,7 +131,14 @@ export function getReadFileStateMap(context: object): ReadFileStateMap {
   let state = scope === undefined ? undefined : perScopeStates.get(scope);
   if (!state) {
     state = new Map();
-    if (scope !== undefined) perScopeStates.set(scope, state);
+    if (scope !== undefined) {
+      // 长驻 CLI/守护进程会跨很多会话；只做 FIFO 上限，避免作用域 Map 无界增长。
+      if (perScopeStates.size >= PER_SCOPE_STATE_LIMIT) {
+        const oldest = perScopeStates.keys().next().value;
+        if (oldest !== undefined) perScopeStates.delete(oldest);
+      }
+      perScopeStates.set(scope, state);
+    }
   }
   perContextStates.set(context, state);
   return state;

@@ -413,6 +413,60 @@ export async function startEnterpriseManagedOAuthFlow(
   }
 }
 
+/**
+ * OAuth 2.0 Client Credentials（MCP 稳定授权扩展）取 token。
+ *
+ * 机器对机器：没有用户、没有浏览器同意页；client_id/client_secret 直接换 token。
+ * 按扩展语义不保存 refresh_token——过期后重新走一次 client_credentials，
+ * 撤销权留在授权服务器（删除 client 或轮换 secret 即立即失效）。
+ */
+export async function startClientCredentialsOAuthFlow(config: {
+  serverUrl: string;
+  tokenEndpoint: string;
+  clientId: string;
+  clientSecret?: string;
+  scope?: string[];
+  resource?: string;
+  tokenEndpointAuthMethod?: 'client_secret_basic' | 'client_secret_post' | 'none';
+  tokenEndpointTrust?: SelfHostedTrust;
+}): Promise<OAuthResult> {
+  await acquireLock(config.serverUrl);
+  try {
+    const body = new URLSearchParams();
+    body.set('grant_type', 'client_credentials');
+    if (config.scope && config.scope.length > 0) body.set('scope', config.scope.join(' '));
+    if (config.resource) body.set('resource', config.resource);
+    const auth = buildClientAuth(
+      config.tokenEndpointAuthMethod ?? (config.clientSecret ? 'client_secret_basic' : 'none'),
+      config.clientId,
+      config.clientSecret,
+    );
+    if (auth.body.client_id) body.set('client_id', auth.body.client_id);
+    if (auth.body.client_secret) body.set('client_secret', auth.body.client_secret);
+
+    const response = await postTokenEndpoint(
+      config.tokenEndpoint,
+      body,
+      config.tokenEndpointTrust,
+      auth.headers,
+    );
+    if (!response.access_token) throw new Error('client_credentials 响应缺少 access_token');
+    const result = parseTokenResponse(response, config.scope ?? []);
+    delete result.refreshToken;
+
+    await setCredential(config.serverUrl, {
+      accessToken: result.accessToken,
+      expiresAt: result.expiresAt,
+      scope: result.scope,
+      obtainedAt: Date.now(),
+    });
+    await announceCredentialStore();
+    return result;
+  } finally {
+    await releaseLock();
+  }
+}
+
 /** 按 OAuth token endpoint 客户端认证方式，产出 body 字段与 Authorization 头 */
 function buildClientAuth(
   method: 'client_secret_basic' | 'client_secret_post' | 'none',

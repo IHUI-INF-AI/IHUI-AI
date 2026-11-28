@@ -19,8 +19,11 @@ export interface MCPAuth {
   /**
    * enterprise-managed = SEP-990 EMA：企业 IdP 先签 ID-JAG，再换 MCP AS 的 access token。
    * 该路径没有浏览器同意页；身份断言来自企业 SSO 登录（配置在 enterpriseManaged）。
+   *
+   * oauth-client-credentials = MCP 稳定授权扩展：机器对机器（无用户、无浏览器）用
+   * client_id/client_secret 直接换 token；配置在 oauthClientCredentials。
    */
-  type: 'none' | 'bearer' | 'oauth' | 'enterprise-managed';
+  type: 'none' | 'bearer' | 'oauth' | 'enterprise-managed' | 'oauth-client-credentials';
   token?: string;
 }
 
@@ -64,6 +67,22 @@ export interface McpOAuthConfig {
   issuer?: string;
   /** issuer 已配置但授权响应没带 iss 时是否拒绝；缺省 true（严格）。 */
   requireIssuer?: boolean;
+}
+
+/**
+ * OAuth 2.0 Client Credentials（MCP 稳定授权扩展）配置。
+ * 机器对机器：无用户授权页、无 refresh token；过期后重新走一次 client_credentials。
+ * 密钥建议用 ${ENV} 占位，不要明文落盘。
+ */
+export interface McpOAuthClientCredentialsConfig {
+  tokenEndpoint: string;
+  clientId: string;
+  clientSecret?: string;
+  scope?: string[];
+  /** MCP server canonical resource URI（RFC 8707，可选） */
+  resource?: string;
+  /** token endpoint 客户端认证方式：有 secret 默认 basic，无 secret 默认 none */
+  tokenEndpointAuthMethod?: 'client_secret_basic' | 'client_secret_post' | 'none';
 }
 
 export type McpStdioFraming = 'ndjson' | 'content-length';
@@ -132,6 +151,8 @@ export interface McpServer {
   oauth?: McpOAuthConfig;
   /** EMA 元数据(仅当 auth.type === 'enterprise-managed' 时生效) */
   enterpriseManaged?: McpEnterpriseManagedConfig;
+  /** OAuth Client Credentials 元数据(仅当 auth.type === 'oauth-client-credentials' 时生效) */
+  oauthClientCredentials?: McpOAuthClientCredentialsConfig;
 }
 
 export interface McpConfig {
