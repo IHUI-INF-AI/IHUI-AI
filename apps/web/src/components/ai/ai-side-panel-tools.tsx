@@ -26,6 +26,7 @@ import { usePaneChatStore } from '@/stores/chat-pane-context'
 import { usePaneAiToolsPanelStore } from '@/stores/ai-tools-panel'
 // D52(2026-09-24 立):任务监控分区面板——在既有 tab 体系之上做分组层,不新建第二套 Tab
 import { TaskMonitorZonesView } from '@/components/ai/task-monitor-sections'
+import { CozeAgentPanel } from '@/components/ai/coze-agent-panel'
 import { useTaskMonitorStore } from '@/stores/task-monitor'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import {
@@ -99,6 +100,7 @@ export type ToolTabKey =
   | 'tasks'
   | 'progress'
   | 'agents'
+  | 'coze'
   | 'background'
   | 'swarm'
   | 'orchestration'
@@ -127,6 +129,7 @@ const TAB_KEYS: ToolTabKey[] = [
   'tasks',
   'progress',
   'agents',
+  'coze',
   'background',
   'swarm',
   'orchestration',
@@ -157,6 +160,7 @@ const TAB_LABEL_KEY: Record<ToolTabKey, string> = {
   tasks: 'tabs.tasks',
   progress: 'tabs.progress',
   agents: 'tabs.agents',
+  coze: 'tabs.coze',
   background: 'tabs.background',
   swarm: 'tabs.swarm',
   orchestration: 'tabs.orchestration',
@@ -667,6 +671,8 @@ export function AiSidePanelTools() {
             </button>
           </div>
         )
+      case 'coze':
+        return <CozeAgentPanel />
       case 'background':
         return (
           <div className="space-y-3">
