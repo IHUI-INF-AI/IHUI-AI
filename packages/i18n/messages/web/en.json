@@ -7775,7 +7775,10 @@
             "cause": {
               "streaming": "The reply is still generating, so the queue order is locked for now",
               "emptyQueue": "There are no queued messages left to undo",
-              "runtimeNoInterject": "This runtime has no interjection support; the message stays in the queue"
+              "runtimeNoInterject": "This runtime has no interjection support; the message stays in the queue",
+              "queueChanged": "The queue changed concurrently, so the current order is stale",
+              "controlCommand": "Control commands can't be injected into a running turn; the message stays queued",
+              "awaitingApproval": "A risky action is awaiting approval; interjection waits until you decide"
             }
           },
           "blocked": {
@@ -12401,9 +12404,9 @@
     "interruptedNotice": "This answer was interrupted, content may be incomplete",
     "interruptedNoticeUserCancelled": "You cancelled this answer, content may be incomplete",
     "secretMaskShow": "Show credentials",
-    "secretMaskHide": "Hide credentials"
-  ,
-    "resizeComposerHint": "Drag to resize the composer height"},
+    "secretMaskHide": "Hide credentials",
+    "resizeComposerHint": "Drag to resize the composer height"
+  },
   "chatHistory": {
     "moveToGroup": "Move to group",
     "moveSelectedToGroup": "Move selected to group",
@@ -14040,7 +14043,7 @@
     "exampleStep2": "output cost = 1200 ÷ 1000 × 10 = 12 cents",
     "exampleTitle": "Billing Example",
     "examplesSubtitle": "Auth via HTTP Bearer Token, POST application/json",
-    "examplesTip": "Tip: replace YOUR_API_KEY with the key from /developer/keys, and adjust baseURL to your actual endpoint.",
+    "examplesTip": "Tip: replace YOUR_API_KEY with the key from <link>/developer/keys</link>, and adjust baseURL to your actual endpoint.",
     "examplesTitle": "Code Examples",
     "formula": "Cost formula",
     "formulaBody": "Total = (input_tokens ÷ 1000 × input_price) + (output_tokens ÷ 1000 × output_price)",
@@ -15344,16 +15347,7 @@
   },
   "eduCoursesPage": {
     "subtitle": "Manage all enrolled courses",
-    "title": "My Courses",
-    "empty": "No courses",
-    "loading": "Loading...",
-    "progress": "Progress {n}%",
-    "searchAriaLabel": "Search courses",
-    "searchPlaceholder": "Search courses...",
-    "statusCompleted": "Completed",
-    "statusInProgress": "In Progress",
-    "statusNotStarted": "Not Started",
-    "total": "{n} total"
+    "title": "My Courses"
   },
   "eduDashboardPage": {
     "coursesCard": {
@@ -16333,11 +16327,11 @@
       "points": "Points",
       "signIn": "Check in",
       "signedIn": "Checked in",
-      "welcome": "Hi, welcome to the learning platform"
-    ,
+      "welcome": "Hi, welcome to the learning platform",
       "usageLoadFailed": "Failed to load usage data: {message}",
       "usageUnavailable": "Unavailable",
-      "usageFailedAttempts": "{count} failed attempts"},
+      "usageFailedAttempts": "{count} failed attempts"
+    },
     "moduleSection": {
       "noData": "No data",
       "viewMore": "View more"
@@ -20355,7 +20349,8 @@
     "hrMyPerf": "My performance",
     "hrMyTraining": "My training",
     "hrMyExpense": "My expenses",
-    "financeGroup": "Finance"
+    "financeGroup": "Finance",
+    "market": "AI App Store"
   },
   "news": {
     "allCategories": "All Categories",
@@ -24354,8 +24349,7 @@
     "frozen": "Frozen amount",
     "totalRecharge": "Total recharged",
     "totalWithdraw": "Total withdrawn",
-    "loadFailed": "Failed to load wallet"
-  ,
+    "loadFailed": "Failed to load wallet",
     "loginRequired": "Please log in to view your wallet",
     "convertTitle": "Convert wallet balance to AI points",
     "convertRule": "¥0.01 = 1 point, conversion is irreversible",
@@ -24363,7 +24357,8 @@
     "convertMinHint": "Minimum 100 points (¥1)",
     "convertAlreadyDone": "This conversion request was already processed; no duplicate charge was made",
     "convertSuccess": "Converted to {points} AI points; current point balance {balance}",
-    "convertFailed": "Conversion failed, please try again later"},
+    "convertFailed": "Conversion failed, please try again later"
+  },
   "withdrawals": {
     "allStatus": "All Status",
     "create": "Create",
@@ -28694,7 +28689,8 @@
     "trendChartScope": "Scope: {scope}",
     "trendChartHint": "Last 30 days",
     "trendCountAxisLabel": "Count",
-    "trendChartAria": "Attendance trend chart for {scope}"
+    "trendChartAria": "Attendance trend chart for {scope}",
+    "selfCheckInFailed": "Check-in failed"
   },
   "eduCertificates": {
     "certificateNo": "No.: {no}",
@@ -30086,7 +30082,14 @@
     "progressEmpty": "No analysis tasks yet",
     "openChat": "Open Chat",
     "streaming": "Streaming",
-    "idle": "Idle"
+    "idle": "Idle",
+    "targetEtaxInvoiceLedger": "Invoice ledger",
+    "targetEtaxVatDeclaration": "VAT declaration",
+    "targetEtaxCitQuarterly": "Corporate income tax (quarterly)",
+    "targetEtaxIitDeclaration": "Individual income tax declaration",
+    "targetSocialInsurance": "Social insurance",
+    "targetMedicalInsurance": "Medical insurance",
+    "targetBankStatement": "Bank statement"
   },
   "hrData": {
     "tabImport": "Import",

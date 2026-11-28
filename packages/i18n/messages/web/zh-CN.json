@@ -7775,7 +7775,10 @@
             "cause": {
               "streaming": "本轮回答还在生成，排队顺序暂时锁定",
               "emptyQueue": "队列里已经没有可以撤回的消息",
-              "runtimeNoInterject": "该 Runtime 未开放插话，消息会留在队列里按顺序处理"
+              "runtimeNoInterject": "该 Runtime 未开放插话，消息会留在队列里按顺序处理",
+              "queueChanged": "队列已被并发操作改动，当前顺序已失效",
+              "controlCommand": "控制命令不能插入运行中的 Turn，消息会留在队列里按顺序处理",
+              "awaitingApproval": "有待批准的高危操作，插话将让行，请先完成决策"
             }
           },
           "blocked": {
@@ -12454,9 +12457,9 @@
     "predictiveEditDelete": "删除",
     "secretMaskShow": "显示凭据",
     "secretMaskHide": "隐藏凭据",
-    "pptxOutline": "文字大纲"
-  ,
-    "resizeComposerHint": "拖动调整输入框高度"},
+    "pptxOutline": "文字大纲",
+    "resizeComposerHint": "拖动调整输入框高度"
+  },
   "chatHistory": {
     "moveToGroup": "移动到分组",
     "moveSelectedToGroup": "移动所选到分组",
@@ -14102,7 +14105,7 @@
     "exampleStep2": "output 费用 = 1200 ÷ 1000 × 10 = 12 分",
     "exampleTitle": "计费示例",
     "examplesSubtitle": "使用 HTTP Bearer Token 鉴权,POST application/json",
-    "examplesTip": "提示:替换 YOUR_API_KEY 为你在 /developer/keys 创建的密钥,baseURL 改为实际接入地址。",
+    "examplesTip": "提示：替换 YOUR_API_KEY 为你在 <link>/developer/keys</link> 创建的密钥，baseURL 改为实际接入地址。",
     "examplesTitle": "调用示例",
     "formula": "费用计算公式",
     "formulaBody": "总费用 = (input_tokens ÷ 1000 × input_price) + (output_tokens ÷ 1000 × output_price)",
@@ -15445,16 +15448,7 @@
   },
   "eduCoursesPage": {
     "subtitle": "管理已报名的全部课程",
-    "title": "我的课程",
-    "empty": "暂无课程",
-    "loading": "加载中",
-    "progress": "进度 {n}%",
-    "searchAriaLabel": "搜索课程",
-    "searchPlaceholder": "搜索课程",
-    "statusCompleted": "已完成",
-    "statusInProgress": "进行中",
-    "statusNotStarted": "未开始",
-    "total": "共 {n} 个"
+    "title": "我的课程"
   },
   "eduDashboardPage": {
     "coursesCard": {
@@ -16611,11 +16605,11 @@
       "points": "积分",
       "signIn": "签到",
       "signedIn": "已签到",
-      "welcome": "Hi，欢迎来到学习平台"
-    ,
+      "welcome": "Hi，欢迎来到学习平台",
       "usageLoadFailed": "用量数据加载失败：{message}",
       "usageUnavailable": "暂不可用",
-      "usageFailedAttempts": "失败 {count} 次"},
+      "usageFailedAttempts": "失败 {count} 次"
+    },
     "moduleSection": {
       "noData": "暂无数据",
       "viewMore": "查看更多"
@@ -24987,8 +24981,7 @@
     "frozen": "冻结金额",
     "totalRecharge": "累计充值",
     "totalWithdraw": "累计提现",
-    "loadFailed": "钱包加载失败"
-  ,
+    "loadFailed": "钱包加载失败",
     "loginRequired": "请先登录后查看钱包",
     "convertTitle": "钱包余额兑换 AI 积分",
     "convertRule": "1 分 = 1 积分，兑换后不可逆",
@@ -24996,7 +24989,8 @@
     "convertMinHint": "最低 100 积分（¥1）",
     "convertAlreadyDone": "该兑换请求已处理过，未重复扣款",
     "convertSuccess": "已兑换 {points} AI 积分，当前积分余额 {balance}",
-    "convertFailed": "兑换失败，请稍后重试"},
+    "convertFailed": "兑换失败，请稍后重试"
+  },
   "withdrawals": {
     "allStatus": "全部状态",
     "create": "新建",
@@ -29360,7 +29354,8 @@
     "trendChartScope": "范围：{scope}",
     "trendChartHint": "最近 30 天",
     "trendCountAxisLabel": "人数",
-    "trendChartAria": "{scope} 出勤趋势图表"
+    "trendChartAria": "{scope} 出勤趋势图表",
+    "selfCheckInFailed": "签到失败，请稍后重试"
   },
   "eduCertificates": {
     "certificateNo": "编号：{no}",
@@ -30752,7 +30747,14 @@
     "progressEmpty": "暂无分析任务",
     "openChat": "打开对话",
     "streaming": "生成中",
-    "idle": "空闲"
+    "idle": "空闲",
+    "targetEtaxInvoiceLedger": "发票台账",
+    "targetEtaxVatDeclaration": "增值税申报",
+    "targetEtaxCitQuarterly": "企业所得税季报",
+    "targetEtaxIitDeclaration": "个人所得税申报",
+    "targetSocialInsurance": "社保",
+    "targetMedicalInsurance": "医保",
+    "targetBankStatement": "银行流水"
   },
   "hrData": {
     "tabImport": "导入",

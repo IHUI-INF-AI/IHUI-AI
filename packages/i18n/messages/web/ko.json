@@ -7806,7 +7806,10 @@
             "cause": {
               "streaming": "현재 응답 생성 중, 순서 잠김",
               "emptyQueue": "취소 가능한 메시지 없음",
-              "runtimeNoInterject": "인터랙션 비활성, 큐 순서대로 처리"
+              "runtimeNoInterject": "인터랙션 비활성, 큐 순서대로 처리",
+              "queueChanged": "대기열이 병렬 작업으로 변경되어 현재 순서는 더 이상 유효하지 않습니다",
+              "controlCommand": "제어 명령은 실행 중인 Turn에 삽입할 수 없어 대기열에 남아 순서를 기다립니다",
+              "awaitingApproval": "승인 대기 중인 위험 작업이 있어 끼어들기가 결정까지 잠시 양보합니다"
             }
           },
           "reorderAria": "드래그하여 대기열 순서를 변경합니다. 포커스된 상태에서 위/아래 방향키를 사용할 수 있습니다",
@@ -12467,9 +12470,9 @@
     },
     "analysisOpen": "시나리오 분석 보기",
     "secretMaskShow": "자격 증명 표시",
-    "secretMaskHide": "자격 증명 숨기기"
-  ,
-    "resizeComposerHint": "드래그하여 입력창 높이 조정"},
+    "secretMaskHide": "자격 증명 숨기기",
+    "resizeComposerHint": "드래그하여 입력창 높이 조정"
+  },
   "chatHistory": {
     "selectModeAriaLabel": "작업 다중 선택 모드 전환",
     "backToHistory": "기록으로 돌아가기",
@@ -14114,7 +14117,7 @@
     "exampleStep2": "output 비용 = 1200 ÷ 1000 × 10 = 12 분",
     "exampleTitle": "청구 예시",
     "examplesSubtitle": "HTTP Bearer Token 인증, POST application/json",
-    "examplesTip": "팁: YOUR_API_KEY를 /developer/keys에서 생성한 키로 교체하고, baseURL을 실제 엔드포인트로 변경하세요.",
+    "examplesTip": "팁: YOUR_API_KEY를 <link>/developer/keys</link>에서 생성한 키로 교체하고, baseURL을 실제 엔드포인트로 변경하세요.",
     "examplesTitle": "호출 예시",
     "formula": "비용 계산식",
     "formulaBody": "총합 = (input_tokens ÷ 1000 × input_price) + (output_tokens ÷ 1000 × output_price)",
@@ -15433,17 +15436,8 @@
     "sections": "섹션 목차"
   },
   "eduCoursesPage": {
-    "empty": "강의가 없습니다",
-    "loading": "로딩 중...",
-    "progress": "진행률 {n}%",
-    "searchAriaLabel": "강의 검색",
-    "searchPlaceholder": "강의 검색...",
-    "statusCompleted": "완료",
-    "statusInProgress": "진행 중",
-    "statusNotStarted": "시작 전",
     "subtitle": "수강 신청한 모든 강의 관리",
-    "title": "내 강의",
-    "total": "총 {n}건"
+    "title": "내 강의"
   },
   "eduDashboardPage": {
     "coursesCard": {
@@ -16596,11 +16590,11 @@
       "points": "포인트",
       "signIn": "출석",
       "signedIn": "출석 완료",
-      "welcome": "Hi, 학습 플랫폼에 오신 것을 환영합니다"
-    ,
+      "welcome": "Hi, 학습 플랫폼에 오신 것을 환영합니다",
       "usageLoadFailed": "사용량 데이터 로드 실패: {message}",
       "usageUnavailable": "일시적으로 사용 불가",
-      "usageFailedAttempts": "{count}회 실패"},
+      "usageFailedAttempts": "{count}회 실패"
+    },
     "moduleSection": {
       "noData": "데이터 없음",
       "viewMore": "더 보기"
@@ -20458,7 +20452,8 @@
     "hrMyPerf": "내 성과",
     "hrMyTraining": "내 교육",
     "hrMyExpense": "내 경비",
-    "financeGroup": "재무부"
+    "financeGroup": "재무부",
+    "market": "AI 앱 스토어"
   },
   "news": {
     "allCategories": "All categories",
@@ -24607,8 +24602,7 @@
     "frozen": "동결 금액",
     "totalRecharge": "누적 충전",
     "totalWithdraw": "누적 출금",
-    "loadFailed": "지갑 로딩 실패"
-  ,
+    "loadFailed": "지갑 로딩 실패",
     "loginRequired": "로그인 후 지갑을 확인하세요",
     "convertTitle": "지갑 잔액을 AI 포인트로 교환",
     "convertRule": "1분 = 1포인트, 교환 후 되돌릴 수 없습니다",
@@ -24616,7 +24610,8 @@
     "convertMinHint": "최소 100포인트(¥1)",
     "convertAlreadyDone": "해당 교환 요청은 이미 처리되어 중복 차감되지 않았습니다",
     "convertSuccess": "{points} AI포인트를 교환했습니다. 현재 포인트 잔액: {balance}",
-    "convertFailed": "교환에 실패했습니다. 잠시 후 다시 시도하세요"},
+    "convertFailed": "교환에 실패했습니다. 잠시 후 다시 시도하세요"
+  },
   "withdrawals": {
     "allStatus": "모든 상태",
     "create": "생성",
@@ -28984,7 +28979,8 @@
     "trendChartScope": "범위: {scope}",
     "trendChartHint": "최근 30일",
     "trendCountAxisLabel": "인원",
-    "trendChartAria": "{scope} 출석 추이 차트"
+    "trendChartAria": "{scope} 출석 추이 차트",
+    "selfCheckInFailed": "체크인 실패"
   },
   "eduCertificates": {
     "certificateNo": "번호: {no}",
@@ -30383,7 +30379,14 @@
     "progressEmpty": "분석 작업이 없습니다",
     "openChat": "채팅 열기",
     "streaming": "처리 중",
-    "idle": "대기 중"
+    "idle": "대기 중",
+    "targetEtaxInvoiceLedger": "송장 대장",
+    "targetEtaxVatDeclaration": "부가세 신고",
+    "targetEtaxCitQuarterly": "법인세 분기 신고",
+    "targetEtaxIitDeclaration": "개인소득세 신고",
+    "targetSocialInsurance": "사회보험",
+    "targetMedicalInsurance": "의료보험",
+    "targetBankStatement": "은행 거래 내역"
   },
   "hrData": {
     "tabImport": "가져오기",

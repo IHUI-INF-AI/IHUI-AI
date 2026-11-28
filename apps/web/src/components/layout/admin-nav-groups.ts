@@ -353,6 +353,12 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/finance-ai', labelKey: 'financeAi', icon: Wallet },
   { href: '/admin/tags', labelKey: 'tags', icon: Tag },
   { href: '/admin/skills', labelKey: 'adminSkills', icon: Sparkles },
+  {
+    href: '/admin/skill-market',
+    labelKey: 'adminSkills',
+    icon: ShoppingCart,
+    dynamicLabel: '技能市场交易',
+  },
   { href: '/admin/skill-categories', labelKey: 'adminSkillCategories', icon: Tag },
   { href: '/admin/skill-stats', labelKey: 'adminSkillStats', icon: BarChart3 },
   { href: '/admin/skill-versions', labelKey: 'adminSkillVersions', icon: GitBranch },

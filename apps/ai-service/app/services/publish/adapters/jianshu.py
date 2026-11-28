@@ -36,8 +36,16 @@ import httpx
 from app.core.logging import get_logger
 
 from ..base_adapter import BasePlatformAdapter, PublishContent, PublishResult
+from ..anti_risk import create_stealth_browser_context, human_pause
+from ..anti_risk.browser_factory import close_stealth_context
 
 logger = get_logger(__name__)
+
+try:
+    from playwright.async_api import async_playwright
+    _HAS_PLAYWRIGHT = True
+except ImportError:
+    _HAS_PLAYWRIGHT = False
 
 _BASE = "https://www.jianshu.com"
 _USER_AGENT = (
@@ -63,13 +71,50 @@ class _JianshuNoteBody(TypedDict, total=False):
 
 
 class JianshuAdapter(BasePlatformAdapter):
-    """简书适配器。基于 Cookie 模拟 writer 内部 API,无需浏览器自动化。"""
+    """简书适配器。发布走 Cookie 模拟 writer 内部 API;登录验证走浏览器保护页。"""
 
     platform_id = "jianshu"
     platform_name = "简书"
     supported_formats = ["md", "html"]
     requires_credentials = ["cookie"]
-    needs_browser = False
+    needs_browser = True
+
+    def _cookies(self, credentials: dict[str, Any]) -> list[dict[str, Any]]:
+        """把 cookie 字符串或完整 jar 还原为 Playwright cookie list。"""
+        jar = credentials.get("__cookie_jar__") or []
+        if isinstance(jar, list) and jar:
+            out: list[dict[str, Any]] = []
+            for c in jar:
+                if not isinstance(c, dict) or not c.get("name"):
+                    continue
+                out.append({
+                    "name": str(c.get("name")),
+                    "value": str(c.get("value") or ""),
+                    "domain": str(c.get("domain") or ".jianshu.com"),
+                    "path": str(c.get("path") or "/"),
+                    "expires": float(c["expires"]) if c.get("expires") not in (None, "", -1) else -1,
+                    "httpOnly": bool(c.get("httpOnly", False)),
+                    "secure": bool(c.get("secure", False)),
+                    "sameSite": str(c.get("sameSite") or "Lax"),
+                })
+            if out:
+                return out
+        out = []
+        for pair in str(credentials.get("cookie") or "").split(";"):
+            if "=" not in pair:
+                continue
+            k, v = pair.strip().split("=", 1)
+            if not k:
+                continue
+            out.append({
+                "name": k, "value": v,
+                "domain": ".jianshu.com", "path": "/",
+                "expires": -1,
+            })
+        return out
+
+    def _account_id(self, credentials: dict[str, Any]) -> str:
+        return self.account_identity(credentials)
 
     def _headers(self, cookie: str) -> dict[str, str]:
         # 简书需要 Referer + X-Requested-With 才能调通 writer API
@@ -84,11 +129,17 @@ class JianshuAdapter(BasePlatformAdapter):
 
     def _is_login_redirect(self, resp: httpx.Response) -> bool:
         """检测响应是否表明登录态失效(重定向到登录页 或 401/403)。"""
-        if resp.status_code in (401, 403):
+        if resp.status_code == 401:
             return True
-        # follow_redirects=False 时,Location header 会暴露重定向目标
         location = resp.headers.get("location", "")
-        return bool(location and any(hint in location for hint in _LOGIN_REDIRECT_HINTS))
+        if location and any(hint in location for hint in _LOGIN_REDIRECT_HINTS):
+            return True
+        if resp.status_code == 403:
+            # 403 不必然是登录失效：简书账号被冻结也是 403(code 9902)。
+            # 只有正文/跳转明确指向登录时才归为 cookie 失效，否则交给 _api_error。
+            text = (resp.text or "")[:1000]
+            return any(hint in text for hint in ("/sign_in", "请先登录", "登录后", "login"))
+        return False
 
     async def _request_with_retry(
         self,
@@ -112,7 +163,7 @@ class JianshuAdapter(BasePlatformAdapter):
                     if method.upper() == "GET":
                         resp = await client.get(url, headers=headers)
                     else:
-                        resp = await client.post(url, headers=headers, json=json_body)
+                        resp = await client.request(method.upper(), url, headers=headers, json=json_body)
                 if resp.status_code < 500:
                     return resp
                 logger.warning(
@@ -133,48 +184,42 @@ class JianshuAdapter(BasePlatformAdapter):
         return resp
 
     async def verify_credentials(self, credentials: dict[str, Any]) -> tuple[bool, str]:
-        cookie = (credentials.get("cookie") or "").strip()
-        if not cookie:
+        # 2026-11-26:简书 /writer 对未登录也返回 200 的公开 SPA 编辑器页,不能当保护页;
+        # /notifications 未登录会 302 到 /sign_in,登录后才 200,作为严格登录探针。
+        if not _HAS_PLAYWRIGHT:
+            return False, "Playwright not installed. Run: pip install playwright && playwright install chromium"
+        cookies = self._cookies(credentials)
+        if not cookies:
             return False, "missing cookie"
-
         try:
-            # 用 writer 首页探测登录态(follow_redirects=False 以检测重定向)
-            resp = await self._request_with_retry(
-                "GET",
-                f"{_BASE}/writer",
-                headers=self._headers(cookie),
-            )
-        except httpx.HTTPError as e:
-            return False, f"http error: {type(e).__name__}: {e}"
+            async with async_playwright() as p:
+                browser, context = await create_stealth_browser_context(
+                    account_id=self._account_id(credentials),
+                    platform=self.platform_id,
+                    playwright_instance=p,
+                    headless=True,
+                    use_persistent=False,
+                )
+                try:
+                    await context.add_cookies(cookies)
+                    page = await context.new_page()
+                    await human_pause(1.0, 2.0)
+                    await page.goto(
+                        "https://www.jianshu.com/notifications",
+                        wait_until="domcontentloaded",
+                        timeout=30000,
+                    )
+                    await page.wait_for_timeout(2500)
+                    url = (page.url or "").lower()
+                    if "/sign_in" in url or "/login" in url:
+                        return False, "cookie expired (redirected to sign in)"
+                    if "jianshu.com/notifications" not in url:
+                        return False, f"cookie expired (unexpected notifications url: {page.url})"
+                    return True, "connected (notifications accessible)"
+                finally:
+                    await close_stealth_context(browser, context)
         except Exception as e:
             return False, f"verify failed: {type(e).__name__}: {e}"
-
-        if self._is_login_redirect(resp):
-            return False, "cookie expired or invalid (redirected to login)"
-        if resp.status_code != 200:
-            return False, f"API returned {resp.status_code}: {resp.text[:200]}"
-        # 进一步:调 /writer/notes 检查是否真能拿到笔记列表
-        try:
-            notes_resp = await self._request_with_retry(
-                "GET",
-                f"{_BASE}/writer/notes",
-                headers=self._headers(cookie),
-            )
-            if self._is_login_redirect(notes_resp):
-                return False, "cookie expired (notes API redirected)"
-            if notes_resp.status_code == 200:
-                try:
-                    data = notes_resp.json()
-                    count = len(data) if isinstance(data, list) else 0
-                    return True, f"connected, {count} notes visible"
-                except Exception:
-                    # JSON 解析失败但 HTTP 200,仍认为 cookie 有效
-                    return True, "connected (notes API reachable)"
-        except httpx.HTTPError as e:
-            logger.warning("[jianshu] notes verify http error: %s: %s", type(e).__name__, e)
-        except Exception as e:
-            logger.warning("[jianshu] notes verify failed: %s: %s", type(e).__name__, e, exc_info=True)
-        return True, "connected"
 
     async def publish(
         self,
@@ -182,7 +227,13 @@ class JianshuAdapter(BasePlatformAdapter):
         credentials: dict[str, Any],
         platform_config: dict[str, Any],
     ) -> PublishResult:
-        cookie = (credentials.get("cookie") or "").strip()
+        # 优先完整 jar：账号 16 的顶层 cookie 字段是旧值，会触发登录重定向；
+        # __cookie_jar__ 才是当前有效登录态（2026-11-26 实测）。
+        cookie = "; ".join(
+            f"{c.get('name')}={c.get('value')}" for c in self._cookies(credentials) if c.get("name")
+        )
+        if not cookie:
+            cookie = (credentials.get("cookie") or "").strip()
         if not cookie:
             return PublishResult(
                 success=False, platform=self.platform_id,
@@ -202,79 +253,141 @@ class JianshuAdapter(BasePlatformAdapter):
                 error_message="content is empty (no html/text)",
             )
 
-        body: _JianshuNoteBody = {
-            "title": content.title[:200],
-            "content": html,
-            "notebook_id": int(platform_config.get("notebook_id", 0)),
-            "at_bottom": bool(platform_config.get("at_bottom", False)),
-        }
+        notebook_id = int(platform_config.get("notebook_id", 0) or 0)
+        if not notebook_id:
+            # 简书新版接口必须先有笔记本；账号 16 实测 /author/notebooks 返回
+            # [{"id":56303947,"name":"日记本"}, ...]，旧代码写死 0 会 404。
+            try:
+                nb_resp = await self._request_with_retry(
+                    "GET", f"{_BASE}/author/notebooks", headers=self._headers(cookie)
+                )
+                nb_data = nb_resp.json() if nb_resp.status_code == 200 else []
+                if isinstance(nb_data, dict):
+                    nb_data = nb_data.get("notebooks") or nb_data.get("data") or []
+                if isinstance(nb_data, list) and nb_data:
+                    notebook_id = int(nb_data[0].get("id") or 0)
+            except Exception as e:
+                logger.warning("[jianshu] fetch notebooks failed: %s", e)
+        if not notebook_id:
+            return PublishResult(
+                success=False, platform=self.platform_id,
+                error_message="no notebook_id (config empty and /author/notebooks returned none)",
+            )
+
         logger.info(
             "[jianshu] publish start: title=%r notebook_id=%s",
-            content.title, body["notebook_id"],
+            content.title, notebook_id,
         )
 
+        def _api_error(resp: httpx.Response) -> str:
+            try:
+                data = resp.json()
+            except Exception:
+                return f"API {resp.status_code}: {resp.text[:300]}"
+            errs = data.get("error") if isinstance(data, dict) else None
+            if isinstance(errs, list) and errs:
+                return f"API {resp.status_code}: {errs[0].get('message') or errs[0]}"
+            if isinstance(data, dict) and data.get("message"):
+                return f"API {resp.status_code}: {data.get('message')}"
+            return f"API {resp.status_code}: {str(data)[:300]}"
+
+        # 1) 新建笔记（只建壳，正文随后 PUT 写入）
+        create_body = {
+            "notebook_id": str(notebook_id),
+            "title": content.title[:200],
+            "at_bottom": bool(platform_config.get("at_bottom", False)),
+        }
         try:
             resp = await self._request_with_retry(
-                "POST",
-                f"{_BASE}/writer/notes",
-                headers=self._headers(cookie),
-                json_body=dict(body),
-            )
-        except httpx.HTTPError as e:
-            logger.error("[jianshu] publish http error: %s: %s", type(e).__name__, e)
-            return PublishResult(
-                success=False, platform=self.platform_id,
-                error_message=f"http error: {type(e).__name__}: {e}",
+                "POST", f"{_BASE}/author/notes",
+                headers=self._headers(cookie), json_body=create_body,
             )
         except Exception as e:
-            logger.error("[jianshu] publish failed: %s: %s", type(e).__name__, e, exc_info=True)
-            return PublishResult(
-                success=False, platform=self.platform_id,
-                error_message=f"publish failed: {type(e).__name__}: {e}",
-            )
-
-        # 登录态失效
+            logger.error("[jianshu] create note failed: %s: %s", type(e).__name__, e, exc_info=True)
+            return PublishResult(success=False, platform=self.platform_id,
+                                 error_message=f"create note failed: {type(e).__name__}: {e}")
         if self._is_login_redirect(resp):
-            return PublishResult(
-                success=False, platform=self.platform_id,
-                error_message="cookie expired or invalid (redirected to login)",
-            )
+            return PublishResult(success=False, platform=self.platform_id,
+                                 error_message="cookie expired or invalid (redirected to login)")
         if resp.status_code not in (200, 201):
-            logger.warning("[jianshu] publish API %s: %s", resp.status_code, resp.text[:500])
-            return PublishResult(
-                success=False, platform=self.platform_id,
-                error_message=f"API {resp.status_code}: {resp.text[:500]}",
-            )
-
+            return PublishResult(success=False, platform=self.platform_id,
+                                 error_message=_api_error(resp))
         try:
             data = resp.json()
-        except Exception as e:
-            logger.warning("[jianshu] publish JSON 解析失败: %s", e, exc_info=True)
-            return PublishResult(
-                success=False, platform=self.platform_id,
-                error_message=f"invalid JSON response: {e}",
-            )
+        except Exception:
+            data = {}
         if not isinstance(data, dict):
-            return PublishResult(
-                success=False, platform=self.platform_id,
-                error_message=f"unexpected response type: {type(data).__name__}",
-            )
-
-        post_id = data.get("id")
-        slug = data.get("slug", "")
-        if not post_id:
-            return PublishResult(
-                success=False, platform=self.platform_id,
-                error_message=f"response missing 'id': {data}",
-            )
-        # 公开 URL 由 slug 拼装
-        published_url = f"{_BASE}/p/{slug}" if slug else ""
-        logger.info(
-            "[jianshu] publish success: id=%s slug=%s", post_id, slug,
+            data = {}
+        note = data.get("note") or {}
+        note_id = (
+            (note or {}).get("id")
+            or (data.get("id") if isinstance(data, dict) else None)
+            or ((data.get("data") or {}).get("id") if isinstance(data.get("data"), dict) else None)
         )
+        if not note_id:
+            return PublishResult(success=False, platform=self.platform_id,
+                                 error_message=f"create response missing note id: {str(data)[:400]}")
+
+        # 2) 写入正文；autosave_control 用新建返回的值，简书靠它做冲突控制
+        autosave_control = (data.get("autosave_control") if isinstance(data, dict) else 0) or 0
+        update_body = {
+            "id": note_id,
+            "autosave_control": autosave_control,
+            "title": content.title[:200],
+            "content": html,
+        }
+        try:
+            update_resp = await self._request_with_retry(
+                "PUT", f"{_BASE}/author/notes/{note_id}",
+                headers=self._headers(cookie), json_body=update_body,
+            )
+        except Exception as e:
+            logger.error("[jianshu] update note failed: %s: %s", type(e).__name__, e, exc_info=True)
+            return PublishResult(success=False, platform=self.platform_id,
+                                 error_message=f"update note failed: {type(e).__name__}: {e}")
+        if update_resp.status_code not in (200, 201):
+            return PublishResult(success=False, platform=self.platform_id,
+                                 error_message=f"update note failed: {_api_error(update_resp)}")
+
+        # 3) 发布（publicize），不是旧代码的 /writer/notes 一步建文
+        try:
+            pub_resp = await self._request_with_retry(
+                "POST", f"{_BASE}/author/notes/{note_id}/publicize",
+                headers=self._headers(cookie), json_body={},
+            )
+        except Exception as e:
+            logger.error("[jianshu] publicize failed: %s: %s", type(e).__name__, e, exc_info=True)
+            return PublishResult(success=False, platform=self.platform_id,
+                                 error_message=f"publicize failed: {type(e).__name__}: {e}")
+        if pub_resp.status_code not in (200, 201):
+            return PublishResult(success=False, platform=self.platform_id,
+                                 error_message=f"publicize failed: {_api_error(pub_resp)}")
+
+        # slug 优先从发布响应取；取不到就回查内容接口。
+        pub_data = {}
+        try:
+            pub_data = pub_resp.json()
+        except Exception:
+            pass
+        slug = str(data.get("slug") or "") if isinstance(data, dict) else ""
+        if isinstance(pub_data, dict):
+            slug = slug or str(pub_data.get("slug") or (pub_data.get("note") or {}).get("slug") or "")
+        if not slug:
+            try:
+                content_resp = await self._request_with_retry(
+                    "GET", f"{_BASE}/author/notes/{note_id}/content", headers=self._headers(cookie)
+                )
+                if content_resp.status_code == 200:
+                    cdata = content_resp.json()
+                    if isinstance(cdata, dict):
+                        slug = str(cdata.get("slug") or (cdata.get("note") or {}).get("slug") or "")
+            except Exception:
+                pass
+        published_url = f"{_BASE}/p/{slug}" if slug else f"{_BASE}/writer"
+        logger.info("[jianshu] publish success: id=%s slug=%s", note_id, slug)
         return PublishResult(
             success=True, platform=self.platform_id,
-            published_url=published_url, platform_content_id=str(post_id),
-            payload={"post_id": post_id, "slug": slug, "url": published_url},
+            published_url=published_url, platform_content_id=str(note_id),
+            payload={"post_id": note_id, "slug": slug, "url": published_url},
         )
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

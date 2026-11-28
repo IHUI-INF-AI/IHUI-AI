@@ -147,6 +147,14 @@ async def human_click(
         if not element:
             logger.warning("[behavior] 元素未找到: %s", selector)
             return
+        # 弹层/长表单里的按钮可能落在视口下方(y > viewport height)。不先滚入视口，
+        # bounding_box 给出的坐标会落在屏幕外，page.mouse.click 实际点不到元素，
+        # 表现为“日志说点了、页面无任何请求”。先滚入视口再取坐标。
+        try:
+            await element.scroll_into_view_if_needed(timeout=3000)
+            await asyncio.sleep(_triangular_sample(0.05, 0.15, 0.08))
+        except Exception as e:
+            logger.warning("[behavior] 元素滚入视口失败(继续按当前坐标点击): %s", e)
         box = await element.bounding_box()
         if not box:
             logger.warning("[behavior] 元素无 boundingBox: %s", selector)

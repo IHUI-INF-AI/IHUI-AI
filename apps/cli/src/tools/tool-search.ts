@@ -17,6 +17,7 @@
 import { listTools, type Tool, type ToolResult, type ToolContext } from './index.js';
 import { renderToolSchema } from './tool-surface.js';
 import { shouldDeferTool } from './defer-policy.js';
+import { suggestToolNames } from './tool-name-resolve.js';
 
 const TOOL_SEARCH_TOOL_NAME = 'tool_search';
 
@@ -303,32 +304,56 @@ function scoreTool(tool: Pick<Tool, 'name' | 'description' | 'parameters'>, quer
   return score + Math.min(paramScore, PARAM_SCORE_CAP);
 }
 
-/** 纯检索:查询串与精确名并集打分,按分数降序、同分按名字升序(结果可复现)。 */
+/** 相关性下限:低于 本次最高分 × 该比例 的**查询命中**不进结果。
+ *
+ * 立因(2026-11-28):49 条 golden 查询里,期望工具的分/最高分最低 0.65、中位 1.00 ——
+ * 真正对口的工具从不会靠零散词垫底。而 top_k=5 会被"列表/list"这类泛词匹配的
+ * 无关工具填满(实测 705 条命中里 150 条低于最高分 20%),它们一旦被揭示就占住前缀预算。
+ * 名字来源的命中(name/前缀)不受此限:那是模型点名要的,分低也得给。
+ */
+const RELEVANCE_FLOOR_RATIO = 0.5;
+
+/** 纯检索:查询串与精确名并集打分,按分数降序、同分按名字升序(结果可复现)。
+ *  查询命中低于 `RELEVANCE_FLOOR_RATIO × 最高分` 者丢弃;名字命中不设下限。 */
 export function searchTools(
   tools: readonly Tool[],
   queries: readonly string[],
   toolNames: readonly string[],
   topK: number,
 ): ToolSearchHit[] {
-  const hits = new Map<string, ToolSearchHit>();
-  const pick = (tool: Tool, score: number): void => {
+  const hits = new Map<string, ToolSearchHit & { viaName?: boolean }>();
+  const pick = (tool: Tool, score: number, viaName = false): void => {
     if (score <= 0) return;
     const prev = hits.get(tool.name);
-    if (prev === undefined || prev.score < score) hits.set(tool.name, { tool, score });
+    if (prev === undefined) {
+      hits.set(tool.name, { tool, score, viaName });
+      return;
+    }
+    if (prev.score < score) prev.score = score;
+    if (viaName) prev.viaName = true;
   };
   for (const tool of tools) {
     const name = tool.name.toLowerCase();
     for (const rawName of toolNames) {
       const wanted = rawName.trim().toLowerCase();
       if (wanted === '') continue;
-      if (name === wanted) pick(tool, NAME_EXACT_SCORE);
-      else if (name.startsWith(wanted)) pick(tool, NAME_SUBSTRING_SCORE);
+      if (name === wanted) pick(tool, NAME_EXACT_SCORE, true);
+      else if (name.startsWith(wanted)) pick(tool, NAME_SUBSTRING_SCORE, true);
     }
-    for (const query of queries) pick(tool, scoreTool(tool, query));
+    for (const query of queries) {
+      const score = scoreTool(tool, query);
+      if (score > 0) pick(tool, score);
+    }
   }
-  return Array.from(hits.values())
-    .sort((a, b) => (b.score - a.score) || a.tool.name.localeCompare(b.tool.name))
-    .slice(0, topK);
+  const ranked = Array.from(hits.values()).sort(
+    (a, b) => b.score - a.score || a.tool.name.localeCompare(b.tool.name),
+  );
+  const top = ranked[0]?.score ?? 0;
+  const floor = top * RELEVANCE_FLOOR_RATIO;
+  return ranked
+    .filter((hit) => hit.viaName === true || hit.score >= floor)
+    .slice(0, topK)
+    .map(({ tool, score }) => ({ tool, score }));
 }
 
 function readStringList(value: unknown): string[] {
@@ -342,12 +367,37 @@ function readTopK(value: unknown): number {
   return Math.min(MAX_TOP_K, Math.max(1, Math.floor(n)));
 }
 
-/** 可用延迟工具名列表(空结果提示用):只列名字,不带 schema。 */
+/** 空结果提示用:只列名字,不带 schema。 */
 function availableDeferredNames(tools: readonly Tool[], revealed: ReadonlySet<string>): string[] {
   return tools
     .filter((tool) => tool.name !== TOOL_SEARCH_TOOL_NAME)
     .filter((tool) => shouldDeferTool(tool.name, tool, revealed))
     .map((tool) => tool.name);
+}
+
+/**
+ * **热使用**上报(2026-11-28):工具被成功调用一次 ⇒ 视为"最近用到",纳入揭示集合并刷新 LRU 序。
+ *
+ * 立因:预算回收只按"被检索"排序,按名直调(名字来自延迟目录)不算热使用 ⇒ 常用工具被回收、
+ * 搜过没用过的反而留着。这里把"用过"并入同一套顺序;代价由预算封顶(超了照样回收最久未用的)。
+ *
+ * @returns promoted = 本次是不是新升为揭示;evicted = 为腾预算被回收的名字
+ */
+export function noteRevealedToolUsage(
+  name: string,
+  tools: readonly Tool[],
+  revealed: Set<string>,
+  budgetBytes: number = REVEAL_BUDGET_BYTES,
+): { promoted: boolean; evicted: string[] } {
+  const tool = tools.find((candidate) => candidate.name === name);
+  if (tool === undefined) return { promoted: false, evicted: [] };
+  // 常驻工具本就在前缀,升不升都不占预算、也不该挤掉延迟工具。
+  if (!shouldDeferTool(name, tool, new Set<string>())) return { promoted: false, evicted: [] };
+  const already = revealed.has(name);
+  revealed.delete(name);
+  revealed.add(name);
+  const evicted = pruneRevealed(revealed, tools, new Set([name]), budgetBytes);
+  return { promoted: !already, evicted };
 }
 
 export function createToolSearchTool(opts: ToolSearchOptions): Tool {
@@ -404,11 +454,18 @@ export function createToolSearchTool(opts: ToolSearchOptions): Tool {
       }
       const hits = searchTools(tools, queries, toolNames, topK);
       if (hits.length === 0) {
+        // 空结果也要给落点:光列 113 个名字,模型改不出一个"看起来对"的词;
+        // 用同一套相似度（含错拼档）给 3 个近名,它下一句就能改对。
+        const near = suggestToolNames(toolNames[0] ?? queries[0] ?? '', tools.map((tool) => tool.name), 3);
+        const nearNote = near.length === 0 ? '' : `\n\n最接近的名字:${near.join(', ')}(可直接按名调用)`;
         return {
           success: true,
-          output: `未命中任何工具。可检索的延迟工具:\n${availableDeferredNames(tools, opts.revealed).join('\n') || '(当前没有可检索的延迟工具)'}`,
+          output: `未命中任何工具。可检索的延迟工具:\n${availableDeferredNames(tools, opts.revealed).join('\n') || '(当前没有可检索的延迟工具)'}${nearNote}`,
         };
       }
+      // 重复检索保护:`revealed` 里已在本会话揭示、或本来就没延迟的工具,参数 schema
+      // 已在模型前缀里——再整段返回一次纯属重复占位(实测同一条查询重复一次要 731-1416B)。
+      const alreadyInPrefix = hits.every((hit) => !shouldDeferTool(hit.tool.name, hit.tool, opts.revealed));
       // 命中即揭示,并把"最久未命中"的顺序刷新到队尾(Set 的插入顺序就是回收顺序)。
       const hitNames = new Set(hits.map((hit) => hit.tool.name));
       for (const hit of hits) {
@@ -422,6 +479,12 @@ export function createToolSearchTool(opts: ToolSearchOptions): Tool {
           ? ''
           : `\n\n(揭示预算 ${budgetUsed}B 已满,回收最早揭示的 ${evicted.length} 个:${evicted.join(', ')};` +
             '它们仍可按名直接调用,需要参数细节时再检索)';
+      if (alreadyInPrefix) {
+        return {
+          success: true,
+          output: `${hits.length} 个工具的参数 schema 已在本会话前缀里(重复检索不重复返回):${hitNames.size === 0 ? '-' : Array.from(hitNames).join(', ')}${budgetNote}`,
+        };
+      }
       return {
         success: true,
         output: `已揭示 ${hits.length} 个工具,本轮起参数 schema 常驻:\n\n${hits.map((hit) => renderToolSchema(hit.tool)).join('\n\n')}${budgetNote}`,

@@ -43,8 +43,8 @@ describe('resolvePathLabelSpec i18n 路由前缀剥离', () => {
     expect(resolvePathLabelSpec('/en')).toEqual({ ns: 'nav', key: 'home' })
   })
 
-  it('/en/agents 剥离后命中 nav.agents(侧边栏 FLAT_NAV_ITEMS 自动注册)', () => {
-    expect(resolvePathLabelSpec('/en/agents')).toEqual({ ns: 'nav', key: 'agents' })
+  it('/en/agents 剥离后命中 nav.market(主导航把 /agents 定义为 AI 应用商店)', () => {
+    expect(resolvePathLabelSpec('/en/agents')).toEqual({ ns: 'nav', key: 'market' })
   })
 
   it('/en/models 剥离后命中 nav.models(侧边栏 FLAT_NAV_ITEMS 自动注册)', () => {

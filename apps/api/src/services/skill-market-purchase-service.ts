@@ -14,11 +14,26 @@
  * - 购买账本先以唯一键 `(buyer_user_id, skill_name)` 抢占，重复购买不再扣款；
  * - 余额不足抛 `InsufficientSkillFundsError`，整个事务回滚（不会留下半笔账）。
  */
-import { and, eq, sql } from 'drizzle-orm'
+import { and, desc, eq, ilike, or, sql } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/pg-core'
 import { db } from '../db/index.js'
 import { createCommissionFlow } from '../db/commission-queries.js'
-import { commissionFlows, skillMarketPurchases, tokenFlows, userMargins } from '@ihui/database'
-import type { SkillMarketEntry } from '@ihui/shared/skills/market'
+import {
+  commissionFlows,
+  skillMarketPurchases,
+  tokenFlows,
+  userMargins,
+  users,
+} from '@ihui/database'
+import type {
+  SkillMarketEntry,
+  SkillMarketSettlementResponse,
+  SkillMarketSettlementRow,
+  SkillMarketSettlementTotals,
+} from '@ihui/shared/skills/market'
+
+const buyerUser = alias(users, 'skill_market_buyer')
+const sellerUser = alias(users, 'skill_market_seller')
 
 const DEFAULT_AUTHOR_SHARE_BPS = 7000
 
@@ -195,7 +210,7 @@ export async function purchasePaidSkill(input: {
       // 把作者分成登记为“可提现佣金”:钱包余额已经入账,但现有提现入口按
       // commission_flows 统计可提额度;不补这笔,作者只能看到余额却提不出来。
       // token=0:钱已在上面入账,这里只增加佣金可提额度,不再重复加钱。
-      await createCommissionFlow(
+      const commissionFlow = await createCommissionFlow(
         {
           beneficiaryId: sellerUserId,
           invitedUserId: buyerUserId,
@@ -207,6 +222,11 @@ export async function purchasePaidSkill(input: {
         null,
         tx,
       )
+      // 退款按购买账本上的流水 ID 精确冲正，不再依赖 remark 字符串匹配。
+      await tx
+        .update(skillMarketPurchases)
+        .set({ commissionFlowId: commissionFlow.id })
+        .where(eq(skillMarketPurchases.id, inserted.id))
     }
 
     return {
@@ -240,6 +260,221 @@ export class SkillPurchaseNotFoundError extends Error {
     super('skill purchase not found')
     this.name = 'SkillPurchaseNotFoundError'
   }
+}
+
+export interface AdminSkillMarketPurchaseRow {
+  id: string
+  skillName: string
+  skillVersion: string
+  buyerUserId: string
+  buyerNickname: string | null
+  sellerUserId: string | null
+  sellerNickname: string | null
+  priceCents: number
+  currency: string
+  revenueShareBps: number
+  authorShareCents: number
+  platformShareCents: number
+  status: string
+  createdAt: Date
+  refundedAt: Date | null
+  refundAmountCents: number
+  /** 实际从卖家余额扣回的分成；NULL = 历史退款未记录。 */
+  sellerClawbackCents: number | null
+  refundReason: string | null
+}
+
+/**
+ * 管理员交易列表：按状态/关键词筛选，按创建时间倒序分页。
+ *
+ * 关键词命中购买 ID、技能名、买家/卖家昵称；不把 UUID 精确匹配拆成单独的
+ * 查询分支，避免管理员复制购买 ID 时因大小写或前后空格查不到。
+ */
+export async function listSkillMarketPurchasesAdmin(input: {
+  status?: 'paid' | 'refunded'
+  keyword?: string
+  page: number
+  pageSize: number
+}): Promise<{ items: AdminSkillMarketPurchaseRow[]; total: number }> {
+  const conditions = []
+  if (input.status) conditions.push(eq(skillMarketPurchases.status, input.status))
+  const keyword = input.keyword?.trim()
+  if (keyword) {
+    const pattern = `%${keyword}%`
+    conditions.push(
+      or(
+        ilike(sql`${skillMarketPurchases.id}::text`, pattern),
+        ilike(skillMarketPurchases.skillName, pattern),
+        ilike(buyerUser.nickname, pattern),
+        ilike(sellerUser.nickname, pattern),
+      ),
+    )
+  }
+  const where = conditions.length > 0 ? and(...conditions) : undefined
+
+  const [rows, totalRows] = await Promise.all([
+    db
+      .select({
+        id: skillMarketPurchases.id,
+        skillName: skillMarketPurchases.skillName,
+        skillVersion: skillMarketPurchases.skillVersion,
+        buyerUserId: skillMarketPurchases.buyerUserId,
+        buyerNickname: buyerUser.nickname,
+        sellerUserId: skillMarketPurchases.sellerUserId,
+        sellerNickname: sellerUser.nickname,
+        priceCents: skillMarketPurchases.priceCents,
+        currency: skillMarketPurchases.currency,
+        revenueShareBps: skillMarketPurchases.revenueShareBps,
+        authorShareCents: skillMarketPurchases.authorShareCents,
+        platformShareCents: skillMarketPurchases.platformShareCents,
+        status: skillMarketPurchases.status,
+        createdAt: skillMarketPurchases.createdAt,
+        refundedAt: skillMarketPurchases.refundedAt,
+        refundAmountCents: skillMarketPurchases.refundAmountCents,
+        sellerClawbackCents: skillMarketPurchases.sellerClawbackCents,
+        refundReason: skillMarketPurchases.refundReason,
+      })
+      .from(skillMarketPurchases)
+      .leftJoin(buyerUser, eq(skillMarketPurchases.buyerUserId, buyerUser.id))
+      .leftJoin(sellerUser, eq(skillMarketPurchases.sellerUserId, sellerUser.id))
+      .where(where)
+      .orderBy(desc(skillMarketPurchases.createdAt))
+      .limit(input.pageSize)
+      .offset((input.page - 1) * input.pageSize),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(skillMarketPurchases)
+      .leftJoin(buyerUser, eq(skillMarketPurchases.buyerUserId, buyerUser.id))
+      .leftJoin(sellerUser, eq(skillMarketPurchases.sellerUserId, sellerUser.id))
+      .where(where),
+  ])
+
+  return { items: rows, total: totalRows[0]?.count ?? 0 }
+}
+
+/**
+ * 结算聚合原始值（全部为分/笔数）。抽成纯函数便于单测，
+ * 也避免在 SQL 侧重复计算 authorNet/platformNet 两套口径。
+ */
+export interface SkillSettlementAggregate {
+  paidCount: number
+  refundedCount: number
+  grossSalesCents: number
+  refundedGrossCents: number
+  authorShareEarnedCents: number
+  authorShareOnRefundedCents: number
+  sellerClawbackCents: number
+  platformShareEarnedCents: number
+  platformShareOnRefundedCents: number
+  clawbackMissingCount: number
+}
+
+/** 按购买账本口径计算结算净额；平台承担 = 应冲正作者分成 - 实际扣回。 */
+export function computeSkillSettlementTotals(
+  raw: SkillSettlementAggregate,
+): SkillMarketSettlementTotals {
+  const authorShareActiveCents = raw.authorShareEarnedCents - raw.authorShareOnRefundedCents
+  const platformShareActiveCents = raw.platformShareEarnedCents - raw.platformShareOnRefundedCents
+  const platformBorneCents = raw.authorShareOnRefundedCents - raw.sellerClawbackCents
+  return {
+    paidCount: raw.paidCount,
+    refundedCount: raw.refundedCount,
+    grossSalesCents: raw.grossSalesCents,
+    refundedGrossCents: raw.refundedGrossCents,
+    netGmvCents: raw.grossSalesCents - raw.refundedGrossCents,
+    authorShareEarnedCents: raw.authorShareEarnedCents,
+    authorShareActiveCents,
+    authorShareOnRefundedCents: raw.authorShareOnRefundedCents,
+    sellerClawbackCents: raw.sellerClawbackCents,
+    platformBorneCents,
+    // 作者实际留存 = 全部销售应得 - 真正退回的分成；余额不足未扣回的部分由平台承担。
+    authorNetCents: raw.authorShareEarnedCents - raw.sellerClawbackCents,
+    platformShareEarnedCents: raw.platformShareEarnedCents,
+    platformShareActiveCents,
+    platformShareOnRefundedCents: raw.platformShareOnRefundedCents,
+    platformNetCents:
+      raw.platformShareEarnedCents - raw.platformShareOnRefundedCents - platformBorneCents,
+    clawbackMissingCount: raw.clawbackMissingCount,
+  }
+}
+
+function settlementInt(value: unknown): number {
+  const parsed = typeof value === 'bigint' ? Number(value) : Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+/**
+ * 管理员结算汇总：按 技能 + 卖家 聚合购买账本。
+ * 查询只做原始聚合，净额统一走 computeSkillSettlementTotals，保证列表与总额同口径。
+ */
+export async function getSkillMarketSettlement(): Promise<SkillMarketSettlementResponse> {
+  const rows = await db
+    .select({
+      skillName: skillMarketPurchases.skillName,
+      sellerUserId: skillMarketPurchases.sellerUserId,
+      sellerNickname: sellerUser.nickname,
+      paidCount: sql<number>`COUNT(*) FILTER (WHERE ${skillMarketPurchases.status} = 'paid')::int`,
+      refundedCount: sql<number>`COUNT(*) FILTER (WHERE ${skillMarketPurchases.status} = 'refunded')::int`,
+      grossSalesCents: sql<string>`COALESCE(SUM(${skillMarketPurchases.priceCents}) FILTER (WHERE ${skillMarketPurchases.status} IN ('paid', 'refunded')), 0)::bigint`,
+      refundedGrossCents: sql<string>`COALESCE(SUM(${skillMarketPurchases.refundAmountCents}) FILTER (WHERE ${skillMarketPurchases.status} = 'refunded'), 0)::bigint`,
+      authorShareEarnedCents: sql<string>`COALESCE(SUM(${skillMarketPurchases.authorShareCents}) FILTER (WHERE ${skillMarketPurchases.status} IN ('paid', 'refunded')), 0)::bigint`,
+      authorShareOnRefundedCents: sql<string>`COALESCE(SUM(${skillMarketPurchases.authorShareCents}) FILTER (WHERE ${skillMarketPurchases.status} = 'refunded'), 0)::bigint`,
+      sellerClawbackCents: sql<string>`COALESCE(SUM(COALESCE(${skillMarketPurchases.sellerClawbackCents}, 0)) FILTER (WHERE ${skillMarketPurchases.status} = 'refunded'), 0)::bigint`,
+      platformShareEarnedCents: sql<string>`COALESCE(SUM(${skillMarketPurchases.platformShareCents}) FILTER (WHERE ${skillMarketPurchases.status} IN ('paid', 'refunded')), 0)::bigint`,
+      platformShareOnRefundedCents: sql<string>`COALESCE(SUM(${skillMarketPurchases.platformShareCents}) FILTER (WHERE ${skillMarketPurchases.status} = 'refunded'), 0)::bigint`,
+      clawbackMissingCount: sql<number>`COUNT(*) FILTER (WHERE ${skillMarketPurchases.status} = 'refunded' AND ${skillMarketPurchases.sellerClawbackCents} IS NULL)::int`,
+    })
+    .from(skillMarketPurchases)
+    .leftJoin(sellerUser, eq(skillMarketPurchases.sellerUserId, sellerUser.id))
+    .groupBy(skillMarketPurchases.skillName, skillMarketPurchases.sellerUserId, sellerUser.nickname)
+    .orderBy(sql`COALESCE(SUM(${skillMarketPurchases.priceCents}), 0) DESC`)
+
+  const items: SkillMarketSettlementRow[] = rows.map((row) => ({
+    skillName: row.skillName,
+    sellerUserId: row.sellerUserId,
+    sellerNickname: row.sellerNickname,
+    ...computeSkillSettlementTotals({
+      paidCount: settlementInt(row.paidCount),
+      refundedCount: settlementInt(row.refundedCount),
+      grossSalesCents: settlementInt(row.grossSalesCents),
+      refundedGrossCents: settlementInt(row.refundedGrossCents),
+      authorShareEarnedCents: settlementInt(row.authorShareEarnedCents),
+      authorShareOnRefundedCents: settlementInt(row.authorShareOnRefundedCents),
+      sellerClawbackCents: settlementInt(row.sellerClawbackCents),
+      platformShareEarnedCents: settlementInt(row.platformShareEarnedCents),
+      platformShareOnRefundedCents: settlementInt(row.platformShareOnRefundedCents),
+      clawbackMissingCount: settlementInt(row.clawbackMissingCount),
+    }),
+  }))
+
+  const summary = items.reduce<SkillMarketSettlementTotals>(
+    (acc, item) => {
+      for (const key of Object.keys(acc) as Array<keyof SkillMarketSettlementTotals>) {
+        acc[key] += item[key]
+      }
+      return acc
+    },
+    {
+      paidCount: 0,
+      refundedCount: 0,
+      grossSalesCents: 0,
+      refundedGrossCents: 0,
+      netGmvCents: 0,
+      authorShareEarnedCents: 0,
+      authorShareActiveCents: 0,
+      authorShareOnRefundedCents: 0,
+      sellerClawbackCents: 0,
+      platformBorneCents: 0,
+      authorNetCents: 0,
+      platformShareEarnedCents: 0,
+      platformShareActiveCents: 0,
+      platformShareOnRefundedCents: 0,
+      platformNetCents: 0,
+      clawbackMissingCount: 0,
+    },
+  )
+
+  return { summary, items, currency: 'CNY' }
 }
 
 export class SkillPurchaseStateError extends Error {
@@ -285,7 +520,7 @@ export async function refundSkillPurchase(input: {
         skillName: purchase.skillName,
         buyerUserId: purchase.buyerUserId,
         refundedAmountCents: purchase.refundAmountCents,
-        sellerClawbackCents: 0,
+        sellerClawbackCents: purchase.sellerClawbackCents ?? 0,
         buyerBalanceAfter: null,
       }
     }
@@ -348,20 +583,21 @@ export async function refundSkillPurchase(input: {
         })
       }
 
-      // 购买时写入的佣金记录按 purchase id 精确定位；退款后置失效，防止作者继续提现
-      // 已退回的分成。早期无 purchase id 的历史记录匹配不到，余额仍会按上面扣回。
-      await tx
-        .update(commissionFlows)
-        .set({ status: 0, updatedAt: new Date(), updatedBy: input.operatorId })
-        .where(
-          and(
+      // 购买时写入的佣金记录优先按 purchase 上的 commission_flow_id 精确冲正；
+      // 早期没有该列的历史行回退到 remark 匹配，防止作者继续提现已退回的分成。
+      const commissionWhere = purchase.commissionFlowId
+        ? eq(commissionFlows.id, purchase.commissionFlowId)
+        : and(
             eq(commissionFlows.beneficiaryId, purchase.sellerUserId),
             eq(
               commissionFlows.remark,
               `skill_market_author_share:${purchase.id}:${purchase.skillName}`.slice(0, 255),
             ),
-          ),
-        )
+          )
+      await tx
+        .update(commissionFlows)
+        .set({ status: 0, updatedAt: new Date(), updatedBy: input.operatorId })
+        .where(commissionWhere)
     }
 
     await tx
@@ -370,6 +606,7 @@ export async function refundSkillPurchase(input: {
         status: 'refunded',
         refundedAt: new Date(),
         refundAmountCents: priceCents,
+        sellerClawbackCents,
         refundReason: input.reason?.slice(0, 255),
         refundedBy: input.operatorId,
       })

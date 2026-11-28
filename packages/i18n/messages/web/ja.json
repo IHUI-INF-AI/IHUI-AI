@@ -7806,7 +7806,10 @@
             "cause": {
               "streaming": "回答生成中のため、キュー順序は現在固定されています",
               "emptyQueue": "引き取り可能なメッセージがキューにありません",
-              "runtimeNoInterject": "このRuntimeは割り込みを無効にしており、メッセージはキュー内で順番に処理されます"
+              "runtimeNoInterject": "このRuntimeは割り込みを無効にしており、メッセージはキュー内で順番に処理されます",
+              "queueChanged": "待機列が並行して変更されたため、現在の順序は失効しています",
+              "controlCommand": "制御コマンドは実行中の Turn に割り込めないため、待機列のまま順番を待ちます",
+              "awaitingApproval": "承認待ちの危険な操作があるため、割り込みは判断が終わるまで譲ります"
             }
           },
           "reorderAria": "ドラッグでキューの順序を変更。フォーカス中は上下方向キーも使用できます",
@@ -12467,9 +12470,9 @@
     },
     "analysisOpen": "シナリオ分析を表示",
     "secretMaskShow": "認証情報を表示",
-    "secretMaskHide": "認証情報を隠す"
-  ,
-    "resizeComposerHint": "ドラッグで入力欄の高さを調整"},
+    "secretMaskHide": "認証情報を隠す",
+    "resizeComposerHint": "ドラッグで入力欄の高さを調整"
+  },
   "chatHistory": {
     "selectModeAriaLabel": "タスクの複数選択モードを切り替え",
     "backToHistory": "にる",
@@ -14114,7 +14117,7 @@
     "exampleStep2": "output 費用 = 1200 ÷ 1000 × 10 = 12 分",
     "exampleTitle": "課金例",
     "examplesSubtitle": "HTTP Bearer Token 認証、POST application/json",
-    "examplesTip": "ヒント:YOUR_API_KEY を /developer/keys で作成したキーに置き換え、baseURL を実際のエンドポイントに変更してください。",
+    "examplesTip": "ヒント：YOUR_API_KEY を <link>/developer/keys</link> で作成したキーに置き換え、baseURL を実際のエンドポイントに変更してください。",
     "examplesTitle": "呼び出し例",
     "formula": "料金計算式",
     "formulaBody": "合計 = (input_tokens ÷ 1000 × input_price) + (output_tokens ÷ 1000 × output_price)",
@@ -15433,17 +15436,8 @@
     "sections": "セクション目次"
   },
   "eduCoursesPage": {
-    "empty": "コースがありません",
-    "loading": "読み込み中...",
-    "progress": "進捗 {n}%",
-    "searchAriaLabel": "コースを検索",
-    "searchPlaceholder": "コースを検索...",
-    "statusCompleted": "完了",
-    "statusInProgress": "受講中",
-    "statusNotStarted": "未開始",
     "subtitle": "受講済みの全コースを管理",
-    "title": "マイコース",
-    "total": "全 {n} 件"
+    "title": "マイコース"
   },
   "eduDashboardPage": {
     "coursesCard": {
@@ -16596,11 +16590,11 @@
       "points": "ポイント",
       "signIn": "チェックイン",
       "signedIn": "チェックイン済み",
-      "welcome": "Hi、学習プラットフォームへようこそ"
-    ,
+      "welcome": "Hi、学習プラットフォームへようこそ",
       "usageLoadFailed": "使用量データの読み込みに失敗しました：{message}",
       "usageUnavailable": "一時利用不可",
-      "usageFailedAttempts": "{count}回失敗"},
+      "usageFailedAttempts": "{count}回失敗"
+    },
     "moduleSection": {
       "noData": "データがありません",
       "viewMore": "もっと見る"
@@ -20458,7 +20452,8 @@
     "hrMyPerf": "自分の評価",
     "hrMyTraining": "自分の研修",
     "hrMyExpense": "自分の経費",
-    "financeGroup": "財務部"
+    "financeGroup": "財務部",
+    "market": "AIアプリストア"
   },
   "news": {
     "allCategories": "All categories",
@@ -24607,8 +24602,7 @@
     "frozen": "凍結金額",
     "totalRecharge": "累計チャージ",
     "totalWithdraw": "累計出金",
-    "loadFailed": "ウォレットの読み込みに失敗しました"
-  ,
+    "loadFailed": "ウォレットの読み込みに失敗しました",
     "loginRequired": "ログインしてウォレットを表示してください",
     "convertTitle": "ウォレット残高をAIポイントに交換",
     "convertRule": "1分=1ポイント、交換後は取り消せません",
@@ -24616,7 +24610,8 @@
     "convertMinHint": "最小 100ポイント（¥1）",
     "convertAlreadyDone": "この交換リクエストは処理済みです（重複請求なし）",
     "convertSuccess": "{points} AIポイントを交換しました。現在のポイント残高: {balance}",
-    "convertFailed": "交換に失敗しました。後ほど再度お試しください"},
+    "convertFailed": "交換に失敗しました。後ほど再度お試しください"
+  },
   "withdrawals": {
     "allStatus": "すべてのステータス",
     "create": "新規作成",
@@ -28984,7 +28979,8 @@
     "trendChartScope": "対象：{scope}",
     "trendChartHint": "過去 30 日",
     "trendCountAxisLabel": "人数",
-    "trendChartAria": "{scope} の出席トレンドチャート"
+    "trendChartAria": "{scope} の出席トレンドチャート",
+    "selfCheckInFailed": "チェックインに失敗しました"
   },
   "eduCertificates": {
     "certificateNo": "番号：{no}",
@@ -30383,7 +30379,14 @@
     "progressEmpty": "分析タスクがありません",
     "openChat": "チャットを開く",
     "streaming": "生成中",
-    "idle": "待機中"
+    "idle": "待機中",
+    "targetEtaxInvoiceLedger": "請求書台帳",
+    "targetEtaxVatDeclaration": "消費税申告",
+    "targetEtaxCitQuarterly": "法人税 四半期申告",
+    "targetEtaxIitDeclaration": "個人所得税申告",
+    "targetSocialInsurance": "社会保険",
+    "targetMedicalInsurance": "医療保険",
+    "targetBankStatement": "銀行明細"
   },
   "hrData": {
     "tabImport": "インポート",

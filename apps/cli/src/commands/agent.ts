@@ -64,7 +64,7 @@ import {
   type ToolChoice,
 } from '../tools/native-tools-body.js';
 import { createNativeToolExecutor, type ToolExecutor, type ToolExecutorKind } from '../tools/tool-executor.js';
-import { createToolSearchTool } from '../tools/tool-search.js';
+import { createToolSearchTool, noteRevealedToolUsage } from '../tools/tool-search.js';
 import { composeSystemPrompt } from '../prompts/compose.js';
 import { parseWelcomeMode, parseInteractionMode } from '../prompts/mode-matrix.js';
 import { BUILTIN_TOOLS } from '../tools/builtins.js';
@@ -924,6 +924,11 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
     taskWorkspaceId: opts.taskWorkspaceId,
     confirmDangerous: opts.confirmDangerous,
     allowDangerous: opts.allowDangerous,
+    // 热使用上报(2026-11-28):成功调用过的延迟工具升为揭示并刷新 LRU ——
+    // 与 tool_search 命中共用同一份 revealed 与同一套预算。
+    noteToolUsage: (toolName) => {
+      noteRevealedToolUsage(toolName, listTools(), revealedTools);
+    },
     // 有审批人否:缺省不传(undefined)⇒ 工具层沿用旧归因(user-declined / no-confirmation-channel)。
     approverAvailable: opts.approverAvailable,
     // G-212:这里原来写作 `settings.sandbox ? {…} : undefined` —— 首跑/无 settings.json 的会话

@@ -133,7 +133,10 @@ describe('Upload labels 注入契约', () => {
 
   it('web hook 为每个键注入取词(键名 1:1)', () => {
     const hook = read('apps/web/src/hooks/use-upload-labels.ts')
-    const missing = keys.filter((k) => !new RegExp(`${k}:\\s*t\\('${k}'\\)`).test(hook))
+    // 模板键必须 t.raw 取原文(next-intl 缺参会回落整条键路径),不能要求一律 t()。
+    const missing = keys.filter(
+      (k) => !new RegExp(`${k}:\\s*(?:String\\()?t(?:\\.raw)?\\('${k}'\\)`).test(hook),
+    )
     expect(missing, `hook 未注入:${missing.join(', ')}`).toEqual([])
     expect(hook).toContain("useTranslations('upload')")
   })

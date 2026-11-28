@@ -95,7 +95,13 @@ def row_id_from_account_id(account_id: str) -> str | None:
     （查不到主人 ⇒ 仍计入关联，绝不因为"不知道是谁"就放行）。
     """
     m = _DB_KEY_RE.search(account_id or "")
-    return m.group(1) if m else None
+    if m:
+        return m.group(1)
+    # 兼容存量裸行号键(旧入口把 publish_accounts.id 直接当 account_id 落盘)。
+    # 行 id 在全库唯一,裸数字本身就能反解主人;不兼容它会让同主人账号
+    # 被当成陌生设备,重演 risk=100 误冷却。
+    raw = (account_id or "").strip()
+    return raw if raw.isdigit() else None
 
 
 __all__ = ["STABLE_IDENTITY_FIELDS", "resolve_account_id", "row_id_from_account_id"]

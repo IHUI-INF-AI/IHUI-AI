@@ -25,7 +25,8 @@ from typing import Any
 import httpx
 
 from app.core.logging import get_logger
-
+from ..anti_risk import create_stealth_browser_context
+from ..anti_risk.browser_factory import close_stealth_context
 from ..base_adapter import BasePlatformAdapter, PublishContent, PublishResult
 
 logger = get_logger(__name__)
@@ -37,11 +38,134 @@ class WeiboAdapter(BasePlatformAdapter):
     platform_id = "weibo"
     platform_name = "微博"
     supported_formats = ["md", "html", "image", "video"]
-    requires_credentials = ["access_token", "uid"]
+    requires_credentials = []
+
+    async def _web_cookies(self, credentials: dict[str, Any]) -> list[dict[str, Any]]:
+        jar = credentials.get("__cookie_jar__") or []
+        cookies = [
+            {k: v for k, v in c.items() if k in ("name", "value", "domain", "path", "secure", "httpOnly", "expires", "sameSite")}
+            for c in jar
+        ]
+        return [c for c in cookies if c.get("expires", 0) != -1]
+
+    async def _verify_web(self, credentials: dict[str, Any]) -> tuple[bool, str]:
+        from playwright.async_api import async_playwright
+        cookies = await self._web_cookies(credentials)
+        if not cookies:
+            return False, "missing access_token or __cookie_jar__"
+        try:
+            async with async_playwright() as p:
+                browser, context = await create_stealth_browser_context(
+                    account_id=str(self.db_account_id or "weibo"),
+                    platform="weibo",
+                    playwright_instance=p,
+                    headless=True,
+                )
+                try:
+                    await context.add_cookies(cookies)
+                    page = await context.new_page()
+                    await page.goto("https://weibo.com", wait_until="domcontentloaded", timeout=30000)
+                    await page.wait_for_timeout(3000)
+                    if "login" in page.url or "passport" in page.url:
+                        return False, f"web cookie invalid (redirected to {page.url})"
+                    if await page.locator("textarea").count() == 0:
+                        return False, "web cookie invalid (no compose box)"
+                    return True, "web cookie valid (https://weibo.com)"
+                finally:
+                    await close_stealth_context(browser, context)
+        except Exception as e:
+            return False, f"web verify failed: {type(e).__name__}: {e}"
+
+    async def _publish_web(self, content: PublishContent, credentials: dict[str, Any]) -> PublishResult:
+        from playwright.async_api import async_playwright
+        text = content.title or ""
+        if content.text:
+            text = (text + "\n" + content.text) if text else content.text
+        text = text[:140]
+        if not text.strip():
+            return PublishResult(success=False, platform=self.platform_id, error_message="missing text content (140 chars required)")
+        cookies = await self._web_cookies(credentials)
+        if not cookies:
+            return PublishResult(success=False, platform=self.platform_id, error_message="missing __cookie_jar__")
+        try:
+            async with async_playwright() as p:
+                browser, context = await create_stealth_browser_context(
+                    account_id=str(self.db_account_id or "weibo"),
+                    platform="weibo",
+                    playwright_instance=p,
+                    headless=True,
+                )
+                try:
+                    await context.add_cookies(cookies)
+                    page = await context.new_page()
+                    await page.goto("https://weibo.com", wait_until="domcontentloaded", timeout=30000)
+                    await page.wait_for_timeout(3000)
+                    area = page.locator("textarea").first
+                    await area.fill(text)
+                    await asyncio.sleep(0.4)
+                    # 微博的「发送」是一个 span.woo-button-content（pointer-events:none），
+                    # Playwright 点它会落空；Ctrl+Enter 是网页版真实快捷键，实测能触发
+                    # POST /ajax/statuses/update 并返回 mid/mblogid。
+                    updates: list[dict[str, Any]] = []
+
+                    async def _on_update(r) -> None:
+                        if "/ajax/statuses/update" not in r.url or r.request.method.upper() != "POST":
+                            return
+                        try:
+                            data = await r.json()
+                        except Exception:
+                            return
+                        updates.append({"status": r.status, "data": data})
+
+                    page.on("response", lambda r: asyncio.create_task(_on_update(r)))
+                    await area.press("Control+Enter")
+                    for _ in range(20):
+                        await asyncio.sleep(0.5)
+                        if updates:
+                            break
+                    if updates:
+                        payload = updates[0].get("data") or {}
+                        item = payload.get("data") or {}
+                        mid = item.get("idstr") or item.get("id") or item.get("mid")
+                        mblogid = item.get("mblogid") or ""
+                        user = item.get("user") or {}
+                        uid = user.get("idstr") or user.get("id") or ""
+                        if mid:
+                            if uid and mblogid:
+                                published_url = f"https://weibo.com/{uid}/{mblogid}"
+                            elif mid:
+                                published_url = f"https://m.weibo.cn/status/{mid}"
+                            else:
+                                published_url = ""
+                            return PublishResult(
+                                success=True, platform=self.platform_id,
+                                published_url=published_url,
+                                platform_content_id=str(mid),
+                                payload={"mode": "web", "mid": str(mid), "mblogid": mblogid},
+                            )
+                        logger.warning("[weibo] update 响应无 mid: %s", str(payload)[:300])
+                    if page.is_closed():
+                        return PublishResult(
+                            success=False, platform=self.platform_id,
+                            error_message="weibo page closed before update response",
+                        )
+                    body = await page.locator("body").inner_text()
+                    if "发布成功" in body or "发送成功" in body:
+                        return PublishResult(success=True, platform=self.platform_id, payload={"mode": "web"})
+                    return PublishResult(
+                        success=False, platform=self.platform_id,
+                        error_message="Ctrl+Enter sent but no update response / success toast",
+                    )
+                finally:
+                    await close_stealth_context(browser, context)
+        except Exception as e:
+            return PublishResult(success=False, platform=self.platform_id, error_message=f"web publish failed: {type(e).__name__}: {e}")
 
     async def verify_credentials(self, credentials: dict[str, Any]) -> tuple[bool, str]:
         access_token = credentials.get("access_token", "").strip()
         if not access_token:
+            if str(credentials.get("__cookie_jar__") or ""):
+                return await self._verify_web(credentials)
             return False, "missing access_token"
 
         try:
@@ -89,6 +213,8 @@ class WeiboAdapter(BasePlatformAdapter):
     ) -> PublishResult:
         access_token = credentials.get("access_token", "").strip()
         if not access_token:
+            if str(credentials.get("__cookie_jar__") or ""):
+                return await self._publish_web(content, credentials)
             return PublishResult(
                 success=False, platform=self.platform_id,
                 error_message="missing access_token",

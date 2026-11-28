@@ -133,7 +133,7 @@ async def collect_metrics(
             metrics["source"]["error"] = f"{type(e).__name__}: {e}"
     elif platform == "bilibili":
         try:
-            await _collect_bilibili(content_id, metrics)
+            await _collect_bilibili(content_id, credentials, metrics)
         except Exception as e:
             logger.exception("[metrics] bilibili collect failed content_id=%s", content_id)
             metrics["source"]["error"] = f"{type(e).__name__}: {e}"
@@ -288,23 +288,28 @@ async def _collect_zhihu(
             await close_stealth_context(browser, context)
 
 
-async def _collect_bilibili(content_id: str, metrics: dict[str, Any]) -> None:
-    """B 站公开 API:无需登录,按 aid 或 bvid 取 stat。"""
-    param = "bvid" if str(content_id).upper().startswith("BV") else "aid"
-    url = f"https://api.bilibili.com/x/web-interface/view?{param}={content_id}"
-    async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
-        resp = await client.get(
-            url,
-            headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/131 Safari/537.36",
-                "Referer": "https://www.bilibili.com/",
-            },
-        )
-    payload = resp.json()
-    if payload.get("code") != 0 or not payload.get("data"):
-        metrics["source"]["error"] = f"bilibili code={payload.get('code')} msg={payload.get('message')}"
-        return
-    stat = payload["data"].get("stat") or {}
+def _bilibili_cookies(credentials: dict[str, Any] | None) -> dict[str, str]:
+    """从账号池凭证还原 B 站 cookie 字典；无凭证返回空。"""
+    if not credentials:
+        return {}
+    cookies: dict[str, str] = {}
+    jar = credentials.get("__cookie_jar__") or []
+    if isinstance(jar, list):
+        for item in jar:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("name") or "").strip()
+            if name:
+                cookies[name] = str(item.get("value") or "")
+    for key, value in credentials.items():
+        if key == "__cookie_jar__" or not value:
+            continue
+        if str(key).lower() in {"sessdata", "bili_jct", "dedeuserid", "buvid3", "buvid4"}:
+            cookies[str(key)] = str(value)
+    return cookies
+
+
+def _apply_bilibili_public_stat(stat: dict[str, Any], metrics: dict[str, Any]) -> None:
     metrics["views"] = int(stat.get("view") or 0)
     metrics["likes"] = int(stat.get("like") or 0)
     metrics["comments"] = int(stat.get("reply") or 0)
@@ -312,6 +317,62 @@ async def _collect_bilibili(content_id: str, metrics: dict[str, Any]) -> None:
     metrics["source"].update(
         views="stat.view", likes="stat.like", comments="stat.reply", shares="stat.share"
     )
+
+
+def _apply_bilibili_creator_stat(stat: dict[str, Any], metrics: dict[str, Any]) -> None:
+    # 创作者后台字段名与公开 API 不同：play/like/reply/share。
+    metrics["views"] = int(stat.get("play") or stat.get("view") or 0)
+    metrics["likes"] = int(stat.get("like") or 0)
+    metrics["comments"] = int(stat.get("reply") or 0)
+    metrics["shares"] = int(stat.get("share") or 0)
+    metrics["source"].update(
+        views="creator.stat.play",
+        likes="creator.stat.like",
+        comments="creator.stat.reply",
+        shares="creator.stat.share",
+    )
+
+
+async def _collect_bilibili(
+    content_id: str,
+    credentials: dict[str, Any] | None,
+    metrics: dict[str, Any],
+) -> None:
+    """先走公开 API；私密/仅自己可见(62012)再用账号池 cookie 走创作者后台。"""
+    param = "bvid" if str(content_id).upper().startswith("BV") else "aid"
+    public_url = f"https://api.bilibili.com/x/web-interface/view?{param}={content_id}"
+    creator_url = f"https://member.bilibili.com/x/web/data/archive?{param}={content_id}"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/131 Safari/537.36",
+        "Referer": "https://www.bilibili.com/",
+    }
+    async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+        resp = await client.get(public_url, headers=headers)
+        payload = resp.json()
+        if payload.get("code") == 0 and payload.get("data"):
+            _apply_bilibili_public_stat(payload["data"].get("stat") or {}, metrics)
+            return
+
+        public_error = f"public code={payload.get('code')} msg={payload.get('message')}"
+        cookies = _bilibili_cookies(credentials)
+        if not cookies:
+            metrics["source"]["error"] = public_error
+            return
+        creator_resp = await client.get(
+            creator_url,
+            headers={**headers, "Referer": "https://member.bilibili.com/"},
+            cookies=cookies,
+        )
+        creator_payload = creator_resp.json()
+        data = creator_payload.get("data")
+        if creator_payload.get("code") == 0 and isinstance(data, dict):
+            _apply_bilibili_creator_stat(data.get("stat") or {}, metrics)
+            metrics["source"]["fallback"] = "member.bilibili.com/x/web/data/archive"
+            return
+        metrics["source"]["error"] = (
+            f"{public_error}; creator code={creator_payload.get('code')} "
+            f"msg={creator_payload.get('message')}"
+        )
 
 
 def _apply_juejin_info(info: dict[str, Any], metrics: dict[str, Any]) -> None:

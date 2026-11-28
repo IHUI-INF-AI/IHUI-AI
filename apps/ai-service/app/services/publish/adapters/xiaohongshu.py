@@ -18,6 +18,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -34,6 +35,24 @@ from ..anti_risk.browser_factory import close_stealth_context
 from ..base_adapter import BasePlatformAdapter, PublishContent, PublishResult
 
 logger = get_logger(__name__)
+
+
+def _extract_note_id(value: Any) -> str:
+    """从小红书 web_api/sns/v2/note 响应中提取 note_id（字段名随版本变化）。"""
+    if isinstance(value, dict):
+        for key in ("note_id", "noteId", "noteid", "noteID"):
+            if value.get(key):
+                return str(value[key])
+        for item in value.values():
+            found = _extract_note_id(item)
+            if found:
+                return found
+    elif isinstance(value, list):
+        for item in value:
+            found = _extract_note_id(item)
+            if found:
+                return found
+    return ""
 
 try:
     from playwright.async_api import async_playwright
@@ -53,6 +72,24 @@ class XiaohongshuAdapter(BasePlatformAdapter):
     needs_browser = True
 
     def _cookies(self, credentials: dict[str, Any]) -> list[SetCookieParam]:
+        jar = credentials.get("__cookie_jar__") or []
+        if isinstance(jar, list) and jar:
+            out: list[SetCookieParam] = []
+            for c in jar:
+                if not isinstance(c, dict) or not c.get("name"):
+                    continue
+                out.append({
+                    "name": str(c.get("name")),
+                    "value": str(c.get("value") or ""),
+                    "domain": str(c.get("domain") or ".xiaohongshu.com"),
+                    "path": str(c.get("path") or "/"),
+                    "expires": float(c["expires"]) if c.get("expires") not in (None, "") else -1,
+                    "httpOnly": bool(c.get("httpOnly", False)),
+                    "secure": bool(c.get("secure", False)),
+                    "sameSite": str(c.get("sameSite") or "Lax"),
+                })
+            if any(c["name"] == "web_session" for c in out):
+                return out
         return [{
             "name": "web_session",
             "value": credentials.get("web_session", ""),
@@ -81,6 +118,7 @@ class XiaohongshuAdapter(BasePlatformAdapter):
                     platform=self.platform_id,
                     playwright_instance=p,
                     headless=True,
+                    use_persistent=False,
                 )
                 try:
                     await context.add_cookies(self._cookies(credentials))
@@ -178,8 +216,26 @@ class XiaohongshuAdapter(BasePlatformAdapter):
                         file_input = page.locator('input[type="file"]').first
                         await file_input.set_input_files(video_path)
                     else:
-                        # 图文笔记
-                        file_input = page.locator('input[type="file"]').first
+                        # 图文笔记：默认落在「上传视频」tab，必须先点「上传图文」；
+                        # 否则把 jpg 塞进视频 input 会静默失败，页面仍是视频上传态。
+                        switched = False
+                        tabs = page.locator('div.creator-tab:has-text("上传图文"):not([aria-hidden="true"])')
+                        for i in range(min(await tabs.count(), 6)):
+                            tab = tabs.nth(i)
+                            try:
+                                box = await tab.bounding_box()
+                                if box and box.get("x", 0) > 250:
+                                    await tab.click()
+                                    switched = True
+                                    await page.wait_for_timeout(1200)
+                                    break
+                            except Exception:
+                                continue
+                        if not switched:
+                            logger.warning("[xiaohongshu] 上传图文 tab 未找到，继续用首个 file input")
+                        file_input = page.locator('input[type="file"][accept*="image"]').first
+                        if await file_input.count() == 0:
+                            file_input = page.locator('input[type="file"]').first
                         valid_images = [str(Path(p)) for p in images if p and Path(p).is_file()]
                         if not valid_images:
                             return PublishResult(
@@ -190,6 +246,16 @@ class XiaohongshuAdapter(BasePlatformAdapter):
 
                     # 等待上传完成
                     await page.wait_for_timeout(3000)
+                    # 图片上传后会弹「图片可以编辑啦」功能引导，按钮「我知道了」会盖住
+                    # 发布区；不关闭时点发布只会保存草稿/无响应（2026-11-26 实测）。
+                    guide_btn = page.locator("button.feature-guide__btn, .feature-guide__btn").first
+                    if await guide_btn.count() > 0:
+                        try:
+                            if await guide_btn.is_visible():
+                                await guide_btn.click()
+                                await page.wait_for_timeout(400)
+                        except Exception:
+                            pass
                     await human_pause(1.0, 2.0)
 
                     # 填标题(人类化逐字符)
@@ -229,14 +295,38 @@ class XiaohongshuAdapter(BasePlatformAdapter):
                     await simulate_reading(page, min_s=2.0, max_s=5.0)
                     await human_pause(1.0, 2.0)
 
-                    # 点发布(人类化)
-                    publish_selector = 'button:has-text("发布"), .publishBtn, button.publish'
-                    if await page.locator(publish_selector).count() == 0:
-                        return PublishResult(
-                            success=False, platform=self.platform_id,
-                            error_message="publish button not found",
-                        )
-                    await human_click(page, publish_selector)
+                    # 点发布（人类化）
+                    # 新版小红书底部提交按钮不在常规 DOM 文本树里（视觉为红色「发布」，
+                    # 但 div.btn-inner/button:text-is("发布") 均匹配 0），实测
+                    # elementFromPoint 命中视口底部正中并点击可触发发布。
+                    # 同时监听 web_api/sns/v2/note 响应，回填 note_id。
+                    publish_response: dict[str, Any] = {}
+
+                    async def _on_publish_response(resp: Any) -> None:
+                        if "/web_api/sns/v2/note" not in resp.url or resp.request.method != "POST":
+                            return
+                        publish_response["status"] = resp.status
+                        publish_response["url"] = resp.url
+                        try:
+                            publish_response["json"] = await resp.json()
+                        except Exception:
+                            try:
+                                publish_response["text"] = (await resp.text())[:4000]
+                            except Exception:
+                                pass
+
+                    page.on("response", _on_publish_response)
+
+                    publish_selector = (
+                        'div.btn-inner:text-is("发布"), '
+                        'div.btn-wrapper:text-is("发布"), '
+                        'button:text-is("发布")'
+                    )
+                    if await page.locator(publish_selector).count() > 0:
+                        await human_click(page, publish_selector)
+                    else:
+                        viewport = page.viewport_size or {"width": 1536, "height": 864}
+                        await page.mouse.click(viewport["width"] / 2, viewport["height"] * 0.944)
 
                     # 等待跳转或成功提示
                     try:
@@ -252,17 +342,85 @@ class XiaohongshuAdapter(BasePlatformAdapter):
                                 error_message="publish timeout (no success indication)",
                             )
 
-                    # 小红书不直接返回笔记 URL,需要在创作者后台查看
+                    # 小红书发布成功页不回传 note_id，从 web_api/sns/v2/note 响应回填；
+                    # 响应字段随版本变化，递归找 note_id/noteId。
+                    await asyncio.sleep(1.5)
+                    note_id = (
+                        _extract_note_id(publish_response.get("json") or {})
+                        or _extract_note_id(publish_response.get("text") or "")
+                    )
+                    xsec_token = ""
+                    if not note_id:
+                        # 发布响应不一定回传 note_id；直接 fetch 创作者接口缺签名头会返回
+                        # {"code":-1}。改为让创作者后台自己发请求，再用 response 监听
+                        # 捕获 latest_note_data / posted 列表，按标题匹配。
+                        home_payload: dict[str, Any] = {}
+                        posted_payload: dict[str, Any] = {}
+
+                        async def _on_creator_response(resp: Any) -> None:
+                            if "latest_note_data" in resp.url:
+                                try:
+                                    home_payload["json"] = await resp.json()
+                                except Exception:
+                                    pass
+                            elif "creator/note/user/posted" in resp.url:
+                                try:
+                                    posted_payload["json"] = await resp.json()
+                                except Exception:
+                                    pass
+
+                        page.on("response", _on_creator_response)
+                        try:
+                            await page.goto(
+                                "https://creator.xiaohongshu.com/new/home",
+                                wait_until="networkidle",
+                                timeout=45000,
+                            )
+                            await asyncio.sleep(2.0)
+                            note_info = (
+                                ((home_payload.get("json") or {}).get("data") or {}).get("noteInfo")
+                                or {}
+                            )
+                            if str(note_info.get("title") or "").strip() == title.strip() and note_info.get("id"):
+                                note_id = str(note_info["id"])
+                                xsec_token = str(note_info.get("xsec_token") or "")
+                            if not note_id:
+                                await page.goto(
+                                    "https://creator.xiaohongshu.com/new/note-manager",
+                                    wait_until="networkidle",
+                                    timeout=45000,
+                                )
+                                await asyncio.sleep(2.0)
+                                notes = (
+                                    ((posted_payload.get("json") or {}).get("data") or {}).get("notes")
+                                    or []
+                                )
+                                for note in notes:
+                                    if str(note.get("display_title") or "").strip() == title.strip():
+                                        note_id = str(note.get("id") or "")
+                                        xsec_token = str(note.get("xsec_token") or "")
+                                        break
+                        except Exception as exc:
+                            logger.warning("[xiaohongshu] note_id fallback failed: %s", exc)
+                    published_url = ""
+                    if note_id:
+                        published_url = f"https://www.xiaohongshu.com/explore/{note_id}"
+                        if xsec_token:
+                            published_url += f"?xsec_token={xsec_token}&xsec_source=pc_creatormng"
                     return PublishResult(
                         success=True, platform=self.platform_id,
-                        published_url="",
-                        platform_content_id="",
+                        published_url=published_url,
+                        platform_content_id=note_id,
                         payload={
                             "title": title,
                             "tags": tags,
                             "images_count": len(images),
                             "is_video": bool(video_path),
                             "note": "笔记已发布,审核通过后可在小红书 App 查看",
+                            "publish_api": {
+                                "status": publish_response.get("status"),
+                                "url": publish_response.get("url"),
+                            },
                         },
                     )
                 finally:

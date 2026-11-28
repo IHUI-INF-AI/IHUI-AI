@@ -239,7 +239,7 @@ export default function AiDraftPage() {
                 onClick={() => setTone(value)}
                 className={
                   tone === value
-                    ? 'rounded-md border border-primary bg-primary/10 px-2.5 py-1 text-caption text-primary'
+                    ? 'rounded-md border border-stroke-selected bg-primary/10 px-2.5 py-1 text-caption text-primary'
                     : 'rounded-md border px-2.5 py-1 text-caption text-muted-foreground hover:bg-muted/40'
                 }
               >

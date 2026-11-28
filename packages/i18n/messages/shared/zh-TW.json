@@ -796,7 +796,7 @@
     "reviewTargetLabel": "審查範圍",
     "reviewTargetClear": "清除選取",
     "taskProgressAria": "任務進度：{status}",
-    "modeTaskAria": "{mode} 任務",
+    "modeTaskAria": "{mode}任務",
     "taskProgressIdle": "暫無任務",
     "turnAnchorUnresolvedTitle": "無法定位對話",
     "turnAnchorUnresolvedHint": "連結已失效或不可用",

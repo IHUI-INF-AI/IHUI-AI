@@ -31,13 +31,17 @@ import type {
   SkillNotification,
   SkillPurchaseResponse,
   SkillPurchaseRefundResponse,
+  SkillMarketPurchaseAdminListResponse,
+  SkillMarketSettlementResponse,
 } from '@ihui/shared/skills/market'
 import {
   InsufficientSkillFundsError,
   SkillPurchaseNotFoundError,
   SkillPurchaseStateError,
   getSkillEarnings,
+  getSkillMarketSettlement,
   hasPurchasedSkill,
+  listSkillMarketPurchasesAdmin,
   purchasePaidSkill,
   refundSkillPurchase,
   resolveSkillAuthorShareBps,
@@ -1008,6 +1012,59 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
       await writeMarket(server.redis, MARKET_KEY, entries)
 
       return reply.send(success({ name: removed.name, unlisted: true }))
+    },
+  )
+
+  // GET /admin/skills-market/settlement — 按技能+卖家聚合成交、分成、退款与平台承担。
+  // 只读；金额单位均为分，净额口径由服务层统一计算。
+  server.get(
+    '/admin/skills-market/settlement',
+    { preHandler: requireAdmin },
+    async (_request, reply) => {
+      const result: SkillMarketSettlementResponse = await getSkillMarketSettlement()
+      return reply.send(success(result))
+    },
+  )
+
+  // GET /admin/skills-market/purchases — 交易流水列表，供运营定位退款对象。
+  // 关键词命中购买 ID / 技能名 / 买家昵称 / 卖家昵称；只读，不暴露买家卖家手机号。
+  server.get(
+    '/admin/skills-market/purchases',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const queryParsed = z
+        .object({
+          page: z.coerce.number().int().min(1).default(1),
+          pageSize: z.coerce.number().int().min(1).max(100).default(20),
+          status: z.enum(['paid', 'refunded']).optional(),
+          keyword: z.string().trim().max(64).optional(),
+        })
+        .safeParse(request.query)
+      if (!queryParsed.success) {
+        return reply
+          .status(400)
+          .send(error(400, queryParsed.error.issues[0]?.message ?? '参数错误'))
+      }
+
+      const { page, pageSize, status, keyword } = queryParsed.data
+      const result = await listSkillMarketPurchasesAdmin({
+        status,
+        keyword: keyword || undefined,
+        page,
+        pageSize,
+      })
+      const resp: SkillMarketPurchaseAdminListResponse = {
+        items: result.items.map((item) => ({
+          ...item,
+          status: item.status as 'paid' | 'refunded',
+          createdAt: item.createdAt.toISOString(),
+          refundedAt: item.refundedAt?.toISOString() ?? null,
+        })),
+        total: result.total,
+        page,
+        pageSize,
+      }
+      return reply.send(success(resp))
     },
   )
 
