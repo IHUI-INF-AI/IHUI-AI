@@ -93,6 +93,7 @@ probe `e41afe2b8e734080957dcb3ae041fc44`：
 ## 测试门禁
 
 - 聚焦 Python 回归：`179 passed`（master 全套 + orchestrator + checkpoint + cancel bus）。
+- 既有 pause/runtime 回归：`147 passed`（`test_pause_resume_65` + `test_durable_resume_84` + runtime + runtime_router）。
 - `test_llm_gateway.py`：`122 passed`。
 - ruff：本轮改动 Python 文件全过。
 - API `pnpm --filter @ihui/api typecheck`：通过。
