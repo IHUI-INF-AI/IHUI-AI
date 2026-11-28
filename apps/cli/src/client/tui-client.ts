@@ -93,8 +93,21 @@ function nextStreamId(): string {
 }
 
 function loadWsClient(): WsClientCtor | null {
-  const mod = wsModule as unknown as { WebSocket?: WsClientCtor };
-  return mod.WebSocket ?? null;
+  // ws 是 CJS 包:ESM 默认导入在 vitest/tsx 下可能把构造函数放在 `.default`,
+  // 生产构建可能把它摊平。两代形状都认,避免“依赖已装却报未安装”。
+  const mod = wsModule as unknown as {
+    WebSocket?: WsClientCtor;
+    default?: { WebSocket?: WsClientCtor } | WsClientCtor;
+  };
+  const direct = mod.WebSocket;
+  if (direct) return direct;
+  // tsx / 某些 ESM 互操作会把整个模块默认导出直接折成构造函数。
+  if (typeof wsModule === 'function') return wsModule as unknown as WsClientCtor;
+  const nested = mod.default;
+  if (nested && typeof nested === 'object' && 'WebSocket' in nested && nested.WebSocket) {
+    return nested.WebSocket;
+  }
+  return typeof nested === 'function' ? (nested as WsClientCtor) : null;
 }
 
 export async function connectToServer(opts: TuiClientOptions): Promise<TuiClient> {

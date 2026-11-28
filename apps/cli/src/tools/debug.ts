@@ -436,9 +436,9 @@ export const debug_launch: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   parameters: {
@@ -532,9 +532,9 @@ export const debug_attach: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   parameters: {
@@ -614,9 +614,9 @@ export const debug_set_breakpoints: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   parameters: {
@@ -685,9 +685,9 @@ export const debug_continue: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   parameters: {
@@ -741,9 +741,9 @@ export const debug_step: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   parameters: {
@@ -802,9 +802,9 @@ export const debug_get_stack_trace: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   parameters: {
@@ -871,9 +871,9 @@ export const debug_get_variables: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   parameters: {
@@ -962,9 +962,9 @@ export const debug_eval: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   parameters: {
@@ -1021,9 +1021,9 @@ export const debug_disconnect: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   parameters: {
@@ -1069,9 +1069,9 @@ export const debug_list_sessions: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   parameters: {},

@@ -225,6 +225,10 @@ interface StartIPCMessage {
   model?: string;
   capability?: SubagentSpawnRequest['capability'];
   maxIterations?: number;
+  /** W4-09:随请求下发的独立预算 */
+  budget?: SubagentSpawnRequest['budget'];
+  /** W4-09:权限档；inherit/缺席都不改子进程默认继承 */
+  permissionMode?: SubagentSpawnRequest['permissionMode'];
   /** 网络出站策略(P1-5,worker-entry 调 installEgressGuard 注入) */
   networkEgressPolicy?: NetworkEgressPolicy;
   /** 资源限制(P1-3,memoryMb 供子进程自 OOM 检查,cpuCores/cpuSeconds 供轮询) */
@@ -938,6 +942,8 @@ export class SubagentWorkerPool {
       model: req.model,
       capability: req.capability,
       maxIterations: req.maxIterations,
+      budget: req.budget,
+      permissionMode: req.permissionMode,
       networkEgressPolicy: this.config.networkEgressPolicy,
       resourceLimits: this.config.resourceLimits,
     };

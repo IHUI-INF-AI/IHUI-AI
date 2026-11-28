@@ -313,9 +313,9 @@ export const clipboard_read: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   parameters: {},
@@ -363,9 +363,9 @@ export const clipboard_write: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   parameters: {
@@ -415,9 +415,9 @@ export const clipboard_token: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   parameters: {},
@@ -453,9 +453,9 @@ export const clipboard_rich_read: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   parameters: {
@@ -499,9 +499,9 @@ export const clipboard_rich_write: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   parameters: {

@@ -58,8 +58,9 @@
 
 import type { Tool, ToolParameter } from '../tools/index.js';
 import { createRouteTool, type RouteParamSpec, type RouteToolSpec } from '../tools/route-tools.js';
-import { ROUTING_IDENTITY_KEYS } from '@ihui/types';
+import { ROUTING_IDENTITY_KEYS, type CapabilityDataClass } from '@ihui/types';
 import { diagnostic } from './manifest-scan.js';
+import { permissionGrantOf } from './permission-names.js';
 import {
   DECLARED_METHODS,
   accessOfMethod,
@@ -139,11 +140,21 @@ export const INTERFACE_REJECT_CODES = [
   'param-routing-identity',
   /** 与宿主在册工具同名,或与本次另一份清单贡献的工具同名 */
   'name-conflict',
+  /**
+   * 能力清单已声明权限面,但声明的权限**够不到**这条工具所需的数据类
+   * (read→scoped-read / write→scoped-write / dangerous→platform)。
+   * 这是运行期闸,不是形状问题:插件可以先声明能力清单,再逐条补权限。
+   */
+  'permission-denied',
 ] as const;
 
 export type InterfaceRejectCode = (typeof INTERFACE_REJECT_CODES)[number];
 
-export function compileDeclaredInterface(raw: unknown, takenNames: ReadonlySet<string>): InterfaceCompileOutcome {
+export function compileDeclaredInterface(
+  raw: unknown,
+  takenNames: ReadonlySet<string>,
+  capabilityPermissions?: readonly string[] | null,
+): InterfaceCompileOutcome {
   const declared = raw && typeof raw === 'object' && !Array.isArray(raw) && typeof (raw as DeclaredInterface).name === 'string'
     ? String((raw as DeclaredInterface).name)
     : '(unnamed)';
@@ -250,6 +261,22 @@ export function compileDeclaredInterface(raw: unknown, takenNames: ReadonlySet<s
   // ⑦ 危险档:method 推导值与清单自述取更严的一侧(清单只能抬档,不能降档)。
   const access = stricterAccess(accessOfMethod(method as DeclaredMethod), declaredAccessOf(decl.access) ?? 'read');
 
+  // ⑧ 运行期闸(2026-11-26 P0-B 续):插件声明了能力清单才生效。
+  //    `null` = 没有 capability.json(老插件,判据不变);`[]` = 声明了但一条权限都没有 ⇒ 默认拒。
+  //    权限名先经 `permissionGrantOf` 做归属(驼峰声明名 → 正牌 scope),再按数据类判;
+  //    判据仍是能力目录那把尺,本层不另算一份(§0.6)。
+  if (capabilityPermissions !== undefined && capabilityPermissions !== null) {
+    const required: CapabilityDataClass =
+      access === 'read' ? 'scoped-read' : access === 'write' ? 'scoped-write' : 'platform';
+    if (!permissionGrantOf(capabilityPermissions).allowed.includes(required)) {
+      return {
+        declared,
+        code: 'permission-denied',
+        reason: `interface "${declared}" needs data class "${required}" (access=${access}), but the capability manifest grants none of its declared permissions that far`,
+      };
+    }
+  }
+
   const describe =
     typeof decl.description === 'string' && decl.description.trim() !== ''
       ? decl.description.trim()
@@ -283,6 +310,7 @@ export function compileDeclaredInterface(raw: unknown, takenNames: ReadonlySet<s
 export function compileDeclaredInterfaces(
   raw: unknown,
   takenNames: ReadonlySet<string>,
+  capabilityPermissions?: readonly string[] | null,
 ): { outcomes: InterfaceCompileOutcome[]; tools: Tool[]; taken: string[] } {
   if (raw === undefined) return { outcomes: [], tools: [], taken: [] };
   if (!Array.isArray(raw)) {
@@ -297,7 +325,7 @@ export function compileDeclaredInterfaces(
   const tools: Tool[] = [];
   const taken: string[] = [];
   for (const item of raw) {
-    const outcome = compileDeclaredInterface(item, live);
+    const outcome = compileDeclaredInterface(item, live, capabilityPermissions);
     outcomes.push(outcome);
     if (outcome.tool) {
       tools.push(outcome.tool);
@@ -332,8 +360,9 @@ export function compilePluginInterfaces(
   file: string,
   pluginName: string,
   takenNames: ReadonlySet<string>,
+  capabilityPermissions?: readonly string[] | null,
 ): { tools: CompiledInterfaceTool[]; outcomes: InterfaceCompileOutcome[]; diagnostics: PluginDiagnostic[] } {
-  const compiled = compileDeclaredInterfaces(declarations, takenNames);
+  const compiled = compileDeclaredInterfaces(declarations, takenNames, capabilityPermissions);
   const diagnostics: PluginDiagnostic[] = [];
   for (const outcome of compiled.outcomes) {
     if (!outcome.reason) continue;

@@ -258,9 +258,9 @@ const browserPageSnapshot: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   async execute(args) {
@@ -304,9 +304,9 @@ const browserPageClick: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   async execute(args) {
@@ -351,9 +351,9 @@ const browserPageType: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   async execute(args) {
@@ -411,9 +411,9 @@ const browserPageSelect: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   async execute(args) {
@@ -462,9 +462,9 @@ const browserPageHover: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   async execute(args) {
@@ -507,9 +507,9 @@ const browserPagePressKey: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   async execute(args) {
@@ -559,9 +559,9 @@ const browserPagePickAtPoint: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   async execute(args) {
@@ -622,9 +622,9 @@ const browserPageScroll: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   async execute(args) {
@@ -686,9 +686,9 @@ const browserPageWaitFor: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   async execute(args) {
@@ -749,9 +749,9 @@ const browserPageDrag: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   async execute(args) {

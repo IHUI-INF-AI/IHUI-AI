@@ -52,6 +52,14 @@ export type {
 
 export { PLUGIN_DIAGNOSTIC_CODES } from './types.js';
 
+/**
+ * 能力清单预检门(W4-01/P0-B,2026-11-26)。实现单源 = `./capability-manifest-gate.ts`,
+ * 装载链在 `manifest-scan.ts` 里调用;此处公开词表与判定入口,供桌面/服务端按同一张表复用,
+ * 不再各抄一份权限名单(§0.6)。
+ */
+export { CAPABILITY_FILE_NAME, HOST_KNOWN_PERMISSIONS, loadCapabilityDeclaration } from './capability-manifest-gate.js';
+export type { CapabilityGateOutcome } from './capability-manifest-gate.js';
+
 export { loadPlugins, loadPluginsWithDiagnostics, validateManifest } from './loader.js';
 
 /**

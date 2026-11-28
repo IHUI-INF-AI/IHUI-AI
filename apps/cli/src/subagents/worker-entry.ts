@@ -22,7 +22,7 @@ import { runAgent } from '../commands/agent.js';
 import { installEgressGuard } from './egress-guard.js';
 import { encodeWorkerLine } from './worker-protocol.js';
 import { installNetworkBoundary } from '../sandbox/egress/network-boundary.js';
-import type { SubagentPersona, CapabilityMode, NetworkEgressPolicy, WorkerResourceLimits } from '@ihui/types';
+import type { SubagentPersona, CapabilityMode, NetworkEgressPolicy, WorkerResourceLimits, SubagentSpawnBudget, PermissionMode } from '@ihui/types';
 
 interface StartMessage {
   type: 'start';
@@ -33,6 +33,10 @@ interface StartMessage {
   model?: string;
   capability?: CapabilityMode;
   maxIterations?: number;
+  /** W4-09:父侧解析后的子代理预算 */
+  budget?: SubagentSpawnBudget;
+  /** W4-09:权限档；inherit/缺席 = 不在子进程里另立权限面 */
+  permissionMode?: PermissionMode | 'inherit';
   /** 网络出站策略(P1-5,调 installEgressGuard 注入 fetch 拦截) */
   networkEgressPolicy?: NetworkEgressPolicy;
   /** 资源限制(P1-3,memoryMb 覆盖 OOM 阈值,cpuCores/cpuSeconds 轮询) */
@@ -156,7 +160,7 @@ process.on('SIGTERM', () => {
 
 process.on('message', async (msg: StartMessage) => {
   if (msg.type !== 'start') return;
-  const { subagentId, task, workspacePath, model, maxIterations } = msg;
+  const { subagentId, task, workspacePath, model, maxIterations, budget, permissionMode } = msg;
 
   // P1-3 修复:用 IPC 传入的 memoryMb 覆盖默认 OOM 阈值(替代硬编码 SELF_OOM_THRESHOLD_MB)
   // P2 修复:负数 limit 值校验,< 0 记 warning 并视为 undefined(不启用该限制)
@@ -208,23 +212,66 @@ process.on('message', async (msg: StartMessage) => {
   // B3-08:启动回执进主通道,父进程可据此区分「已起任务」与「未起任务」。
   process.stdout.write(encodeWorkerLine({ type: 'ready', pid: process.pid }));
 
+  let budgetExceeded: string | undefined;
   try {
+    // W4-09:子进程是预算的最终执行面。maxToolCalls 在每次工具调用**前**由信号中止，
+    // maxTokens 在采样结果回来后复核；两者都不靠父进程隔空猜子进程内部计数。
+    let toolCalls = 0;
+    const budgetAbort = new AbortController();
+    const effectiveMaxIterations =
+      budget?.maxTurns === undefined
+        ? maxIterations ?? 25
+        : Math.min(maxIterations ?? 25, budget.maxTurns);
     const result = await runAgent({
       prompt: task,
       modelId: model ?? 'default',
       workspacePath,
       apiUrl: API_BASE_URL,
       apiKey: API_KEY || undefined,
-      maxIterations: maxIterations ?? 25,
+      maxIterations: effectiveMaxIterations,
       jsonMode: true,
       allowDangerous: false,
+      signal: budgetAbort.signal,
+      ...(permissionMode === undefined || permissionMode === 'inherit'
+        ? {}
+        : { permissionMode }),
+      onToolCall: () => {
+        toolCalls += 1;
+        if (budget?.maxToolCalls !== undefined && toolCalls > budget.maxToolCalls) {
+          budgetExceeded = `tool-calls: ${toolCalls}/${budget.maxToolCalls}`;
+          // 抛错发生在**工具执行前**（runToolLoop 先 await onToolCall 再派发），
+          // 因此不会先多跑一次再中止；catch 会把它翻成预算终态。
+          throw new Error(`子 agent 预算耗尽(${budgetExceeded})`);
+        }
+      },
     });
 
     clearInterval(heartbeatTimer);
 
+    const totalTokens = result.usage?.totalTokens;
+    if (
+      budget?.maxTokens !== undefined &&
+      typeof totalTokens === 'number' &&
+      totalTokens > budget.maxTokens
+    ) {
+      budgetExceeded = `tokens: ${totalTokens}/${budget.maxTokens}`;
+    }
+    if (budgetExceeded !== undefined) {
+      // complete 事件已由 runAgent 写出；预算终态另发 error 并以 1 退出，
+      // 父进程按既有 exit-code 归因判 failed，不把越预算当成完成。
+      process.stdout.write(
+        encodeWorkerLine({
+          type: 'error',
+          code: 'SUBAGENT_BUDGET_EXCEEDED',
+          message: `子 agent 预算耗尽(${budgetExceeded})`,
+        }),
+      );
+      process.stderr.write(`[worker-entry] subagent ${subagentId} budget exhausted: ${budgetExceeded}\n`);
+    }
+
     // runAgent(jsonMode=true) 已将 NDJSON 事件流写入 stdout(含 complete 事件)
     // 父进程解析 NDJSON 即可拿到 stopReason/iterations/usage + message_delta 拼接的 assistantText
-    const exitCode = result.stopReason === 'error' ? 1 : 0;
+    const exitCode = result.stopReason === 'error' || budgetExceeded !== undefined ? 1 : 0;
     process.stdout.write(encodeWorkerLine({ type: 'exit', exitCode }));
     if (teardownNetworkBoundary) {
       const close = teardownNetworkBoundary;
@@ -236,7 +283,16 @@ process.on('message', async (msg: StartMessage) => {
     clearInterval(heartbeatTimer);
     const errMsg = err instanceof Error ? err.message : String(err);
     // 错误事件写入 stdout(NDJSON 格式),供父进程解析
-    process.stdout.write(JSON.stringify({ type: 'error', message: errMsg, subagentId }) + '\n');
+    process.stdout.write(
+      JSON.stringify({
+        type: 'error',
+        ...(budgetExceeded === undefined
+          ? {}
+          : { code: 'SUBAGENT_BUDGET_EXCEEDED' }),
+        message: budgetExceeded === undefined ? errMsg : `子 agent 预算耗尽(${budgetExceeded})`,
+        subagentId,
+      }) + '\n',
+    );
     process.stderr.write(`[worker-entry] subagent ${subagentId} failed: ${errMsg}\n`);
     if (teardownNetworkBoundary) {
       const close = teardownNetworkBoundary;

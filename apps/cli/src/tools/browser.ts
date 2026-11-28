@@ -20,6 +20,7 @@ import * as http from 'node:http';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import * as net from 'node:net';
 import { spawn, type ChildProcess } from 'node:child_process';
 import WebSocket from 'ws';
 import { checkNavigableUrl } from '@ihui/shared/utils/navigable-url';
@@ -72,13 +73,16 @@ export function findChromeExecutable(stat?: (path: string) => fs.Stats): string 
     const pf = process.env['ProgramFiles'] ?? 'C:\\Program Files';
     const pf86 = process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)';
     const lp = process.env['LOCALAPPDATA'] ?? '';
+    const homeLocal = path.join(os.homedir(), 'AppData', 'Local');
     candidates.push(
       `${pf}\\Google\\Chrome\\Application\\chrome.exe`,
       `${pf86}\\Google\\Chrome\\Application\\chrome.exe`,
       `${lp}\\Google\\Chrome\\Application\\chrome.exe`,
+      `${homeLocal}\\Google\\Chrome\\Application\\chrome.exe`,
       `${pf}\\Microsoft\\Edge\\Application\\msedge.exe`,
       `${pf86}\\Microsoft\\Edge\\Application\\msedge.exe`,
       `${lp}\\Microsoft\\Edge\\Application\\msedge.exe`,
+      `${homeLocal}\\Microsoft\\Edge\\Application\\msedge.exe`,
     );
   } else if (process.platform === 'darwin') {
     candidates.push(
@@ -253,7 +257,7 @@ interface ResolvedEndpoint {
   host: string;
 }
 
-/** 解析 CDP 端点:优先 IHUI_BROWSER_CDP_URL,否则默认 127.0.0.1:9222。 */
+/** 解析 CDP 端点:优先 IHUI_BROWSER_CDP_URL,否则默认先探 127.0.0.1:9222。 */
 function resolveEndpoint(): ResolvedEndpoint {
   const raw = process.env.IHUI_BROWSER_CDP_URL;
   if (raw) {
@@ -278,6 +282,23 @@ async function isCdpAlive(port: number, host: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/** 取一个本地空闲端口给自拉起的浏览器；并发会话不争固定 9222。 */
+async function pickFreePort(): Promise<number> {
+  return await new Promise<number>((resolve, reject) => {
+    const server = net.createServer();
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      const port = typeof address === 'object' && address ? address.port : 0;
+      server.close((err) => {
+        if (err) reject(err);
+        else if (port > 0) resolve(port);
+        else reject(new Error('取不到本地空闲端口'));
+      });
+    });
+  });
 }
 
 /** 自动拉起 Chrome/Edge headless 并等待 CDP 就绪。 */
@@ -404,16 +425,20 @@ export async function getBrowserSession(): Promise<{ session: CdpSession; port: 
   // 会话换了,上一轮发出的 ref 一律作废(不许跨会话复用编号)。
   resetBrowserRefBook();
   const ep = resolveEndpoint();
-  if (!(await isCdpAlive(ep.port, ep.host))) {
+  let activePort = ep.port;
+  if (!(await isCdpAlive(activePort, ep.host))) {
     if (ep.host !== '127.0.0.1') {
       throw new Error(`IHUI_BROWSER_CDP_URL 指定的 ${ep.host}:${ep.port} 不可达`);
     }
-    await spawnBrowser(ep.port);
+    // 默认 9222 只是“先看看有没有现成实例”。没有就让本次自拉起的浏览器用独立
+    // 空闲端口 + 独立 profile，避免两个 CLI/两条测试同时启动时争同一把 ProcessSingleton 锁。
+    if (!process.env.IHUI_BROWSER_CDP_URL) activePort = await pickFreePort();
+    await spawnBrowser(activePort);
   }
-  const wsUrl = await acquirePageWsUrl(ep.port, ep.host);
+  const wsUrl = await acquirePageWsUrl(activePort, ep.host);
   const session = await CdpSession.connect(wsUrl);
   activeSession = session;
-  return { session, port: ep.port };
+  return { session, port: activePort };
 }
 
 // ==================== 语义快照句柄(会话级 ref) ====================
@@ -757,9 +782,9 @@ const browserNavigate: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   async execute(args) {
@@ -807,9 +832,9 @@ const browserSnapshot: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   async execute(args) {
@@ -847,9 +872,9 @@ const browserScreenshot: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   async execute(args, ctx) {
@@ -909,9 +934,9 @@ const browserClick: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   async execute(args) {
@@ -1022,9 +1047,9 @@ const browserType: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   async execute(args) {
@@ -1145,9 +1170,9 @@ const browserPressKey: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   async execute(args) {
@@ -1216,9 +1241,9 @@ const browserEvaluate: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   async execute(args) {
@@ -1288,9 +1313,9 @@ const browserGetBoundingBox: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   async execute(args) {
@@ -1356,9 +1381,9 @@ const browserGetState: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   async execute(args) {
@@ -1437,9 +1462,9 @@ const browserGetAttribute: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   async execute(args) {
@@ -1497,9 +1522,9 @@ const browserClose: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   async execute() {

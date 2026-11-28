@@ -121,7 +121,13 @@ export function scanPlugins(opts: LoadPluginsOptions): ScanResult {
       activationFindings.push(...classifyActivations(activationInputOf(outcome.manifest, definition.name, file)).findings);
       // 接口型工具(2026-11-13):同样对**每一份通过最小校验的清单**编译。
       // 判据与"拒收 → 诊断"的映射都在 interface-tools.ts,本层只累积结果(§0.6 不抄第二份)。
-      const compiled = compilePluginInterfaces(definition.interfaces, file, definition.name, takenNames);
+      const compiled = compilePluginInterfaces(
+        definition.interfaces,
+        file,
+        definition.name,
+        takenNames,
+        definition.capability?.permissions ?? null,
+      );
       interfaceOutcomes.push(...compiled.outcomes);
       diagnostics.push(...compiled.diagnostics);
       for (const tool of compiled.tools) takenNames.add(tool.name);

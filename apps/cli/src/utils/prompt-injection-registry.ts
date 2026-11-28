@@ -107,6 +107,14 @@ export const PROMPT_INJECTION_ENTRIES: readonly PromptInjectionEntry[] = [
     title: '跨会话记忆段',
   },
   {
+    // run_code 的 program-only 绑定是宿主下的使用说明,不是被转述的事实。
+    id: 'context_ptc_sdk',
+    kind: 'host_directive',
+    producer: 'apps/cli/src/commands/agent.ts#setupAgentTools',
+    consumer: 'apps/cli/src/tools/index.ts#buildSystemPrompt',
+    title: 'PTC run_code SDK 段',
+  },
+  {
     // 与上面两档相反:强制规划段是宿主自己下的指令,不是被转述的事实。
     id: 'directive_plan_first',
     kind: 'host_directive',

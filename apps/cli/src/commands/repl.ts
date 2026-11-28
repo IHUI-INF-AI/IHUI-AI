@@ -20,6 +20,8 @@ import { cmdRead, cmdLs, cmdGrep, cmdGlob, cmdBash } from './file-ops.js';
 import { CheckpointManager } from '../checkpoints/index.js';
 import { PlanMachine } from '../plan/index.js';
 import { setupAgentTools, runToolLoop, decideCompaction, createTerminalDeltaSink, type ToolContext, type InterjectionBlock } from './agent.js';
+import type { ToolExecutorKind } from '../tools/tool-executor.js';
+import type { PtcBindingCallQuota, PtcBindingConcurrencyQuota } from '../tools/ptc-executor.js';
 import { createAuditedDangerGate } from '../tools/danger-gate-audit.js';
 import { InterjectionBuffer } from '../interjection.js';
 import { renderSlashHelp, suggestSlashCommands, slashCompleter, findSlashCommand } from './slash-registry.js';
@@ -110,6 +112,7 @@ import {
   type MemorySource,
   type EmbeddingProvider,
 } from '../memory/index.js';
+import { withEmbeddingCache } from '../memory/embedding-cache.js';
 import {
   registerTask,
   listTasks,
@@ -277,6 +280,32 @@ export interface ReplOptions {
   apiUrl: string;
   apiKey?: string;
   maxIterations: number;
+  /** 单批工具并行上限;缺省由 runToolLoop 读 env(默认 10,1=串行)。 */
+  maxParallelToolCalls?: number;
+  /** 单程序绑定调用总上限;缺省 1000，仅 PTC / run_code 生效。 */
+  maxPtcToolCalls?: number;
+  /** 一个 agent 回合内多个 run_code 共享的绑定调用总上限;缺省不设回合闸。 */
+  maxPtcTurnCalls?: number;
+  /** 单程序同时在飞的绑定调用上限;缺省 10，仅 PTC / run_code 生效。 */
+  maxPtcConcurrentCalls?: number;
+  /** 命名空间/成员级绑定调用配额;仅 PTC / run_code 生效。 */
+  maxPtcScopeCalls?: readonly PtcBindingCallQuota[];
+  /** 命名空间/成员级绑定并发配额;仅 PTC / run_code 生效。 */
+  maxPtcScopeConcurrentCalls?: readonly PtcBindingConcurrencyQuota[];
+  /** 排队老化上限;0 关闭，1..10 逐轮加有效优先级。 */
+  maxPtcPriorityAging?: number;
+  /** 单个绑定调用的墙钟上限;0 关闭,缺省 30000,最大 600000。 */
+  maxPtcBindingTimeoutMs?: number;
+  /** 一个 agent 回合内所有 run_code 共享的绑定并发上限;缺省不设回合闸。 */
+  maxPtcTurnConcurrentCalls?: number;
+  /** 保留式 REPL/Script;缺省 false(每次 run_code 新进程,不保留变量)。 */
+  ptcRetained?: boolean;
+  /** Windows AppContainer 内核沙箱;缺省 false。 */
+  ptcOsSandbox?: boolean;
+  /** AppContainer worker 根目录;缺省 %ProgramData%\IHUI-AI\PTC。 */
+  ptcOsSandboxRoot?: string;
+  /** 工具执行器模式;ptc 时只广告 run_code,原生工具仅供只读绑定。 */
+  toolExecutorKind?: ToolExecutorKind;
   sessionId?: string;
   history?: ChatMessage[];
   enableMcp?: boolean;
@@ -515,13 +544,15 @@ export function resolveEmbeddingProvider(): EmbeddingProvider | undefined {
   };
   if (settings.embeddingEnabled === false) return undefined;
   if (settings.embeddingApiBase && settings.embeddingApiKey) {
-    return new ApiEmbeddingProvider({
+    // 2026-11-26 记忆生产化:真实 provider 一律套持久缓存 —— 同一 chunk 只 embed 一次,
+    // 进程重启后命中磁盘向量,不再每次 /memory search 全量重算。
+    return withEmbeddingCache(new ApiEmbeddingProvider({
       apiBase: settings.embeddingApiBase,
       apiKey: settings.embeddingApiKey,
-    });
+    }));
   }
   const detected = detectEmbeddingProvider();
-  if (detected) return detected;
+  if (detected) return withEmbeddingCache(detected);
   return new MockEmbeddingProvider();
 }
 
@@ -2834,6 +2865,20 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
       checkpoints: state.checkpoints ?? undefined,
       enableMcp: state.opts.enableMcp,
       silent: true,
+      toolExecutorKind: state.opts.toolExecutorKind,
+      ptcRetained: state.opts.ptcRetained,
+      ptcOsSandbox: state.opts.ptcOsSandbox,
+      ...(state.opts.ptcOsSandboxRoot === undefined
+        ? {}
+        : { ptcOsSandboxRoot: state.opts.ptcOsSandboxRoot }),
+      maxPtcToolCalls: state.opts.maxPtcToolCalls,
+      maxPtcTurnCalls: state.opts.maxPtcTurnCalls,
+      maxPtcConcurrentCalls: state.opts.maxPtcConcurrentCalls,
+      maxPtcScopeCalls: state.opts.maxPtcScopeCalls,
+      maxPtcScopeConcurrentCalls: state.opts.maxPtcScopeConcurrentCalls,
+      maxPtcPriorityAging: state.opts.maxPtcPriorityAging,
+      maxPtcBindingTimeoutMs: state.opts.maxPtcBindingTimeoutMs,
+      maxPtcTurnConcurrentCalls: state.opts.maxPtcTurnConcurrentCalls,
       planFirst: state.opts.planFirst,
       permissions: state.opts.permissions,
       permissionMode: state.opts.permissionMode,
@@ -2966,6 +3011,21 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
       messages,
       ctx: state.ctx!,
       maxIterations: state.opts.maxIterations,
+      maxParallelToolCalls: state.opts.maxParallelToolCalls,
+      maxPtcToolCalls: state.opts.maxPtcToolCalls,
+      maxPtcTurnCalls: state.opts.maxPtcTurnCalls,
+      maxPtcConcurrentCalls: state.opts.maxPtcConcurrentCalls,
+      maxPtcScopeCalls: state.opts.maxPtcScopeCalls,
+      maxPtcScopeConcurrentCalls: state.opts.maxPtcScopeConcurrentCalls,
+      maxPtcPriorityAging: state.opts.maxPtcPriorityAging,
+      maxPtcBindingTimeoutMs: state.opts.maxPtcBindingTimeoutMs,
+      maxPtcTurnConcurrentCalls: state.opts.maxPtcTurnConcurrentCalls,
+      toolExecutorKind: state.opts.toolExecutorKind,
+      ptcRetained: state.opts.ptcRetained,
+      ptcOsSandbox: state.opts.ptcOsSandbox,
+      ...(state.opts.ptcOsSandboxRoot === undefined
+        ? {}
+        : { ptcOsSandboxRoot: state.opts.ptcOsSandboxRoot }),
       sessionId: state.session?.id ?? state.opts.sessionId,
       signal: controller.signal,  // P2-2 传 signal,SIGINT 触发后 runToolLoop 内部响应 abort
       // plan_updated 快照 → 实时任务状态行(agent.ts 已透传,见 RunToolLoopOptions.onPlanUpdate)

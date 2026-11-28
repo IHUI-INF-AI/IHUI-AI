@@ -2134,9 +2134,9 @@ function builtinSecurityScan(event: string, subject: string, scan: () => SecretS
 }
 
 /** postToolCall 面:编辑类工具落盘后对本次文件做 L1 pattern 扫描(非编辑工具零动作)。 */
-function editToolScan(toolName: string, output: unknown): BuiltinScanLeg | null {
+function editToolScan(toolName: string, output: unknown, baseDir?: string): BuiltinScanLeg | null {
   if (!isEditToolName(toolName)) return null;
-  return builtinSecurityScan('postToolCall', toolName, () => scanEditedFile(output));
+  return builtinSecurityScan('postToolCall', toolName, () => scanEditedFile(output, baseDir));
 }
 
 /** stop 面:整轮聚合改动(HEAD 以来未提交 diff + 未跟踪文件)审查一次(仍只告警,不阻断收场)。 */
@@ -2408,7 +2408,7 @@ export async function runPermissionRequest(
  *  - `runDeferredPostToolCall`:后台任务完成回调专用,不受"一次工具调用只发一次"的作用域
  *    记账影响(它本来就发生在工具返回之后),同样只派发一次。
  */
-async function dispatchPostToolCall(toolName: string, output: unknown, signal?: AbortSignal): Promise<HookResult> {
+async function dispatchPostToolCall(toolName: string, output: unknown, signal?: AbortSignal, baseDir?: string): Promise<HookResult> {
   const scope = toolHookScope.getStore();
   if (scope) scope.postDispatched += 1;
   const config = loadHooks();
@@ -2419,7 +2419,7 @@ async function dispatchPostToolCall(toolName: string, output: unknown, signal?: 
   // 编辑类工具即便零配置也必扫)。F-038:命中 HIGH 凭据形态 ⇒ 本次调用 proceed=false;
   // 显式豁免(IHUI_SECRET_SCAN_ALLOW=1)与只有 MEDIUM/LOW 命中时仍只告警。
   // 扫描读**原始**载荷(路径必须先于脱敏可见);脱敏/截断只作用于下方钩子环境变量。
-  const scanLeg = editToolScan(toolName, output);
+  const scanLeg = editToolScan(toolName, output, baseDir);
   if (scanLeg !== null) {
     contextLines.push(...scanLeg.lines);
     const gate = secretScanGate(scanLeg.outcome);
@@ -2486,13 +2486,13 @@ async function dispatchPostToolCall(toolName: string, output: unknown, signal?: 
  * 公开入口:载荷原样进入(安全扫描需要未脱敏路径),钩子环境变量侧再统一脱敏+截断。
  * 带 scope 时记账 —— 中央只在工具体内一次都没派发的前提下补发。
  */
-export async function runPostToolCall(toolName: string, output: unknown, signal?: AbortSignal): Promise<HookResult> {
-  return dispatchPostToolCall(toolName, output, signal);
+export async function runPostToolCall(toolName: string, output: unknown, signal?: AbortSignal, baseDir?: string): Promise<HookResult> {
+  return dispatchPostToolCall(toolName, output, signal, baseDir);
 }
 
 /** 后台任务完成时的派发入口(F-125):启动点没有真实输出,只能在完成回调里发这一次。 */
-export async function runDeferredPostToolCall(toolName: string, output: unknown, signal?: AbortSignal): Promise<HookResult> {
-  return dispatchPostToolCall(toolName, output, signal);
+export async function runDeferredPostToolCall(toolName: string, output: unknown, signal?: AbortSignal, baseDir?: string): Promise<HookResult> {
+  return dispatchPostToolCall(toolName, output, signal, baseDir);
 }
 
 export async function runSessionStartHooks(config: HooksConfig | null, ctx: SessionHookContext, signal?: AbortSignal): Promise<HookResult> {

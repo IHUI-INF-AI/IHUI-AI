@@ -144,6 +144,26 @@ export function buildToolDenial(input: BuildToolDenialInput): ToolCallDenial {
 }
 
 /**
+ * 工具注册声明 `approval=deny` 的唯一拒绝出口。
+ *
+ * 注册声明就是一条静态规则 ⇒ 归因复用 permission-rule / rule-deny,不新造 decider 档;
+ * 审计与文案仍走本模块同一套出口,调用点(executeToolCall)不再自己拼第二份。
+ */
+export function buildToolRegistrationDenial(
+  tool: string,
+  args: Record<string, unknown> | undefined,
+): ToolCallDenial {
+  const denial = buildToolDenial({
+    gate: 'permission-rule',
+    decider: 'rule-deny',
+    tool,
+    args,
+  })
+  auditToolDenial(denial)
+  return denial
+}
+
+/**
  * 拼进错误串的 ASCII 后缀(人读面)。结构化字段在 `ToolResult.denial`,这一行保证
  * 只看到文本的消费者(模型 / 日志摘录)也能回答三问;参数只以指纹+键名出现。
  */

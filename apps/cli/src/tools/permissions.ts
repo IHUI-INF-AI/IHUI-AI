@@ -27,7 +27,7 @@
 // 故下面这条包根运行时值导入(权限轴投影 `humanApprovalMandated`,D142 的唯一判据出口)成立;
 // 它必须由 `node --test`/vitest 之外的**裸 node** 再验一次(已验,见该票交付报告),
 // 不得只凭这段注释否掉。`normalizePermissionMode` 仍走子路径:改它不在本票射程。
-import { humanApprovalMandated, type EffectScopeCarrier } from '@ihui/types'
+import { humanApprovalMandated, type EffectScopeCarrier, type ToolMatchSource } from '@ihui/types'
 import { normalizePermissionMode, type PermissionModeId } from '@ihui/types/permission-mode'
 import { noteLeaseCall, resolveLeaseRelaxationDetail, type PermissionLease } from './permission-lease.js';
 
@@ -77,27 +77,148 @@ export function parseToolList(raw: string | undefined): string[] | undefined {
 }
 
 /**
- * 新旧两名并查:任一名字命中即算命中。
+ * 规则上下文:内容来源匹配(`permission.matchSources` 的消费者)。
  *
- * 改名安全(MCP 从裸名 → `mcp__<server>__<tool>`):用户升级前保存的 allow/deny 记的是旧名,
- * 只查新名 = 那条规则静默失效。`aliases` 即旧名(见 `Tool.nameAliases`)。
- * 只做"是否命中"的并查,不改 deny > allow > ask 的相对优先级。
+ * 规则项从此支持 `<source>:<pattern>` 前缀(如 `command:git commit*`)。
+ * 三条纪律:
+ *  ① 只有工具契约**声明**过的来源(`matchSources`)才能被内容规则命中 ——
+ *    未声明 ⇒ 该前缀规则恒不命中(与"规则写错了"同形,绝不因笔误放开);
+ *  ② `tool-name:` 前缀等价于裸名;不认识的"前缀"(含冒号的旧名/路径串)按裸名整体精确匹配;
+ *  ③ **不传 context ⇒ 与改前逐字同结论**(既有调用点默认不传,内容规则不命中)。
+ * 模式只认尾部 `*` 作前缀通配,其余精确 —— 不解析更复杂的 glob。
  */
-function anyNameMatches(list: readonly string[] | undefined, names: readonly string[]): boolean {
-  if (!list || list.length === 0) return false;
-  return list.some((n) => names.includes(n));
+export interface RuleMatchContext {
+  /** 工具契约的 `permission.matchSources`;缺席 ⇒ 内容前缀规则恒不命中 */
+  matchSources?: readonly ToolMatchSource[]
+  /** 本次调用入参;缺席时按 `missingArgs` 策略处理内容规则(广告面用) */
+  invocationArguments?: Record<string, unknown>
+}
+
+/** 内容规则在"拿不到入参"时的取态:deny 面宁可不摘,allow/ask 面宁可保留。 */
+type MissingArgsPolicy = 'assume-match' | 'assume-miss'
+
+const RULE_SOURCE_PREFIXES: readonly ToolMatchSource[] = ['tool-name', 'input', 'path', 'command', 'url']
+
+/** 模式匹配:`**` 是目录前缀(含多层),`*` 是普通前缀,其余精确。 */
+function matchRulePattern(pattern: string, value: string): boolean {
+  if (pattern === '*') return true
+  if (pattern.endsWith('**')) return value.startsWith(pattern.slice(0, -2))
+  if (pattern.endsWith('*')) return value.startsWith(pattern.slice(0, -1))
+  return value === pattern
+}
+
+/** 从入参提取某来源的待匹配值;取不到 ⇒ 空数组(规则不命中,不是报错)。 */
+function extractSourceValues(
+  source: ToolMatchSource,
+  args: Record<string, unknown> | undefined,
+): string[] {
+  if (!args) return []
+  if (source === 'input') {
+    try {
+      return [JSON.stringify(args)]
+    } catch {
+      return []
+    }
+  }
+  if (source === 'command') {
+    const v = args.command ?? args.cmd ?? args.script
+    return typeof v === 'string' ? [v] : []
+  }
+  if (source === 'url') {
+    const v = args.url ?? args.uri
+    return typeof v === 'string' ? [v] : []
+  }
+  if (source === 'path') {
+    const out: string[] = []
+    const push = (v: unknown): void => {
+      if (typeof v === 'string' && v.length > 0) out.push(v)
+    }
+    for (const key of ['path', 'filePath', 'file_path', 'file', 'target', 'dir', 'directory']) {
+      push(args[key])
+    }
+    const files = args.files ?? args.paths
+    if (Array.isArray(files)) {
+      for (const item of files) {
+        if (typeof item === 'string') push(item)
+        else if (item !== null && typeof item === 'object') {
+          const rec = item as Record<string, unknown>
+          push(rec.path ?? rec.filePath)
+        }
+      }
+    }
+    return out
+  }
+  return []
+}
+
+/** 单条规则匹配:裸名对名单精确;带来源前缀则按声明来源 + 入参提取值匹配。 */
+function ruleMatches(
+  rule: string,
+  names: readonly string[],
+  ctx: RuleMatchContext | undefined,
+  missingArgs: MissingArgsPolicy,
+): boolean {
+  const colon = rule.indexOf(':')
+  if (colon < 0) return names.includes(rule)
+  const source = rule.slice(0, colon)
+  const pattern = rule.slice(colon + 1)
+  if (!RULE_SOURCE_PREFIXES.includes(source as ToolMatchSource)) {
+    // 不认识的"前缀":按裸名整体精确匹配(含冒号的旧名/路径串不得被误解析)
+    return names.includes(rule)
+  }
+  if (source === 'tool-name') return names.some((n) => matchRulePattern(pattern, n))
+  if (!ctx?.matchSources?.includes(source as ToolMatchSource)) return false
+  if (!ctx.invocationArguments) return missingArgs === 'assume-match'
+  const values = extractSourceValues(source as ToolMatchSource, ctx.invocationArguments)
+  return values.some((v) => matchRulePattern(pattern, v))
+}
+
+/** 规则表任一条命中(deny 面与 allow/ask 面的缺参取态由 `missingArgs` 区分)。 */
+function anyRuleMatches(
+  list: readonly string[] | undefined,
+  names: readonly string[],
+  ctx: RuleMatchContext | undefined,
+  missingArgs: MissingArgsPolicy,
+): boolean {
+  if (!list || list.length === 0) return false
+  return list.some((rule) => ruleMatches(rule, names, ctx, missingArgs))
+}
+
+/**
+ * 规则匹配的第三类名字:契约能力键。
+ *
+ * 名单由三类组成 —— 工具名、`aliases`(旧名,见 `Tool.nameAliases`)、
+ * `permission.permissionKey`(能力键)。调用点用本函数把能力键并进 `aliases`,
+ * 于是 allow/deny/ask 三条规则都能用 `fs.write`/`git.commit` 这类**能力键**精确命中,
+ * 工具改名也不再让已保存的规则静默失效。
+ *
+ * 纪律:精确匹配(不解析通配),不改 deny > allow > ask 的优先级;
+ * 无能力键 / 能力键已在名单里 ⇒ 原样返回,与不传逐字等价。
+ */
+export function withPermissionKeyAliases(
+  aliases: readonly string[] | undefined,
+  permissionKey: string | undefined,
+): readonly string[] | undefined {
+  if (!permissionKey) return aliases;
+  if (aliases?.includes(permissionKey)) return aliases;
+  return [...(aliases ?? []), permissionKey];
 }
 
 /**
  * 仅规则匹配(向后兼容,2 参数 checkPermission 使用)。
  * 返回 allowed/reason,不走 mode 矩阵。
  */
-function matchRulesOnly(toolName: string, rules?: PermissionRules, aliases?: readonly string[]): PermissionDecision {
+function matchRulesOnly(
+  toolName: string,
+  rules?: PermissionRules,
+  aliases?: readonly string[],
+  context?: RuleMatchContext,
+): PermissionDecision {
   if (!rules) return 'allow';
   const names = aliases && aliases.length > 0 ? [toolName, ...aliases] : [toolName];
-  if (anyNameMatches(rules.deny, names)) return 'deny';
-  if (anyNameMatches(rules.ask, names)) return 'ask';
-  if (rules.allow && rules.allow.length > 0 && !anyNameMatches(rules.allow, names)) return 'deny';
+  if (anyRuleMatches(rules.deny, names, context, 'assume-miss')) return 'deny';
+  if (anyRuleMatches(rules.ask, names, context, 'assume-match')) return 'ask';
+  if (rules.allow && rules.allow.length > 0 && !anyRuleMatches(rules.allow, names, context, 'assume-match')) return 'deny';
   return 'allow';
 }
 
@@ -133,14 +254,15 @@ function decideWithMode(
   dangerLevel: 'read' | 'write' | 'dangerous',
   permissionAxis?: EffectScopeCarrier,
   aliases?: readonly string[],
+  context?: RuleMatchContext,
 ): PermissionDecision {
-  // 1. 规则优先级高于 mode:deny > allow > ask(新旧两名并查,见 anyNameMatches)
+  // 1. 规则优先级高于 mode:deny > allow > ask(多名 + 能力键 + 内容来源并查,见 anyRuleMatches)
   const names = aliases && aliases.length > 0 ? [toolName, ...aliases] : [toolName];
-  if (anyNameMatches(rules?.deny, names)) return 'deny';
-  if (anyNameMatches(rules?.allow, names)) return 'allow';
-  if (anyNameMatches(rules?.ask, names)) return 'ask';
+  if (anyRuleMatches(rules?.deny, names, context, 'assume-miss')) return 'deny';
+  if (anyRuleMatches(rules?.allow, names, context, 'assume-match')) return 'allow';
+  if (anyRuleMatches(rules?.ask, names, context, 'assume-match')) return 'ask';
   // 白名单非空但工具(含旧名)不在白名单 → deny(规则优先)
-  if (rules?.allow && rules.allow.length > 0 && !anyNameMatches(rules.allow, names)) return 'deny';
+  if (rules?.allow && rules.allow.length > 0 && !anyRuleMatches(rules.allow, names, context, 'assume-match')) return 'deny';
 
   // 2. 无规则匹配,按 mode 矩阵决策
   let decision: PermissionDecision
@@ -190,6 +312,29 @@ export function isAdvertisableDecision(
   return !nobodyToAsk;
 }
 
+/**
+ * 仅规则判定(2 参重载的**带上下文**版本):执行漏斗在无租约时用它 ——
+ * 2 参重载没有第 4 参位,内容匹配(`matchSources` + 入参)只能从这里进。
+ */
+export function checkPermissionRules(
+  toolName: string,
+  rules: PermissionRules | undefined,
+  aliases?: readonly string[],
+  context?: RuleMatchContext,
+): PermissionCheckResult {
+  const decision = matchRulesOnly(toolName, rules, aliases, context);
+  if (decision === 'deny') {
+    const names = aliases && aliases.length > 0 ? [toolName, ...aliases] : [toolName];
+    return {
+      allowed: false,
+      reason: anyRuleMatches(rules?.deny, names, context, 'assume-miss')
+        ? `工具 ${toolName} 在 --disallowed-tools 黑名单中`
+        : `工具 ${toolName} 不在 --tools 白名单中`,
+    };
+  }
+  return { allowed: true };
+}
+
 export function checkPermission(
   toolName: string,
   rules?: PermissionRules,
@@ -202,6 +347,7 @@ export function checkPermission(
   dangerLevel: 'read' | 'write' | 'dangerous',
   permissionAxis?: EffectScopeCarrier,
   aliases?: readonly string[],
+  context?: RuleMatchContext,
 ): PermissionDecision;
 export function checkPermission(
   toolName: string,
@@ -212,24 +358,15 @@ export function checkPermission(
   dangerLevel?: 'read' | 'write' | 'dangerous',
   permissionAxis?: EffectScopeCarrier,
   aliases?: readonly string[],
+  context?: RuleMatchContext,
 ): PermissionCheckResult | PermissionDecision {
   const modeAliases = mode !== undefined && typeof mode !== 'string' ? mode : undefined;
   // 4 参数重载:mode-aware 决策
   if (typeof mode === 'string' && dangerLevel !== undefined) {
-    return decideWithMode(toolName, rules, mode, dangerLevel, permissionAxis, aliases);
+    return decideWithMode(toolName, rules, mode, dangerLevel, permissionAxis, aliases, context);
   }
   // 2 参数重载(可选旧名别名):仅规则匹配(向后兼容)
-  const decision = matchRulesOnly(toolName, rules, modeAliases);
-  if (decision === 'deny') {
-    const names = modeAliases && modeAliases.length > 0 ? [toolName, ...modeAliases] : [toolName];
-    return {
-      allowed: false,
-      reason: anyNameMatches(rules?.deny, names)
-        ? `工具 ${toolName} 在 --disallowed-tools 黑名单中`
-        : `工具 ${toolName} 不在 --tools 白名单中`,
-    };
-  }
-  return { allowed: true };
+  return checkPermissionRules(toolName, rules, modeAliases, context);
 }
 
 /**
@@ -279,8 +416,9 @@ export function checkPermissionWithLease(
   lease?: PermissionLease | null,
   invocationContent?: string | null,
   permissionAxis?: EffectScopeCarrier,
+  context?: RuleMatchContext,
 ): PermissionDecision {
-  const base = decideWithMode(toolName, rules, mode, dangerLevel, permissionAxis);
+  const base = decideWithMode(toolName, rules, mode, dangerLevel, permissionAxis, undefined, context);
   // 租约与 `--allow-dangerous` 是同一类档:**都是替人预先回答**。契约声明过"必须由人批准"
   // (D142 的 `humanApprovalMandated`,判据只那一份)⇒ 这一格不交给租约放宽,与 danger-gate
   // 里 flag 不得放行同形。契约缺席 ⇒ 下面逐字走改前那条路径。
@@ -313,10 +451,11 @@ export function checkRulesWithLease(
   lease?: PermissionLease | null,
   invocationContent?: string | null,
   aliases?: readonly string[],
+  context?: RuleMatchContext,
 ): LeaseAwareCheckResult {
   // 无租约 ⇒ 直接交回旧实现,返回体形状与改造前逐字相同(默认档不变的第一道保证)
-  if (!lease) return checkPermission(toolName, rules, aliases);
-  const base = matchRulesOnly(toolName, rules, aliases);
+  if (!lease) return checkPermissionRules(toolName, rules, aliases, context);
+  const base = matchRulesOnly(toolName, rules, aliases, context);
   const applied = applyLeaseToDecision(base, toolName, dangerLevel, lease, invocationContent);
   const decision = applied.decision;
   if (decision === 'deny') {
@@ -324,7 +463,7 @@ export function checkRulesWithLease(
     return {
       allowed: false,
       requiresApproval: false,
-      reason: anyNameMatches(rules?.deny, names)
+      reason: anyRuleMatches(rules?.deny, names, context, 'assume-miss')
         ? `工具 ${toolName} 在 --disallowed-tools 黑名单中`
         : `工具 ${toolName} 不在 --tools 白名单中`,
     };

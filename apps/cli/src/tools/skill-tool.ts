@@ -98,9 +98,9 @@ const skillTool: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 32 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 16 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 120, from: 'head' },
+      preview: { bytes: 4096, lines: 120, from: 'head' },
     },
   },
   parameters: {

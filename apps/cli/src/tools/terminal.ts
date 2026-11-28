@@ -259,9 +259,9 @@ export const terminal_open: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   parameters: {
@@ -378,9 +378,9 @@ export const terminal_send: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   parameters: {
@@ -456,9 +456,9 @@ export const terminal_read: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 32 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 16 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 80, from: 'head' },
+      preview: { bytes: 4096, lines: 80, from: 'head' },
     },
   },
   parameters: {
@@ -511,9 +511,9 @@ export const terminal_resize: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 32 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 16 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 80, from: 'head' },
+      preview: { bytes: 4096, lines: 80, from: 'head' },
     },
   },
   parameters: {
@@ -566,9 +566,9 @@ export const terminal_close: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   parameters: {
@@ -610,9 +610,9 @@ export const terminal_exec_sandboxed: Tool = {
     },
     resultBudget: {
       inlineLimitBytes: 16 * 1024,
-      providerVisibleLimitBytes: 72_000,
+      providerVisibleLimitBytes: 8 * 1024,
       policy: 'truncate',
-      preview: { bytes: 3_600, lines: 40, from: 'head' },
+      preview: { bytes: 2048, lines: 40, from: 'head' },
     },
   },
   parameters: {

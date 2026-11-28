@@ -17,6 +17,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { isDefinitePathAbsence } from './path-safety.js';
+import { loadCapabilityDeclaration } from './capability-manifest-gate.js';
 import type {
   PluginDefinition,
   PluginDiagnostic,
@@ -43,6 +44,8 @@ const DIAGNOSTIC_SEVERITY: Record<PluginDiagnosticCode, PluginDiagnosticSeverity
   'manifest-name-missing': 'error',
   'manifest-version-missing': 'error',
   'manifest-shadowed-by-priority': 'warning',
+  // W4-01/P0-B(2026-11-26):能力面附件不合法 ⇒ 整份插件不装载;与"清单缺失/坏 JSON"同级。
+  'plugin-capability-rejected': 'error',
   'plugin_ambiguous_name': 'error',
   'manifest-unexpected-error': 'error',
   'plugin-dependency-cycle': 'error',
@@ -129,6 +132,9 @@ export function normalizeManifest(raw: PluginManifest, source: string): PluginDe
   if (Array.isArray(raw.commandContributors)) {
     def.commandContributors = raw.commandContributors.filter((c) => typeof c === 'string');
   }
+  // W4-01/P0-B:旁挂能力清单的解析结果必须随定义一起过去,否则装载层校验完就丢,
+  // 运行面永远看不见 permissions/contributes(与 G-682 同型:声明到不了运行面)。
+  if (raw.capability !== undefined) def.capability = raw.capability;
   return def;
 }
 
@@ -171,6 +177,13 @@ export function parseManifestFile(file: string): ManifestParseOutcome {
     return { manifest: null, diagnostics: [diagnostic(code, file, `Manifest is missing the required field "${field}"`)] };
   }
 
+  // P0-B(2026-11-26):能力面预检在最小校验通过之后、交付定义之前跑;坏附件整份拒,不降级。
+  const capability = loadCapabilityDeclaration(file, obj.name);
+  if (capability.status === 'rejected') {
+    const rejection = diagnostic('plugin-capability-rejected', capability.file, capability.message, { pluginName: obj.name });
+    return { manifest: null, diagnostics: [rejection] };
+  }
+  if (capability.status === 'ok') obj.capability = capability.capability;
   return { manifest: obj, diagnostics: [] };
 }
 

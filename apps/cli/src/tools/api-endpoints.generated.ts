@@ -8,8 +8,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: scripts/scan-api-routes.mjs
-// sourceCommit: cb49983b61e342736f081ebaa78d8c816537a0dc
-// inputsSha256: c942dfe54ae12040bb30ca0637fe3e7d791f20f8885bb7affc57da87320742bd
+// sourceCommit: fa5ccc3ee37e2dc9ed64d5f77863809aecfcc41a
+// inputsSha256: df563398b5a40edba911e61f6ac597e87eaa66d1bc18144eb0ab75d04d00ec0d
 // input: apps/api/src/plugins/terminal-cleanup.ts c561f522419123bcf264e279c6aa5f9e5bf66b1d07fbe983bb0e6e6298f7f61a
 // input: apps/api/src/plugins/terminal-ws.ts 0de7893a231fa3964ac2ea8122feeb9546980a0f6925e869dba7e5cbfb4de465
 // input: apps/api/src/routes/ab-testing.ts 18d5edae3f025b98897bc36989f48373956aaffcdb010ebfe97060b8d537a2ec
@@ -73,7 +73,7 @@
 // input: apps/api/src/routes/admin-sys/role-routes.ts 605849ac58e2653022e064ada1db4a7146feaf74fc847b0869c10812a1e551af
 // input: apps/api/src/routes/admin-sys/user-routes.ts 0a378a0816fd158fa781930704294386004258378a308f018f220a35cfaf7ca4
 // input: apps/api/src/routes/admin-zone.ts ede968ce024cd53a3a2f780ce05ffb759f0f5efe3cee59e16dd57fdad60f6506
-// input: apps/api/src/routes/admin.ts 5e56b0bbdaea5dc8e40cb9947b3469c01baea5f0ffd5f4a3e81b1c8aad51ad68
+// input: apps/api/src/routes/admin.ts c3d5cb5e046f201b9e90b65b3bac8dcda3077865b2b3e2c8914374df5116943a
 // input: apps/api/src/routes/admin/ai-gc.ts 9d2effa5f15a354879b0b328061b26d4f8759a300e75f90e96d64de785c9d131
 // input: apps/api/src/routes/admin/auth-accounts.ts baae4aa94dbc61ef4515142af2c0acebffb94d7ad228e9694786c4ce787405c9
 // input: apps/api/src/routes/admin/auth-info.ts 253c88440229262e9b761204a746f7474f967ea5e4b8ca575928ce28c458c647
@@ -116,7 +116,7 @@
 // input: apps/api/src/routes/admin/relay-key-pool.ts 946e81adda38b69e93985df10fd3c6b214f2d522281d6288319d5eec07ec7010
 // input: apps/api/src/routes/admin/relay-key-scheduling.ts 9e046ae2f2a0eadb0f0af9af1a4bfe1bc3f8f4e07674eb45693695d5a8e7f477
 // input: apps/api/src/routes/admin/relay-logs.ts 1151b5f8b36192be9db00b9e66e941ca34cd6b443a6c9a6cbc9fd032c1e94ff3
-// input: apps/api/src/routes/admin/relay-models.ts a5884e05e4f24fcc2a989d96c483aa3adfc61c1ead999684e0a564d338aa4ed5
+// input: apps/api/src/routes/admin/relay-models.ts da17905b46d16d338cdbba4033a2b33afa377cf181099147b5899bc0f82bba6d
 // input: apps/api/src/routes/admin/relay-param-ops.ts 1a341cc3a44f730fd6ae222dc1f35b0a658f5092b1d67ad151ae167b395270b2
 // input: apps/api/src/routes/admin/relay-peak-pricing.ts d9badaaf24c3906d8e7dba20e7c00210b395d7ad558260eee6654916175e2d78
 // input: apps/api/src/routes/admin/relay-plugins.ts dfa6575856a892617a545fa1755bde8bdf1f7c7991fb651ebbcf8ee0b2de3151
@@ -160,11 +160,11 @@
 // input: apps/api/src/routes/agents.ts 8bda5b711f3b95e37093994a59cefedd10e2bf80edc3fe23d58ba60cb33bec8e
 // input: apps/api/src/routes/ai-audio.ts 5082f7de9d1d9b756c2a5e532da03033d28f80455ea14913b1b9a49e9a587c2e
 // input: apps/api/src/routes/ai-callback.ts 8adb30fbc97a4dc17b9c56a3f217140e851939c57228981d510e044cd4c7b538
-// input: apps/api/src/routes/ai-chat-stream.ts 52131341a51da1593a0e1ab646cbd14e437bd40fdc4cfb85e330df5e641177ef
+// input: apps/api/src/routes/ai-chat-stream.ts f59c3aaa48dfce4fd88876af8ac1d5eaa21dd356f90d31f8c74ed91e1bb05203
 // input: apps/api/src/routes/ai-education.ts 81933f8380640964029745e01c82aeb31b6da4e64c1045576f40af18d1ad7047
 // input: apps/api/src/routes/ai-extended.ts b542b43d99ddf9cd008d1408359623231f2e6c4fdff8f6c03b38fc01fbbdac33
 // input: apps/api/src/routes/ai-feed.ts c72b9cfe38d273e1f8c7b54e72b89178cab26e49ec653b7e414070042fe01c18
-// input: apps/api/src/routes/ai-frontend-routes.ts 6f5e6b30a2cd8818113ee3086fc5740a886d302f63c938d102d73a50b2371910
+// input: apps/api/src/routes/ai-frontend-routes.ts 58e06bcb8abdc68a0a2adfb73a8e2d0b43de749a8ea44d0eeb6e1ab59120e146
 // input: apps/api/src/routes/ai-generation.ts fabeac4922500cd968c3417d5fddbd256ccd1da48bbc42efe25292b1578c4377
 // input: apps/api/src/routes/ai-grading.ts 2fac23d1b3d8f6b08aab5c435016656151f5da08cbedea7ca74c08889e9127d7
 // input: apps/api/src/routes/ai-image-edit.ts f48406bbe002aa7d099b6560a25ea6ad36d0236f10ebdaedecd146c68d1dc142
@@ -183,10 +183,10 @@
 // input: apps/api/src/routes/ai-vendors/proxy-extended-media4.ts 113aa9e2e73caf9225a38cffd4d8c9f711630b7964234e6d2713ba04d37300f3
 // input: apps/api/src/routes/ai-vendors/proxy-extended-media5.ts e8cc457914b4a2671ad8cd4df9e920731ff97ea0facd45a2f2f796f0f44feddc
 // input: apps/api/src/routes/ai-vendors/proxy-extended.ts b7dc453bdee0b6b4b7fcb45ff21baad1d433e490132d825c2130ee9e0d41bcae
-// input: apps/api/src/routes/ai-vendors/proxy-llm.ts cc424b14006a5b028007017393602906a57dd37a129fd647583bc53a282c0f02
-// input: apps/api/src/routes/ai-vendors/proxy-media.ts 742c767890e8351dd3dbb65d67c7ba7a145063b9768fe53afb3fdee2e1e806aa
+// input: apps/api/src/routes/ai-vendors/proxy-llm.ts a80b89fefddf4e4535157ec0a18194464dce65026bf7dd4c1c66a3dfbe72402d
+// input: apps/api/src/routes/ai-vendors/proxy-media.ts a84c8beba48a4503133ec222d3c2dd2ae4634640e750acd5de11af7c884603a9
 // input: apps/api/src/routes/ai-vendors/proxy-openai-compat.ts 938b6561a63a9d7a785e93c3d3b8d580ced4349bd9ab9122f0797ad5a1361b1e
-// input: apps/api/src/routes/ai-vendors/proxy-tools.ts 5f533c6f4ce47a03e12fd5f04c1fd5e6ed2640445359007a268eae2a09c8e004
+// input: apps/api/src/routes/ai-vendors/proxy-tools.ts 24d74e7ea59de6fc0c719120101adea459c3450abe79c5e62f98907d3f290b9a
 // input: apps/api/src/routes/ai-video-compose.ts 92467e8acfcc9aa6ca33b32b06cce3d25aa78c654c5039a8d5cc68dfc5153d51
 // input: apps/api/src/routes/ai-world.ts cd4f99d091ab65232c17f61124da1e53dab6c9bbb7ae45c300b56e9f16987e25
 // input: apps/api/src/routes/algorithm-record.ts 62dc4bc568978063899b4b801b2a8c023330e7f0752df5e4630e9b63537f8e17
@@ -226,7 +226,7 @@
 // input: apps/api/src/routes/chat-resume.ts dd833321582715376e656d8eb10e837081b6253922afee64324d0301c1d0d1d5
 // input: apps/api/src/routes/chat-skills.ts 6839fc6c87335dae0d95a7fcb29d525827e173f3ed7dedfbb4468c082c338d35
 // input: apps/api/src/routes/chat-templates.ts 6a134c38e402fc31c0d2a3678dbd0100321c5f747f737fbe41bfd34189485119
-// input: apps/api/src/routes/chat.ts 150f6580fd0d25106f051d4980be46e1683e4a4bf1ae43690d0099946580f147
+// input: apps/api/src/routes/chat.ts 629977032832b2a1043d11acc6c8ee7e5bcd032bf491ccff1533ba4dd9f23728
 // input: apps/api/src/routes/checkin-proxy.ts 9253dc0c1cf7576a02af5db008ad78a7b7f6bab090a3a31f8fddd174a69593c0
 // input: apps/api/src/routes/chunked-upload.ts 3224a1abfe047507b6ea58cd67dcf8a5f8356f8de250f5c01fac53022ff9136c
 // input: apps/api/src/routes/circle-mobile-routes.ts ed78d538def18074d768090a031821b98869edac4f0c4f8c0f3867fad8041c0a
@@ -271,7 +271,7 @@
 // input: apps/api/src/routes/devices.ts 9c7d51217ab4e1b39604ebd43c4c821beee1de6a5ed1f47a259eea3b49e0cadf
 // input: apps/api/src/routes/dict.ts 1285dbe8dbb6810946134b3604ed0d242c6128d2fa7dde4a2ba8e83d04586a55
 // input: apps/api/src/routes/distribution.ts cdbd458587c0b34512a9795228ffaf520f9d137677731e85610fad8d9b7d753f
-// input: apps/api/src/routes/drama.ts 569ee9fa078a2ae98748fbe6d9cdac3e182c6c4e9fedb619c3aa051c872a6ca4
+// input: apps/api/src/routes/drama.ts 48434237c5c5a75b5befa9540211890b1d46c8ccb51eb820760fe868a169613e
 // input: apps/api/src/routes/earnings-routes.ts af2c721f372a4545ee72b8af9100f1b7d00dbc1cb01c0663aef943649f8d0ae1
 // input: apps/api/src/routes/edu-ai-management.ts daca44e871644ed77941fba825fc6caecf3e318df00df13de709061053679662
 // input: apps/api/src/routes/edu-canteen.ts 0669b874d309889099c81e5d1ee99f765100c11db1b6430d367c1558517b8e01
@@ -284,7 +284,7 @@
 // input: apps/api/src/routes/engine-control-frames.ts 3e7f892a6acc088b99c1665bb62cb74bbf397e044f3ec3fe08a2f2583ba6e70b
 // input: apps/api/src/routes/engine-voice.ts 264bd0e158363761190ba2981c985a061d1af998bca79bd04f3acd3d12a9eb1f
 // input: apps/api/src/routes/exam-marking.ts 18b06f4cd03ebf964b1a8fff1348b4b1929d148977efcf378e91e1bea78e5555
-// input: apps/api/src/routes/exam.ts 14f36c3cc6c960ec59273f63d703ac602b4a5bed6878e30ab60b4f63ef3167b0
+// input: apps/api/src/routes/exam.ts 9f04d9d9a9074801b62938312e518cae85108203678686760a5a0245291b34e8
 // input: apps/api/src/routes/feature-center.ts 78a059e676cbf1ccca7829c58fbe0aa9ce93c23551933566681614eb46e8d474
 // input: apps/api/src/routes/file-version.ts bc9fb34bd0c70e8c0f434efa19b3dacb4d6c4ca0d238f86a5595a4bc59f1291b
 // input: apps/api/src/routes/files.ts 8843b14afb6c97cac5e9cf9ebe218641a896bd864d04f8822479dc226d4266e3
@@ -321,7 +321,7 @@
 // input: apps/api/src/routes/hr-training.ts 44e3cdfaa657ad095465b1b331d5d8a7f01f58c31fd1eb1d4ba30073d3ff33c0
 // input: apps/api/src/routes/i18n-dashboard.ts 3880bb04a25b18411cedc4e49b456c862b2facbb4dce84d2d3a4f01cea2e4a1e
 // input: apps/api/src/routes/im-gateway.ts e8ffa1060b1bdb4dae44d290bd74c825f5d25080da4d1c3d0ff535155374ab42
-// input: apps/api/src/routes/index.ts b69aee8c751a7f442e3d5ed37c2425b361826f954aec793d6d9630c9dc336f0b
+// input: apps/api/src/routes/index.ts a80cae72db77d0f3d3c12a921bb81235f4d826afd704456d9d97c1226a045c4d
 // input: apps/api/src/routes/interactions.ts 7a71d6505cc7269d149ac5fd00fb1ca23d0ec3bfe251036195c43f40d9098383
 // input: apps/api/src/routes/internal-relay-account-pool-credential.ts 7aed0f31db02509320a624568c80e91c4b30b1a84f9677fb19717957ee2f91d7
 // input: apps/api/src/routes/internal-relay-user-pool.ts c499672cebd7af6028ddd1db3f54536bbc12c8de162f2c095e3d9b2636420a7f
@@ -352,7 +352,7 @@
 // input: apps/api/src/routes/member.ts 72401d268cbd5e756158cf72f9c381ae27d960452697a22a49d3f2bbf47dacbb
 // input: apps/api/src/routes/memory.ts 40752fd39cf684257c9ac114dcdda5eb56561a1f818f4dd1411488f11f0e0e2a
 // input: apps/api/src/routes/message-bus.ts e87ab24175c6f51431174b25db97b26e43699c9dfd8ce2c6a4700663a86d2e9b
-// input: apps/api/src/routes/message.ts 582ee08179e4db3a29d1260883be839514eecd13db3a6756a414b81cdc0e1aba
+// input: apps/api/src/routes/message.ts d167f28d0f61bd8c69ddeb3bade45cbf23f63c9740c0b179ceff8413980c9ff4
 // input: apps/api/src/routes/meta-learner.ts 341469703a67e159e2615e4d7db1bd52b6ebdfeda045f5429eb40928c2c298c6
 // input: apps/api/src/routes/mfa.ts db296234a5d017573270718badbd8fb0c385223072fcae0ad951c1dc6d903fe0
 // input: apps/api/src/routes/miniapp-compat-routes.ts 809c80119701b3aeed10a4deffbc0f7a16d8d1baa6ed48f3d10a1ca9596c70cf
@@ -360,7 +360,7 @@
 // input: apps/api/src/routes/miniapp-public-fallback-routes.ts f4c7899f1bfc281f86cf52f4b833097ee63e0d655a619af55dad8dfe3c307a37
 // input: apps/api/src/routes/miniprogram.ts 091ec103013e22bf8e03a94fc9d44492f3e824a3f0595b7d485724aca0fa8ea0
 // input: apps/api/src/routes/misc-extended.ts 2cde3dea5f660472deb2e2608cba2e257f065d0ba4cd0811a4d372f9369f1ef4
-// input: apps/api/src/routes/mobile-chat-routes.ts 23612df57fe3300ad9b910b96e1d0ed3ba00904ac77e7bab5fd1c9be7baea828
+// input: apps/api/src/routes/mobile-chat-routes.ts 4fb4c7ceaf2d8dbd63570289fb219893c134cfed06280744898b76bbe109d32b
 // input: apps/api/src/routes/monitor.ts 0f0afb5bccec52b840b9b5eae357280620559696e9bc1f1e904dcd298c834e53
 // input: apps/api/src/routes/n8n-proxy.ts f7ada55f9a6ee8a15abfde62fa173aea45488fc8683513f7b10eef7d3578c9cc
 // input: apps/api/src/routes/news.ts ff7cbf8b6232281ec101ce5c60be4c84dd6a0232610e2993058cda33a9fb8ffb
@@ -426,7 +426,7 @@
 // input: apps/api/src/routes/public-status.ts 6195633f2e6d9da156d7043f0d6326198acb79716ceb6ff1c1ca08159e6154e4
 // input: apps/api/src/routes/publish-analytics.ts 5cfcbc7b7adfa3f81a37a14d129cd235e04221f5527b3aaa5d5784e522bcf68c
 // input: apps/api/src/routes/publish-routes.ts 67b928455175f74540a6b8bc8c371c736487f841e0ce8a668644bd75b0c33e9c
-// input: apps/api/src/routes/push.ts 2316acd6bf00d6b28668f3c237246c22bac8bc541fa8e6d433ae0c2b44a45f53
+// input: apps/api/src/routes/push.ts 006695db9639aef04d98274400ede3ec749d926472f74e800da098f2ea185533
 // input: apps/api/src/routes/ranking.ts 8a532280d1a2593643f697d73b1f48d4459636c9dc292a2935649734d78d7902
 // input: apps/api/src/routes/rbac.ts 0865fd5262291fb4acb40b2e7586e94e8ae97bb7726081007de5375fe8a8e866
 // input: apps/api/src/routes/reasoning-translation.ts 2af6cabdbe0f59d68009550e395f33c6e631b4cc6f95910a2b1833740985f23e
@@ -435,7 +435,8 @@
 // input: apps/api/src/routes/relay-conversations.ts 9da8e2704fd8386d6ef8cc5148e8d0603d56b3fb61bdab3e83981fe5004e9f0b
 // input: apps/api/src/routes/relay-enterprise.ts 3fe671d7572926f4ee55d2557b416352241d4cb67fc793e508e5c642fef42f61
 // input: apps/api/src/routes/relay-monitor-public.ts 067bb2301460d074b9a86e7a14e38d6457fcf7459867ba18d1ab3e09ec37dde7
-// input: apps/api/src/routes/relay-public.ts 58f38581f2d6599944b6b57819aed62c665b3388a71bd0160a2ac75191a33085
+// input: apps/api/src/routes/relay-public.ts d6e7cb8abdfd00cebc924ff8f577117a9dd8f0f8df264964fb0a334cce843099
+// input: apps/api/src/routes/relay-workbuddy-desktop.ts 1a407ff0269906af050077130cc29f19ecd63be580a1e6d655ad0cfcd26cfa26
 // input: apps/api/src/routes/remote-device.ts 4f7d5f2e47444c593038ff3466eec5c97128899138d1beafe9cc4aaff1a8c607
 // input: apps/api/src/routes/remote-extended.ts ae2c0bf465f116d7762d503be18fea454363bc5734951a32028feeabae6e8670
 // input: apps/api/src/routes/repo-wiki.ts 8dcc1c0c3c61563c741f4a79136a24387f0972a1757ab00bf6b4f09e9ccfba80
@@ -497,7 +498,7 @@
 // input: apps/api/src/routes/user/ai-capabilities-routes.ts c5948704b7e558509cc5967b667267b44f9f3f7a7d084ae84bd0818e8cd5353d
 // input: apps/api/src/routes/user/ai-feed-routes.ts b2fcffc7c04044bd54a962d7ab5e40b15545d373ea5f40727af4a3a22e030616
 // input: apps/api/src/routes/user/ai-models-routes.ts 43cf36fa99f3a2b57d7e0879b0a42a9b8813d2cd3d9e0dc38f19fabf0a38a0ac
-// input: apps/api/src/routes/user/ai-modules-routes.ts 1a9dd5af484229dd10c4548138c17953f6079b0eca13ee75b4495f2e7a9a884f
+// input: apps/api/src/routes/user/ai-modules-routes.ts 23ac2ed5652884305fe3f82e9df55f1cef5aa2be066966ff5cbdc47e29a76590
 // input: apps/api/src/routes/user/ai-users-routes.ts a010e0659397a508d68b4d47d7385cf2ceb5bb6394d101c0f6cbe27f2f09bd00
 // input: apps/api/src/routes/user/aigc-routes.ts 4be95e0469b1a7b70e5b5ca8e8c72f4c440ec16391d499fd007f8d0fbb965aeb
 // input: apps/api/src/routes/user/articles-routes.ts 43e74d4c4eab21e9cdaaf64ffbf4365546ed3fb062c178466b47df1a6668594d
@@ -531,9 +532,9 @@
 // input: apps/api/src/routes/v1-mcp-gateway.ts d676993739cad4328607a415ff59702f420060cdba4f77b8001e40da9e8d6cd3
 // input: apps/api/src/routes/v1-messages.ts d58dab76dc37d0ab978f1efd3310c31342239520ce8974d9cea916fc0d42be28
 // input: apps/api/src/routes/v1-midjourney.ts de3544809ff0b3303e8a3057dc3ba8210e806f1fd7f51be251d8caa5beb7e398
-// input: apps/api/src/routes/v1-multimodal.ts 7b60ddb271014b45dcd4a89bb963d22e3641da977a3486596e7b30a94ed0ac7c
+// input: apps/api/src/routes/v1-multimodal.ts 0fbd560048f2c2a9c4318d9e9ffc5dfff35cd372e3a039ba7bcc4489ec6f0ad8
 // input: apps/api/src/routes/v1-protocol-completeness.ts ab481fcaf7b6923e47840f766dc56e3b73caf9bfb5a95fefcaf5e079fb87d78a
-// input: apps/api/src/routes/v1-public.ts c0dfdfaca9cdefda4b0f1427315d2b5c3520c7fbcf4df3d377ca68c7b6fbabeb
+// input: apps/api/src/routes/v1-public.ts c365a1ee16dfcda95e72a6f9342a741613d8ab84dad14a41fe41f9baecffab11
 // input: apps/api/src/routes/v1-realtime.ts 244f7b8b1dd833dc45edb73e3df15fc99b0fd42ff33c7b8e1a02507a570d5738
 // input: apps/api/src/routes/v1-rerank-moderations.ts 6f3c8f04aaeea9d983d5473d05057778584666b0b9ede91cd7838206b891942d
 // input: apps/api/src/routes/v1-responses.ts 872299cc0a550c3471cd86822fcf5539b27a79a7580765de5a3ba95d3609fde1
@@ -560,9 +561,9 @@
 // input: apps/api/src/routes/zhs-legacy.ts f980c89ead7bcc839a3ebb0ed3fcfcc93c455b0c53242b08b22ab3ef4541aaae
 // input: apps/api/src/routes/zhs-organization.ts e59e6576a310c14c2a917b15e81a418b2d1510edd45c8339b1907b6ad8dd6738
 // input: packages/design-tokens/src/index.ts 9994da0906704666b2858e0a974ee723c3cb59b65af14051fdabc0b4d6840a33
-// files: 550
-// endpoints: 5918
-// generatedAt: 2026-11-26T12:52:56.198Z
+// files: 551
+// endpoints: 5916
+// generatedAt: 2026-11-26T14:12:32.607Z
 // IHUI-GEN-PIN-END
 export const API_ENDPOINTS_RAW = `GET	/.well-known/apple-app-site-association	.well-known	apps/api/src/routes/apple-app-site-association.ts	exact
 GET	/.well-known/oauth-authorization-server	.well-known	apps/api/src/routes/oauth-authorization-server.ts	exact
@@ -751,13 +752,9 @@ POST	/api/admin/ai-pricing/backfill-call-cost	admin	apps/api/src/routes/admin.ts
 POST	/api/admin/ai-pricing/backfill-cost	admin	apps/api/src/routes/admin.ts	exact
 GET	/api/admin/ai-pricing/channel-cost	admin	apps/api/src/routes/admin.ts	exact
 GET	/api/admin/ai-pricing/list	admin	apps/api/src/routes/admin.ts	exact
-GET	/api/admin/ai-pricing/missing-costs	admin	apps/api/src/routes/admin.ts	exact
-POST	/api/admin/ai-pricing/missing-costs/quarantine	admin	apps/api/src/routes/admin.ts	exact
 GET	/api/admin/ai-pricing/models	admin	apps/api/src/routes/admin.ts	exact
 PATCH	/api/admin/ai-pricing/models/:id	admin	apps/api/src/routes/admin.ts	exact
 GET	/api/admin/ai-pricing/overview	admin	apps/api/src/routes/admin.ts	exact
-GET	/api/admin/ai-pricing/point-holds	admin	apps/api/src/routes/admin.ts	exact
-POST	/api/admin/ai-pricing/point-holds/cleanup	admin	apps/api/src/routes/admin.ts	exact
 GET	/api/admin/ai-pricing/profit	admin	apps/api/src/routes/admin.ts	exact
 POST	/api/admin/ai-pricing/reprice-placeholders	admin	apps/api/src/routes/admin.ts	exact
 POST	/api/admin/ai-pricing/sweep	admin	apps/api/src/routes/admin.ts	exact
@@ -3832,6 +3829,8 @@ POST	/api/developer/webhooks/subscriptions/:id/redeliver/:logId	developer	apps/a
 POST	/api/developer/webhooks/subscriptions/:id/test	developer	apps/api/src/routes/developer/webhooks.ts	exact
 GET	/api/developer/withdrawals	developer	apps/api/src/routes/developer.ts	exact
 POST	/api/developer/withdrawals	developer	apps/api/src/routes/developer.ts	exact
+GET	/api/developer/workbuddy/desktop-sessions	developer	apps/api/src/routes/relay-workbuddy-desktop.ts	exact
+GET	/api/developer/workbuddy/desktop-sessions/:sessionId	developer	apps/api/src/routes/relay-workbuddy-desktop.ts	exact
 GET	/api/devices	devices	apps/api/src/routes/devices.ts	exact
 POST	/api/devices	devices	apps/api/src/routes/devices.ts	exact
 DELETE	/api/devices/:id	devices	apps/api/src/routes/devices.ts	exact
@@ -6483,5 +6482,5 @@ GET	/api/wrong-questions	wrong-questions	apps/api/src/routes/wrong-questions.ts	
 POST	/api/wrong-questions	wrong-questions	apps/api/src/routes/wrong-questions.ts	exact
 GET	/ws/live-chat	ws	apps/api/src/routes/ws/live-chat.ts	exact
 `
-export const API_ENDPOINTS_GENERATED_AT = '2026-11-26T12:52:56.198Z'
-export const API_ENDPOINT_LINE_COUNT = 5918
+export const API_ENDPOINTS_GENERATED_AT = '2026-11-26T14:12:32.607Z'
+export const API_ENDPOINT_LINE_COUNT = 5916
