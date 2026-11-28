@@ -155,7 +155,7 @@ BankCard 原先只有 `withdrawal_flows.account_info` 的只读投影，没有�
   - `feeHint` 改为 `t('withdraw.feeHint', { fee: '0' })`，H5 实拍不再出现 `{fee}%` 占位；
   - H5 workspace TS 编译面补 `babel-loader` 规则与 `@rn-components` alias；小程序/小程序 H5 两处 alias 同步；
   - 成功分支不再清空 `selectedBankCardId`，只清金额与手输账户，避免成功后回退到空手输框。
-- **小程序产物**：`build:weapp` 于私有 `.tmp-weapp` 构建 **Compiled successfully in 3.12m**，主包 `1,924,811 B / 2,097,152 B`，余量 `172,341 B`（按 app.json 21 个唯一分包根剔除后实测；旧 `dist` 门禁读到的 1,861,073 B 不适用于本次私有产物）；`pages/distribution/withdraw.js` 及其 sub-common 命中 `bankCardId` / `AppConfirmHost`。`check-miniapp-css-landing` 在私有输出根读旧 `dist` 报 `exit 2 未判定（C0 产物新鲜度）`，非构建失败。
+- **小程序产物**：默认 `dist` 下 `pnpm run build:weapp` **Compiled successfully in 2.98m**，主包 `1,931,119 B / 2,097,152 B`，余量 `166,033 B`（门禁 C3 按 app.json 21 个分包根剔除）；`pages/distribution/withdraw.js` 及其 sub-common 命中 `bankCardId` / `AppConfirmHost`，成功分支不再清空 `bankCardId`。`check-miniapp-css-landing` C0 已新鲜，但 C1 覆盖层因本机解析不到 Tailwind v4 参考层未判定，连带 C5/C6/C7/C8 未判定，门 `exit 2`；C2 同名双义 0、C3 主包已实测，非构建失败。
 - **RN 回归**：wallet 3 文件 **19/19**（48.29s）。
 - **边界**：Taro H5 首帧直接打开子包深链 `#/pages/distribution/withdraw` 不挂载（标题已变、body 空）；验收走「首页启动 → 切 hash」的等价路径。真实后端链路已由 API real 25/25 + Web E2E 4/4 覆盖，H5 用 `{code:0}` 信封 route mock 聚焦壳层取数/选卡/确认弹层/提交体。
 - **报告**：`docs/engineering/h5-acceptance-2026-11-28.md`。

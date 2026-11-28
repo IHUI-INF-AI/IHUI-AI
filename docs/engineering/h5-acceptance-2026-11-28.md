@@ -61,10 +61,10 @@ RN/小程序提现接卡链路已通过 **H5 验收**：Taro H5 产物成功构�
 
 ## 小程序产物回归
 
-- `IHUI_MINIAPP_OUTPUT_ROOT=.tmp-weapp pnpm run build:weapp`：**Compiled successfully in 3.12m**
-- 主包 `1,924,811 B / 2,097,152 B`，余量 `172,341 B`（按 app.json 21 个唯一分包根剔除后实测 `.tmp-weapp`，非旧 `dist` 的门禁读数）
-- `.tmp-weapp` 内 `pages/distribution/withdraw.js` 及其 sub-common 命中 `bankCardId` / `AppConfirmHost`；成功分支已不再清空 `bankCardId`
-- 注意：`check-miniapp-css-landing` 在私有输出根下读的是旧 `dist`，本次以 `exit 2` 报「未判定（C0 产物新鲜度）」，**不是构建失败**；构建本身成功。生产 `build:weapp` 走默认 `dist` 时该门才会对齐。
+- `pnpm run build:weapp`（默认 `dist`）：**Compiled successfully in 2.98m**
+- 主包 `1,931,119 B / 2,097,152 B`，余量 `166,033 B`（门禁 C3 按 app.json 21 个分包根剔除）
+- `.tmp-weapp` / `dist` 内 `pages/distribution/withdraw.js` 及其 sub-common 命中 `bankCardId` / `AppConfirmHost`；成功分支已不再清空 `bankCardId`
+- 注意：`check-miniapp-css-landing` 本次 C0 产物新鲜度已判定「新鲜」，但 C1 覆盖层因本机解析不到 Tailwind v4 参考层无法判定，连带 C5/C6/C7/C8 未判定，门以 `exit 2` 收口；C2 同名双义 0 条、C3 主包尺寸已实测。**这不是构建失败**。
 
 ## 其他回归
 
