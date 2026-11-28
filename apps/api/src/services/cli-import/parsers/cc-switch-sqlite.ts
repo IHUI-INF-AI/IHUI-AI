@@ -48,7 +48,7 @@ async function getSqlJs(): Promise<SqlJsStatic> {
   if (!sqlPromise) {
     // sql.js wasm 路径:从 node_modules 解析
     const wasmPath = require.resolve('sql.js/dist/sql-wasm.wasm')
-    sqlPromise = initSqlJs({ locateFile: () => wasmPath, useOldExtensionFunctions: false })
+    sqlPromise = initSqlJs({ locateFile: () => wasmPath })
   }
   return sqlPromise
 }
