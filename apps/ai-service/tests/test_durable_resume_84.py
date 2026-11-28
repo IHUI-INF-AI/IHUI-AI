@@ -532,6 +532,8 @@ class TestOwnership:
         # 2026-11 跨进程续跑:resume_confirmations 是"崩溃轮每个 tool_call 的处置"
         # (retry/skip/accept/abort),由客户端对**服务端 409 给出的清单**作答,
         # 不是可代充的身份字段 —— 它选择"这一枚调用重跑还是跳过",不声明"我是谁"。
+        # permission_preset / agent_preset 是 2026-11 落的策略预设(权限档与 Agent
+        # 组合),与显式字段互斥,同样不声明身份。
         assert set(AgentSessionResumeRequest.model_fields) == {
             "model",
             "max_iterations",
@@ -539,6 +541,8 @@ class TestOwnership:
             "permission_mode",
             "sandbox_mode",
             "approval_policy",
+            "permission_preset",
+            "agent_preset",
             "durable_horizon_seconds",
             "resume_confirmations",
         }
