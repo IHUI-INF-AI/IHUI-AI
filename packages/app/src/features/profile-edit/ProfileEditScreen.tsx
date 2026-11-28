@@ -187,7 +187,7 @@ function createAvatarStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     avatarUrlBtn: {
-      height: 44,
+      height: 50,
       justifyContent: 'center',
       alignItems: 'center',
       borderRadius: rnRadius.md,

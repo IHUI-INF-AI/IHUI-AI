@@ -12402,7 +12402,8 @@
     "predictiveEditDelete": "刪除",
     "secretMaskShow": "顯示憑證",
     "secretMaskHide": "隱藏憑證"
-  },
+  ,
+    "resizeComposerHint": "拖動調整輸入框高度"},
   "chatHistory": {
     "moveToGroup": "移動到分組",
     "moveSelectedToGroup": "移動所選到分組",

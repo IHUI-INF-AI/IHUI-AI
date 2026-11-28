@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { useConfirm } from '@/hooks/use-confirm'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { formatPrice } from '@ihui/shared/utils'
 
@@ -221,6 +222,8 @@ function StatCard(props: {
 
 export default function PricingConsolePage() {
   const qc = useQueryClient()
+  // 2026-11-28:window.confirm → 项目标准 useConfirm(§4 禁原生提示窗;scope-card 同型)
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const [q, setQ] = React.useState('')
   const [provider, setProvider] = React.useState('')
   const [onlyProblems, setOnlyProblems] = React.useState(true)
@@ -472,9 +475,11 @@ export default function PricingConsolePage() {
       )
       if (!preview.success) throw new Error(preview.error)
       const p = preview.data
-      const confirmed = window.confirm(
-        `缺成本模型 ${p.distinctModels} 个：将下架非聊天/free ${p.disabled} 个，取消公开 ${p.unpublished} 个，剩余待补价聊天模型 ${p.pendingPricingChat} 个。确认执行？`,
-      )
+      const confirmed = await confirm({
+        title: '下架缺成本模型',
+        description: `缺成本模型 ${p.distinctModels} 个：将下架非聊天/free ${p.disabled} 个，取消公开 ${p.unpublished} 个，剩余待补价聊天模型 ${p.pendingPricingChat} 个。确认执行？`,
+        variant: 'destructive',
+      })
       if (!confirmed) return null
       const applied = await fetchApi<MissingCostQuarantineResult>(
         `${BASE}/missing-costs/quarantine`,
@@ -1327,6 +1332,8 @@ export default function PricingConsolePage() {
           </CardContent>
         </Card>
       ) : null}
+      {/* useConfirm 的弹窗必须挂载到组件树中(参照 CheckpointRewindPanel),Dialog 走 portal */}
+      <ConfirmDialogRenderer />
     </div>
   )
 }

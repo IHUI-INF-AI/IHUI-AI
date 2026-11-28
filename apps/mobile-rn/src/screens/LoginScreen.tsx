@@ -1487,7 +1487,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: rnSpacing.lg,
   },
   carrierWebClose: {
-    fontSize: 26,
+    // 2026-11-28:fontSize 26 不在 rnType 档(display 24 / displayXl 28),取就近上档 displayXl
+    fontSize: rnType.displayXl.size,
     lineHeight: rnType.headline.lineHeight,
     fontWeight: '500',
     textAlign: 'center',

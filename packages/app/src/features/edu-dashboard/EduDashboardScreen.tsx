@@ -166,6 +166,8 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
       borderRadius: rnRadius.lg,
+      // 2026-11-28:补卡片底色(有描边无填充,页面灰底透出、卡片感残缺;同族 EduGradeTrend 卡均带 surface.card)
+      backgroundColor: tk.surface.card,
       padding: rnSpacing.md,
       gap: rnSpacing.xs,
     },

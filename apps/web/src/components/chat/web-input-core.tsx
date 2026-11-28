@@ -252,19 +252,21 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
     // 仅 hover textarea 容器时悬浮显示,避免占用 toolbar 槽位)
     return (
       <div className="group relative px-3 pt-2">
-        {/* 顶部拖拽手柄(2026-11-15):上下拖动调整输入区高度,键盘 ↑/↓ 每次 ±8px。 */}
-        <button
-          type="button"
-          aria-label="调整输入框高度"
-          title="拖动调整输入框高度"
-          data-testid="composer-resize-handle"
-          onPointerDown={handleResizeStart}
-          onPointerMove={handleResizeMove}
-          onPointerUp={handleResizeEnd}
-          onPointerCancel={handleResizeEnd}
-          onKeyDown={handleResizeKeyDown}
-          className="absolute -top-1 left-1/2 z-10 h-1.5 w-14 -translate-x-1/2 cursor-ns-resize touch-none select-none rounded-full border border-input bg-card p-0 transition-colors hover:bg-accent focus:outline-none"
-        />
+        {/* 顶部拖拽手柄(2026-11-15):上下拖动调整输入区高度,键盘 ↑/↓ 每次 ±8px。
+            2026-11-28:原生 title → 项目 Tooltip(§4 禁原生提示窗),并补键盘聚焦反馈。 */}
+        <Tooltip content={t('resizeComposerHint')}>
+          <button
+            type="button"
+            aria-label="调整输入框高度"
+            data-testid="composer-resize-handle"
+            onPointerDown={handleResizeStart}
+            onPointerMove={handleResizeMove}
+            onPointerUp={handleResizeEnd}
+            onPointerCancel={handleResizeEnd}
+            onKeyDown={handleResizeKeyDown}
+            className="absolute -top-1 left-1/2 z-10 h-1.5 w-14 -translate-x-1/2 cursor-ns-resize touch-none select-none rounded-full border border-input bg-card p-0 transition-colors hover:bg-accent focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+          />
+        </Tooltip>
         {/* Predictive Edit 建议条(2026-10-25 接线):仅 suggested 且草稿未变时出现。
             no_action / undetermined / failed 都不渲染任何东西 —— 预测失败对用户不可见。
             渲染条件与接受率埋点的「展示中」判据同源(predictionVisible),两处不许各写一份。 */}

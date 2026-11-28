@@ -297,7 +297,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     withdrawBtn: {
       flex: 1,
-      height: 44,
+      height: 50,
       borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
