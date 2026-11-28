@@ -6,7 +6,8 @@
 
 // 技能市场交易后台（2026-11-28 立）。运营内部页面，文案走中文常量，不占多语言包。
 // 后端：GET /api/admin/skills-market/purchases、POST .../:id/refund、
-// GET /api/admin/skills-market/settlement、GET .../seller-accounts。
+// GET /api/admin/skills-market/settlement、GET .../seller-accounts、
+// GET .../settlement/payout-manifest（只读参考，不发起转账）。
 import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -14,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  FileText,
   Inbox,
   List,
   Loader2,
@@ -32,6 +34,9 @@ import type {
   SkillMarketPurchaseAdminItem,
   SkillMarketPurchaseAdminListResponse,
   SkillMarketSettlementResponse,
+  SkillPayoutManifestFlag,
+  SkillPayoutManifestResponse,
+  SkillPayoutManifestStatus,
   SkillPurchaseRefundResponse,
   SkillSellerAccountFlag,
   SkillSellerAccountsResponse,
@@ -50,6 +55,26 @@ const FLAG_LABEL: Record<SkillSellerAccountFlag, string> = {
   clawback_missing: '扣回未记录',
   negative_wallet: '余额为负',
   commission_mismatch: '佣金缺口',
+}
+
+const PAYOUT_STATUS_LABEL: Record<SkillPayoutManifestStatus, string> = {
+  ready: '可进入人工复核',
+  no_net: '本月无净额',
+  not_withdrawable: '暂无可提现',
+  needs_review: '需先核查',
+}
+
+const PAYOUT_STATUS_CLASS: Record<SkillPayoutManifestStatus, string> = {
+  ready: 'bg-emerald-50 text-emerald-700',
+  no_net: 'bg-muted text-muted-foreground',
+  not_withdrawable: 'bg-muted text-muted-foreground',
+  needs_review: 'bg-amber-50 text-amber-700',
+}
+
+const PAYOUT_FLAG_LABEL: Record<SkillPayoutManifestFlag, string> = {
+  ...FLAG_LABEL,
+  month_negative: '本月负净额',
+  capped_by_withdrawable: '被可提现截断',
 }
 
 const REFUND_REQUEST_STATUS_LABEL: Record<string, string> = {
@@ -282,9 +307,7 @@ function RefundRequestsPanel({
                     (item.sellerUserId ? shortId(item.sellerUserId) : '平台自营')}
                 </div>
               </td>
-              <td className="whitespace-nowrap px-4 py-3 font-medium">
-                {yuan(item.priceCents)}
-              </td>
+              <td className="whitespace-nowrap px-4 py-3 font-medium">{yuan(item.priceCents)}</td>
               <td className="max-w-64 px-4 py-3">
                 <div className="text-label text-muted-foreground">{item.reason}</div>
               </td>
@@ -406,7 +429,8 @@ function SellerAccountsPanel({
 
       {s.mismatchCount > 0 && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-body text-amber-800">
-          有 {s.mismatchCount} 个卖家的有效技能佣金与作者分成存在差额，可能是佣金流水缺失或退款未冲正，请先人工核查再打款。
+          有 {s.mismatchCount}{' '}
+          个卖家的有效技能佣金与作者分成存在差额，可能是佣金流水缺失或退款未冲正，请先人工核查再打款。
         </div>
       )}
 
@@ -443,8 +467,7 @@ function SellerAccountsPanel({
                 <td className="whitespace-nowrap px-4 py-2.5">
                   <div className="font-medium">{yuan(item.authorNetCents)}</div>
                   <div className="text-label text-muted-foreground">
-                    应得 {yuan(item.authorShareEarnedCents)} · 扣回{' '}
-                    {yuan(item.sellerClawbackCents)}
+                    应得 {yuan(item.authorShareEarnedCents)} · 扣回 {yuan(item.sellerClawbackCents)}
                   </div>
                 </td>
                 <td className="whitespace-nowrap px-4 py-2.5">
@@ -458,8 +481,7 @@ function SellerAccountsPanel({
                 <td className="whitespace-nowrap px-4 py-2.5">
                   <div className="font-medium">余额 {yuan(item.walletBalanceCents)}</div>
                   <div className="text-label text-muted-foreground">
-                    可提 {yuan(item.withdrawableCents)} · 占用{' '}
-                    {yuan(item.withdrawalOccupiedCents)}
+                    可提 {yuan(item.withdrawableCents)} · 占用 {yuan(item.withdrawalOccupiedCents)}
                   </div>
                   <div className="text-label text-muted-foreground">
                     在途 {yuan(item.pendingWithdrawalCents)} · 已提{' '}
@@ -500,10 +522,166 @@ function SellerAccountsPanel({
   )
 }
 
+function PayoutManifestPanel({
+  data,
+  isLoading,
+  error,
+}: {
+  data?: SkillPayoutManifestResponse
+  isLoading: boolean
+  error: Error | null
+}) {
+  if (isLoading) {
+    return (
+      <div className="rounded-lg border px-4 py-12 text-center text-muted-foreground">
+        <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+        正在生成出款参考清单…
+      </div>
+    )
+  }
+  if (error) {
+    return (
+      <div className="rounded-lg border px-4 py-12 text-center text-destructive">
+        {error.message}
+      </div>
+    )
+  }
+  if (!data || data.items.length === 0) {
+    return (
+      <div className="rounded-lg border px-4 py-12 text-center text-muted-foreground">
+        <FileText className="mx-auto mb-2 h-8 w-8 opacity-40" />
+        暂无可出款参考的卖家
+      </div>
+    )
+  }
+
+  const s = data.summary
+  const cards = [
+    {
+      label: '本月卖家净分成',
+      value: yuan(s.monthAuthorNetCents),
+      detail: `${s.sellers} 个有交易或佣金的卖家`,
+    },
+    {
+      label: '参考出款上限',
+      value: yuan(s.suggestedPayoutCents),
+      detail: '取本月净额与当前可提现的较小值',
+    },
+    {
+      label: '可进入人工复核',
+      value: String(s.readyCount),
+      detail: '仍需运营核对后走提现审核',
+    },
+    {
+      label: '核查 / 暂不可提',
+      value: `${s.needsReviewCount} / ${s.notWithdrawableCount}`,
+      detail: '需先处理佣金缺口或余额不足',
+    },
+  ]
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-title font-semibold">账期：{data.period.month ?? '全部账期'}</div>
+        <div className="text-label text-muted-foreground">
+          交易按下单时间归期；可提现为当前账户快照
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-body text-sky-800">
+        {data.disclaimer}
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {cards.map((card) => (
+          <div key={card.label} className="rounded-lg border bg-card p-4">
+            <div className="text-label uppercase text-muted-foreground">{card.label}</div>
+            <div className="mt-1 text-title font-semibold tabular-nums">{card.value}</div>
+            <div className="mt-1 text-label text-muted-foreground">{card.detail}</div>
+          </div>
+        ))}
+      </div>
+
+      {(s.needsReviewCount > 0 || s.notWithdrawableCount > 0) && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-body text-amber-800">
+          有 {s.needsReviewCount} 个卖家需先核查佣金/扣回，{s.notWithdrawableCount}{' '}
+          个卖家当前无可提现余额；这些行不应直接进入打款。
+        </div>
+      )}
+
+      <div className="overflow-x-auto rounded-lg border">
+        <table className="w-full text-body">
+          <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
+            <tr>
+              <th className="px-4 py-2.5 font-medium">卖家</th>
+              <th className="px-4 py-2.5 font-medium">本月净分成</th>
+              <th className="px-4 py-2.5 font-medium">当前可提现</th>
+              <th className="px-4 py-2.5 font-medium">在途 / 已提</th>
+              <th className="px-4 py-2.5 font-medium">参考上限</th>
+              <th className="px-4 py-2.5 font-medium">状态 / 标记</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.items.map((item) => (
+              <tr key={item.sellerUserId} className="transition-colors hover:bg-muted/30">
+                <td className="px-4 py-2.5">
+                  <div className="font-medium">
+                    {item.sellerNickname ?? shortId(item.sellerUserId)}
+                  </div>
+                  <div
+                    className="font-mono text-label text-muted-foreground"
+                    title={item.sellerUserId}
+                  >
+                    {shortId(item.sellerUserId)}
+                  </div>
+                </td>
+                <td className="whitespace-nowrap px-4 py-2.5">
+                  <span
+                    className={item.monthAuthorNetCents < 0 ? 'font-medium text-destructive' : ''}
+                  >
+                    {yuan(item.monthAuthorNetCents)}
+                  </span>
+                </td>
+                <td className="whitespace-nowrap px-4 py-2.5">{yuan(item.withdrawableCents)}</td>
+                <td className="whitespace-nowrap px-4 py-2.5 text-muted-foreground">
+                  在途 {yuan(item.pendingWithdrawalCents)} · 已提{' '}
+                  {yuan(item.completedWithdrawalCents)}
+                </td>
+                <td className="whitespace-nowrap px-4 py-2.5 font-semibold tabular-nums">
+                  {yuan(item.suggestedPayoutCents)}
+                </td>
+                <td className="px-4 py-2.5">
+                  <span
+                    className={`rounded px-1.5 py-0.5 text-label ${PAYOUT_STATUS_CLASS[item.status]}`}
+                  >
+                    {PAYOUT_STATUS_LABEL[item.status]}
+                  </span>
+                  {item.flags.length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {item.flags.map((flag) => (
+                        <span
+                          key={flag}
+                          className="rounded bg-amber-50 px-1.5 py-0.5 text-label text-amber-700"
+                        >
+                          {PAYOUT_FLAG_LABEL[flag]}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 export default function AdminSkillMarketPage() {
   const qc = useQueryClient()
   const [view, setView] = React.useState<
-    'purchases' | 'settlement' | 'sellerAccounts' | 'refundRequests'
+    'purchases' | 'settlement' | 'sellerAccounts' | 'payoutManifest' | 'refundRequests'
   >('purchases')
   const [month, setMonth] = React.useState('')
   const [exporting, setExporting] = React.useState(false)
@@ -557,6 +735,17 @@ export default function AdminSkillMarketPage() {
     enabled: view === 'sellerAccounts',
   })
 
+  const payoutManifestQuery = useQuery({
+    queryKey: ['admin', 'skill-market', 'payout-manifest', month],
+    queryFn: () => {
+      const qs = month ? `?month=${encodeURIComponent(month)}` : ''
+      return apiOrThrow<SkillPayoutManifestResponse>(
+        `/api/admin/skills-market/settlement/payout-manifest${qs}`,
+      )
+    },
+    enabled: view === 'payoutManifest',
+  })
+
   const refundRequestsQuery = useQuery({
     queryKey: ['admin', 'skill-market', 'refund-requests', requestStatus, requestPage],
     queryFn: () => {
@@ -573,11 +762,7 @@ export default function AdminSkillMarketPage() {
   })
 
   const reviewMutation = useMutation({
-    mutationFn: async (input: {
-      id: string
-      action: 'approve' | 'reject'
-      note: string
-    }) =>
+    mutationFn: async (input: { id: string; action: 'approve' | 'reject'; note: string }) =>
       apiOrThrow<AdminSkillRefundRequestReviewResponse>(
         `/api/admin/skills-market/refund-requests/${input.id}/${input.action}`,
         {
@@ -619,6 +804,28 @@ export default function AdminSkillMarketPage() {
       URL.revokeObjectURL(objectUrl)
     } catch (err) {
       setExportError((err as Error).message || '结算单导出失败')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const exportPayoutManifest = async () => {
+    setExporting(true)
+    setExportError(null)
+    try {
+      const qs = month ? `?month=${encodeURIComponent(month)}` : ''
+      const blob = await fetchRaw(`/api/admin/skills-market/settlement/payout-manifest/export${qs}`)
+      const filename = month
+        ? `skill-market-payout-manifest-${month}.csv`
+        : `skill-market-payout-manifest-all-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.csv`
+      const objectUrl = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = objectUrl
+      link.download = filename
+      link.click()
+      URL.revokeObjectURL(objectUrl)
+    } catch (err) {
+      setExportError((err as Error).message || '出款参考清单导出失败')
     } finally {
       setExporting(false)
     }
@@ -714,6 +921,14 @@ export default function AdminSkillMarketPage() {
           卖家账户
         </Button>
         <Button
+          variant={view === 'payoutManifest' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setView('payoutManifest')}
+        >
+          <FileText className="mr-1 h-4 w-4" />
+          出款参考
+        </Button>
+        <Button
           variant={view === 'refundRequests' ? 'default' : 'outline'}
           size="sm"
           onClick={() => setView('refundRequests')}
@@ -723,7 +938,7 @@ export default function AdminSkillMarketPage() {
         </Button>
       </div>
 
-      {(view === 'settlement' || view === 'sellerAccounts') && (
+      {(view === 'settlement' || view === 'sellerAccounts' || view === 'payoutManifest') && (
         <div className="flex flex-wrap items-center gap-2">
           <label className="text-body text-muted-foreground" htmlFor="settlement-month">
             账期
@@ -753,6 +968,16 @@ export default function AdminSkillMarketPage() {
               导出 CSV
             </Button>
           )}
+          {view === 'payoutManifest' && (
+            <Button size="sm" onClick={() => void exportPayoutManifest()} disabled={exporting}>
+              {exporting ? (
+                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="mr-1 h-4 w-4" />
+              )}
+              导出参考清单
+            </Button>
+          )}
           {exportError && <span className="text-body text-destructive">{exportError}</span>}
           <span className="text-label text-muted-foreground">
             {month ? '按下单时间归期' : '全部账期'}
@@ -771,6 +996,12 @@ export default function AdminSkillMarketPage() {
           data={sellerAccountsQuery.data}
           isLoading={sellerAccountsQuery.isLoading}
           error={sellerAccountsQuery.error as Error | null}
+        />
+      ) : view === 'payoutManifest' ? (
+        <PayoutManifestPanel
+          data={payoutManifestQuery.data}
+          isLoading={payoutManifestQuery.isLoading}
+          error={payoutManifestQuery.error as Error | null}
         />
       ) : view === 'refundRequests' ? (
         <>

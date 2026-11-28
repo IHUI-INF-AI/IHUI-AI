@@ -31,7 +31,7 @@
  * 这里比较的是哨兵串 SW_BUILD_ID_PLACEHOLDER,
  * 它与构建脚本替换的目标字面量**不是同一个字符串**,所以替换不会破坏本判断。
  */
-const SW_BUILD_ID = 'bmwwyb9sum71dta'
+const SW_BUILD_ID = 'bmx0bcy21pz11tx'
 const CACHE_VERSION =
   SW_BUILD_ID === 'SW_BUILD_ID_PLACEHOLDER' ? 'dev-' + Date.now() : SW_BUILD_ID
 const CORE_CACHE = `ihui-core-${CACHE_VERSION}`

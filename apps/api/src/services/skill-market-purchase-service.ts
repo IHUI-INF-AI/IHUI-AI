@@ -42,6 +42,9 @@ import type {
   SkillRefundRequestSummary,
   SkillSellerAccountFlag,
   SkillSellerAccountsResponse,
+  SkillPayoutManifestFlag,
+  SkillPayoutManifestResponse,
+  SkillPayoutManifestRow,
 } from '@ihui/shared/skills/market'
 
 const buyerUser = alias(users, 'skill_market_buyer')
@@ -500,7 +503,8 @@ export async function createSkillRefundRequest(input: {
       .for('update')
 
     if (!purchase) throw new SkillRefundRequestNotFoundError('购买记录不存在或不属于当前用户')
-    if (purchase.status !== 'paid') throw new SkillRefundRequestStateError('该笔购买已退款，无需重复申请')
+    if (purchase.status !== 'paid')
+      throw new SkillRefundRequestStateError('该笔购买已退款，无需重复申请')
 
     const [created] = await tx
       .insert(skillMarketRefundRequests)
@@ -1098,6 +1102,95 @@ export async function getSkillMarketSellerAccounts(input?: {
     currency: 'CNY',
     period: settlement.period,
   }
+}
+
+/**
+ * 人工出款参考清单：把卖家账户对账压成可交给财务复核的一行。
+ *
+ * 安全边界：
+ * - 纯计算，不读钱包写接口、不创建提现、不改任何账；
+ * - `suggestedPayoutCents` 永远不超过当前 `withdrawableCents`，避免“月净额”与
+ *   “卖家已提现”叠加造成重复付款；
+ * - `needs_review` 优先于可打款，佣金缺口/缺扣回记录的账户先人工核查。
+ */
+export function computeSkillPayoutManifest(
+  accounts: SkillSellerAccountsResponse,
+): SkillPayoutManifestResponse {
+  const items: SkillPayoutManifestRow[] = accounts.items.map((account) => {
+    const monthAuthorNetCents = account.authorNetCents
+    const withdrawableCents = account.withdrawableCents
+    const suggestedPayoutCents = Math.max(0, Math.min(monthAuthorNetCents, withdrawableCents))
+    const flags: SkillPayoutManifestFlag[] = [...account.flags]
+    const pushFlag = (flag: SkillPayoutManifestFlag) => {
+      if (!flags.includes(flag)) flags.push(flag)
+    }
+    if (monthAuthorNetCents < 0) pushFlag('month_negative')
+    if (monthAuthorNetCents > withdrawableCents && monthAuthorNetCents > 0) {
+      pushFlag('capped_by_withdrawable')
+    }
+
+    let status: SkillPayoutManifestRow['status']
+    if (
+      account.flags.includes('commission_mismatch') ||
+      account.flags.includes('clawback_missing')
+    ) {
+      status = 'needs_review'
+    } else if (monthAuthorNetCents <= 0) {
+      status = 'no_net'
+    } else if (suggestedPayoutCents <= 0 || withdrawableCents <= 0) {
+      status = 'not_withdrawable'
+    } else {
+      status = 'ready'
+    }
+
+    return {
+      sellerUserId: account.sellerUserId,
+      sellerNickname: account.sellerNickname,
+      monthAuthorNetCents,
+      withdrawableCents,
+      pendingWithdrawalCents: account.pendingWithdrawalCents,
+      completedWithdrawalCents: account.completedWithdrawalCents,
+      suggestedPayoutCents,
+      status,
+      flags,
+    }
+  })
+
+  const summary = items.reduce(
+    (acc, item) => {
+      acc.sellers += 1
+      acc.monthAuthorNetCents += item.monthAuthorNetCents
+      acc.suggestedPayoutCents += item.suggestedPayoutCents
+      if (item.status === 'ready') acc.readyCount += 1
+      if (item.status === 'needs_review') acc.needsReviewCount += 1
+      if (item.status === 'not_withdrawable') acc.notWithdrawableCount += 1
+      return acc
+    },
+    {
+      sellers: 0,
+      monthAuthorNetCents: 0,
+      suggestedPayoutCents: 0,
+      readyCount: 0,
+      needsReviewCount: 0,
+      notWithdrawableCount: 0,
+    },
+  )
+
+  return {
+    items,
+    summary,
+    currency: 'CNY',
+    period: accounts.period,
+    disclaimer:
+      '只读参考清单，不发起转账、不创建提现、不改任何账户；实际付款仍须按提现申请逐笔审核。',
+  }
+}
+
+export async function getSkillMarketPayoutManifest(input?: {
+  month?: string
+}): Promise<SkillPayoutManifestResponse> {
+  const accounts = await getSkillMarketSellerAccounts(input)
+  return computeSkillPayoutManifest(accounts)
 }
 
 export class SkillPurchaseStateError extends Error {
