@@ -2227,6 +2227,11 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-28**
+- 🚀 機能/改善:AI 面板接入 Coze 智能体联调与 OAuth WS (ce6dbc86a2)
+- 🚀 機能/改善:空会话直达任务中心 + 默认工作区权限收口 (d0d65f5a62)
+- 🐞 修正:批量交接锚点转换补 unknown 中间态，修复 next build 类型检查 (38a0c0a380)
+- 🐞 修正:批注锚点显式经 unknown 断言，修复 clean-build TS2352 (76c1986e46)
+- 🚀 機能/改善:公众号/小红书指标采集接入，指标汇总覆盖 7 平台 (80eb4b967e)
 - 🐞 修正:修复合并后 AnnotationAnchor 类型断言 (93c867450b)
 - 🚀 機能/改善:接入 OAuth JWT 长期凭据，修复 jose v6 私钥与过期时间缓存 (48421336ef)
 - 🐞 修正:恢复验收面板引用（组件已由 origin 补齐） (bd3b06f1f1)

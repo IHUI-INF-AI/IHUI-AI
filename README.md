@@ -84,6 +84,11 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 ## Recent updates (auto-maintained)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-28**
+- 🚀 新功能/改进:AI 面板接入 Coze 智能体联调与 OAuth WS (ce6dbc86a2)
+- 🚀 新功能/改进:空会话直达任务中心 + 默认工作区权限收口 (d0d65f5a62)
+- 🐞 修复:批量交接锚点转换补 unknown 中间态，修复 next build 类型检查 (38a0c0a380)
+- 🐞 修复:批注锚点显式经 unknown 断言，修复 clean-build TS2352 (76c1986e46)
+- 🚀 新功能/改进:公众号/小红书指标采集接入，指标汇总覆盖 7 平台 (80eb4b967e)
 - 🐞 修复:修复合并后 AnnotationAnchor 类型断言 (93c867450b)
 - 🚀 新功能/改进:接入 OAuth JWT 长期凭据，修复 jose v6 私钥与过期时间缓存 (48421336ef)
 - 🐞 修复:恢复验收面板引用（组件已由 origin 补齐） (bd3b06f1f1)
