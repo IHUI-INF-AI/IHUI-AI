@@ -35,6 +35,7 @@ import { describe, expect, it } from 'vitest'
 import { projectToolInputSchema } from '@ihui/types'
 import { SKILL_INVOCATION_TOOL_NAME } from '../src/skills/index.js'
 import { createFileEditTools } from '../src/tools/file-edit.js'
+import { createMcpSkillTools, mcpSkillToolName } from '../src/tools/mcp-skills.js'
 import { createSpawnParallelTool, createSubagentTool } from '../src/tools/subagent.js'
 import { legacyBuildParameters, type LegacyProjectableTool } from './fixtures/toJsonProperty.legacy.js'
 
@@ -61,12 +62,21 @@ const NON_LITERAL_NAME = '(non-literal)'
  * 变量名站点的显式配对登记 —— 与 materializeFactoryTools 里的工厂清单同型:名字来自变量/工厂的站点,
  * 门在 HEAD 面上抽不到真名,而运行时枚举天然抽得到,不配对就是「两侧数到不同批」的假分叉。
  * 这里登记的**不是豁免**:配对后仍由 `runtimeNames == gateNames` 反向验真(那枚名字哪天不再被
- * 运行时枚举 ⇒ onlyInGate 当场红),并由 `pairedCount == 清单长度` 验登记表是否还描述现状
+ * 运行时枚举 ⇒ onlyInGate 当场红),并由 `pairedCount == 全部 toolNames 条数` 验登记表是否还描述现状
  * (登记了却不再命中 ⇒ 红)。
- * 一枚登记位要求该文件在 HEAD 面恰好只有 1 处 (non-literal);同文件多处会配出 paired ≠ 清单长度,不静默取第一枚。
- * 真名一律 import 常量本身,不在本文件内联字面量(§0.6:名字只在声明它的那个模块里有一份)。
+ * 同一文件可以有多处 (non-literal),按源码出现顺序逐条配到 `toolNames` 的同序号真名;配不满即红。
+ * 真名一律 import 常量/函数本身,不在本文件内联字面量(§0.6:名字只在声明它的那个模块里有一份)。
  */
-const VARIABLE_NAME_TOOLS = [{ file: 'apps/cli/src/tools/skill-tool.ts', toolName: SKILL_INVOCATION_TOOL_NAME }]
+const A13_MCP_SKILL_SERVER = 'a13-eq-probe'
+const A13_MCP_SKILL_TOOL_NAMES = [
+  mcpSkillToolName(A13_MCP_SKILL_SERVER, 'list'),
+  mcpSkillToolName(A13_MCP_SKILL_SERVER, 'load'),
+] as const
+const VARIABLE_NAME_TOOLS: readonly { file: string; toolNames: readonly string[] }[] = [
+  { file: 'apps/cli/src/tools/skill-tool.ts', toolNames: [SKILL_INVOCATION_TOOL_NAME] },
+  { file: 'apps/cli/src/tools/mcp-skills.ts', toolNames: A13_MCP_SKILL_TOOL_NAMES },
+]
+const VARIABLE_NAME_TOOL_COUNT = VARIABLE_NAME_TOOLS.reduce((n, t) => n + t.toolNames.length, 0)
 
 /**
  * 工厂规格站点的显式登记 —— `createRouteTools(SPECS)` 产出的工具族(hr / relay)。
@@ -172,7 +182,19 @@ function materializeFactoryTools(into: Map<string, ProjectableTool>): string[] {
     apiUrl: 'http://127.0.0.1:0/a13-eq-probe',
     workspacePath: REPO_ROOT,
   } as unknown as Parameters<typeof createSubagentTool>[0]
-  const produced = [...createFileEditTools(editCtx), createSubagentTool(subagentOpts), createSpawnParallelTool(subagentOpts)]
+  // Skills over MCP 的两枚工具由工厂按 server 名生成，生产路径在 loadMcpTools 里才挂；
+  // 这里用固定探针 server 物化一次，A13 才能把门登记的占位名换成真名并逐名对齐。
+  const mcpSkillHost = {
+    serverName: A13_MCP_SKILL_SERVER,
+    capability: { directoryRead: false },
+    rpc: async () => ({ skills: [] }),
+  } as unknown as Parameters<typeof createMcpSkillTools>[0]
+  const produced = [
+    ...createFileEditTools(editCtx),
+    createSubagentTool(subagentOpts),
+    createSpawnParallelTool(subagentOpts),
+    ...createMcpSkillTools(mcpSkillHost),
+  ]
   const added: string[] = []
   for (const tool of produced) {
     if (!isProjectableTool(tool)) continue
@@ -250,6 +272,7 @@ async function enumerateGateSide(gate: GateModule, scanDirs: string[]): Promise<
   let paired = 0
   let factorySpec = 0
   const seenFactoryFiles = new Set<string>()
+  const pairedByFile = new Map<string, number>()
   // 门等价面(names,供用例①与门的末行读数逐条对齐)与工厂补面(factoryNames,门整个看不到的对象)
   // 刻意分开:两者混进同一个数组,用例①就会变成"拿门数不到的名字去比门的读数",那是自己把尺子弄歪。
   const factoryNames: string[] = []
@@ -268,14 +291,17 @@ async function enumerateGateSide(gate: GateModule, scanDirs: string[]): Promise<
           names.push(literal.toolName)
           continue
         }
-        // name 取自变量的站点:按所在文件去登记表配对,配到就用运行时那枚真名(交给
-        // runtimeNames == gateNames 反向验真);没登记就保持 (non-literal),不猜、不静默丢弃
+        // name 取自变量/工厂的站点:按所在文件与出现顺序逐条登记,配到就用运行时那枚真名
+        // (交给 runtimeNames == gateNames 反向验真);没登记就保持 (non-literal),不猜、不静默丢弃
+        const used = pairedByFile.get(rel) ?? 0
         const registered = VARIABLE_NAME_TOOLS.find((t) => t.file === rel)
-        if (!registered) {
+        const mapped = registered?.toolNames[used]
+        if (!mapped) {
           names.push(NON_LITERAL_NAME)
           continue
         }
-        names.push(registered.toolName)
+        names.push(mapped)
+        pairedByFile.set(rel, used + 1)
         paired += 1
       }
       // 门整个看不到的对象:`createRouteTools(SPECS)` 的工具族(SPECS 条目没有 execute)。
@@ -535,9 +561,9 @@ describe('A13 投影等价性(AGENTS.md:235 的可重跑载体)', () => {
       // 说明这张清单已经不再描述现状 ⇒ 当场红,不留下没人再核对的登记
       expect(
         gateSide.pairedCount,
-        `VARIABLE_NAME_TOOLS 登记 ${VARIABLE_NAME_TOOLS.length} 枚,实际配到 ${gateSide.pairedCount} 枚 —— ` +
+        `VARIABLE_NAME_TOOLS 登记 ${VARIABLE_NAME_TOOL_COUNT} 枚,实际配到 ${gateSide.pairedCount} 枚 —— ` +
           '登记的变量名站点在 HEAD 面不再逐枚命中,清单必须随之更新',
-      ).toBe(VARIABLE_NAME_TOOLS.length)
+      ).toBe(VARIABLE_NAME_TOOL_COUNT)
 
       // 工厂登记表同律:登记了几个文件就该抽出几条 SPECS 名字;抽不到即红(反查见 enumerateGateSide)
       expect(

@@ -431,6 +431,16 @@ function formatSkillList(serverName: string, skills: McpSkillEntry[]): string {
 }
 
 /**
+ * Skills over MCP 的两枚宿主工具名。集中一处生成，A13 等价性测试与运行时工厂共用，
+ * 避免门面/运行面各写一份模板。
+ */
+export type McpSkillToolKind = 'list' | 'load';
+
+export function mcpSkillToolName(serverName: string, kind: McpSkillToolKind): string {
+  return `mcp__${serverName}__skill_${kind}`;
+}
+
+/**
  * 把 Skills over MCP 接成两枚工具：
  *
  * - `mcp__<server>__skill_list`：只读元数据，不传文件内容；`directory` 参数仅在
@@ -486,7 +496,7 @@ export function createMcpSkillTools(host: McpSkillToolHost): Tool[] {
   }
 
   const listTool: Tool = {
-    name: `mcp__${host.serverName}__skill_list`,
+    name: mcpSkillToolName(host.serverName, 'list'),
     nameAliases: ['mcp_skill_list'],
     registrationOwner: `mcp:${host.serverName}`,
     dangerLevel: 'read',
@@ -524,7 +534,7 @@ export function createMcpSkillTools(host: McpSkillToolHost): Tool[] {
   };
 
   const loadTool: Tool = {
-    name: `mcp__${host.serverName}__skill_load`,
+    name: mcpSkillToolName(host.serverName, 'load'),
     nameAliases: ['mcp_skill_load'],
     registrationOwner: `mcp:${host.serverName}`,
     dangerLevel: 'read',

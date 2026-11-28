@@ -285,6 +285,10 @@ function readStringValue(text, at) {
       continue
     }
     if (text[i] === q) return val
+    // 模板字符串里的 ${…} 是运行期拼接，不是可静态绑定的工具名 —— 更不是字面量。
+    // 把它当字面量会让 A13 门/运行时两侧把 `mcp__${host.serverName}__skill_list` 这种
+    // 占位串当成真名，从而漏掉真正的动态工厂。
+    if (q === '`' && text[i] === '$' && text[i + 1] === '{') return null
     val += text[i]
     i += 1
   }
