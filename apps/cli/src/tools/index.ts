@@ -724,6 +724,15 @@ export interface ToolContext {
    * 用可选链调用即可,不得假设它总在。
    */
   reportExecActivity?: () => void;
+  /**
+   * 工具**被真正调用过**的通知口(2026-11-28 立,由 setupAgentTools 注入)。
+   *
+   * 立因:揭示预算的 LRU 只按「被检索」排序,按名直接调用(工具来自延迟目录)不算一次热使用,
+   * 于是"常用的工具被回收、搜过没用过的工具留着"。`executeToolCall` 在**成功**执行后调用一次;
+   * 如何处置(升为揭示 / 刷新序 / 不管)由注入方决定,工具层不假设。
+   * 缺席(undefined)= 行为与引入前逐字节相同(测试 / 嵌入式调用不受影响)。
+   */
+  noteToolUsage?: (toolName: string) => void;
 }
 
 const registry = new Map<string, Tool>();
@@ -1998,6 +2007,15 @@ export async function executeToolCall(
         await runPostToolCall(toHookToolName(call.name), postPayload, callCtx.signal, callCtx.workspacePath);
       } catch {
         // 同 fireToolOutcomeHooks:钩子故障不改结果。
+      }
+    }
+    // 热使用上报(2026-11-28):只报**成功**执行 —— 失败调用不构成"这枚工具常用",
+    // 不该被揭示预算的 LRU 保护。缺席注入口时零行为变化。
+    if (result.success && typeof callCtx.noteToolUsage === 'function') {
+      try {
+        callCtx.noteToolUsage(call.name);
+      } catch {
+        // 上报是旁路:不得因它改变工具结果。
       }
     }
     return result;

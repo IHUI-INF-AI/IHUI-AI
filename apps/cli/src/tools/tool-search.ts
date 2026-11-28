@@ -367,12 +367,37 @@ function readTopK(value: unknown): number {
   return Math.min(MAX_TOP_K, Math.max(1, Math.floor(n)));
 }
 
-/** 可用延迟工具名列表(空结果提示用):只列名字,不带 schema。 */
+/** 空结果提示用:只列名字,不带 schema。 */
 function availableDeferredNames(tools: readonly Tool[], revealed: ReadonlySet<string>): string[] {
   return tools
     .filter((tool) => tool.name !== TOOL_SEARCH_TOOL_NAME)
     .filter((tool) => shouldDeferTool(tool.name, tool, revealed))
     .map((tool) => tool.name);
+}
+
+/**
+ * **热使用**上报(2026-11-28):工具被成功调用一次 ⇒ 视为"最近用到",纳入揭示集合并刷新 LRU 序。
+ *
+ * 立因:预算回收只按"被检索"排序,按名直调(名字来自延迟目录)不算热使用 ⇒ 常用工具被回收、
+ * 搜过没用过的反而留着。这里把"用过"并入同一套顺序;代价由预算封顶(超了照样回收最久未用的)。
+ *
+ * @returns promoted = 本次是不是新升为揭示;evicted = 为腾预算被回收的名字
+ */
+export function noteRevealedToolUsage(
+  name: string,
+  tools: readonly Tool[],
+  revealed: Set<string>,
+  budgetBytes: number = REVEAL_BUDGET_BYTES,
+): { promoted: boolean; evicted: string[] } {
+  const tool = tools.find((candidate) => candidate.name === name);
+  if (tool === undefined) return { promoted: false, evicted: [] };
+  // 常驻工具本就在前缀,升不升都不占预算、也不该挤掉延迟工具。
+  if (!shouldDeferTool(name, tool, new Set<string>())) return { promoted: false, evicted: [] };
+  const already = revealed.has(name);
+  revealed.delete(name);
+  revealed.add(name);
+  const evicted = pruneRevealed(revealed, tools, new Set([name]), budgetBytes);
+  return { promoted: !already, evicted };
 }
 
 export function createToolSearchTool(opts: ToolSearchOptions): Tool {
