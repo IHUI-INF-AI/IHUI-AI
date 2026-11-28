@@ -303,32 +303,56 @@ function scoreTool(tool: Pick<Tool, 'name' | 'description' | 'parameters'>, quer
   return score + Math.min(paramScore, PARAM_SCORE_CAP);
 }
 
-/** 纯检索:查询串与精确名并集打分,按分数降序、同分按名字升序(结果可复现)。 */
+/** 相关性下限:低于 本次最高分 × 该比例 的**查询命中**不进结果。
+ *
+ * 立因(2026-11-28):49 条 golden 查询里,期望工具的分/最高分最低 0.65、中位 1.00 ——
+ * 真正对口的工具从不会靠零散词垫底。而 top_k=5 会被"列表/list"这类泛词匹配的
+ * 无关工具填满(实测 705 条命中里 150 条低于最高分 20%),它们一旦被揭示就占住前缀预算。
+ * 名字来源的命中(name/前缀)不受此限:那是模型点名要的,分低也得给。
+ */
+const RELEVANCE_FLOOR_RATIO = 0.5;
+
+/** 纯检索:查询串与精确名并集打分,按分数降序、同分按名字升序(结果可复现)。
+ *  查询命中低于 `RELEVANCE_FLOOR_RATIO × 最高分` 者丢弃;名字命中不设下限。 */
 export function searchTools(
   tools: readonly Tool[],
   queries: readonly string[],
   toolNames: readonly string[],
   topK: number,
 ): ToolSearchHit[] {
-  const hits = new Map<string, ToolSearchHit>();
-  const pick = (tool: Tool, score: number): void => {
+  const hits = new Map<string, ToolSearchHit & { viaName?: boolean }>();
+  const pick = (tool: Tool, score: number, viaName = false): void => {
     if (score <= 0) return;
     const prev = hits.get(tool.name);
-    if (prev === undefined || prev.score < score) hits.set(tool.name, { tool, score });
+    if (prev === undefined) {
+      hits.set(tool.name, { tool, score, viaName });
+      return;
+    }
+    if (prev.score < score) prev.score = score;
+    if (viaName) prev.viaName = true;
   };
   for (const tool of tools) {
     const name = tool.name.toLowerCase();
     for (const rawName of toolNames) {
       const wanted = rawName.trim().toLowerCase();
       if (wanted === '') continue;
-      if (name === wanted) pick(tool, NAME_EXACT_SCORE);
-      else if (name.startsWith(wanted)) pick(tool, NAME_SUBSTRING_SCORE);
+      if (name === wanted) pick(tool, NAME_EXACT_SCORE, true);
+      else if (name.startsWith(wanted)) pick(tool, NAME_SUBSTRING_SCORE, true);
     }
-    for (const query of queries) pick(tool, scoreTool(tool, query));
+    for (const query of queries) {
+      const score = scoreTool(tool, query);
+      if (score > 0) pick(tool, score);
+    }
   }
-  return Array.from(hits.values())
-    .sort((a, b) => (b.score - a.score) || a.tool.name.localeCompare(b.tool.name))
-    .slice(0, topK);
+  const ranked = Array.from(hits.values()).sort(
+    (a, b) => b.score - a.score || a.tool.name.localeCompare(b.tool.name),
+  );
+  const top = ranked[0]?.score ?? 0;
+  const floor = top * RELEVANCE_FLOOR_RATIO;
+  return ranked
+    .filter((hit) => hit.viaName === true || hit.score >= floor)
+    .slice(0, topK)
+    .map(({ tool, score }) => ({ tool, score }));
 }
 
 function readStringList(value: unknown): string[] {
