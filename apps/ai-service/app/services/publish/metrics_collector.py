@@ -12,7 +12,10 @@
 - B 站: 公开 API https://api.bilibili.com/x/web-interface/view?aid=/bvid=
   stat.view / stat.like / stat.reply / stat.share
 - 微博: 账号登录态下同源请求 ajax/statuses/show(attitudes/comments/reposts)
-其余平台暂记 0 并在 payload.source 注明 unsupported。
+- 掘金: 公开详情 API content_api/v1/article/detail,取 view/digg/comment/collect
+- CSDN: 公开文章页解析 viewCountFormat/sidebar-likeCount
+- 抖音/百家号/小红书/公众号: creator DOM 或公众号后台
+其余平台(如简书)暂记 0 并在 payload.source 注明 unsupported。
 
 建表:模块首次使用时执行 CREATE TABLE IF NOT EXISTS(与 publish.py 建表模式一致)。
 """
@@ -133,6 +136,18 @@ async def collect_metrics(
             await _collect_bilibili(content_id, metrics)
         except Exception as e:
             logger.exception("[metrics] bilibili collect failed content_id=%s", content_id)
+            metrics["source"]["error"] = f"{type(e).__name__}: {e}"
+    elif platform == "juejin":
+        try:
+            await _collect_juejin(content_id, metrics)
+        except Exception as e:
+            logger.exception("[metrics] juejin collect failed content_id=%s", content_id)
+            metrics["source"]["error"] = f"{type(e).__name__}: {e}"
+    elif platform == "csdn":
+        try:
+            await _collect_csdn(task_id, content_id, metrics)
+        except Exception as e:
+            logger.exception("[metrics] csdn collect failed content_id=%s", content_id)
             metrics["source"]["error"] = f"{type(e).__name__}: {e}"
     elif platform == "weibo":
         try:
@@ -297,6 +312,108 @@ async def _collect_bilibili(content_id: str, metrics: dict[str, Any]) -> None:
     metrics["source"].update(
         views="stat.view", likes="stat.like", comments="stat.reply", shares="stat.share"
     )
+
+
+def _apply_juejin_info(info: dict[str, Any], metrics: dict[str, Any]) -> None:
+    """把掘金 article_info 写进快照；独立成纯函数，便于离线回归。"""
+    metrics["views"] = int(info.get("view_count") or 0)
+    metrics["likes"] = int(info.get("digg_count") or 0)
+    metrics["comments"] = int(info.get("comment_count") or 0)
+    metrics["shares"] = int(info.get("collect_count") or 0)
+    metrics["source"].update(
+        views="article_info.view_count",
+        likes="article_info.digg_count",
+        comments="article_info.comment_count",
+        shares="article_info.collect_count(收藏)",
+    )
+
+
+async def _collect_juejin(content_id: str, metrics: dict[str, Any]) -> None:
+    """掘金公开详情 API：不需要登录，按文章 ID 取阅读/点赞/评论/收藏。"""
+    url = "https://api.juejin.cn/content_api/v1/article/detail?aid=2608&uuid=&spider=0"
+    payload = {
+        "article_id": str(content_id),
+        "req_from": 1,
+        "client_type": 2608,
+        "forbid_count": False,
+        "is_pre_load": False,
+        "need_theme": True,
+    }
+    async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+        resp = await client.post(
+            url,
+            json=payload,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/131 Safari/537.36",
+                "Referer": f"https://juejin.cn/post/{content_id}",
+                "Content-Type": "application/json",
+            },
+        )
+    body = resp.json()
+    if body.get("err_no") != 0 or not body.get("data"):
+        raise RuntimeError(
+            f"juejin err_no={body.get('err_no')} err_msg={body.get('err_msg')}"
+        )
+    info = (body.get("data") or {}).get("article_info") or {}
+    if not info:
+        raise RuntimeError("juejin article_info missing")
+    _apply_juejin_info(info, metrics)
+
+
+def _apply_csdn_html(html: str, metrics: dict[str, Any]) -> bool:
+    """从 CSDN 文章页 HTML 取阅读/点赞；返回是否解析到阅读量。"""
+    if "安全验证" in html or "Security Verification" in html:
+        metrics["source"]["error"] = "csdn security verification"
+        return False
+    m = re.search(r"viewCountFormat\s*=\s*(\d+)", html)
+    if not m:
+        m = re.search(r"文章浏览阅读(\d+)次", html)
+    if not m:
+        metrics["source"]["error"] = "csdn view count not parsable"
+        return False
+    metrics["views"] = int(m.group(1))
+    metrics["source"]["views"] = "csdn.viewCountFormat"
+    like = re.search(r'id="sidebar-likeCount"[^>]*>\s*([0-9,]+)', html)
+    if like:
+        metrics["likes"] = int(like.group(1).replace(",", ""))
+        metrics["source"]["likes"] = "sidebar-likeCount"
+    return True
+
+
+async def _load_published_url(task_id: str, platform: str) -> str:
+    conn = await get_db_conn()
+    try:
+        row = await conn.fetchrow(
+            """
+            SELECT published_url FROM publish_history
+            WHERE task_id = $1 AND platform = $2 AND success = true
+            ORDER BY created_at DESC LIMIT 1
+            """,
+            task_id, platform,
+        )
+        return str(row["published_url"] or "") if row else ""
+    finally:
+        await conn.close()
+
+
+async def _collect_csdn(task_id: str, content_id: str, metrics: dict[str, Any]) -> None:
+    """CSDN 公开文章页：用 publish_history 的真实 URL，解析阅读/点赞。"""
+    url = await _load_published_url(task_id, "csdn")
+    if not url:
+        raise RuntimeError("csdn published_url missing")
+    async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
+        resp = await client.get(
+            url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+                "Accept-Language": "zh-CN,zh;q=0.9",
+                "Referer": "https://blog.csdn.net/",
+            },
+        )
+    if resp.status_code != 200:
+        raise RuntimeError(f"csdn http {resp.status_code}")
+    _apply_csdn_html(resp.text, metrics)
 
 
 async def _collect_weibo(

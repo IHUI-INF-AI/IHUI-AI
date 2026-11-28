@@ -159,6 +159,7 @@ _DB_BACKOFF_MAX_SEC = 300.0
 # 多个 Playwright 浏览器把发布轮询拖慢。同一 task+platform 6 小时内只采一次。
 _METRICS_PLATFORMS = (
     "zhihu", "bilibili", "weibo", "wechat", "douyin", "baijiahao", "xiaohongshu",
+    "juejin", "csdn",
 )
 _METRICS_LOOP_INTERVAL_SEC = 30 * 60
 _METRICS_LOOP_WARMUP_SEC = 90
