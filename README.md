@@ -84,6 +84,7 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 ## Recent updates (auto-maintained)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-28**
+- 🐞 修复:device pair 合并全局 --api-url;chore(desktop): 0.1.97 版本对齐 (2696f32e8a)
 - 🔧 工程/其他:删除旧平台面板残留文件 (a71db13516)
 - 🔧 工程/其他:移除旧智能体平台专属页面与组件，统一归并到智能体体系 (837b1a4318)
 - 🚀 新功能/改进:作者月度结算参考与无成交展示 (b9b7b9e407)

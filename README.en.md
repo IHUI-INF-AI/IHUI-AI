@@ -99,6 +99,7 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-28**
+- 🐞 Fix:device pair 合并全局 --api-url;chore(desktop): 0.1.97 版本对齐 (2696f32e8a)
 - 🔧 Chore/Other:删除旧平台面板残留文件 (a71db13516)
 - 🔧 Chore/Other:移除旧智能体平台专属页面与组件，统一归并到智能体体系 (837b1a4318)
 - 🚀 Feature/Improvement:作者月度结算参考与无成交展示 (b9b7b9e407)
