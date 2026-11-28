@@ -1416,12 +1416,20 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
                     conversationId = cid
                   }
                   const evtType = (evt.event as string) ?? ''
+                  // v3 失败事件把原因放在 last_error.msg；提到顶层，前端可直接展示额度/发布等真实原因。
+                  const lastError = evt.last_error as { msg?: unknown } | undefined
+                  const errorMessage =
+                    evtType === 'conversation.chat.failed' &&
+                    typeof lastError?.msg === 'string'
+                      ? lastError.msg
+                      : ''
                   // 透传事件
                   send(socket, {
                     code: 200,
                     msg: 'success',
                     ...evt,
                     event: evtType,
+                    ...(errorMessage ? { message: errorMessage } : {}),
                   })
                   if (
                     evtType.includes('completed') ||
