@@ -2,11 +2,11 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 
 /**
- * 总管 · 工作台面板(2026-11-28 用户定档)。
+ * 总管 · 今日面板(2026-11-28 用户定档)。
  *
- * 工作台不再单独占一个侧栏入口;它是总管工作展示区里的第一块面板:
- * 今日队列 + 八张能力卡。左栏总管聊天保留,用户可以直接从左边说,
- * 也可以从右边挑一件已有的活。
+ * 工作台不再单独占一个侧栏入口,也不再作为独立标签出现;
+ * 它是总管工作展示区的默认"今日"面:今日队列 + 八张能力卡。
+ * 左栏总管聊天保留,用户可以直接从左边说,也可以从右边挑一件已有的活。
  */
 'use client'
 
@@ -75,7 +75,7 @@ export function MasterWorkbenchPanel() {
     <section className="flex h-full min-h-0 flex-col bg-transparent">
       <header className="shrink-0 border-b border-[#f0ebe3] px-7 py-6">
         <p className="text-[10px] font-medium tracking-[0.16em] text-[#a29a8e]">
-          智汇AI · 工作台
+          AI总管 · 今日
         </p>
         <h2 className="mt-1 text-[22px] font-semibold leading-8 text-[#23211c]">
           今天要做什么

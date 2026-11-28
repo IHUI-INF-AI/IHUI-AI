@@ -5,8 +5,8 @@ import type { Metadata } from 'next'
 import { MasterRegistryConsole } from '@/components/master/MasterRegistryConsole'
 
 export const metadata: Metadata = {
-  title: '工作台 · 总管 | 智汇 AI',
-  description: '总管工作台：今日队列与八张能力入口，左边直接跟总管说。',
+  title: 'AI总管 · 今日 | 智汇 AI',
+  description: 'AI总管今日面：今日队列与八张能力入口，左边直接跟总管说。',
   robots: { index: false, follow: false },
 }
 

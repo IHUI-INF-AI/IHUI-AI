@@ -14,25 +14,25 @@
 用户明确否决了"单独做一个 `/master` 页面"的形态。当前定稿:
 
 - 左侧菜单栏在「新建任务」上方新增「AI总管」按钮(`SidebarQuickActions`)。
-- 点击后打开**现有** AI 面板,把面板主体切到 `MasterAssistantPanel`,并落到 `/master` 工作台。
+- 点击后打开**现有** AI 面板,把面板主体切到 `MasterAssistantPanel`,并落到 `/master` 今日面。
   顶栏、左栏、右侧 AI 面板三层都保留,不新开独立总管页。
-- 右侧工作展示区按面板分: `/master` = **工作台**(今日队列 + 八张能力入口),
+- 右侧工作展示区按面板分: `/master` = **今日面**(原工作台内容：今日队列 + 八张能力入口),
   `/master/agents` = 总管这次对话里实际派出去的智能体运行列表,
   `/master/approvals` = 待你确认。
 - 2026-11-28 二次定档:原 `/start` 独立工作台已整合进总管,侧栏不再保留「工作台」入口;
   `/start` 旧链接由页面自身 `redirect('/master')`,不再维护第二套首屏。
-- 工作台八卡仍以 `apps/web/src/config/start-services.ts` 为单一事实源;队列读
+- 今日面八卡仍以 `apps/web/src/config/start-services.ts` 为单一事实源;队列读
   `GET /api/publish/stats?days=30`,统计不可用时静默隐藏。
-- 总管 AI 面板有三枚入口:工作台 / 总管创建的智能体 / 待你确认。
+- 总管 AI 面板有三枚入口:今日 / 总管创建的智能体 / 待你确认。
 - `/master/agents` 不是项目原有的「智能体」/AI 应用商店,也不是 `agent-registry` 模板卡片墙。
   数据面为 `GET /api/agent-registry/runs?sessionId=...`,只读 `agent_runs` 中
   `metadata.masterSessionId` 等于本次总管对话 session 的运行。
 - 进行中(`queued/running/paused/blocked`)带圆形旋转动画;`succeeded/failed/canceled/timeout`
   统一归入「已完成」。
-- `/master` 与 `/master/agents` 都不注册为侧栏一级导航项;顶栏标签分别为「工作台」/「总管智能体」,
+- `/master` 与 `/master/agents` 都不注册为侧栏一级导航项;顶栏标签分别为「AI总管」/「总管智能体」,
   `/master/approvals` 为「待你确认」。
 - 旧的 `MasterRegistryConsole` 保留 `embedded` 模式:只画工作区面板,不画顶部菜单栏和左栏导航;
-  embedded 的 workbench / registry / approvals / run 四个视图分别渲染工作台、运行列表、审批和任务控制。
+  embedded 的 workbench / registry / approvals / run 四个视图分别渲染今日面、运行列表、审批和任务控制。
 
 
 ## 本轮提交

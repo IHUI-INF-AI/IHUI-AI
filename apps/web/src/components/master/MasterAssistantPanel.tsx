@@ -8,7 +8,7 @@
  * 工作台 / 智能体 / 待你确认则是它右侧工作展示区里的面板。
  * 这一层只做三件事:
  *  1. 顶部身份胶囊(复用 MasterIdentityHeader,名字可改);
- *  2. 三枚去工作区的入口(工作台 / 总管创建的智能体 / 待你确认),点开走现有工作区,
+ *  2. 三枚去工作区的入口(今日 / 总管创建的智能体 / 待你确认),点开走现有工作区,
  *     不在面板里再造一套表格式后台;
  *  3. 对话主体复用 MasterChatPanel,按 400–720px 窄面板留白。
  */
@@ -123,11 +123,11 @@ export function MasterAssistantPanel() {
       <div className="flex shrink-0 flex-wrap items-center justify-center gap-2 px-4 pb-1 pt-3">
         <Link
           href="/master"
-          data-testid="master-open-workbench"
+          data-testid="master-open-today"
           className="inline-flex items-center gap-1.5 rounded-full border border-[#e7e2d8] bg-[#fbfaf7] px-3 py-1.5 text-[12px] text-[#5e574d] transition hover:border-[#d8d0c2] hover:bg-white hover:text-[#2c2823]"
         >
           <LayoutGrid className="h-3.5 w-3.5" />
-          工作台
+          今日
         </Link>
         <Link
           href="/master/agents"

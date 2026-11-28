@@ -127,7 +127,7 @@ export function MasterRegistryConsole({
   /**
    * 2026-11-28 用户定档:总管不再单独做页。
    * embedded = true 时本组件只作为"右侧工作展示区"里的一块面板:
-   * 不画顶部菜单栏、不画左栏导航,只保留工作台 / 总管智能体 / 待你确认 / 任务运行。
+   * 不画顶部菜单栏、不画左栏导航,只保留今日 / 总管智能体 / 待你确认 / 任务运行。
    * 对话在 AI 面板里(`MasterAssistantPanel`),不在工作区。
    */
   embedded?: boolean
@@ -182,8 +182,14 @@ export function MasterRegistryConsole({
   }, [query, status])
 
   useEffect(() => {
+    // 今日面只读发布统计,不拉注册表;否则未登录或注册表接口暂不可用时会弹错,
+    // 而用户只是想在总管首页看一眼今天要做什么。
+    if (embedded && view === 'workbench') {
+      setLoading(false)
+      return
+    }
     void reload()
-  }, [reload])
+  }, [embedded, reload, view])
 
   useEffect(() => {
     let alive = true
@@ -203,8 +209,16 @@ export function MasterRegistryConsole({
   }, [])
 
   useEffect(() => {
-    document.title = `${masterName} · 工作台`
-  }, [masterName])
+    const label =
+      view === 'registry'
+        ? '总管智能体'
+        : view === 'approvals'
+          ? '待你确认'
+          : view === 'run'
+            ? '任务运行'
+            : '今日'
+    document.title = `${masterName} · ${label}`
+  }, [masterName, view])
 
   async function renameMaster(next: string) {
     const profile = await api<MasterProfileView>('/api/master/profile', {
@@ -342,7 +356,7 @@ export function MasterRegistryConsole({
     count?: number
     attention?: boolean
   }> = [
-    { key: 'workbench', label: '工作台', icon: LayoutGrid },
+    { key: 'workbench', label: '今日', icon: LayoutGrid },
     { key: 'chat', label: masterName, icon: MessageSquare },
     { key: 'registry', label: '模板库', icon: LayoutTemplate },
     { key: 'run', label: '任务运行', icon: Activity },
@@ -370,8 +384,8 @@ export function MasterRegistryConsole({
       >
         <Link
           href="/workspace"
-          aria-label="返回工作台"
-          title="返回工作台"
+          aria-label="返回工作空间"
+          title="返回工作空间"
           className="mr-1 flex h-8 w-8 items-center justify-center rounded-lg text-[#7d7569] transition hover:bg-[#eeeae3] hover:text-[#3f3a32]"
         >
           <PanelLeft className="h-4 w-4" />
@@ -531,7 +545,7 @@ export function MasterRegistryConsole({
               <div className="flex h-14 shrink-0 items-center gap-1 border-b border-[#eee9e1] px-5 text-[13px]">
                 {(
                   [
-                    { key: 'workbench' as const, label: '工作台' },
+                    { key: 'workbench' as const, label: '今日' },
                     { key: 'registry' as const, label: '总管创建的智能体' },
                     { key: 'approvals' as const, label: '待你确认' },
                     { key: 'run' as const, label: '任务运行' },
