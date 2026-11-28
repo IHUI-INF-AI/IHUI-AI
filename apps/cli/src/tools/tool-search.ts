@@ -17,6 +17,7 @@
 import { listTools, type Tool, type ToolResult, type ToolContext } from './index.js';
 import { renderToolSchema } from './tool-surface.js';
 import { shouldDeferTool } from './defer-policy.js';
+import { suggestToolNames } from './tool-name-resolve.js';
 
 const TOOL_SEARCH_TOOL_NAME = 'tool_search';
 
@@ -428,11 +429,18 @@ export function createToolSearchTool(opts: ToolSearchOptions): Tool {
       }
       const hits = searchTools(tools, queries, toolNames, topK);
       if (hits.length === 0) {
+        // 空结果也要给落点:光列 113 个名字,模型改不出一个"看起来对"的词;
+        // 用同一套相似度（含错拼档）给 3 个近名,它下一句就能改对。
+        const near = suggestToolNames(toolNames[0] ?? queries[0] ?? '', tools.map((tool) => tool.name), 3);
+        const nearNote = near.length === 0 ? '' : `\n\n最接近的名字:${near.join(', ')}(可直接按名调用)`;
         return {
           success: true,
-          output: `未命中任何工具。可检索的延迟工具:\n${availableDeferredNames(tools, opts.revealed).join('\n') || '(当前没有可检索的延迟工具)'}`,
+          output: `未命中任何工具。可检索的延迟工具:\n${availableDeferredNames(tools, opts.revealed).join('\n') || '(当前没有可检索的延迟工具)'}${nearNote}`,
         };
       }
+      // 重复检索保护:`revealed` 里已在本会话揭示、或本来就没延迟的工具,参数 schema
+      // 已在模型前缀里——再整段返回一次纯属重复占位(实测同一条查询重复一次要 731-1416B)。
+      const alreadyInPrefix = hits.every((hit) => !shouldDeferTool(hit.tool.name, hit.tool, opts.revealed));
       // 命中即揭示,并把"最久未命中"的顺序刷新到队尾(Set 的插入顺序就是回收顺序)。
       const hitNames = new Set(hits.map((hit) => hit.tool.name));
       for (const hit of hits) {
@@ -446,6 +454,12 @@ export function createToolSearchTool(opts: ToolSearchOptions): Tool {
           ? ''
           : `\n\n(揭示预算 ${budgetUsed}B 已满,回收最早揭示的 ${evicted.length} 个:${evicted.join(', ')};` +
             '它们仍可按名直接调用,需要参数细节时再检索)';
+      if (alreadyInPrefix) {
+        return {
+          success: true,
+          output: `${hits.length} 个工具的参数 schema 已在本会话前缀里(重复检索不重复返回):${hitNames.size === 0 ? '-' : Array.from(hitNames).join(', ')}${budgetNote}`,
+        };
+      }
       return {
         success: true,
         output: `已揭示 ${hits.length} 个工具,本轮起参数 schema 常驻:\n\n${hits.map((hit) => renderToolSchema(hit.tool)).join('\n\n')}${budgetNote}`,
