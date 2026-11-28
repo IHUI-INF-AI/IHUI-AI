@@ -400,7 +400,7 @@ function Timeline({ task }: { task: AgentTaskView }) {
             >
               <StepIcon kind={kind} />
             </span>
-            <div className="min-w-0 flex-1 rounded-lg border border-border/70 bg-background px-3 py-2.5">
+            <div className="min-w-0 flex-1 rounded-lg border border-stroke-default bg-background px-3 py-2.5">
               <div className="flex flex-wrap items-center gap-1.5">
                 <p className="text-label font-medium">{stepTitle(step, t)}</p>
                 {step.approval ? <ApprovalChip state={step.approval.state} /> : null}

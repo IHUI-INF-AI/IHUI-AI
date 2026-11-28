@@ -50,7 +50,7 @@ function PublishUsageSummary({
     currency: usage.currency || 'CNY',
   }).format(usage.amountCents / 100)
   return (
-    <div className="space-y-1 border-t border-border/60 pt-2">
+    <div className="space-y-1 border-t border-stroke-default pt-2">
       <p className="text-[11px] font-semibold">
         Publish API <span className="font-normal text-muted-foreground tabular-nums">{amount}</span>
       </p>
@@ -210,7 +210,7 @@ export function KeyUsagePanel({ apiKey }: { apiKey: DeveloperApiKeyWithQuota }):
           <span className="ml-1 font-mono">{publishState.message}</span>
         </p>
       ) : (
-        <p className="flex items-center gap-1.5 border-t border-border/60 pt-2 text-[11px] text-muted-foreground">
+        <p className="flex items-center gap-1.5 border-t border-stroke-default pt-2 text-[11px] text-muted-foreground">
           <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
           <span>{t('usageLoading')}</span>
         </p>

@@ -810,7 +810,7 @@ export function AiSidePanelTools() {
       data-testid="task-center-overlay"
       className="absolute inset-0 z-30 flex min-h-0 flex-col bg-shell-panel"
     >
-      <div className="flex shrink-0 items-center justify-between border-b border-border/60 bg-muted/30 px-3 py-2">
+      <div className="flex shrink-0 items-center justify-between border-b border-stroke-default bg-muted/30 px-3 py-2">
         <button
           type="button"
           data-testid="task-center-back-to-tools"
