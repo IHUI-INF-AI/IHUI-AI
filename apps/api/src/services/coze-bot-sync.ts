@@ -25,6 +25,7 @@ import type { CozeBotConfig } from '@ihui/types'
 import { db, dbRead } from '../db/index.js'
 import { mapCozeBotConfig, toCozePublicCapabilities, type CozeConfigSource } from '../lib/coze-bot-config.js'
 import { getCozeAccessToken, loadCozeOAuthConfig } from './coze-auth-utils.js'
+import { COZE_DISABLED_MESSAGE, COZE_INTEGRATION_ENABLED } from '../lib/coze-integration.js'
 
 const DEFAULT_COZE_BASE_URL = 'https://api.coze.cn'
 const FETCH_TIMEOUT_MS = 20000
@@ -40,6 +41,7 @@ export type CozeSyncErrorCode =
   | 'COZE_API_ERROR'
   | 'COZE_TIMEOUT'
   | 'COZE_RESPONSE_INVALID'
+  | 'COZE_DISABLED'
 
 export class CozeSyncError extends Error {
   code: CozeSyncErrorCode
@@ -76,6 +78,9 @@ function resolveCozeBaseUrl(): string {
 }
 
 export function getCozeCredentialStatus(): CozeCredentialStatus {
+  if (!COZE_INTEGRATION_ENABLED) {
+    return { configured: false, mode: 'none', envName: null, baseUrl: resolveCozeBaseUrl() }
+  }
   if (loadCozeOAuthConfig()) {
     return {
       configured: true,
@@ -338,6 +343,9 @@ export async function syncAgentCozeConfig(
   agent: Agent,
   opts: SyncAgentOptions = {},
 ): Promise<SyncAgentResult> {
+  if (!COZE_INTEGRATION_ENABLED) {
+    throw new CozeSyncError('COZE_DISABLED', COZE_DISABLED_MESSAGE, { statusCode: 410 })
+  }
   if (!agent.botId) {
     const err = new CozeSyncError('COZE_BOT_ID_MISSING', 'agent.botId 为空，无法定位 Coze 智能体', {
       statusCode: 400,
@@ -446,6 +454,9 @@ export interface SyncManyResult {
 }
 
 export async function syncManyCozeAgents(opts: SyncManyOptions = {}): Promise<SyncManyResult> {
+  if (!COZE_INTEGRATION_ENABLED) {
+    throw new CozeSyncError('COZE_DISABLED', COZE_DISABLED_MESSAGE, { statusCode: 410 })
+  }
   // 凭据缺失直接 503，不逐条写库；否则 116 条都会被标成 skipped_no_token。
   await resolveCozeToken()
   const limit = Math.min(Math.max(opts.limit ?? DEFAULT_SYNC_BATCH, 1), MAX_SYNC_BATCH)
