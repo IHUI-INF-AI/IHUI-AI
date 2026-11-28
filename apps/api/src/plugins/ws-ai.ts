@@ -22,7 +22,6 @@ import { releasePointsHold } from '../services/points-service.js'
 import { estimateTokens } from '../services/context-manager-service.js'
 import { resolveDefaultChatModel } from '../utils/retired-providers.js'
 import { findAgentByAgentId } from '../db/agents-queries.js'
-import { getCozeAccessToken } from '../services/coze-auth-utils.js'
 
 /**
  * F-461:消息收发时刷新 ws-auto-recovery 的活动时间(内存时间戳,轻量、不落库)。
@@ -31,6 +30,15 @@ import { getCozeAccessToken } from '../services/coze-auth-utils.js'
 const touchActivity = (): void => {
   getWsAutoRecoveryManager().recordActivity?.()
 }
+
+/**
+ * 2026-11-28 完全弃用 Coze：本地执行模式的对话历史。
+ * 按 `${userId}:${botId}` 维护最近 24 条消息（进程内），不再依赖 Coze 的 auto_save_history。
+ */
+const localChatHistories = new Map<
+  string,
+  Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
+>()
 
 const send = (socket: WebSocket, obj: unknown): void => {
   touchActivity()
@@ -1268,14 +1276,17 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
       if (!userId) return
       // 2026-11-28:公开面不暴露 botId，前端按社区 agentId 接入；
       // 服务端解析到 botId 后再交给 Coze，客户端仍可通过 bot_id 走兼容旧链路。
+      let agentMeta: Awaited<ReturnType<typeof findAgentByAgentId>> | undefined
       if (query.agent_id) {
         const agent = await findAgentByAgentId(query.agent_id)
-        if (!agent || agent.status !== 'published' || !agent.botId) {
+        // 2026-11-28 完全弃用 Coze：不再要求 botId，本地自建智能体（无 bot_id）同样可对话。
+        if (!agent || agent.status !== 'published') {
           send(socket, { code: 404, event: 'error', message: '智能体不存在或未发布' })
           socket.close(1008, '智能体不存在或未发布')
           return
         }
-        botId = agent.botId
+        agentMeta = agent
+        botId = agent.botId ?? agent.agentId
       }
       if (!botId) {
         send(socket, { code: 400, event: 'error', message: '缺少 agent_id 或 bot_id' })
@@ -1290,14 +1301,8 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
       }
       send(socket, { code: 0, msg: 'success', event: 'ready', user: userId, bot_id: botId })
 
-      // 2026-11-28:OAuth JWT 优先，PAT 兜底。Coze PAT 最长 30 天，不能作为长期唯一凭据。
-      const cozeToken = (await getCozeAccessToken()) ?? process.env.COZE_API_KEY
-      if (!cozeToken) {
-        send(socket, { code: 503, event: 'error', message: 'Coze 服务未配置' })
-        return
-      }
-      const cozeBaseUrl =
-        process.env.COZE_API_BASE_URL ?? process.env.COZE_API_BASE ?? 'https://api.coze.cn'
+      // 2026-11-28 完全弃用 Coze：不再签发 Coze token、不再访问 api.coze.cn。
+      // 对话由本地 LLM 承接（/api/llm/complete/stream），人格取自 agents.agent_prompt。
 
       let conversationId = ''
       let heartbeatTimer: NodeJS.Timeout | null = null
@@ -1368,7 +1373,7 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
         if (eventType === 'chat.message') {
           const queryText = msg.content as string | undefined
           // F-112:同 chat.start,忽略消息体里的 bot_id/user_id。
-          const { botId: reqBotId, userId: reqUserId } = resolveCozeIdentity({ botId, userId })
+          const { botId: reqBotId } = resolveCozeIdentity({ botId, userId })
           if (!queryText) {
             send(socket, { code: 400, event: 'error', message: '缺少 content' })
             return
@@ -1389,40 +1394,48 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
 
           startHeartbeat()
 
-          let newConversationId: string | null = null
           try {
-            // Coze Chat v3：/v3/chat + additional_messages；/v1/chat 已被上游下线（404 code=4000）。
-            const resp = await fetch(`${cozeBaseUrl.replace(/\/+$/, '')}/v3/chat`, {
+            // ============================================================
+            // 2026-11-28 完全弃用 Coze：本地 LLM 执行。
+            // 人格 = agents.agent_prompt（Coze 全量配置已落库为 coze_config_raw）；
+            // 模型 = agent_model → 默认 chat 模型；会话历史维护在 localChatHistories。
+            // 事件协议保持 conversation.*，前端（coze-agent-panel）零改动。
+            // ============================================================
+            const meta = agentMeta
+            const systemPrompt = String(meta?.agentPrompt ?? '').trim()
+            const localModel =
+              String(meta?.agentModel ?? '').trim() || resolveDefaultChatModel()
+            if (!conversationId) conversationId = `local_${randomUUID()}`
+            const historyKey = `${userId}:${reqBotId}`
+            const history = localChatHistories.get(historyKey) ?? []
+            const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = []
+            if (systemPrompt) messages.push({ role: 'system', content: systemPrompt })
+            for (const h of history.slice(-12)) messages.push(h)
+            messages.push({ role: 'user', content: queryText })
+
+            const resp = await aiServiceFetchStream(request, '/api/llm/complete/stream', {
               method: 'POST',
-              headers: {
-                Authorization: `Bearer ${cozeToken}`,
-                'Content-Type': 'application/json',
-              },
+              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                bot_id: reqBotId,
-                // F-112(2026-11-08):不向 Coze 透传客户端自报的 user_id。
-                user_id: reqUserId,
-                stream: true,
-                auto_save_history: true,
-                additional_messages: [{ role: 'user', content: queryText, content_type: 'text' }],
-                ...(conversationId ? { conversation_id: conversationId } : {}),
+                messages,
+                model: localModel,
+                metadata: { userId, provider: 'local' },
               }),
             })
             if (!resp.ok || !resp.body) {
               stopHeartbeat()
+              const errText = await resp.text().catch(() => '')
               send(socket, {
                 code: 502,
                 event: 'conversation.chat.failed',
-                message: `Coze API ${resp.status}`,
+                message: `本地模型服务 ${resp.status}: ${errText.slice(0, 200)}`,
               })
               return
             }
+            let fullAnswer = ''
             const reader = resp.body.getReader()
             const decoder = new TextDecoder()
             let buffer = ''
-            // Coze v3 是标准 SSE:事件名只在 `event:` 行里,`data:` 的 JSON 内没有 event 字段。
-            // 只解析 data 行会让转发出去的事件名恒为空串,前端按 event 分流就永远收不到 delta。
-            let sseEventName = ''
             for (;;) {
               const { done, value } = await reader.read()
               if (done) break
@@ -1430,58 +1443,54 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
               const lines = buffer.split('\n')
               buffer = lines.pop() ?? ''
               for (const line of lines) {
-                const sseLine = line.endsWith('\r') ? line.slice(0, -1) : line
-                if (sseLine.startsWith('event:')) {
-                  sseEventName = sseLine.slice(6).trim()
+                const s = line.endsWith('\r') ? line.slice(0, -1) : line
+                if (!s.startsWith('data:')) continue
+                const jsonStr = s.slice(5).trim()
+                if (!jsonStr) continue
+                let ev: Record<string, unknown>
+                try {
+                  ev = JSON.parse(jsonStr) as Record<string, unknown>
+                } catch {
                   continue
                 }
-                if (!sseLine.startsWith('data:')) continue
-                const jsonStr = sseLine.slice(5).trim()
-                if (!jsonStr) continue
-                try {
-                  const evt = JSON.parse(jsonStr) as Record<string, unknown>
-                  // 提取 conversation_id
-                  const cid = evt.conversation_id as string | undefined
-                  if (cid && cid !== newConversationId) {
-                    newConversationId = cid
-                    conversationId = cid
-                  }
-                  const evtType = (evt.event as string) || sseEventName
-                  // v3 失败事件把原因放在 last_error.msg；提到顶层，前端可直接展示额度/发布等真实原因。
-                  const lastError = evt.last_error as { msg?: unknown } | undefined
-                  const errorMessage =
-                    evtType === 'conversation.chat.failed' && typeof lastError?.msg === 'string'
-                      ? lastError.msg
-                      : ''
-                  // 透传事件
+                if (ev.type === 'chunk' && typeof ev.content === 'string' && ev.content) {
+                  fullAnswer += ev.content
                   send(socket, {
                     code: 200,
                     msg: 'success',
-                    ...evt,
-                    event: evtType,
-                    ...(errorMessage ? { message: errorMessage } : {}),
+                    data: {
+                      id: `local_${Date.now()}`,
+                      conversation_id: conversationId,
+                      bot_id: reqBotId,
+                      role: 'assistant',
+                      type: 'answer',
+                      content: ev.content,
+                      content_type: 'text',
+                    },
+                    detail: null,
+                    event: 'conversation.message.delta',
+                    urlType: null,
                   })
-                  if (
-                    evtType.includes('completed') ||
-                    evtType.includes('finish') ||
-                    evtType.includes('end')
-                  ) {
-                    stopHeartbeat()
-                  }
-                } catch {
-                  /* skip non-JSON */
+                } else if (ev.type === 'error') {
+                  stopHeartbeat()
+                  send(socket, {
+                    code: 500,
+                    event: 'conversation.chat.failed',
+                    message: String(ev.message ?? '本地模型服务异常'),
+                  })
+                  return
                 }
               }
             }
             stopHeartbeat()
-            if (newConversationId) {
-              conversationId = newConversationId
-            }
+            history.push({ role: 'user', content: queryText })
+            if (fullAnswer) history.push({ role: 'assistant', content: fullAnswer })
+            localChatHistories.set(historyKey, history.slice(-24))
             send(socket, {
               code: 200,
               msg: 'success',
               event: 'conversation.chat.completed',
-              data: { conversation_id: conversationId },
+              data: { conversation_id: conversationId, bot_id: reqBotId },
             })
           } catch (e) {
             stopHeartbeat()
