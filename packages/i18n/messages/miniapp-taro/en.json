@@ -4450,6 +4450,8 @@
     "loadFailed": "Failed to load"
   },
   "webViewPortal": {
+    "publishAccountPool": "Publish Account Pool",
+    "publishAiDraft": "AI Draft",
     "hrMyPerf": "My performance",
     "hrMyTraining": "My training",
     "hrMyExpense": "My expenses",

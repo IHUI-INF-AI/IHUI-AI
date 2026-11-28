@@ -1,10 +1,18 @@
 {
   "note": "rn-only 逐屏复核清单；这些 Web 路由在 RN 有屏，但既无共享屏登记，也无小程序直接 shell 承载。已有 not-applicable 裁决的屏不重复派单，其余才需产品/端侧裁决补页或接受平台差。",
-  "totalRoutes": 63,
-  "totalScreens": 52,
+  "totalRoutes": 73,
+  "totalScreens": 59,
   "decidedNotApplicable": 10,
-  "needsReview": 42,
+  "needsReview": 49,
   "screens": [
+    {
+      "rn": "apps/mobile-rn/src/screens/AddressesScreen.tsx",
+      "routes": [
+        "member/addresses"
+      ],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
     {
       "rn": "apps/mobile-rn/src/screens/AgentCategoriesScreen.tsx",
       "routes": [
@@ -144,6 +152,23 @@
       "disposition": "decided-not-applicable"
     },
     {
+      "rn": "apps/mobile-rn/src/screens/DataRightsScreen.tsx",
+      "routes": [
+        "settings/data-export",
+        "settings/data-rights"
+      ],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/DeepResearchScreen.tsx",
+      "routes": [
+        "deep-research"
+      ],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
       "rn": "apps/mobile-rn/src/screens/DeveloperConversationsScreen.tsx",
       "routes": [
         "developer/conversations"
@@ -255,6 +280,14 @@
       "disposition": "needs-review"
     },
     {
+      "rn": "apps/mobile-rn/src/screens/InvoicesScreen.tsx",
+      "routes": [
+        "invoices"
+      ],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
       "rn": "apps/mobile-rn/src/screens/KnowledgeBaseEditScreen.tsx",
       "routes": [
         "knowledge-base/edit",
@@ -329,6 +362,22 @@
       "rn": "apps/mobile-rn/src/screens/MemoryNewScreen.tsx",
       "routes": [
         "memory/new"
+      ],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/ModelsPromptsScreen.tsx",
+      "routes": [
+        "models/prompts"
+      ],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/MyPapersScreen.tsx",
+      "routes": [
+        "student/papers"
       ],
       "priorVerdicts": [],
       "disposition": "needs-review"
@@ -440,6 +489,16 @@
       "rn": "apps/mobile-rn/src/screens/SelfHealingScreen.tsx",
       "routes": [
         "self-healing"
+      ],
+      "priorVerdicts": [],
+      "disposition": "needs-review"
+    },
+    {
+      "rn": "apps/mobile-rn/src/screens/SubagentsScreen.tsx",
+      "routes": [
+        "agent-teams",
+        "subagents",
+        "subagents/topology"
       ],
       "priorVerdicts": [],
       "disposition": "needs-review"

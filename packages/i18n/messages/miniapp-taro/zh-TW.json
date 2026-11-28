@@ -4450,6 +4450,8 @@
     "loadFailed": "載入失敗"
   },
   "webViewPortal": {
+    "publishAccountPool": "發布帳號池",
+    "publishAiDraft": "AI 出稿",
     "hrMyPerf": "我的績效",
     "hrMyTraining": "我的培訓",
     "hrMyExpense": "我的報銷",
