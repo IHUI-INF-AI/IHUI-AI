@@ -40,7 +40,7 @@ def load_tools():
     return {tool.name: tool for tool in mcp_server.list_tools()}
 
 
-def document(tool) -> list[str]:
+def document(tool, aliases: list[str] | None = None) -> list[str]:
     schema = tool.input_schema or {}
     props = schema.get("properties") or {}
     tokens: list[str] = []
@@ -50,6 +50,7 @@ def document(tool) -> list[str]:
         tokens.extend(tokenize(name) * 2)
         if isinstance(value, dict):
             tokens.extend(tokenize(value.get("description") or ""))
+    tokens.extend(tokenize(" ".join(aliases or [])) * 2)
     return tokens
 
 
@@ -89,8 +90,9 @@ def load_cases(path: Path) -> list[dict[str, Any]]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
-def evaluate(cases: list[dict[str, Any]], tools: dict[str, Any], topk: int = 5) -> dict[str, Any]:
-    bm25 = BM25({name: document(tool) for name, tool in tools.items()})
+def evaluate(cases: list[dict[str, Any]], tools: dict[str, Any], topk: int = 5, aliases: dict[str, list[str]] | None = None) -> dict[str, Any]:
+    aliases = aliases or {}
+    bm25 = BM25({name: document(tool, aliases.get(name)) for name, tool in tools.items()})
     results = []
     for case in cases:
         accepted = {case["expected_tools"][0], *(case.get("alternatives") or [])}
@@ -117,8 +119,9 @@ def evaluate(cases: list[dict[str, Any]], tools: dict[str, Any], topk: int = 5) 
 
 
 def render(report: dict[str, Any], topk: int = 5) -> str:
+    title = "工具检索基线（BM25 + 手工别名）" if report.get("aliases") else "工具检索基线（BM25，无 embedding、无模型）"
     lines = [
-        "工具检索基线（BM25，无 embedding、无模型）",
+        title,
         "",
         f"- 用例：{report['cases']}",
         f"- Recall@1：{report['recall@1']:.1%}",
@@ -137,6 +140,7 @@ def render(report: dict[str, Any], topk: int = 5) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--cases", default="benchmarks/tool-use/cases/golden.jsonl")
+    parser.add_argument("--aliases", default=None)
     parser.add_argument("--topk", type=int, default=5)
     parser.add_argument("--json-out", default="benchmarks/tool-use/reports/tool-retrieval-baseline.json")
     parser.add_argument("--md-out", default="benchmarks/tool-use/reports/tool-retrieval-baseline.md")
@@ -144,7 +148,10 @@ def main() -> int:
 
     cases = load_cases(REPO_ROOT / args.cases)
     tools = load_tools()
-    report = evaluate(cases, tools, args.topk)
+    aliases = json.loads((REPO_ROOT / args.aliases).read_text(encoding="utf-8")) if args.aliases else None
+    report = evaluate(cases, tools, args.topk, aliases)
+    if aliases:
+        report["aliases"] = args.aliases
     json_path = REPO_ROOT / args.json_out
     md_path = REPO_ROOT / args.md_out
     json_path.parent.mkdir(parents=True, exist_ok=True)
