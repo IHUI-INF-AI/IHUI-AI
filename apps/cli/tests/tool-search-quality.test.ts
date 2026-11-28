@@ -1,5 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * 工具检索质量(中文自然语言查询) —— 把"模型用中文找工具"这条链路量成命中率。
@@ -38,6 +39,10 @@ import { BROWSER_TOOLS } from '../src/tools/browser.js'
 import { BROWSER_PAGE_TOOLS } from '../src/tools/browser-page.js'
 import { WORKTREE_TOOLS } from '../src/tools/worktree.js'
 import { CLIPBOARD_TOOLS } from '../src/tools/clipboard.js'
+import { HR_TOOLS } from '../src/tools/hr.js'
+import { RELAY_TOOLS } from '../src/tools/relay.js'
+import { API_BRIDGE_TOOLS } from '../src/tools/api-bridge.js'
+import { AI_BRIDGE_TOOLS } from '../src/tools/ai-bridge.js'
 import { createFileEditTools } from '../src/tools/file-edit.js'
 import {
   terminal_close,
@@ -74,6 +79,10 @@ const FAMILIES = [
   BROWSER_PAGE_TOOLS,
   WORKTREE_TOOLS,
   CLIPBOARD_TOOLS,
+  HR_TOOLS,
+  RELAY_TOOLS,
+  API_BRIDGE_TOOLS,
+  AI_BRIDGE_TOOLS,
   createFileEditTools(TEST_CTX),
   [terminal_open, terminal_send, terminal_read, terminal_resize, terminal_close, terminal_exec_sandboxed],
 ]
@@ -114,6 +123,18 @@ const CASES: Array<[string, string]> = [
   ['merge branch', 'git_merge'],
   ['stash pop', 'git_stash_pop'],
   ['read file', 'read_file'],
+  // ==== 业务域族(2026-11-28):这几族已被 defer-policy 延迟,检索是唯一入口 ====
+  ['员工列表', 'hr_employee_list'],
+  ['部门列表', 'hr_department_list'],
+  ['查看考勤记录', 'hr_attendance_records'],
+  ['请假申请', 'hr_leave_create'],
+  ['审批待办', 'hr_approval_pending_list'],
+  ['补卡申请', 'hr_punch_fix_submit'],
+  ['考勤统计', 'hr_attendance_stats'],
+  ['号池列表', 'relay_pool_list'],
+  ['重认证状态', 'relay_reauth_status'],
+  ['接口列表', 'api_list_endpoints'],
+  ['端点说明', 'api_describe_endpoint'],
 ]
 
 describe('工具检索质量(中文查询命中率)', () => {
@@ -170,3 +191,4 @@ describe('工具检索质量(中文查询命中率)', () => {
     expect(searchTools(tools, ['   ', '，'], [], 5)).toEqual([])
   })
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

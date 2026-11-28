@@ -153,7 +153,11 @@ describe('tool_search', () => {
 
   it('按 description 子串命中', () => {
     const hits = searchTools(catalogue, ['点击页面'], [], 5);
-    expect(hits.map((h) => h.tool.name)).toEqual(['browser_page_click']);
+    // 判据是"动词命中的工具排第一"，不是"结果集只有一枚":2026-11-28 的中文词法桥让
+    // 「页面→page/navigate」也命中 browser_navigate(描述里确有"页面"),它作为第二命中
+    // 是合理召回 —— 钉死结果集枚数会把"召回变宽"误判成回归。
+    expect(hits[0]?.tool.name).toBe('browser_page_click');
+    expect(hits.map((h) => h.tool.name)).toContain('browser_page_click');
   });
 
   it('tool_names 精确命中优先', () => {

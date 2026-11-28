@@ -17,10 +17,14 @@
  * 读法:`npm test -- tool-surface-economics` 的输出里有 `[tool-surface]` 一行，
  * 就是当前的全常驻字节 / 默认面字节 / 延迟枚数 / 节省比例。
  *
- * **口径边界(必须说清)**：本用例注册的是 `setupAgentTools` 里**无条件**的 16 个族
- * (实测 102 枚)。条件族(HR / RELAY / API 桥 / AI 桥 / clipboard / PTC run_code 等)
- * 要 auth、settings、env 才会注册，这里不假装覆盖它们;所以 102 ≠ 全量 129，读数只代表
- * "常规会话的工具面"。要量全量面，得在真实 setup 路径下测(带环境的 eval harness 才做得到)。
+ * **口径边界(必须说清)**：本用例注册的是 `setupAgentTools` 默认路径会注册的族
+ * (2026-11-28 起含 HR / RELAY / API 桥 / AI 桥 / file-edit / tool_search)，实测 **151 枚**
+ * —— 这是"常规会话真实面"(clipboard feature flag 关闭时;打开后 156 枚)。条件族
+ * (PTC run_code / subagent / MCP / 插件)要 flag、auth、settings 或远端才会注册，这里不假装覆盖。
+ *
+ * 与契约读数(129)的区别:**151 是运行期工具对象数**(`git` 与 `git-advanced` 有重名被
+ * 注册表去重；另有 file-edit / tool_search 这类工厂装配的工具)，契约读数按静态声明计；
+ * 两个数不是一回事，不要互相替代引用。
  */
 import { describe, expect, it } from 'vitest'
 
@@ -44,10 +48,20 @@ import { MEMORY_TOOLS } from '../src/tools/memory.js'
 import { BROWSER_TOOLS } from '../src/tools/browser.js'
 import { BROWSER_PAGE_TOOLS } from '../src/tools/browser-page.js'
 import { WORKTREE_TOOLS } from '../src/tools/worktree.js'
+import { HR_TOOLS } from '../src/tools/hr.js'
+import { RELAY_TOOLS } from '../src/tools/relay.js'
+import { API_BRIDGE_TOOLS } from '../src/tools/api-bridge.js'
+import { AI_BRIDGE_TOOLS } from '../src/tools/ai-bridge.js'
+import { createFileEditTools } from '../src/tools/file-edit.js'
+import { createToolSearchTool } from '../src/tools/tool-search.js'
 
-/** 与 `commands/agent.ts::setupAgentTools` 同一批族(顺序也一致，便于对照)。 */
+/** 与 `commands/agent.ts::setupAgentTools` 默认路径同一批族(顺序也一致，便于对照)。 */
 const FAMILIES = [
   BUILTIN_TOOLS,
+  HR_TOOLS,
+  RELAY_TOOLS,
+  API_BRIDGE_TOOLS,
+  AI_BRIDGE_TOOLS,
   GIT_TOOLS,
   GIT_ADVANCED_TOOLS,
   GITHUB_PR_TOOLS,
@@ -63,6 +77,8 @@ const FAMILIES = [
   BROWSER_TOOLS,
   BROWSER_PAGE_TOOLS,
   WORKTREE_TOOLS,
+  createFileEditTools({ workspacePath: process.cwd() }),
+  [createToolSearchTool({ revealed: new Set<string>() })],
 ]
 
 /** 一次把全部族注册进空表，得到"真实工具面"的快照。 */
@@ -115,7 +131,7 @@ describe('工具面经济学(静态字节)', () => {
     const pct = (n: number) => `${((n / m.all) * 100).toFixed(1)}%`
     console.log(
       `[tool-surface] 全常驻 ${m.all}B / 默认面 ${m.defaultFace}B(${pct(m.defaultFace)})·` +
-        `常驻 ${m.resident} 枚 / 延迟 ${m.deferred} 枚(共 ${m.resident + m.deferred} 枚,16 个无条件族)/ ` +
+        `常驻 ${m.resident} 枚 / 延迟 ${m.deferred} 枚(共 ${m.resident + m.deferred} 枚,setup 默认路径 23 族)/ ` +
         `目录 ${m.catalogue}B / 延迟体量 ${pct(deferredBytes)}`,
     )
   })
@@ -146,6 +162,27 @@ describe('工具面经济学(静态字节)', () => {
     const revealedFace = buildToolSurface(tools, { revealed: new Set([firstDeferred.name]) })
     expect(revealedFace.promptTools.map((t) => t.name)).toContain(firstDeferred.name)
     expect(revealedFace.deferred.map((t) => t.name)).not.toContain(firstDeferred.name)
+  })
+
+  // 2026-11-28 立因:HR / RELAY / API 桥 / AI 桥四族被 setup 无条件注册,但策略表此前
+  // 一条都没覆盖 —— 实测 39 枚 schema 合计 10,569B 全常驻。延迟它们的前提是检索能找回,
+  // 所以这条与 tool-search-quality 的"业务域查询"用例是一对:一个管省,一个管找得回。
+  it('业务域族默认不进常驻面(dangerous 例外)', () => {
+    const tools = snapshotRegistry()
+    const face = buildToolSurface(tools, { revealed: new Set<string>() })
+    const bizPrefixes = ['hr_', 'relay_', 'api_', 'ai_']
+    const biz = tools.filter((t) => bizPrefixes.some((p) => t.name.startsWith(p)))
+    // 这四族必须真有成员,否则本断言会"空成立"。
+    expect(biz.length).toBeGreaterThan(30)
+    const bizResident = face.promptTools
+      .filter((t) => bizPrefixes.some((p) => t.name.startsWith(p)))
+      .map((t) => t.name)
+    // 常驻里只允许 dangerous 的成员(危险动作必须在常驻 schema 里直接可见)。
+    const unexpected = bizResident.filter((name) => {
+      const tool = biz.find((t) => t.name === name)
+      return tool?.dangerLevel !== 'dangerous'
+    })
+    expect(unexpected).toEqual([])
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

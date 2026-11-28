@@ -45,11 +45,132 @@ const NAME_SUBSTRING_SCORE = 60;
 const DESCRIPTION_SUBSTRING_SCORE = 25;
 const NAME_TOKEN_SCORE = 10;
 const DESCRIPTION_TOKEN_SCORE = 4;
+/** CJK 二元组:中文没有空格分词,整串"合并分支"在描述里常不连续出现,用二元组兜住。 */
+const CJK_GRAM_SCORE_NAME = 6;
+const CJK_GRAM_SCORE_DESCRIPTION = 3;
+/** 二元组分数的上限:防止一句长中文(十几个二元组)靠零散命中压过直接命中。 */
+const CJK_GRAM_CAP = 12;
 
-/** 分词:空白与常见标点切开;保留原词,便于中文整词子串命中。 */
+const CJK_CHAR = /[\u3400-\u4dbf\u4e00-\u9fff]/;
+
+/**
+ * 中文概念 → 英文词根(工具名里的实际用词)。**不是工具清单**,是词法桥:
+ * 中文查询"剪贴板读取"里没有空格,整串既不命中名字也不命中描述;但"剪贴板→clipboard"
+ * "读取→read"各自命中 `clipboard_read`。表只钉"中文说法 ↔ 英文实现用词"这一层,
+ * 新增工具不需要登记;新增说法才需要加一行。
+ */
+const CJK_NAME_ALIASES: ReadonlyArray<readonly [string, readonly string[]]> = [
+  ['读取', ['read']],
+  ['读', ['read']],
+  ['写入', ['write']],
+  ['写', ['write']],
+  ['编辑', ['edit']],
+  ['修改', ['edit']],
+  ['删除', ['delete']],
+  ['文件', ['file']],
+  ['目录', ['dir', 'list']],
+  ['搜索', ['search', 'grep']],
+  ['查找', ['find', 'glob', 'search']],
+  ['代码', ['code', 'grep']],
+  ['合并', ['merge']],
+  ['分支', ['branch']],
+  ['提交', ['commit']],
+  ['暂存', ['stash']],
+  ['冲突', ['conflict']],
+  ['标签', ['tag']],
+  ['远端', ['remote']],
+  ['日志', ['log']],
+  ['差异', ['diff']],
+  ['测试', ['test']],
+  ['命令', ['command']],
+  ['运行', ['run', 'exec']],
+  ['执行', ['run', 'exec']],
+  ['调试', ['debug']],
+  ['断点', ['breakpoint']],
+  ['终端', ['terminal']],
+  ['浏览器', ['browser']],
+  ['网页', ['browser', 'navigate']],
+  ['页面', ['page']],
+  ['点击', ['click']],
+  ['截图', ['screenshot']],
+  ['剪贴板', ['clipboard']],
+  ['记忆', ['memory']],
+  ['工作树', ['worktree']],
+  ['图谱', ['codegraph']],
+  ['引用', ['reference']],
+  ['定义', ['definition']],
+  ['跳转', ['goto']],
+  ['批量', ['batch']],
+  ['预览', ['preview']],
+  ['撤销', ['undo']],
+  ['发布', ['release']],
+  ['问题', ['issue']],
+  ['代理', ['subagent', 'agent']],
+  ['待办', ['todo']],
+  ['诊断', ['diagnostic']],
+  ['重命名', ['rename']],
+  ['符号', ['symbol']],
+  ['会话', ['session']],
+  ['安装', ['install']],
+  ['并行', ['parallel']],
+  ['子任务', ['subagent']],
+  // ==== 业务域族(人事考勤 / 号池 / API 桥)====
+  // 这些族默认延迟(见 defer-policy),延迟之后**只能靠检索找回**,所以中文说法必须先命中。
+  // 2026-11-28 立:此前这几族无条件常驻,模型的检索退路并不成立;补词法桥才敢延。
+  ['考勤', ['attendance']],
+  ['打卡', ['check_in', 'punch']],
+  ['签到', ['check_in']],
+  ['签退', ['check_out']],
+  ['补卡', ['punch', 'fix']],
+  ['请假', ['leave']],
+  ['休假', ['leave']],
+  ['审批', ['approval', 'approve']],
+  ['部门', ['department']],
+  ['员工', ['employee']],
+  ['人事', ['hr']],
+  ['招聘', ['job']],
+  ['岗位', ['job']],
+  ['列表', ['list']],
+  ['记录', ['records']],
+  ['统计', ['stats']],
+  ['号池', ['pool']],
+  ['账号', ['account']],
+  ['巡检', ['sweep']],
+  ['重认证', ['reauth']],
+  ['端点', ['endpoint']],
+  ['接口', ['endpoint', 'api']],
+];
+
+/** 把中文串切成二元组(只保留"两字都是汉字"的相邻对);英文/数字不参与。 */
+function cjkBigrams(token: string): string[] {
+  const chars = Array.from(token);
+  const grams: string[] = [];
+  for (let i = 0; i + 1 < chars.length; i += 1) {
+    const a = chars[i];
+    const b = chars[i + 1];
+    if (a !== undefined && b !== undefined && CJK_CHAR.test(a) && CJK_CHAR.test(b)) grams.push(a + b);
+  }
+  return grams;
+}
+
+/** 中文 token 命中的英文词根(去重);纯英文 token 返回空(它自己就是词根)。 */
+function aliasTermsFor(token: string): string[] {
+  if (!CJK_CHAR.test(token)) return [];
+  const terms: string[] = [];
+  for (const [zh, en] of CJK_NAME_ALIASES) {
+    if (token.includes(zh)) terms.push(...en);
+  }
+  return Array.from(new Set(terms));
+}
+
+/** 分词:空白与常见标点切开;保留原词,便于中文整词子串命中。
+ * 中文与英文/数字相邻处也切开("创建PR" → "创建"+"pr"),否则混合串会整体落空。 */
 function tokenizeQuery(query: string): string[] {
-  return query
+  const normalized = query
     .toLowerCase()
+    .replace(/([\u3400-\u4dbf\u4e00-\u9fff])([a-z0-9])/g, '$1 $2')
+    .replace(/([a-z0-9])([\u3400-\u4dbf\u4e00-\u9fff])/g, '$1 $2');
+  return normalized
     .split(/[\s,，;；:：/|()[\]{}"'`]+/)
     .map((token) => token.trim())
     .filter((token) => token.length > 0);
@@ -66,8 +187,24 @@ function scoreTool(tool: Pick<Tool, 'name' | 'description'>, query: string): num
   else if (name.includes(q)) score += NAME_SUBSTRING_SCORE;
   if (description.includes(q)) score += DESCRIPTION_SUBSTRING_SCORE;
   for (const token of tokenizeQuery(q)) {
-    if (name.includes(token)) score += NAME_TOKEN_SCORE;
-    if (description.includes(token)) score += DESCRIPTION_TOKEN_SCORE;
+    const nameHit = name.includes(token);
+    const descriptionHit = description.includes(token);
+    if (nameHit) score += NAME_TOKEN_SCORE;
+    if (descriptionHit) score += DESCRIPTION_TOKEN_SCORE;
+    // 整串不命中时退回二元组:中文查询"合并分支"在描述里找不到整串,但"合并""分支"都在。
+    if (!nameHit && !descriptionHit) {
+      let gramScore = 0;
+      for (const gram of new Set(cjkBigrams(token))) {
+        if (name.includes(gram)) gramScore += CJK_GRAM_SCORE_NAME;
+        else if (description.includes(gram)) gramScore += CJK_GRAM_SCORE_DESCRIPTION;
+      }
+      score += Math.min(gramScore, CJK_GRAM_CAP);
+    }
+    // 词法桥:中文 token 里的概念词回落到英文词根("剪贴板读取" ⇒ clipboard + read)。
+    for (const term of aliasTermsFor(token)) {
+      if (name.includes(term)) score += NAME_TOKEN_SCORE;
+      else if (description.includes(term)) score += DESCRIPTION_TOKEN_SCORE;
+    }
   }
   return score;
 }

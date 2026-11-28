@@ -124,6 +124,31 @@ export const DEFERRED_TOOL_PATTERNS: readonly DeferredToolPattern[] = [
     value: 'clipboard_',
     reason: '剪贴板读写默认关闭(feature flag),开启后也属偶发动作,不宜常驻。',
   },
+  // ==== 业务域族(2026-11-28 立)====
+  // 立因:`setupAgentTools` 无条件注册了 HR / RELAY / API 桥 / AI 桥四族(共 39 枚),
+  // 但 defer-policy 此前一条都没覆盖它们 —— 实测这 39 枚 schema 合计 **10,569B 全常驻**,
+  // 占默认面近一半,编码/办公主循环里十次不到一次。延迟的前提是**检索能找回**:
+  // tool-search 同期补了业务域词法桥(考勤/打卡/请假/部门/员工/号池/端点…),golden 用例钉住。
+  {
+    kind: 'prefix',
+    value: 'hr_',
+    reason: '人事考勤族(26 枚:部门/员工/考勤/请假/招聘任务/审批流)是后台业务操作,单会话命中率极低且体量大(~6KB);写类成员照旧走权限链,dangerous 由兜底规则常驻。',
+  },
+  {
+    kind: 'prefix',
+    value: 'relay_',
+    reason: '号池运维族(列表/详情/巡检/任务/重认证/策略)是运维专项动作,常规会话零调用。',
+  },
+  {
+    kind: 'prefix',
+    value: 'api_',
+    reason: 'API 桥是"手写工具没覆盖到的业务域"兜底入口,只有明确知道端点时才用;`api_delete` 为 dangerous,由兜底规则自动常驻。',
+  },
+  {
+    kind: 'prefix',
+    value: 'ai_',
+    reason: 'ai-service 桥与 API 桥同形同档;`ai_delete` 为 dangerous,自动常驻。',
+  },
   {
     kind: 'prefix',
     value: 'batch_',
