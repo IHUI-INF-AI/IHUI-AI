@@ -1312,7 +1312,9 @@ const MessageItem = React.memo(function MessageItem({
   if (!isSystem) {
     moreItems.push({
       key: 'pin',
-      icon: m.pinnedAt ? PinOff : Pin,
+      // 2026-11-28:aria-pressed 常驻开关真值态画开启态图标(与下方 bookmark 的 BookmarkCheck 同型);
+      // 原写法已钉画 PinOff,"已开启+高亮"读成未开启(§4 toggle 图标语义)。
+      icon: m.pinnedAt ? Pin : PinOff,
       label: m.pinnedAt ? t('message.unpin') : t('message.pin'),
       onSelect: () => void handleToggleFlag('pinned'),
       testId: `message-pin-${m.id}`,
@@ -1435,9 +1437,10 @@ const MessageItem = React.memo(function MessageItem({
         'group/msg relative flex w-full flex-col gap-1 px-1',
         isUser ? 'items-end' : 'items-start',
         isHighlighted && 'ring-1 ring-stroke-focus/30 animate-message-highlight-pulse',
-        // Phase 23: 搜索匹配高亮(当前匹配 ring-2 优先于普通匹配 ring-1)
-        isSearchMatch && !isSearchCurrent && 'ring-1 ring-yellow-400/40',
-        isSearchCurrent && 'ring-2 ring-yellow-400',
+        // Phase 23: 搜索匹配高亮(当前匹配 ring-2 优先于普通匹配 ring-1);
+        // 2026-11-28:yellow-400 裸色亮色下对白底 1.4:1 几乎不可见且无暗档 → amber 亮暗双档
+        isSearchMatch && !isSearchCurrent && 'ring-1 ring-amber-500/60 dark:ring-amber-400/60',
+        isSearchCurrent && 'ring-2 ring-amber-500 dark:ring-amber-400',
       )}
       data-message-id={m.id}
       data-message-focused={isFocused ? 'true' : 'false'}

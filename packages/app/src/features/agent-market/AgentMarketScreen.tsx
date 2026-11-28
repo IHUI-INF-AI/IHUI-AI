@@ -59,10 +59,14 @@ export function AgentMarketScreen({
 
   return (
     <View style={styles.container}>
-      {showBack ? (
+      {/* 2026-11-28:返回键与大标题包回同一 header row(与 Wallet/AgentChat/ProfileEdit 页头惯例一致;
+          原先缩进显示 BackChevron 从 header View 里掉出,孤行返回箭头 + 标题下移) */}
+      <View style={styles.header}>
+        {showBack ? (
           <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         ) : null}
-      <Text style={styles.title}>{t('agentMarket.title')}</Text>
+        <Text style={styles.title}>{t('agentMarket.title')}</Text>
+      </View>
       <View style={styles.searchRow}>
         <TextField
           colorScheme={colorScheme}
@@ -121,6 +125,12 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
       paddingHorizontal: rnSpacing['sm-loose'],
     },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
+    },
     btnText: { color: tk.brand.ctaForeground, fontSize: rnType.title.size },
     title: {
       marginTop: rnSpacing.sm,
@@ -148,7 +158,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     searchBtn: {
       paddingHorizontal: rnSpacing['md-loose'],
-      height: 44,
+      height: 50,
       borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',

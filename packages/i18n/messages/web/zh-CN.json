@@ -12455,7 +12455,8 @@
     "secretMaskShow": "显示凭据",
     "secretMaskHide": "隐藏凭据",
     "pptxOutline": "文字大纲"
-  },
+  ,
+    "resizeComposerHint": "拖动调整输入框高度"},
   "chatHistory": {
     "moveToGroup": "移动到分组",
     "moveSelectedToGroup": "移动所选到分组",

@@ -12468,7 +12468,8 @@
     "analysisOpen": "시나리오 분석 보기",
     "secretMaskShow": "자격 증명 표시",
     "secretMaskHide": "자격 증명 숨기기"
-  },
+  ,
+    "resizeComposerHint": "드래그하여 입력창 높이 조정"},
   "chatHistory": {
     "selectModeAriaLabel": "작업 다중 선택 모드 전환",
     "backToHistory": "기록으로 돌아가기",

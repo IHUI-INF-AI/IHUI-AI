@@ -69,7 +69,8 @@ export function QuotaActionFamily({
   return (
     <div
       data-testid="quota-action-family"
-      className="flex flex-wrap items-center gap-1.5 border-t border-destructive/20 pt-2"
+      // 2026-11-28:去掉 border-t 分割线(§4 禁低透明度单边边框当分隔线),用上方留白承担分组
+      className="flex flex-wrap items-center gap-1.5 pt-2"
     >
       <span className="text-label text-muted-foreground">{t('quotaAction.title')}</span>
 
