@@ -2227,6 +2227,7 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-28**
+- 🐞 修正:修复合并后 AnnotationAnchor 类型断言 (93c867450b)
 - 🚀 機能/改善:接入 OAuth JWT 长期凭据，修复 jose v6 私钥与过期时间缓存 (48421336ef)
 - 🐞 修正:恢复验收面板引用（组件已由 origin 补齐） (bd3b06f1f1)
 - 🐞 修正:移除 publish monitor 对不存在 AcceptancePanel 的引用，修复生产构建 (89bbb0faee)
