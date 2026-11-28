@@ -24,6 +24,35 @@ describe('normalizeHookAuditSummary', () => {
       error: 1,
       totalDurationMs: 1200,
       slowestMs: 900,
+      truncated: false,
+      linesRead: 0,
+      backupBytes: null,
+      sizeBytes: null,
+      maxBytes: null,
+    })
+  })
+
+  it('截断与台账体积读数原样收口,不以 0 冒充取不到', () => {
+    const stats = normalizeHookAuditSummary({
+      available: true,
+      total: 5,
+      ok: 3,
+      timeout: 1,
+      error: 1,
+      totalDurationMs: 1200,
+      slowestMs: 900,
+      truncated: true,
+      linesRead: 20000,
+      backupBytes: 4096,
+      sizeBytes: 8192,
+      maxBytes: 1048576,
+    })
+    expect(stats).toMatchObject({
+      truncated: true,
+      linesRead: 20000,
+      backupBytes: 4096,
+      sizeBytes: 8192,
+      maxBytes: 1048576,
     })
   })
 

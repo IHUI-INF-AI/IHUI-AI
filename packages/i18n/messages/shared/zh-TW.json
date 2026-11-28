@@ -1402,7 +1402,7 @@
       "online": "線上",
       "offline": "離線",
       "pairTitle": "配對新裝置",
-      "pairHint": "只給沒有登入狀態的機器用(純命令列 / 伺服器):在目標機器執行 ihui device pair <碼>。本機桌面端不需要配對碼,點上方「一鍵啟用」即可。",
+      "pairHint": "只給沒有登入狀態的機器用(純命令列 / 伺服器):在目標機器執行 ihui device pair 「碼」。本機桌面端不需要配對碼,點上方「一鍵啟用」即可。",
       "pairRateLimited": "配對速率受限",
       "pairFailed": "配對失敗",
       "pairExpired": "配對已過期",

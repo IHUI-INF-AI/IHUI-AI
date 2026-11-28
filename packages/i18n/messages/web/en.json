@@ -9566,10 +9566,34 @@
       "targetPlaceholder": "e.g. Top high school, 985 university"
     },
     "options": {
-      "classLevel": "Excellent (Top 10%)",
-      "difficulty": "Chinese Reading",
-      "obstacle": "Poor Focus",
-      "school": "Key Middle School"
+      "classLevel": [
+        "Excellent (top 10% of class)",
+        "Good (10–30%)",
+        "Average (30–70%)",
+        "Below average (bottom 30%)"
+      ],
+      "difficulty": [
+        "Chinese reading comprehension",
+        "English listening and speaking",
+        "Math calculation",
+        "Physics concepts",
+        "Chemistry memorization",
+        "Humanities recitation"
+      ],
+      "obstacle": [
+        "Lack of focus",
+        "Poor time management",
+        "Ineffective study methods",
+        "Low motivation",
+        "Exam anxiety",
+        "Family environment"
+      ],
+      "school": [
+        "Top-tier secondary school",
+        "Standard secondary school",
+        "International school",
+        "Private school"
+      ]
     },
     "result": {
       "failed": "AI analysis failed",
@@ -9947,7 +9971,14 @@
       "ckPaymentConfirmDone": "Payment result",
       "ckDownloadExportExport": "Export triggered",
       "ckDownloadExportDownload": "Download started",
-      "ckDownloadExportDone": "File verified"
+      "ckDownloadExportDone": "File verified",
+      "maximize": "Maximize",
+      "restore": "Restore",
+      "checkpointChatTitle": "AI is waiting for your confirmation in the browser",
+      "checkpointChatBody": "The “{label}” step needs your action before the browser task can continue.",
+      "checkpointChatAction": "Handle it",
+      "checkpointChatMore": "{count} more awaiting confirmation",
+      "checkpointChatTimeout": "Timed out — take over recommended"
     },
     "resizeFloatHint": "Resize",
     "earlier": "Earlier"
@@ -10275,7 +10306,18 @@
       "datePublished": "2026-07-26",
       "description": "IHUI AI News: aggregating 41 authoritative sources (Weibo/Zhihu/36Kr/HackerNews/TechCrunch/OpenAI Blog/Arxiv, etc.), auto-collected every 6 hours, with real-time category tags (models/products/industry/papers) and trend signals.",
       "headline": "AI News · Real-time Aggregation",
-      "keywords": "AI News"
+      "keywords": [
+        "AI news",
+        "large language models",
+        "OpenAI",
+        "GPT",
+        "Claude",
+        "Hacker News",
+        "TechCrunch",
+        "arXiv",
+        "trend signals",
+        "IHUI AI"
+      ]
     },
     "compare": {
       "capabilityOverlay": "Capability Radar Overlay",
@@ -11603,7 +11645,7 @@
       "createdFile": "Created file",
       "deletedFile": "Deleted file",
       "expiredNote": "The checkpoint expired and was cleared from disk after {hours} hours. The change list is still available, but you cannot revert from here.",
-      "revertConfirmWithTurns": "This will restore the conversation and files to before this AI reply. {count} 个文件改动、 {turns} turns will be reverted. This cannot be undone. The task record will not be deleted."
+      "revertConfirmWithTurns": "This will restore the conversation and files to before this AI reply. All {count} file changes across {turns} turns will be reverted. This cannot be undone. The task record will not be deleted."
     },
     "addContextHint": "Add context file or reference",
     "addContextReference": "Add as Context Reference",
@@ -12686,7 +12728,9 @@
     "reviewTargetCommit": "Specific commit",
     "reviewTargetCommitLabel": "Commit SHA",
     "reviewTargetCommitPlaceholder": "Enter a commit SHA",
-    "reasoningEffortDefault": "Default"
+    "reasoningEffortDefault": "Default",
+    "pptxOutline": "Text outline",
+    "officePreviewLabel": "Preview"
   },
   "chatHistory": {
     "moveToGroup": "Move to group",
@@ -13141,7 +13185,8 @@
         "description": "Manage and invoke AI skills",
         "keywords": [
           "Skill",
-          "Capability"
+          "Capability",
+          "capability"
         ],
         "label": "Skills"
       },
@@ -13149,7 +13194,8 @@
         "description": "Open the integrated terminal",
         "keywords": [
           "Terminal",
-          "Command Line"
+          "Command Line",
+          "shell"
         ],
         "label": "Terminal"
       },
@@ -13167,7 +13213,8 @@
         "keywords": [
           "Chat",
           "Conversation",
-          "AI"
+          "AI",
+          "chat"
         ],
         "label": "AI Chat"
       },
@@ -13176,7 +13223,8 @@
         "keywords": [
           "Drama",
           "Video",
-          "AI"
+          "AI",
+          "drama"
         ],
         "label": "AI Drama"
       },
@@ -13184,7 +13232,8 @@
         "description": "Manage your profile and settings",
         "keywords": [
           "Profile",
-          "Settings"
+          "Settings",
+          "settings"
         ],
         "label": "Profile"
       },
@@ -13192,7 +13241,8 @@
         "description": "Global content search",
         "keywords": [
           "Search",
-          "Find"
+          "Find",
+          "search"
         ],
         "label": "Search"
       },
@@ -13200,7 +13250,8 @@
         "description": "System preferences and configuration",
         "keywords": [
           "Settings",
-          "Preferences"
+          "Preferences",
+          "config"
         ],
         "label": "Settings"
       },
@@ -13208,7 +13259,9 @@
         "description": "Browse and install self-evolving skills",
         "keywords": [
           "Skill",
-          "Market"
+          "Market",
+          "market",
+          "marketplace"
         ],
         "label": "Skill Market"
       },
@@ -14802,6 +14855,45 @@
         "title": "FAQ",
         "desc": "Login failures, credit issues, unavailable models, data export and other common questions."
       }
+    },
+    "repositoryFiles": {
+      "title": "Document files",
+      "description": "PDF, Office, spreadsheet, image, audio and video files under the repository docs folder — previewed in their native format",
+      "loading": "Loading...",
+      "preview": "Preview",
+      "count": "{count} files"
+    },
+    "projectFiles": {
+      "aiHint": "Let AI work directly on this file: summarize the whole document, extract key points, or ask questions about it.",
+      "aiAnalyze": "AI insights",
+      "aiAsk": "Q&A",
+      "aiClose": "Close AI insights",
+      "aiContinueChat": "Continue in chat",
+      "aiContinuePrompt": "Please read this file and tell me its three most important pieces of information.",
+      "aiCopy": "Copy",
+      "aiCopied": "Copied",
+      "aiError": "AI analysis failed. Please try again.",
+      "aiKeypoints": "Extract key points",
+      "aiQuestionPlaceholder": "Ask about this document…",
+      "aiReading": "AI is reading the document…",
+      "aiSend": "Send question",
+      "aiSource": "Based on {chars} characters",
+      "aiStart": "Generate summary",
+      "aiSummary": "Summary",
+      "aiTitle": "AI document assistant",
+      "aiTooLarge": "Files over 20 MB are too large for AI analysis",
+      "aiTruncated": "The document is long; the beginning and end were used",
+      "aiUnsupported": "AI text analysis is not available for this file type",
+      "count": "{count} files",
+      "description": "Files uploaded to the project workspace, previewed in their native format",
+      "download": "Download original",
+      "exitFullscreen": "Exit fullscreen",
+      "fullscreen": "Fullscreen",
+      "loading": "Loading...",
+      "preview": "Preview",
+      "previewFailed": "Preview failed. Download the file to view it.",
+      "retry": "Retry",
+      "title": "My project files"
     }
   },
   "drama": {
@@ -15749,20 +15841,33 @@
     "subtitle": "This week's class schedule",
     "title": "Class Schedule",
     "today": "Today",
-    "weekdays": "[]"
+    "weekdays": []
   },
   "enterprise": {
     "architecture": {
-      "effectFlow": "[]",
-      "effectMetrics": "[]",
+      "effectFlow": [],
+      "effectMetrics": [],
       "effectTitle": "AI Transformation Effects",
-      "infoAdvanced": "[]",
+      "infoAdvanced": [],
       "infoAdvancedLabel": "Advanced Information World",
-      "infoBasic": "[]",
+      "infoBasic": [],
       "infoBasicLabel": "Basic Information World",
       "infoTitle": "Information World",
       "label": "Enterprise AI Transformation Architecture",
-      "physicalItems": "[{\"desc\":\"Streamline organization structure and define digital roles\",\"title\":\"Organization Structure\"},{\"desc\":\"Analyze forward and reverse flows to optimize efficiency\",\"title\":\"Process Optimization\"},{\"desc\":\"Values: culture, vision, critical thinking, and humility\",\"title\":\"Human Values\"}]",
+      "physicalItems": [
+        {
+          "desc": "Streamline organization structure and define digital roles",
+          "title": "Organization Structure"
+        },
+        {
+          "desc": "Analyze forward and reverse flows to optimize efficiency",
+          "title": "Process Optimization"
+        },
+        {
+          "desc": "Values: culture, vision, critical thinking, and humility",
+          "title": "Human Values"
+        }
+      ],
       "physicalTitle": "Physical World",
       "title": "From the physical world to the information world, building a human-machine collaborative super enterprise"
     },
@@ -15788,13 +15893,142 @@
     "compass": {
       "adoptionLabel": "{percent}% of enterprises adopted",
       "label": "Agent Scenario Compass",
-      "quadrants": "[{\"description\":\"Simple decision + simple execution, rapid deployment\",\"examples\":[\"Q&A\",\"Process Automation\"],\"tag\":\"Q1\",\"title\":\"Efficient Assistant\"},{\"description\":\"Complex decision + simple execution, deep analysis\",\"examples\":[\"Data Analysis\",\"Decision Support\"],\"tag\":\"Q2\",\"title\":\"Smart Advisor\"},{\"description\":\"Simple decision + complex execution, cross-system tasks\",\"examples\":[\"Scheduling\",\"Approvals\"],\"tag\":\"Q3\",\"title\":\"Execution Expert\"},{\"description\":\"Complex decision + complex execution, multi-agent collaboration\",\"examples\":[\"Marketing\",\"Multi-Agent\"],\"tag\":\"Q4\",\"title\":\"All-Rounder\"}]",
+      "quadrants": [
+        {
+          "description": "Simple decision + simple execution, rapid deployment",
+          "examples": [
+            "Q&A",
+            "Process Automation"
+          ],
+          "tag": "Q1",
+          "title": "Efficient Assistant"
+        },
+        {
+          "description": "Complex decision + simple execution, deep analysis",
+          "examples": [
+            "Data Analysis",
+            "Decision Support"
+          ],
+          "tag": "Q2",
+          "title": "Smart Advisor"
+        },
+        {
+          "description": "Simple decision + complex execution, cross-system tasks",
+          "examples": [
+            "Scheduling",
+            "Approvals"
+          ],
+          "tag": "Q3",
+          "title": "Execution Expert"
+        },
+        {
+          "description": "Complex decision + complex execution, multi-agent collaboration",
+          "examples": [
+            "Marketing",
+            "Multi-Agent"
+          ],
+          "tag": "Q4",
+          "title": "All-Rounder"
+        }
+      ],
       "subtitle": "Helping enterprises identify and plan agent application scenarios, advancing AI transformation progressively from simple to complex",
       "title": "Scenario planning based on task complexity and autonomy"
     },
     "courses": {
       "label": "Curriculum",
-      "phases": "[{\"courses\":[{\"duration\":\"1 lesson\",\"isNew\":true,\"name\":\"AI Tech History\"},{\"duration\":\"1 lesson\",\"isNew\":true,\"name\":\"AI Productivity Tools\"},{\"duration\":\"1 lesson\",\"isNew\":true,\"name\":\"Top AI Platforms\"},{\"duration\":\"1 lesson\",\"isNew\":true,\"name\":\"No-Code Agents\"},{\"duration\":\"1 lesson\",\"isNew\":true,\"name\":\"Enterprise AI Analysis\"},{\"duration\":\"1 lesson\",\"isNew\":true,\"name\":\"Critical Thinking\"}],\"description\":\"Master top AI tools and platforms\",\"tag\":\"PHASE 01\",\"title\":\"AI Tools Course\"},{\"courses\":[{\"duration\":\"1 lesson\",\"isNew\":false,\"name\":\"Structured Problem Solving\"},{\"duration\":\"1 lesson\",\"isNew\":false,\"name\":\"Overcoming Barriers\"},{\"duration\":\"1 lesson\",\"isNew\":false,\"name\":\"Creative Learning\"},{\"duration\":\"1 lesson\",\"isNew\":false,\"name\":\"Change Management\"}],\"description\":\"Solve problems and manage change\",\"tag\":\"PHASE 02\",\"title\":\"Thinking Course\"},{\"courses\":[{\"duration\":\"1 lesson\",\"isNew\":false,\"name\":\"Company Culture\"},{\"duration\":\"1 lesson\",\"isNew\":false,\"name\":\"Vision & Values\"},{\"duration\":\"Series\",\"isNew\":false,\"name\":\"Chinese Philosophy\"},{\"duration\":\"Series\",\"isNew\":false,\"name\":\"Western Philosophy\"}],\"description\":\"Build consensus through philosophy\",\"tag\":\"PHASE 03\",\"title\":\"Culture Course\"}]",
+      "phases": [
+        {
+          "courses": [
+            {
+              "duration": "1 lesson",
+              "isNew": true,
+              "name": "AI Tech History"
+            },
+            {
+              "duration": "1 lesson",
+              "isNew": true,
+              "name": "AI Productivity Tools"
+            },
+            {
+              "duration": "1 lesson",
+              "isNew": true,
+              "name": "Top AI Platforms"
+            },
+            {
+              "duration": "1 lesson",
+              "isNew": true,
+              "name": "No-Code Agents"
+            },
+            {
+              "duration": "1 lesson",
+              "isNew": true,
+              "name": "Enterprise AI Analysis"
+            },
+            {
+              "duration": "1 lesson",
+              "isNew": true,
+              "name": "Critical Thinking"
+            }
+          ],
+          "description": "Master top AI tools and platforms",
+          "tag": "PHASE 01",
+          "title": "AI Tools Course"
+        },
+        {
+          "courses": [
+            {
+              "duration": "1 lesson",
+              "isNew": false,
+              "name": "Structured Problem Solving"
+            },
+            {
+              "duration": "1 lesson",
+              "isNew": false,
+              "name": "Overcoming Barriers"
+            },
+            {
+              "duration": "1 lesson",
+              "isNew": false,
+              "name": "Creative Learning"
+            },
+            {
+              "duration": "1 lesson",
+              "isNew": false,
+              "name": "Change Management"
+            }
+          ],
+          "description": "Solve problems and manage change",
+          "tag": "PHASE 02",
+          "title": "Thinking Course"
+        },
+        {
+          "courses": [
+            {
+              "duration": "1 lesson",
+              "isNew": false,
+              "name": "Company Culture"
+            },
+            {
+              "duration": "1 lesson",
+              "isNew": false,
+              "name": "Vision & Values"
+            },
+            {
+              "duration": "Series",
+              "isNew": false,
+              "name": "Chinese Philosophy"
+            },
+            {
+              "duration": "Series",
+              "isNew": false,
+              "name": "Western Philosophy"
+            }
+          ],
+          "description": "Build consensus through philosophy",
+          "tag": "PHASE 03",
+          "title": "Culture Course"
+        }
+      ],
       "subtitle": "Helping enterprise decision-makers fully understand the opportunities and challenges of the AI era",
       "title": "Systematic AI Cognition and Practice Courses"
     },
@@ -15813,7 +16047,7 @@
       "title": "IHUI AI Enterprise Services"
     },
     "join": {
-      "benefits": "[]",
+      "benefits": [],
       "consultHint": "Scan to consult or contact us directly",
       "joinNow": "Join Now",
       "label": "Join IHUI AI Community",
@@ -15823,13 +16057,44 @@
     },
     "modules": {
       "coreServiceBadge": "Core Service",
-      "items": "[{\"description\":\"Offline courses and communities for decision-makers\",\"features\":[\"Systematic Courses\",\"Exploration\",\"Support\"],\"tag\":\"MODULE 01\",\"title\":\"Local Community\"},{\"description\":\"Convenient online platform for information and support\",\"features\":[\"Exchange Platform\",\"Sharing\",\"Resources\"],\"tag\":\"MODULE 02\",\"title\":\"Online Community\"},{\"description\":\"Professional AI models and consulting services\",\"features\":[\"LLMs\",\"Agents\",\"Consulting\"],\"tag\":\"MODULE 03\",\"title\":\"AI Services\"}]",
+      "items": [
+        {
+          "description": "Offline courses and communities for decision-makers",
+          "features": [
+            "Systematic Courses",
+            "Exploration",
+            "Support"
+          ],
+          "tag": "MODULE 01",
+          "title": "Local Community"
+        },
+        {
+          "description": "Convenient online platform for information and support",
+          "features": [
+            "Exchange Platform",
+            "Sharing",
+            "Resources"
+          ],
+          "tag": "MODULE 02",
+          "title": "Online Community"
+        },
+        {
+          "description": "Professional AI models and consulting services",
+          "features": [
+            "LLMs",
+            "Agents",
+            "Consulting"
+          ],
+          "tag": "MODULE 03",
+          "title": "AI Services"
+        }
+      ],
       "label": "Three Service Modules"
     },
     "positioning": {
       "description": "IHUI AI Community is dedicated to helping enterprise decision-makers deeply understand the relationship between AI and enterprises. Through systematic courses, hands-on exploration, and community mutual aid, we build human-machine collaborative super organizations and achieve rational efficiency gains for enterprises.",
       "label": "Core Positioning",
-      "tags": "[]",
+      "tags": [],
       "title": "Rational efficiency services and a mutual-aid community for enterprises in the AI era"
     },
     "inquiry": "Enterprise Inquiry"
@@ -16123,7 +16388,11 @@
       "noMatch": "No matching documents",
       "preview": "Preview",
       "searchPlaceholder": "Search document title or description...",
-      "title": "Docs Marketplace"
+      "title": "Docs Marketplace",
+      "catAllFormats": "All formats",
+      "clearFilters": "Clear filters",
+      "formatFilter": "Format",
+      "previewFailed": "Preview failed. Please try again later."
     },
     "enterMarketplace": "Enter Marketplace",
     "loading": "Loading...",
@@ -18220,7 +18489,14 @@
       "viewMore": "View more"
     },
     "marquee": {
-      "items": "[\"🎉 New AI Education Module Live: Course Study / Live Classes / Exams in One\",\"🚀 Flagship Models Added to Model Marketplace: GPT-5 / Claude 4.5 / Gemini 2.5 Pro\",\"💎 VIP Members Get 30% Off for a Limited Time, Unlimited Access to 100+ Agents\",\"🌍 Multi-Language Support Upgraded: 5 New Languages with Real-Time Translation\",\"🎨 Theme Center With 50+ Themes, One-Click Visual Style Switching\",\"📚 Knowledge Base RAG Launched: Instant Smart Q&A from Documents\"]",
+      "items": [
+        "🎉 New AI Education Module Live: Course Study / Live Classes / Exams in One",
+        "🚀 Flagship Models Added to Model Marketplace: GPT-5 / Claude 4.5 / Gemini 2.5 Pro",
+        "💎 VIP Members Get 30% Off for a Limited Time, Unlimited Access to 100+ Agents",
+        "🌍 Multi-Language Support Upgraded: 5 New Languages with Real-Time Translation",
+        "🎨 Theme Center With 50+ Themes, One-Click Visual Style Switching",
+        "📚 Knowledge Base RAG Launched: Instant Smart Q&A from Documents"
+      ],
       "label": "Announcement"
     },
     "miniappModal": {
@@ -18776,7 +19052,15 @@
       "title": "Top 5 Pages",
       "visitsHeader": "Visits"
     },
-    "weekdays": "[\"Mon\",\"Tue\",\"Wed\",\"Thu\",\"Fri\",\"Sat\",\"Sun\"]"
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ]
   },
   "models": {
     "relay": {
@@ -18791,7 +19075,21 @@
       "offPeak": "Off-peak",
       "cacheRead": "Cache read",
       "cacheWrite": "Cache write",
-      "subscriptionOnly": "Subscription only"
+      "subscriptionOnly": "Subscription only",
+      "billingMode": "Billing",
+      "byImage": "Per image",
+      "bySecond": "Per second",
+      "byCall": "Per call",
+      "dynamicCost": "Usage-based",
+      "minCharge": "Minimum charge",
+      "minChargePerCall": "Minimum per call",
+      "unitPrice": "Unit price",
+      "referencePrice": "Reference price",
+      "tieredPrice": "Tiered pricing",
+      "startingAt": "from",
+      "unitImage": "image",
+      "unitSecond": "sec",
+      "unitCall": "call"
     },
     "aiNews": {
       "fallbackHint": "No live feed — showing 2026-07 real new models",
@@ -19174,7 +19472,24 @@
         "docs": "View Docs",
         "title": "OpenClaw - Making AI Deployment Easier"
       },
-      "steps": "[{\"desc\":\"Install the OpenClaw CLI tool with a single command\",\"title\":\"Install CLI\"},{\"desc\":\"Log in to OpenClaw using your API token\",\"title\":\"Login & Auth\"},{\"desc\":\"Select the model and region to deploy\",\"title\":\"Configure Model\"},{\"desc\":\"Run the deployment command and wait for the service to be ready\",\"title\":\"One-Click Start\"}]",
+      "steps": [
+        {
+          "desc": "Install the OpenClaw CLI tool with a single command",
+          "title": "Install CLI"
+        },
+        {
+          "desc": "Log in to OpenClaw using your API token",
+          "title": "Login & Auth"
+        },
+        {
+          "desc": "Select the model and region to deploy",
+          "title": "Configure Model"
+        },
+        {
+          "desc": "Run the deployment command and wait for the service to be ready",
+          "title": "One-Click Start"
+        }
+      ],
       "stepsTitle": "Deployment Steps",
       "subtitle": "Open-source AI gateway, supports multi-model routing, load balancing, and caching",
       "title": "OpenClaw One-Click Deployment"
@@ -19488,13 +19803,31 @@
     "consumeTrend": "+{n}% vs last month",
     "packages": {
       "enterprise": {
-        "features": "[\"200M token quota\",\"Dedicated model channel\",\"Unlimited API tokens\",\"Dedicated account manager\",\"Permanent call logs\",\"99.95% SLA\"]"
+        "features": [
+          "200M token quota",
+          "Dedicated model channel",
+          "Unlimited API tokens",
+          "Dedicated account manager",
+          "Permanent call logs",
+          "99.95% SLA"
+        ]
       },
       "pro": {
-        "features": "[\"15M token quota\",\"Access to all models\",\"20 API tokens\",\"Priority tech support\",\"90-day call logs\"]"
+        "features": [
+          "15M token quota",
+          "Access to all models",
+          "20 API tokens",
+          "Priority tech support",
+          "90-day call logs"
+        ]
       },
       "starter": {
-        "features": "[\"1M token quota\",\"Access to basic models\",\"5 API tokens\",\"Community support\"]"
+        "features": [
+          "1M token quota",
+          "Access to basic models",
+          "5 API tokens",
+          "Community support"
+        ]
       }
     },
     "productSchema": {
@@ -20638,7 +20971,9 @@
     "messagesShort": "Messages",
     "mine": "Mine",
     "allFeatures": "All features",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "aiHome": "IHUI AI",
+    "feed": "Feed"
   },
   "news": {
     "allCategories": "All Categories",
@@ -20687,7 +21022,13 @@
       }
     },
     "benefits": {
-      "items": "[\"Weekly AI Engineering Case Studies\",\"Early Access to New Features\",\"Exclusive Prompt Templates\",\"Industry Trend Analysis\",\"Community Event Notifications\"]",
+      "items": [
+        "Weekly AI Engineering Case Studies",
+        "Early Access to New Features",
+        "Exclusive Prompt Templates",
+        "Industry Trend Analysis",
+        "Community Event Notifications"
+      ],
       "title": "Subscriber Benefits"
     },
     "errors": {
@@ -21137,17 +21478,35 @@
       "enterprise": {
         "contactSales": "Contact Sales",
         "cta": "Contact Sales",
-        "features": "[\"Unlimited Credits\",\"Private Deployment\",\"SSO/SAML 2.0\",\"Audit Logs\",\"Dedicated Technical Support\"]",
+        "features": [
+          "Unlimited Credits",
+          "Private Deployment",
+          "SSO/SAML 2.0",
+          "Audit Logs",
+          "Dedicated Technical Support"
+        ],
         "name": "Enterprise"
       },
       "free": {
         "cta": "Get Started",
-        "features": "[\"1000 Credits/Month\",\"All AI Models\",\"All 6 Clients\",\"API Access\",\"Community Support\"]",
+        "features": [
+          "1000 Credits/Month",
+          "All AI Models",
+          "All 6 Clients",
+          "API Access",
+          "Community Support"
+        ],
         "name": "Free"
       },
       "pro": {
         "cta": "Upgrade to Pro",
-        "features": "[\"10000 Credits/Month\",\"Priority Queue\",\"Advanced Models (GPT-4o/Claude Opus)\",\"Team Collaboration (5 Seats)\",\"Email Support\"]",
+        "features": [
+          "10000 Credits/Month",
+          "Priority Queue",
+          "Advanced Models (GPT-4o/Claude Opus)",
+          "Team Collaboration (5 Seats)",
+          "Email Support"
+        ],
         "name": "Pro"
       },
       "unknown": {
@@ -21376,7 +21735,13 @@
     "earlyBird": {
       "cta": "Join Now",
       "desc": "Limited to first 18 seats, regular price after sold out",
-      "features": "[\"All-year free course access\",\"Priority offline exploration slots\",\"Unlimited Zhuihui AI Community interaction\",\"1 Early Bird 1-on-1 Mentorship Session\",\"Exclusive Early Bird Resource Pack (Value $430)\"]",
+      "features": [
+        "All-year free course access",
+        "Priority offline exploration slots",
+        "Unlimited Zhuihui AI Community interaction",
+        "1 Early Bird 1-on-1 Mentorship Session",
+        "Exclusive Early Bird Resource Pack (Value $430)"
+      ],
       "name": "Early Bird Member",
       "originalPrice": "¥18000",
       "period": "/person/year",
@@ -21385,7 +21750,13 @@
     "enterprise": {
       "cta": "Contact Sales",
       "desc": "Customized plan for enterprise decision-maker teams",
-      "features": "[\"Dedicated Account Manager + Custom Deployment\",\"Team Training + Internal Knowledge Base Integration\",\"High-Concurrency API Quotas + SLA\",\"Optional Private Deployment\",\"Quarterly Reviews + Strategic Consulting\"]",
+      "features": [
+        "Dedicated Account Manager + Custom Deployment",
+        "Team Training + Internal Knowledge Base Integration",
+        "High-Concurrency API Quotas + SLA",
+        "Optional Private Deployment",
+        "Quarterly Reviews + Strategic Consulting"
+      ],
       "name": "Enterprise Service",
       "period": "/mo",
       "price": "Contact Sales"
@@ -21418,13 +21789,54 @@
     "standard": {
       "cta": "Learn More",
       "desc": "Automatically switches to this plan after early bird sold out",
-      "features": "[\"All-year free course access\",\"Priority offline exploration slots\",\"Unlimited Zhuihui AI Community interaction\"]",
+      "features": [
+        "All-year free course access",
+        "Priority offline exploration slots",
+        "Unlimited Zhuihui AI Community interaction"
+      ],
       "name": "Standard Member",
       "period": "/person/year",
       "price": "¥18000"
     },
     "testimonials": {
-      "items": "[{\"company\":\"TechStart\",\"name\":\"Zhang Ming\",\"role\":\"CTO\",\"text\":\"IHUI AI helped us launch our enterprise AI assistant in 2 weeks, saving 3 months of development\"},{\"company\":\"DataFlow\",\"name\":\"Sarah Chen\",\"role\":\"Lead Engineer\",\"text\":\"The multi-tenant RLS design is professional; isolation across 340 tables is flawless\"},{\"company\":\"Chuangzhi Tech\",\"name\":\"Li Hua\",\"role\":\"Founder\",\"text\":\"Unified support for 176 LLMs means no more writing 10 separate API call sets\"},{\"company\":\"CloudSys\",\"name\":\"Marcus Weber\",\"role\":\"DevOps\",\"text\":\"Source to production in 3 days with very detailed documentation\"},{\"company\":\"Zhiyun Tech\",\"name\":\"Wang Fang\",\"role\":\"AI Architect\",\"text\":\"LangGraph + MCP + A2A is the most complete AI framework we've seen\"},{\"company\":\"AIVentures\",\"name\":\"Alex Kim\",\"role\":\"CTO\",\"text\":\"Apache 2.0 license is business-friendly; 5346 tests give us confidence\"}]",
+      "items": [
+        {
+          "company": "TechStart",
+          "name": "Zhang Ming",
+          "role": "CTO",
+          "text": "IHUI AI helped us launch our enterprise AI assistant in 2 weeks, saving 3 months of development"
+        },
+        {
+          "company": "DataFlow",
+          "name": "Sarah Chen",
+          "role": "Lead Engineer",
+          "text": "The multi-tenant RLS design is professional; isolation across 340 tables is flawless"
+        },
+        {
+          "company": "Chuangzhi Tech",
+          "name": "Li Hua",
+          "role": "Founder",
+          "text": "Unified support for 176 LLMs means no more writing 10 separate API call sets"
+        },
+        {
+          "company": "CloudSys",
+          "name": "Marcus Weber",
+          "role": "DevOps",
+          "text": "Source to production in 3 days with very detailed documentation"
+        },
+        {
+          "company": "Zhiyun Tech",
+          "name": "Wang Fang",
+          "role": "AI Architect",
+          "text": "LangGraph + MCP + A2A is the most complete AI framework we've seen"
+        },
+        {
+          "company": "AIVentures",
+          "name": "Alex Kim",
+          "role": "CTO",
+          "text": "Apache 2.0 license is business-friendly; 5346 tests give us confidence"
+        }
+      ],
       "subtitle": "Real feedback from users across industries and team sizes",
       "title": "What Developers Say"
     }
@@ -22394,7 +22806,16 @@
     "noSuggestions": "No matching suggestions",
     "open": "Open",
     "popular": "Popular Searches",
-    "quickSuggestions": "[\"Settings\",\"Profile\",\"Projects\",\"Chat History\",\"Members\",\"Workspaces\",\"Shortcuts\",\"AI Models\"]",
+    "quickSuggestions": [
+      "Settings",
+      "Profile",
+      "Projects",
+      "Chat History",
+      "Members",
+      "Workspaces",
+      "Shortcuts",
+      "AI Models"
+    ],
     "resultsCount": "{total} results (Users {users} / Projects {projects} / Files {files})",
     "searchHistory": "Search history",
     "searchPlaceholder": "Search…",
@@ -22562,28 +22983,52 @@
     "cards": {
       "consulting": {
         "desc": "Architecture consulting / tech selection / code review",
-        "features": "[\"Video/Remote Desktop\",\"Min. 2 Hours\",\"Troubleshooting\",\"VAT Invoices\",\"24h Response SLA\"]",
+        "features": [
+          "Video/Remote Desktop",
+          "Min. 2 Hours",
+          "Troubleshooting",
+          "VAT Invoices",
+          "24h Response SLA"
+        ],
         "price": "¥999",
         "title": "Technical Consulting",
         "unit": "/hour"
       },
       "custom": {
         "desc": "Build enterprise-specific features on IHUI-AI",
-        "features": "[\"Business Integration/Agent Development\",\"UI Customization/API Extension\",\"80 Man-hours (~2 Weeks)\",\"3-Month Warranty\",\"Source Code + Deployment Docs\"]",
+        "features": [
+          "Business Integration/Agent Development",
+          "UI Customization/API Extension",
+          "80 Man-hours (~2 Weeks)",
+          "3-Month Warranty",
+          "Source Code + Deployment Docs"
+        ],
         "price": "¥19,999",
         "title": "Custom Development",
         "unit": "starting"
       },
       "deployment": {
         "desc": "Deploy source code to your server",
-        "features": "[\"PostgreSQL + Redis Config\",\"8-End Build\",\"2-Hour Online Training\",\"30-Day Email Support\",\"3-5 Business Day Delivery\"]",
+        "features": [
+          "PostgreSQL + Redis Config",
+          "8-End Build",
+          "2-Hour Online Training",
+          "30-Day Email Support",
+          "3-5 Business Day Delivery"
+        ],
         "price": "¥4,999",
         "title": "Private Deployment",
         "unit": "/project"
       },
       "training": {
         "desc": "1-day on-site / 2-day online intensive training",
-        "features": "Videos, PPT & hands-on environment",
+        "features": [
+          "Architecture principles + deployment hands-on",
+          "Secondary development + Agent design",
+          "Taught by core maintainers",
+          "Up to 20 attendees",
+          "Videos + slides + hands-on environment"
+        ],
         "price": "¥9,999",
         "title": "Enterprise Training Workshop",
         "unit": "/session"
@@ -22604,7 +23049,32 @@
       "title": "Enterprise Inquiry"
     },
     "faq": {
-      "items": "Customers own the source code for custom development, with IP transfer available upon request. IHUI-AI core code is open source under Apache 2.0.",
+      "items": [
+        {
+          "q": "How do I pay?",
+          "a": "We accept WeChat Pay, Alipay, corporate transfer and Stripe (overseas). Custom development is billed in stages: 50% to start, 30% mid-project, 20% on acceptance."
+        },
+        {
+          "q": "Can I get an invoice?",
+          "a": "Yes — standard or VAT-specific invoices. Add your billing details in the inquiry form."
+        },
+        {
+          "q": "What is the refund policy?",
+          "a": "Consulting is billed hourly and non-refundable once consumed. Deployment/training is fully refundable before work starts; after start, consumed hours are deducted."
+        },
+        {
+          "q": "What is the delivery timeline?",
+          "a": "Private deployment takes 3–5 business days; training is booked 1–2 weeks ahead; custom development is estimated by hours (80 hours ≈ 2 weeks)."
+        },
+        {
+          "q": "What after-sales support is included?",
+          "a": "Private deployment includes 30 days of email support; custom development includes a 3-month warranty; consulting is billed hourly with no fixed after-sales term."
+        },
+        {
+          "q": "Who owns the source code?",
+          "a": "Custom development source code belongs to the customer, with copyright transfer available on request. IHUI-AI core code is open source under Apache 2.0."
+        }
+      ],
       "title": "FAQ"
     },
     "hero": {
@@ -24125,7 +24595,16 @@
   "useCasesAiEdu": {
     "about": "About",
     "courseSchema": {
-      "about": "Multi-Model Orchestration",
+      "about": [
+        "AI education",
+        "Course authoring",
+        "Smart Q&A",
+        "Auto-grading",
+        "Learning recommendations",
+        "MCP tool protocol",
+        "Knowledge base RAG",
+        "Multi-model orchestration"
+      ],
       "courseWorkload": "PT16H",
       "description": "Hands-on course for building AI Education Agents targeting K12, vocational training, and corporate L&D, covering structured course authoring, smart Q&A, auto-grading, learning dashboards, and personalized recommendations. Go live in 30 minutes.",
       "endDate": "2026-12-31",
@@ -24134,7 +24613,13 @@
       "name": "IHUI AI Education Agent Bootcamp",
       "provider": "IHUI AI",
       "startDate": "2026-08-01",
-      "teaches": "Personalized learning path recommendations"
+      "teaches": [
+        "Structured course authoring",
+        "Smart Q&A workflow design",
+        "Automated assignment grading",
+        "Learning analytics dashboard",
+        "Personalized learning path recommendations"
+      ]
     },
     "courseWorkload": "Workload",
     "description": "Description",
@@ -25778,7 +26263,26 @@
     "title": "Bank card",
     "empty": "No bank card",
     "default": "Default",
-    "holder": "Cardholder"
+    "holder": "Cardholder",
+    "loadFailed": "Failed to load bank cards",
+    "add": "Add bank card",
+    "bankName": "Bank",
+    "bankNamePlaceholder": "e.g. China Merchants Bank",
+    "number": "Card number",
+    "numberPlaceholder": "12–19 digit bank card number",
+    "holderPlaceholder": "Cardholder name",
+    "setDefault": "Set as default",
+    "formDefault": "Set as default card",
+    "formIncomplete": "Enter the bank, cardholder and card number",
+    "invalidNumber": "Enter a valid 12–19 digit card number",
+    "addFailed": "Could not add the card. Check that the number is valid and not already saved.",
+    "deleteFailed": "Could not delete the card. Please try again.",
+    "setDefaultFailed": "Could not set the default card. Please try again.",
+    "deleteConfirm": "Delete this bank card?",
+    "deleting": "Deleting...",
+    "saving": "Saving...",
+    "readOnly": "Read-only",
+    "readOnlyHint": "Legacy payout account — display only"
   },
   "carte": {
     "title": "ZHIHUI Community",
@@ -26801,7 +27305,21 @@
   },
   "community": {
     "follow": "Following",
-    "follower": "Followers"
+    "follower": "Followers",
+    "title": "IHUI AI",
+    "subtitle": "Agent community: discover and get the most from every AI",
+    "posts": "Posts",
+    "searchPlaceholder": "Search agents",
+    "banners": "Featured",
+    "categories": "Categories",
+    "recent": "Recently used",
+    "recentHint": "Used recently",
+    "recentEmpty": "No usage history yet — go pick an agent",
+    "myAgents": "My agents",
+    "recommended": "Recommended agents",
+    "unknownAgent": "Unknown agent",
+    "voiceHint": "Voice search is available in the full version",
+    "imageHint": "Image search is available in the full version"
   },
   "profileEdit": {
     "retry": "Retry",
@@ -29912,7 +30430,13 @@
     "accentViolet": "Violet",
     "accentEmerald": "Emerald",
     "accentAmber": "Amber",
-    "accentRose": "Rose"
+    "accentRose": "Rose",
+    "themeSkinDefault": "Follow system",
+    "themeSkinPearl": "Pearl",
+    "themeSkinObsidian": "Obsidian",
+    "presetBuiltinPink": "Sakura pink",
+    "themeSkinLabel": "Theme skin",
+    "presetBuiltinPinkDesc": "Soft pink accents for a warmer, lighter interface"
   },
   "checkinAssistant": {
     "taskPanelTitle": "Task Panel",
@@ -31670,6 +32194,77 @@
     "injected": "Note sent. AI will handle it on the next step.",
     "injectFailed": "Could not send the note",
     "defaultWorkspaceName": "AI default workspace",
-    "workspaceAutoFailed": "Could not prepare a workspace. Please choose one manually."
+    "workspaceAutoFailed": "Could not prepare a workspace. Please choose one manually.",
+    "statusRunning": "Running",
+    "statusCompleted": "Completed",
+    "statusFailed": "Failed",
+    "statusCanceled": "Stopped",
+    "approvalPending": "Awaiting approval",
+    "approvalAllowed": "Allowed",
+    "approvalDenied": "Denied"
+  },
+  "adminAiModels": {
+    "telemetry": {
+      "title": "Model runtime monitoring",
+      "subtitle": "Last 60 minutes · real call traffic (tests excluded)",
+      "subtitleWindow": "Window {window} · real call traffic (tests excluded)",
+      "callsLabel": "Window calls",
+      "tokensLabel": "Window tokens",
+      "costLabel": "Cost",
+      "costSub": "{priced}/{calls} priced",
+      "qpsLabel": "Current QPS",
+      "tpsLabel": "Current tokens/s",
+      "errorLabel": "Error rate",
+      "p95Label": "P95 latency",
+      "last5m": "Last 5 min average · load",
+      "activeConfigs": "{count} configs with traffic",
+      "attributed": "Attributed {pct}",
+      "unattributed": "{count} unattributed",
+      "ioSplit": "Input {input} · output {output}",
+      "noTraffic": "No calls in the last hour",
+      "chartTitle": "Call trend",
+      "chartPeak": "Peak {count} calls",
+      "chartHover": "{time} · {calls} calls · {tokens} tok",
+      "updatedAt": "Updated {time}",
+      "refresh": "Refresh",
+      "fullMonitor": "Full monitoring",
+      "column": "Runtime · last {window}",
+      "columnHint": "Calls and tokens come from call traffic, attributed by config ID",
+      "cellCalls": "{count} calls · {tokens} tok",
+      "cellRates": "QPS {qps} · {tps} tok/s",
+      "cellNoCalls": "No calls in the last {window}",
+      "cellErrors": "Errors {count}",
+      "cellTip": "Last {window}: {calls} calls, {tokens} tokens, {errors} errors, P95 {p95}, last call {last}",
+      "noLatency": "No latency samples",
+      "loadFailed": "Failed to load runtime data",
+      "retry": "Retry",
+      "cellUnavailable": "Runtime data unavailable",
+      "grade": {
+        "column": "Grade",
+        "rubricTitle": "Scoring rubric (last 60 minutes)",
+        "rubricError": "Error rate: ≤0.5% = 100 · ≤1% = 90 · ≤2% = 78 · ≤5% = 60 · ≤10% = 30 · >10% = 0",
+        "rubricLatency": "End-to-end P95: ≤3s = 100 · ≤8s = 88 · ≤15s = 70 · ≤30s = 40 · >30s = 10",
+        "rubricScope": "Measures runtime reliability and latency only; not answer quality, correctness, or tool-call success rate",
+        "rubricCombine": "Overall score is the lower of the two: ≥90 Excellent · ≥75 Good · ≥60 Fair · <60 Poor",
+        "rubricSample": "Grade requires ≥20 calls in the last hour and latency samples; otherwise Insufficient sample",
+        "rubricLoad": "QPS/TPS indicate load only and do not affect quality scoring; there is no industry-standard threshold, so adjust to your SLO",
+        "tier": {
+          "excellent": "Excellent",
+          "good": "Good",
+          "fair": "Fair",
+          "poor": "Poor",
+          "insufficient": "Insufficient sample"
+        },
+        "score": "{score} pts",
+        "overall": "Overall",
+        "tipDetail": "Error rate {errorPct} · P95 {p95} · {calls} samples",
+        "tipShortBoard": "Overall score takes the lower of the two; the weaker dimension sets the grade",
+        "tipNeedSample": "{calls} calls in the last hour; grading requires ≥20 samples",
+        "tipNoLatency": "{calls} calls in the last hour, but no usable latency samples",
+        "rubricLatencyNote": "P95 includes full generation time; interpret long-output models together with token volume"
+      }
+    },
+    "providerRelay": "Relay",
+    "providerRelayHint": "This config belongs to the pool relay platform; forwarding is handled by its adapter"
   }
 }

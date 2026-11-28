@@ -6,6 +6,7 @@
 import * as React from 'react'
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { TooltipProvider } from '@/components/feedback'
 
 const {
   mockFetchApi,
@@ -191,7 +192,7 @@ describe('AgentTaskCenter 普通用户任务中心', () => {
       },
     }
 
-    render(<AgentTaskCenter />)
+    render(<TooltipProvider><AgentTaskCenter /></TooltipProvider>)
 
     await waitFor(() => expect(screen.getByTestId('agent-task-row-live')).toBeTruthy())
     expect(screen.getByTestId('agent-task-detail')).toBeTruthy()
@@ -220,7 +221,7 @@ describe('AgentTaskCenter 普通用户任务中心', () => {
       },
     }
 
-    render(<AgentTaskCenter />)
+    render(<TooltipProvider><AgentTaskCenter /></TooltipProvider>)
 
     await waitFor(() => expect(screen.getByTestId('agent-task-row-live')).toBeTruthy())
     expect(screen.queryByTestId('agent-task-row-done')).toBeNull()
@@ -241,7 +242,7 @@ describe('AgentTaskCenter 普通用户任务中心', () => {
       },
     ]
 
-    render(<AgentTaskCenter />)
+    render(<TooltipProvider><AgentTaskCenter /></TooltipProvider>)
     await waitFor(() => expect(screen.getByTestId('agent-task-center')).toBeTruthy())
 
     fireEvent.click(screen.getByTestId('agent-task-mode-history'))
@@ -254,7 +255,7 @@ describe('AgentTaskCenter 普通用户任务中心', () => {
   })
 
   it('新建任务弹窗提交时带工作区、后台执行与 10 轮上限', async () => {
-    render(<AgentTaskCenter />)
+    render(<TooltipProvider><AgentTaskCenter /></TooltipProvider>)
     await waitFor(() => expect(screen.getByTestId('agent-task-center')).toBeTruthy())
 
     fireEvent.click(screen.getByTestId('agent-task-new'))
@@ -290,7 +291,7 @@ describe('AgentTaskCenter 普通用户任务中心', () => {
       data: { conversation: { id: 'conv-new' } },
     })
 
-    render(<AgentTaskCenter />)
+    render(<TooltipProvider><AgentTaskCenter /></TooltipProvider>)
     await waitFor(() => expect(screen.getByTestId('agent-task-center')).toBeTruthy())
 
     fireEvent.click(screen.getByTestId('agent-task-new'))
@@ -327,7 +328,7 @@ describe('AgentTaskCenter 普通用户任务中心', () => {
       data: { path: defaultPath, name: 'AI 默认工作区', permissionMode: 'accept-edits' },
     })
 
-    render(<AgentTaskCenter />)
+    render(<TooltipProvider><AgentTaskCenter /></TooltipProvider>)
     await waitFor(() => expect(screen.getByTestId('agent-task-center')).toBeTruthy())
 
     fireEvent.click(screen.getByTestId('agent-task-new'))
@@ -348,3 +349,4 @@ describe('AgentTaskCenter 普通用户任务中心', () => {
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+

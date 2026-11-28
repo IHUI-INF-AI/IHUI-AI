@@ -2586,7 +2586,7 @@
   "devices": {
     "title": "Devices",
     "pairTitle": "Pairing code",
-    "pairHint": "Only for machines without a signed-in session (CLI / server): run ihui device pair <code> on that machine. The desktop app on this computer does not need a code — click “Enable” above.",
+    "pairHint": "Only for machines without a signed-in session (CLI / server): run ihui device pair CODE on that machine. The desktop app on this computer does not need a code — click “Enable” above.",
     "pairGenerate": "Generate code",
     "pairRegenerate": "Regenerate",
     "pairFailed": "Failed to generate code",
