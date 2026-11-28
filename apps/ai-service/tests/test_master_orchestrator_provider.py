@@ -19,12 +19,14 @@ from app.services.agent_orchestrator import (
 from app.services.agent_resolver import AgentResolveError
 
 
-def _runtime(*, status: str = "active") -> RuntimeAgentDefinition:
+def _runtime(
+    *, status: str = "active", definition_id: str = "def-reviewer", name: str = "reviewer-readonly"
+) -> RuntimeAgentDefinition:
     return RuntimeAgentDefinition.from_mapping(
         {
-            "id": "def-reviewer",
+            "id": definition_id,
             "version": 3,
-            "name": "reviewer-readonly",
+            "name": name,
             "displayName": "只读评审",
             "description": "测试定义",
             "role": "reviewer",
@@ -89,6 +91,41 @@ async def test_provider_resolve_error_returns_code(monkeypatch: pytest.MonkeyPat
     assert result.status == "failed"
     assert result.error_code == "AGENT_DISABLED"
     assert result.error == "定义已停用"
+
+
+@pytest.mark.asyncio
+async def test_run_decomposed_only_uses_explicit_agent_refs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """分解/调度不能把进程内旧注册表的其他定义混进来。"""
+    from types import SimpleNamespace
+
+    from app.services.task_decomposer import TaskDecomposer
+
+    runtimes = {
+        "def-a": _runtime(definition_id="def-a", name="agent-a"),
+        "def-b": _runtime(definition_id="def-b", name="agent-b"),
+    }
+    orchestrator = AgentOrchestrator(
+        registry=AgentRegistry(),
+        definition_provider=lambda ref: runtimes[ref],
+    )
+    captured: dict[str, Any] = {}
+
+    async def fake_decompose(self, request):  # type: ignore[no-untyped-def]
+        captured["agents"] = request.availableAgents
+        return SimpleNamespace(
+            subTasks=[], executionOrder=[], parallelBatches=[], strategy="dag"
+        )
+
+    monkeypatch.setattr(TaskDecomposer, "decompose", fake_decompose)
+    result = await orchestrator.run_decomposed(
+        "拆一下", strategy="dag", agent_refs=["def-a", "def-b"]
+    )
+
+    assert [item["name"] for item in captured["agents"]] == ["agent-a", "agent-b"]
+    assert "任务分解未产生子任务" in result.final_output
+    assert result.status == "failed"
 
 
 @pytest.mark.asyncio

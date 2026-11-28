@@ -37,9 +37,9 @@ async def test_run_get_reads_result() -> None:
 
 
 @pytest.mark.asyncio
-async def test_decomposed_mode_still_explicitly_rejected() -> None:
+async def test_unknown_mode_still_explicitly_rejected() -> None:
     envelope = await _tool(lambda _r: httpx.Response(200, json={"code": 0})).handle(
-        {"action": "dispatch", "definitionId": "def-1", "goal": "拆掉它", "mode": "decomposed"},
+        {"action": "dispatch", "definitionId": "def-1", "goal": "拆掉它", "mode": "unknown"},
         user_id="user-1",
     )
 
@@ -205,6 +205,72 @@ async def test_dispatch_team_aggregates_contributors(monkeypatch: pytest.MonkeyP
     assert captured["strategy"] == "consensus"
     assert [task["name"] for task in captured["tasks"]] == [d["id"] for d in definitions]
     assert len(envelope["data"]["steps"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_dispatch_decomposed_restricts_to_given_agents(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.services.agent_orchestrator import (
+        AgentOrchestrator,
+        AgentStepResult,
+        OrchestrationResult,
+    )
+
+    definitions = [
+        _raw_definition("11111111-1111-4111-8111-111111111111", "dec-a"),
+        _raw_definition("22222222-2222-4222-8222-222222222222", "dec-b"),
+    ]
+    captured: dict[str, Any] = {}
+
+    async def fake_decomposed(self, task, strategy="dag", session_id=None, agent_refs=None):  # type: ignore[no-untyped-def]
+        captured.update(
+            {"task": task, "strategy": strategy, "agent_refs": agent_refs, "session_id": session_id}
+        )
+        return OrchestrationResult(
+            orchestration_id="orch-dec",
+            steps=[
+                AgentStepResult(agent_name="dec-a", input="子任务1", output="甲产出", status="completed"),
+                AgentStepResult(agent_name="dec-b", input="子任务2", output="乙产出", status="completed"),
+            ],
+            final_output="分解执行完成",
+            status="completed",
+            total_duration_ms=10.0,
+        )
+
+    monkeypatch.setattr(AgentOrchestrator, "run_decomposed", fake_decomposed)
+    envelope = await _tool(_run_handler(definitions, [])).handle(
+        {
+            "action": "dispatch",
+            "mode": "decomposed",
+            "definitionId": definitions[0]["id"],
+            "goal": "把这件事拆成子任务",
+            "decomposeStrategy": "sequential",
+            "agents": [{"definitionId": d["id"]} for d in definitions],
+        },
+        user_id="user-1",
+    )
+
+    assert envelope["ok"] is True
+    assert envelope["data"]["runStatus"] == "succeeded"
+    assert captured["strategy"] == "sequential"
+    assert sorted(captured["agent_refs"]) == sorted(d["id"] for d in definitions)
+    assert len(envelope["data"]["steps"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_dispatch_decomposed_requires_goal() -> None:
+    definitions = [_raw_definition("11111111-1111-4111-8111-111111111111", "dec-a")]
+    envelope = await _tool(_run_handler(definitions, [])).handle(
+        {
+            "action": "dispatch",
+            "mode": "decomposed",
+            "definitionId": definitions[0]["id"],
+            "agents": [{"definitionId": definitions[0]["id"]}],
+        },
+        user_id="user-1",
+    )
+
+    assert envelope["ok"] is False
+    assert envelope["error"]["code"] == "AGENT_DISPATCH_INPUT_MISSING"
 
 
 @pytest.mark.asyncio

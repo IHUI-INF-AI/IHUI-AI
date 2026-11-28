@@ -98,13 +98,18 @@ INPUT_SCHEMA: dict[str, Any] = {
             "maximum": 32768,
             "default": 8192,
         },
+        "decomposeStrategy": {
+            "type": "string",
+            "enum": ["sequential", "parallel", "dag"],
+            "description": "decomposed 模式的任务分解策略，默认 dag",
+        },
         "constraints": {"type": "array", "items": {"type": "string"}, "maxItems": 16},
         "deliverables": {"type": "array", "items": {"type": "string"}, "maxItems": 16},
         "budget": {"type": "object"},
         "agents": {
             "type": "array",
             "maxItems": 9,
-            "description": "parallel/debate/vote/critique/team 的参与者；每项必须有 definitionId 或 name",
+            "description": "parallel/debate/vote/critique/team/recursive/decomposed 的参与者；每项必须有 definitionId 或 name",
             "items": {
                 "type": "object",
                 "additionalProperties": False,
@@ -146,10 +151,10 @@ INPUT_SCHEMA: dict[str, Any] = {
 }
 
 DESCRIPTION = (
-    "查看和控制智能体运行：dispatch 支持 single / parallel / pipeline / debate / vote / critique / team / recursive，"
+    "查看和控制智能体运行：dispatch 支持 single / parallel / pipeline / debate / vote / critique / team / recursive / decomposed，"
     "会创建父 run、真实执行并写步骤事件；run_list/run_get/run_logs/run_artifacts/run_stats 可查；"
     "run_pause/run_resume/run_talk 可操作当前实例的在飞会话，health 查运行时；"
-    "decomposed 与 stop/retry/cancel 尚未接线，会明确报未实现。"
+    "stop/retry/cancel 尚未接线，会明确报未实现。"
 )
 
 _ALLOWED_ARGS = frozenset(INPUT_SCHEMA["properties"].keys())
@@ -429,12 +434,21 @@ class AgentOpsTool:
         from ..run_ledger import RunLedgerClient
 
         mode = str(payload.get("mode") or "single")
-        if mode in ("parallel", "pipeline", "debate", "vote", "critique", "team", "recursive"):
+        if mode in (
+            "parallel",
+            "pipeline",
+            "debate",
+            "vote",
+            "critique",
+            "team",
+            "recursive",
+            "decomposed",
+        ):
             return await self._dispatch_multi(payload, mode=mode, user_id=user_id)
         if mode != "single":
             raise OpsToolError(
                 "AGENT_MODE_NOT_IMPLEMENTED",
-                f"dispatch 当前支持 single / parallel / pipeline / debate / vote / critique / team / recursive，"
+                "dispatch 当前支持 single / parallel / pipeline / debate / vote / critique / team / recursive / decomposed，"
                 f"拒绝把 {mode} 当成已执行",
                 details={"mode": mode},
             )
@@ -548,7 +562,7 @@ class AgentOpsTool:
         await provider.prepare()
 
         resolved = [_resolve_dispatchable(provider, ref) for ref in refs]
-        if mode in ("debate", "vote", "critique", "team"):
+        if mode in ("debate", "vote", "critique", "team", "decomposed"):
             # 这三个模式内部直接 _run_agent，不经过 invoke 的白名单校验；在父 run 建账前补上。
             from ..agent_resolver import AgentResolveError
 
@@ -603,6 +617,10 @@ class AgentOpsTool:
                 }
                 for item, definition in zip(items, resolved, strict=True)
             ]
+        elif mode == "decomposed":
+            if not goal:
+                raise OpsToolError("AGENT_DISPATCH_INPUT_MISSING", "decomposed 需要顶层 goal 作为待分解任务")
+            agent_ids = [definition.id for definition in resolved]
         elif mode == "recursive":
             if not goal:
                 raise OpsToolError("AGENT_DISPATCH_INPUT_MISSING", "recursive 需要顶层 goal 作为递归目标")
@@ -691,6 +709,13 @@ class AgentOpsTool:
                     goal,
                     max_rounds=int(payload.get("maxRounds") or 2),
                     session_id=f"{run_id}-session",
+                )
+            elif mode == "decomposed":
+                result = await orchestrator.run_decomposed(
+                    goal,
+                    strategy=str(payload.get("decomposeStrategy") or "dag"),
+                    session_id=f"{run_id}-session",
+                    agent_refs=agent_ids,
                 )
             elif mode == "recursive":
                 from ..agent_teams import TeamContributor, TeamOrchestrator

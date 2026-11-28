@@ -1177,6 +1177,7 @@ class AgentOrchestrator:
         task: str,
         strategy: str = "dag",
         session_id: str | None = None,
+        agent_refs: list[str] | None = None,
     ) -> OrchestrationResult:
         """分解式执行:任务分解 → 调度 → 按并行批次执行 → 重试/故障转移 → 汇总。
 
@@ -1201,7 +1202,17 @@ class AgentOrchestrator:
         status = "completed"
 
         # 1. 构建可用 agent 列表(注册表转 decomposer 格式)
-        all_agents = self._registry.list_agents()
+        #    传了 agent_refs 就只在这些定义里调度：分解/调度绝不把进程内旧注册表里
+        #    其他用户或未授权定义混进来；没传才维持旧行为。
+        if agent_refs:
+            all_agents = []
+            for ref in agent_refs:
+                runtime = self._get_runtime(ref)
+                if runtime is None:
+                    raise AgentResolveError("AGENT_NOT_FOUND", f"分解调度找不到定义 {ref}")
+                all_agents.append(runtime.to_legacy())
+        else:
+            all_agents = self._registry.list_agents()
         available_agents_info = [
             {
                 "name": a.name,
