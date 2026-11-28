@@ -40,6 +40,26 @@ export default function SkillEarningsPage() {
     minute: '2-digit',
   })
 
+  // 新旧接口滚动期兼容：旧接口没有净值/退款字段，缺省时按“毛额=净额”显示，
+  // 不把 undefined 折成 NaN；退款状态缺省按在购处理（旧接口只返回 paid）。
+  const gross = Number(data?.totalAuthorShareCents ?? 0)
+  const clawback = Number(data?.sellerClawbackCents ?? 0)
+  const net = Number(data?.netAuthorShareCents ?? gross - clawback)
+  const legacyRecords = (data as (SkillEarningsResponse & { records?: number }) | undefined)
+    ?.records
+  const paidCount = Number(data?.paidCount ?? legacyRecords ?? 0)
+  const refundedCount = Number(data?.refundedCount ?? 0)
+  const items = (data?.items ?? []).map((item) => {
+    const sellerClawbackCents = item.sellerClawbackCents ?? null
+    return {
+      ...item,
+      status: item.status === 'refunded' ? ('refunded' as const) : ('paid' as const),
+      sellerClawbackCents,
+      netAuthorShareCents:
+        item.netAuthorShareCents ?? item.authorShareCents - (sellerClawbackCents ?? 0),
+    }
+  })
+
   return (
     <div className="mx-auto w-full max-w-5xl space-y-5 px-4 py-4">
       <BackButton />
@@ -71,7 +91,7 @@ export default function SkillEarningsPage() {
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-body text-destructive">
           {(query.error as Error).message || t('loadFailed')}
         </div>
-      ) : !data || data.items.length === 0 ? (
+      ) : !data || items.length === 0 ? (
         <div className="rounded-lg border border-dashed p-10 text-center">
           <Receipt className="mx-auto mb-2 h-10 w-10 opacity-30" />
           <p className="text-body font-medium">{t('earningsEmpty')}</p>
@@ -89,24 +109,24 @@ export default function SkillEarningsPage() {
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <SummaryCard
               label={t('earningsNet')}
-              value={yuan(data.netAuthorShareCents)}
-              detail={`${t('earningsGross')} ${yuan(data.totalAuthorShareCents)}`}
+              value={yuan(net)}
+              detail={`${t('earningsGross')} ${yuan(gross)}`}
               tone="primary"
             />
             <SummaryCard
               label={t('earningsClawback')}
-              value={yuan(data.sellerClawbackCents)}
-              detail={`${t('earningsRefundedCount')} ${data.refundedCount}`}
+              value={yuan(clawback)}
+              detail={`${t('earningsRefundedCount')} ${refundedCount}`}
             />
             <SummaryCard
               label={t('earningsPaidCount')}
-              value={String(data.paidCount)}
+              value={String(paidCount)}
               detail={data.lastEarnedAt ? dateFmt.format(new Date(data.lastEarnedAt)) : '—'}
             />
             <SummaryCard
               label={t('earningsRefundedCount')}
-              value={String(data.refundedCount)}
-              detail={`${yuan(data.netAuthorShareCents)} ${t('earningsNet')}`}
+              value={String(refundedCount)}
+              detail={`${yuan(net)} ${t('earningsNet')}`}
             />
           </div>
 
@@ -126,7 +146,7 @@ export default function SkillEarningsPage() {
                 </tr>
               </thead>
               <tbody>
-                {data.items.map((item) => (
+                {items.map((item) => (
                   <tr key={item.id} className="transition-colors hover:bg-muted/30">
                     <td className="whitespace-nowrap px-4 py-2.5 text-muted-foreground">
                       {dateFmt.format(new Date(item.createdAt))}
