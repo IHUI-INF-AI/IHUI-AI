@@ -65,12 +65,11 @@ describe('MasterRegistryConsole', () => {
     })
 
     render(<MasterRegistryConsole />)
-    fireEvent.click(screen.getByRole('button', { name: '智能体' }))
+    fireEvent.click(screen.getByRole('button', { name: '模板库' }))
 
-    await screen.findByText('写作助手')
-    expect(screen.getByText('50%')).toBeTruthy()
+    await screen.findAllByText('写作助手')
 
-    const input = screen.getByPlaceholderText('搜索名称/描述')
+    const input = screen.getByPlaceholderText('搜索模板名称')
     fireEvent.change(input, { target: { value: 'writer' } })
     await waitFor(() => {
       const last = calls.filter((call) => call.url.includes('/definitions?')).at(-1)
@@ -94,9 +93,9 @@ describe('MasterRegistryConsole', () => {
     })
 
     render(<MasterRegistryConsole />)
-    fireEvent.click(screen.getByRole('button', { name: '智能体' }))
-    await screen.findByText('写作助手')
-    fireEvent.click(screen.getByRole('button', { name: '版本' }))
+    fireEvent.click(screen.getByRole('button', { name: '模板库' }))
+    await screen.findAllByText('写作助手')
+    fireEvent.click(screen.getByRole('button', { name: '详情' }))
 
     await screen.findByText(/v2 · update/)
   })
@@ -131,8 +130,8 @@ describe('MasterRegistryConsole', () => {
     })
 
     render(<MasterRegistryConsole />)
-    fireEvent.click(screen.getByRole('button', { name: '智能体' }))
-    await screen.findByText('写作助手')
+    fireEvent.click(screen.getByRole('button', { name: '模板库' }))
+    await screen.findAllByText('写作助手')
     fireEvent.click(screen.getByRole('button', { name: '删除' }))
 
     await screen.findByText('待确认删除')
@@ -143,7 +142,7 @@ describe('MasterRegistryConsole', () => {
       precheckToken: 'pc_token_1234567890',
     })
 
-    fireEvent.change(screen.getByPlaceholderText('输入定义名'), {
+    fireEvent.change(screen.getByPlaceholderText('输入模板名'), {
       target: { value: '写作助手' },
     })
     fireEvent.click(screen.getByRole('button', { name: '批准删除' }))

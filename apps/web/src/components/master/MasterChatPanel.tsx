@@ -83,13 +83,13 @@ export function MasterChatPanel({ masterName = '总管' }: MasterChatPanelProps)
 
   return (
     <section className="flex h-full min-h-0 flex-1 flex-col bg-white">
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-3">
-        <div className="mx-auto flex w-full max-w-[980px] flex-col items-start gap-3">
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-3 lg:px-[84px]">
+        <div className="mx-auto flex w-full max-w-[1100px] flex-col items-start gap-3">
           {turns.length === 0 ? (
             <>
               <Bubble>嗨，我是{masterName}！</Bubble>
               <Bubble>
-                想做什么事，直接跟我说！拆步骤、调智能体、查运行账本，这些我都接得住。你专心做你的，有进展或需要你拿主意的事，我会回来找你。
+                想做什么事，直接跟我说！拆步骤、派角色、查运行账本，这些我都接得住。你专心做你的，有进展或需要你拿主意的事，我会回来找你。
               </Bubble>
               <Bubble>
                 我现在叫{masterName}，你也可以给我换个别的名字，以后随时能改。
@@ -107,7 +107,7 @@ export function MasterChatPanel({ masterName = '总管' }: MasterChatPanelProps)
               ) : (
                 <div
                   key={`${turn.role}-${index}`}
-                  className="mr-auto max-w-[88%] whitespace-pre-wrap break-words rounded-[16px] rounded-bl-[7px] bg-[#f2f1ee] px-4 py-2.5 text-[16px] leading-7 text-[#29261f]"
+                  className="mr-auto max-w-full whitespace-pre-wrap break-words rounded-[16px] rounded-bl-[7px] bg-[#f2f1ee] px-4 py-2.5 text-[16px] leading-7 text-[#29261f]"
                 >
                   {turn.text}
                 </div>
@@ -124,15 +124,15 @@ export function MasterChatPanel({ masterName = '总管' }: MasterChatPanelProps)
       </div>
 
       {error && (
-        <p className="mx-auto w-full max-w-[980px] px-6 text-[12px] leading-5 text-red-600">
+        <p className="mx-auto w-full max-w-[1100px] px-6 text-[12px] lg:px-[84px] leading-5 text-red-600">
           {error}
         </p>
       )}
 
-      <div className="shrink-0 px-6 pb-5 pt-2">
+      <div className="shrink-0 px-6 pb-5 pt-2 lg:px-[84px]">
         <form
           onSubmit={send}
-          className="mx-auto w-full max-w-[980px] rounded-[18px] border border-[#e8e3da] bg-[#faf9f6] px-4 pb-2.5 pt-3 shadow-[0_1px_3px_rgba(34,28,18,0.03)] transition focus-within:border-[#cbc4b8]"
+          className="mx-auto w-full max-w-[1100px] rounded-[18px] border border-[#e8e3da] bg-[#faf9f6] px-4 pb-2.5 pt-3 shadow-[0_1px_3px_rgba(34,28,18,0.03)] transition focus-within:border-[#cbc4b8]"
         >
           <textarea
             value={input}
@@ -143,18 +143,12 @@ export function MasterChatPanel({ masterName = '总管' }: MasterChatPanelProps)
                 event.currentTarget.form?.requestSubmit()
               }
             }}
-            placeholder={`给${masterName}发消息，例如：列一下我名下的智能体，或把 writer 暂停`}
+            placeholder={`给${masterName}发消息，或者说说你今天想完成什么`}
             maxLength={8000}
             rows={2}
             className="block max-h-40 min-h-[46px] w-full resize-none bg-transparent text-[16px] leading-7 text-[#2b2821] outline-none placeholder:text-[#a8a198]"
           />
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-[11px] text-[#999186]">
-              <span className="rounded-full border border-[#ddd7cc] px-2 py-0.5 text-[#766e63]">
-                Auto
-              </span>
-              <span className="hidden sm:inline">固定三工具 · 删除与回滚必须审批</span>
-            </div>
+          <div className="flex items-center justify-end">
             <button
               type="submit"
               aria-label="发送"
@@ -172,7 +166,7 @@ export function MasterChatPanel({ masterName = '总管' }: MasterChatPanelProps)
 
 function Bubble({ children }: { children: ReactNode }) {
   return (
-    <div className="max-w-[88%] whitespace-pre-wrap break-words rounded-[16px] rounded-bl-[7px] bg-[#f2f1ee] px-4 py-2.5 text-[16px] leading-7 text-[#29261f]">
+    <div className="max-w-full whitespace-pre-wrap break-words rounded-[16px] rounded-bl-[7px] bg-[#f2f1ee] px-4 py-2.5 text-[16px] leading-7 text-[#29261f]">
       {children}
     </div>
   )

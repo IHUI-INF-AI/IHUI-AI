@@ -34,8 +34,7 @@ describe('MasterRunControlPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: '暂停' }))
 
     const result = await screen.findByTestId('run-control-result')
-    expect(result.textContent).toContain('outcome=paused')
-    expect(result.textContent).toContain('status=paused')
+    expect(result.textContent).toContain('已暂停')
     expect(calls[0]?.url).toBe('/api/master/runs/run-1/pause')
     expect(calls[0]?.body).toBeUndefined()
   })
@@ -66,10 +65,10 @@ describe('MasterRunControlPanel', () => {
     fireEvent.change(screen.getByLabelText('中途提示'), {
       target: { value: '补充风险点' },
     })
-    fireEvent.click(screen.getByRole('button', { name: '注入提示' }))
+    fireEvent.click(screen.getByRole('button', { name: '发送' }))
 
     const result = await screen.findByTestId('run-control-result')
-    expect(result.textContent).toContain('outcome=steered')
+    expect(result.textContent).toContain('话已经带到了')
     expect(calls[0]?.url).toBe('/api/master/runs/run%202/talk')
     expect(JSON.parse(calls[0]?.body ?? '{}')).toEqual({ message: '补充风险点' })
     expect(calls[0]?.credentials).toBe('include')

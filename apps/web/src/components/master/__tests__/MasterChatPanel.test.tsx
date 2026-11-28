@@ -30,7 +30,7 @@ describe('MasterChatPanel', () => {
     )
 
     render(<MasterChatPanel />)
-    const input = screen.getByPlaceholderText(/列一下我名下的智能体/)
+    const input = screen.getByPlaceholderText(/说说你今天想完成什么/)
     fireEvent.change(input, { target: { value: '列一下我的智能体' } })
     fireEvent.click(screen.getByRole('button', { name: '发送' }))
 
@@ -57,7 +57,7 @@ describe('MasterChatPanel', () => {
     )
 
     render(<MasterChatPanel />)
-    fireEvent.change(screen.getByPlaceholderText(/列一下我名下的智能体/), {
+    fireEvent.change(screen.getByPlaceholderText(/说说你今天想完成什么/), {
       target: { value: '删除 writer' },
     })
     fireEvent.click(screen.getByRole('button', { name: '发送' }))

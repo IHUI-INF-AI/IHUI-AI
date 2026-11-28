@@ -32,7 +32,7 @@ type Action = 'pause' | 'resume' | 'stop'
 
 const ACTION_LABELS: Record<Action, string> = {
   pause: '暂停',
-  resume: '续跑',
+  resume: '继续',
   stop: '停止',
 }
 
@@ -44,6 +44,30 @@ const ACTION_STYLES: Record<Action, string> = {
 
 interface MasterRunControlPanelProps {
   masterName?: string
+}
+
+function describeResult(result: RunControlResult) {
+  const outcome = String(result.outcome ?? result.runStatus ?? '')
+  const outcomeText: Record<string, string> = {
+    paused: '已暂停，它会停在下一个检查点。',
+    already_paused: '它本来就是暂停着的。',
+    resumed: '已经继续跑起来了。',
+    stopped: '已经停下。',
+    stopped_hard: '已经强制停下。',
+    steered: '话已经带到了，下一轮它会看到。',
+    paused_requested: '暂停请求已收到，会在下一个检查点停下。',
+    already_terminal: '这条任务已经结束，不能再操作。',
+    not_running: '它现在没在跑。',
+    unknown_session: '没找到这条任务。',
+    forbidden: '这条任务不归你管。',
+    checkpoint_unavailable: '暂停收到了，但恢复点没保住，需要人工看一下。',
+    no_checkpoint: '没有可恢复的暂停点。',
+    not_paused: '它现在不在暂停状态。',
+    owner_unverifiable: '归属判不清，先人工确认。',
+    needs_confirmation: '上一轮有副作用，需要确认后才能继续。',
+    resume_failed: '继续失败了，稍后再试。',
+  }
+  return outcomeText[outcome] || result.detail || '操作已经生效。'
 }
 
 export function MasterRunControlPanel({ masterName = '总管' }: MasterRunControlPanelProps) {
@@ -88,53 +112,38 @@ export function MasterRunControlPanel({ masterName = '总管' }: MasterRunContro
     setMessage('')
   }
 
-  const summary = result
-    ? [
-        result.outcome ? `outcome=${result.outcome}` : '',
-        result.runStatus ? `status=${result.runStatus}` : '',
-        result.checkpointId ? `checkpoint=${result.checkpointId}` : '',
-        result.detail ? result.detail : '',
-      ]
-        .filter(Boolean)
-        .join(' · ')
-    : ''
-
   return (
     <section className="flex h-full min-h-0 flex-col bg-white">
       <header className="shrink-0 border-b border-[#eee9e1] px-7 py-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#a29a8e]">
-              Task run
+            <h2 className="text-[22px] font-semibold leading-8 text-[#23211c]">任务运行</h2>
+            <p className="mt-1 max-w-[760px] text-[13px] leading-6 text-[#7d7569]">
+              卡住的任务，可以让{masterName}暂停、继续，或者补一句话。
             </p>
-            <h2 className="mt-1 text-[22px] font-semibold leading-8 text-[#23211c]">任务运行</h2>
           </div>
           <span className="rounded-full border border-[#e4ded3] px-2.5 py-1 text-[11px] text-[#8c8478]">
-            single run · HTTP 控制面
+            只影响当前这条任务
           </span>
         </div>
-        <p className="mt-3 max-w-[760px] text-[13px] leading-6 text-[#7d7569]">
-          按 runId 暂停、续跑、注入中途提示、停止；只作用于{masterName}
-          当前进程内派发的 run。长任务可能在轮次边界前返回 pause_requested，需要继续查账本。
-        </p>
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
         <div className="w-full max-w-[820px]">
           <label
             htmlFor="master-run-id"
-            className="mb-1.5 block text-[11px] uppercase tracking-[0.14em] text-[#a29a8e]"
+            className="mb-1.5 block text-[12px] text-[#8d8579]"
           >
-            Run ID
+            任务编号
           </label>
           <div className="flex flex-wrap gap-2">
             <input
               value={runId}
               onChange={(event) => setRunId(event.target.value)}
-              placeholder="粘贴 runId"
+              placeholder="粘贴任务编号"
               id="master-run-id"
               aria-label="runId"
-              className="min-w-0 flex-1 rounded-lg border border-[#e3ddd2] bg-[#faf9f6] px-3 py-2.5 font-mono text-[12px] text-[#3a352d] outline-none placeholder:text-[#b0a89d] focus:border-[#bdb5a8]"
+              className="min-w-0 flex-1 rounded-lg border border-[#e3ddd2] bg-[#faf9f6] px-3 py-2.5 text-[12px] text-[#3a352d] outline-none placeholder:text-[#b0a89d] focus:border-[#bdb5a8]"
             />
             {(Object.keys(ACTION_LABELS) as Action[]).map((action) => (
               <button
@@ -152,15 +161,15 @@ export function MasterRunControlPanel({ masterName = '总管' }: MasterRunContro
           <form onSubmit={talk} className="mt-6">
             <label
               htmlFor="master-run-talk"
-              className="mb-1.5 block text-[11px] uppercase tracking-[0.14em] text-[#a29a8e]"
+              className="mb-1.5 block text-[12px] text-[#8d8579]"
             >
-              中途提示
+              给它补一句话
             </label>
             <div className="flex flex-wrap gap-2">
               <input
                 value={message}
                 onChange={(event) => setMessage(event.target.value)}
-                placeholder="给运行中的 run 注入一条中途提示"
+                placeholder="例如：先别改样式，把接口接上"
                 id="master-run-talk"
                 aria-label="中途提示"
                 maxLength={8000}
@@ -171,7 +180,7 @@ export function MasterRunControlPanel({ masterName = '总管' }: MasterRunContro
                 disabled={!runId.trim() || !message.trim() || busy !== null}
                 className="rounded-lg border border-[#ded8ce] bg-white px-3.5 py-2.5 text-[12px] font-medium text-[#5e574d] transition hover:bg-[#f7f4ef] disabled:opacity-25"
               >
-                {busy === 'talk' ? '注入中' : '注入提示'}
+                {busy === 'talk' ? '发送中' : '发送'}
               </button>
             </div>
           </form>
@@ -182,19 +191,15 @@ export function MasterRunControlPanel({ masterName = '总管' }: MasterRunContro
             </p>
           )}
           {result && (
-            <div className="mt-5 rounded-lg border border-[#e6e0d6] bg-[#faf9f6] px-3.5 py-3 text-[12px] text-[#6a6358]">
-              <p data-testid="run-control-result" className="font-medium break-all text-[#332f28]">
-                {summary || '控制请求已返回'}
+            <div className="mt-5 rounded-xl border border-[#dce6d9] bg-[#f4f8f1] px-4 py-3 text-[13px] text-[#4f6b46]">
+              <p data-testid="run-control-result" className="font-medium">
+                {describeResult(result)}
               </p>
-              <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded bg-white p-2.5 text-[11px] leading-5 text-[#928a7e]">
-                {JSON.stringify(result, null, 2)}
-              </pre>
             </div>
           )}
 
-          <p className="mt-7 border-t border-[#f0ebe3] pt-3 text-[11px] leading-5 text-[#a49c90]">
-            控制请求只影响当前 AI 服务进程内由{masterName}派发的 single run；跨实例或已终态 run
-            会返回明确错误码，不会把“提交成功”当成“已经暂停”。
+          <p className="mt-7 border-t border-[#f0ebe3] pt-3 text-[12px] leading-5 text-[#a49c90]">
+            任务已经结束、或者不在这台机器上跑时，会直接告诉你原因，不会把“提交成功”当成“已经暂停”。
           </p>
         </div>
       </div>

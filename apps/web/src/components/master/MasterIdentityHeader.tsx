@@ -96,7 +96,7 @@ export function MasterIdentityHeader({
 
   return (
     <section className="relative flex shrink-0 flex-col items-center px-4 pt-5">
-      <div className="flex min-w-[250px] items-center gap-3 rounded-full border border-[#ebe6dd] bg-white py-2.5 pl-3 pr-4 shadow-[0_2px_10px_rgba(34,28,18,0.06)]">
+      <div className="group flex min-w-[250px] items-center gap-3 rounded-full border border-[#ebe6dd] bg-white py-2 pl-2.5 pr-4 shadow-[0_2px_10px_rgba(34,28,18,0.06)]">
         <MasterPixelAvatar />
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
@@ -110,7 +110,7 @@ export function MasterIdentityHeader({
               type="button"
               aria-label="重命名"
               onClick={beginEdit}
-              className="flex h-6 w-6 items-center justify-center rounded-full text-[#9a9388] transition hover:bg-[#f1eee8] hover:text-[#4e483f]"
+              className="flex h-6 w-6 items-center justify-center rounded-full text-[#9a9388] opacity-0 transition hover:bg-[#f1eee8] hover:text-[#4e483f] group-hover:opacity-100 focus-visible:opacity-100"
             >
               <Pencil className="h-3 w-3" />
             </button>
@@ -181,11 +181,11 @@ export function MasterPixelAvatar() {
   return (
     <span
       aria-hidden
-      className="relative h-11 w-11 shrink-0 overflow-hidden rounded-[10px] bg-[#252b39] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]"
+      className="relative h-[52px] w-[52px] shrink-0 overflow-hidden rounded-[11px] bg-[#252b39] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]"
     >
-      <span className="absolute left-[12px] top-[13px] h-[6px] w-[6px] rounded-[1px] bg-[#f3efe4]" />
-      <span className="absolute left-[26px] top-[13px] h-[6px] w-[6px] rounded-[1px] bg-[#f3efe4]" />
-      <span className="absolute left-[17px] top-[26px] h-[2px] w-[11px] rounded-full bg-[#9fe3bd]" />
+      <span className="absolute left-[14px] top-[15px] h-[7px] w-[7px] rounded-[1px] bg-[#f3efe4]" />
+      <span className="absolute left-[30px] top-[15px] h-[7px] w-[7px] rounded-[1px] bg-[#f3efe4]" />
+      <span className="absolute left-[20px] top-[31px] h-[2px] w-[12px] rounded-full bg-[#9fe3bd]" />
     </span>
   )
 }
