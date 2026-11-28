@@ -74,7 +74,7 @@ describe('splitByTier — 选择器只留可选模型(2026-11-20 取消历史区
     expect(archived).toHaveLength(0)
   })
 
-  it('图像/视频/语音/OCR 等模态模型照常展示(2026-11-20 机主追加)', () => {
+  it('图像/视频照常展示,语音/OCR 无执行通道不展示(2026-11-23 定档)', () => {
     const { primary, archived } = splitByTier([
       opt('flux-1-schnell', 'image', 'latest'),
       opt('veo-3', 'video', 'latest'),
@@ -82,13 +82,7 @@ describe('splitByTier — 选择器只留可选模型(2026-11-20 取消历史区
       opt('whisper-large-v3', 'asr', 'latest'),
       opt('paddle-ocr-v4', 'ocr', 'latest'),
     ])
-    expect(primary.map((m) => m.value)).toEqual([
-      'flux-1-schnell',
-      'veo-3',
-      'step-tts-mini',
-      'whisper-large-v3',
-      'paddle-ocr-v4',
-    ])
+    expect(primary.map((m) => m.value)).toEqual(['flux-1-schnell', 'veo-3'])
     expect(archived).toHaveLength(0)
   })
 
