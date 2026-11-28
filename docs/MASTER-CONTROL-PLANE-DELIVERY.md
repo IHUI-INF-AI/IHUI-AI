@@ -83,6 +83,10 @@ probe `e41afe2b8e734080957dcb3ae041fc44`：
 - `model=agnes-2.5-flash`，`final_response` 为真实文本；
 - 不再落到 `@cf/zai-org/glm-4.7-flash` 的 429 免费链。
 
+真实工具调用也跑通：同一端点发“列出当前所有可派发的智能体”，intent 判为 `tool_use`，
+第 1 轮调用 `agent_registry.list`（`isDispatchable=true`，耗时 235ms），第 2 轮返回
+10 个可派发智能体的名字与 ID；`iterations=2 / model=agnes-2.5-flash`，不是桩。
+
 ### UI
 
 `/master` 页面用真实 Edge + 测试库 admin 登录态验收：11 个注册表定义、`coder` 运行统计可见；
