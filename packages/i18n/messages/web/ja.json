@@ -30375,7 +30375,14 @@
     "progressEmpty": "分析タスクがありません",
     "openChat": "チャットを開く",
     "streaming": "生成中",
-    "idle": "待機中"
+    "idle": "待機中",
+    "targetEtaxInvoiceLedger": "請求書台帳",
+    "targetEtaxVatDeclaration": "消費税申告",
+    "targetEtaxCitQuarterly": "法人税 四半期申告",
+    "targetEtaxIitDeclaration": "個人所得税申告",
+    "targetSocialInsurance": "社会保険",
+    "targetMedicalInsurance": "医療保険",
+    "targetBankStatement": "銀行明細"
   },
   "hrData": {
     "tabImport": "インポート",

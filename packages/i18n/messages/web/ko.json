@@ -30375,7 +30375,14 @@
     "progressEmpty": "분석 작업이 없습니다",
     "openChat": "채팅 열기",
     "streaming": "처리 중",
-    "idle": "대기 중"
+    "idle": "대기 중",
+    "targetEtaxInvoiceLedger": "송장 대장",
+    "targetEtaxVatDeclaration": "부가세 신고",
+    "targetEtaxCitQuarterly": "법인세 분기 신고",
+    "targetEtaxIitDeclaration": "개인소득세 신고",
+    "targetSocialInsurance": "사회보험",
+    "targetMedicalInsurance": "의료보험",
+    "targetBankStatement": "은행 거래 내역"
   },
   "hrData": {
     "tabImport": "가져오기",

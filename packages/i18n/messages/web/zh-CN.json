@@ -30744,7 +30744,14 @@
     "progressEmpty": "暂无分析任务",
     "openChat": "打开对话",
     "streaming": "生成中",
-    "idle": "空闲"
+    "idle": "空闲",
+    "targetEtaxInvoiceLedger": "发票台账",
+    "targetEtaxVatDeclaration": "增值税申报",
+    "targetEtaxCitQuarterly": "企业所得税季报",
+    "targetEtaxIitDeclaration": "个人所得税申报",
+    "targetSocialInsurance": "社保",
+    "targetMedicalInsurance": "医保",
+    "targetBankStatement": "银行流水"
   },
   "hrData": {
     "tabImport": "导入",

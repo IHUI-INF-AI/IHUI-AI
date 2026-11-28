@@ -30078,7 +30078,14 @@
     "progressEmpty": "No analysis tasks yet",
     "openChat": "Open Chat",
     "streaming": "Streaming",
-    "idle": "Idle"
+    "idle": "Idle",
+    "targetEtaxInvoiceLedger": "Invoice ledger",
+    "targetEtaxVatDeclaration": "VAT declaration",
+    "targetEtaxCitQuarterly": "Corporate income tax (quarterly)",
+    "targetEtaxIitDeclaration": "Individual income tax declaration",
+    "targetSocialInsurance": "Social insurance",
+    "targetMedicalInsurance": "Medical insurance",
+    "targetBankStatement": "Bank statement"
   },
   "hrData": {
     "tabImport": "Import",

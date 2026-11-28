@@ -30238,7 +30238,14 @@
     "progressEmpty": "目前無分析任務",
     "openChat": "開啟對話",
     "streaming": "生成中",
-    "idle": "閒置"
+    "idle": "閒置",
+    "targetEtaxInvoiceLedger": "發票台帳",
+    "targetEtaxVatDeclaration": "營業稅申報",
+    "targetEtaxCitQuarterly": "營利事業所得稅季報",
+    "targetEtaxIitDeclaration": "個人所得稅申報",
+    "targetSocialInsurance": "社會保險",
+    "targetMedicalInsurance": "醫療保險",
+    "targetBankStatement": "銀行流水"
   },
   "hrData": {
     "tabImport": "導入",
