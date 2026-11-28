@@ -556,6 +556,9 @@ export function resolvePathLabelSpec(pathname: string): PathLabelSpec | null {
   // 副作用:`/en/agents`、`/en/models`、`/ko/use-cases/...` 等 i18n 路由全部自动受益,
   // 不再退化为 deriveTitle 兜底的英文 Title Case。
   const normalized = stripI18nPrefix(pathname)
+  // `/en` 这类纯语言前缀剥离后是 `/`;入口的根路径判断发生在剥离前,
+  // 这里必须再判一次,否则英文首页会掉到 deriveTitle 兜底。
+  if (!normalized || normalized === '/') return { ns: 'nav', key: 'home' }
 
   // 精确匹配
   const exact = ALL_PATH_LABEL_MAP.find((e) => e.href === normalized)
