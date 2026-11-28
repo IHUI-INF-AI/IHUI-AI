@@ -630,9 +630,10 @@ export function createToolSearchTool(opts: ToolSearchOptions): Tool {
           output: `未命中任何工具。可检索的延迟工具:\n${availableDeferredNames(tools, opts.revealed).join('\n') || '(当前没有可检索的延迟工具)'}${nearNote}`,
         };
       }
-      // 重复检索保护:`revealed` 里已在本会话揭示、或本来就没延迟的工具,参数 schema
-      // 已在模型前缀里——再整段返回一次纯属重复占位(实测同一条查询重复一次要 731-1416B)。
-      const alreadyInPrefix = hits.every((hit) => !shouldDeferTool(hit.tool.name, hit.tool, opts.revealed));
+      // 重复检索保护:已经在本会话前缀里的工具不再整段返回 schema。
+      // 命中里常常是"几枚已揭示 + 一枚新的";原实现只要有一枚新的就把整批 schema 重发一遍。
+      const alreadyVisible = hits.filter((hit) => !shouldDeferTool(hit.tool.name, hit.tool, opts.revealed));
+      const fresh = hits.filter((hit) => shouldDeferTool(hit.tool.name, hit.tool, opts.revealed));
       // 命中即揭示,并把"最久未命中"的顺序刷新到队尾(Set 的插入顺序就是回收顺序)。
       const hitNames = new Set(hits.map((hit) => hit.tool.name));
       for (const hit of hits) {
@@ -646,15 +647,22 @@ export function createToolSearchTool(opts: ToolSearchOptions): Tool {
           ? ''
           : `\n\n(揭示预算 ${budgetUsed}B 已满,回收最早揭示的 ${evicted.length} 个:${evicted.join(', ')};` +
             '它们仍可按名直接调用,需要参数细节时再检索)';
-      if (alreadyInPrefix) {
+      if (fresh.length === 0) {
         return {
           success: true,
           output: `${hits.length} 个工具的参数 schema 已在本会话前缀里(重复检索不重复返回):${hitNames.size === 0 ? '-' : Array.from(hitNames).join(', ')}${budgetNote}`,
         };
       }
+      const alreadyNote =
+        alreadyVisible.length === 0
+          ? ''
+          : `\n\n另有 ${alreadyVisible.length} 个工具的 schema 已在前缀,未重复返回:${alreadyVisible.map((hit) => hit.tool.name).join(', ')}`;
       return {
         success: true,
-        output: `已揭示 ${hits.length} 个工具,本轮起参数 schema 常驻:\n\n${hits.map((hit) => renderToolSchema(hit.tool)).join('\n\n')}${budgetNote}`,
+        output:
+          `已揭示 ${fresh.length} 个工具,本轮起参数 schema 常驻:\n\n` +
+          `${fresh.map((hit) => renderToolSchema(hit.tool)).join('\n\n')}` +
+          `${alreadyNote}${budgetNote}`,
       };
     },
   };
