@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: ac056038458513fe4e94169a7d178dab26895663
-// inputsSha256: 999e8252555151827a79f8520572fc2e7e064005835dba53a1bc4db3bcfe3211
+// sourceCommit: 67717890d8147abd45a8c58d3437b8bf1de623de
+// inputsSha256: bb452c1f9e73888e7717377c4e5711f663cbab9e6dd24d127df8b12ed80834d6
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx d17f249c8506951babf768ff47e0800dc7ed191a9c80ddb124142a8520bcd80e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -787,7 +787,7 @@
 // input: apps/web/app/(main)/publish/account-pool/page.tsx 1934a483b078a499006cb78c21c77b792d587eb33c74063daf77ea0ac1b1ecc3
 // input: apps/web/app/(main)/publish/accounts/page.tsx 599276556c4e23c66d7fb7e29ee711f0deba10518c98aeb03dbfea303f70b127
 // input: apps/web/app/(main)/publish/ai-draft/page.tsx 6826a45fd6ebe8e01037ae6406f126e7307cb2c3294d0e83489bed9bd847457c
-// input: apps/web/app/(main)/publish/analytics/page.tsx c003f0454521b7515d2d6add9800e9758c14856cb29f53815895e49b64f2300e
+// input: apps/web/app/(main)/publish/analytics/page.tsx 92f2d10c970bcf7ba78ba839ce921a1f648ce7e5235df6994ae9a81a2a9527df
 // input: apps/web/app/(main)/publish/calendar/page.tsx e86fd335003a1bffaa93f9b7e34d12cb0ef659229e67ce5d696759802e10ed48
 // input: apps/web/app/(main)/publish/history/page.tsx 25661548b187211b9a09730876ce9975f8d0401d1477184995b80a2d6f247a6c
 // input: apps/web/app/(main)/publish/monitor/page.tsx 9ac8e332683d8057372d50132f5d8f558beb9860cfef7ab2c5d454f91937f08a
@@ -847,7 +847,7 @@
 // input: apps/web/app/(main)/share/page.tsx d5df784435de4fdc6af70d10d3c1dedeaa4359289d56e9d4da7778f0acddb552
 // input: apps/web/app/(main)/skills-market/[id]/page.tsx 22c9297245a249350e204aacc1e1e978198704afda124abd0e11d6e06c91f8f9
 // input: apps/web/app/(main)/skills-market/page.tsx a766040ff3b687a5a3d7149bfcc1290d96559d2472a5240a23e5bd2b134ba600
-// input: apps/web/app/(main)/skills/market/page.tsx b6a06ded80315df09e004d4f73361ff76d90d41e8a5bd9a73f0cf2cdefa8a465
+// input: apps/web/app/(main)/skills/market/page.tsx 411fcaa9c02ecfb2b526a2b6c013b97dfa7b33b0b1539c0a29bc8ad45e95b6a8
 // input: apps/web/app/(main)/skills/page.tsx 38765932b5d79e111a9d91fa22317363d4be64742dd17ae1e1d012e9cd098f40
 // input: apps/web/app/(main)/spec/[id]/page.tsx aa87c22226e7b4f4618429c44041536bd60b8774b1a7109580b93eadb0363876
 // input: apps/web/app/(main)/spec/generate/page.tsx 5c6c4d5b27e1d1c7c6306457fbaf6650a9df873c14c1be71bf5481d9d61b6c20
@@ -930,7 +930,7 @@
 // input: apps/web/app/(main)/vip/trader/page.tsx cb646ee9c2e6df0bdafeb293467c8b14253e7be2b9cf2a8977f3e33688f2a404
 // input: apps/web/app/(main)/voices/page.tsx 5e07a22d300fe46b32bd20cc86eb299d3b1aec06a450c34ce0a2f9aef95de907
 // input: apps/web/app/(main)/wallet/bank-cards/page.tsx 2d55243adec5423b4b08e5b6a7315f24d4c9978591624231cdab3f9b8e98c824
-// input: apps/web/app/(main)/wallet/page.tsx 70125038966604c2b5d7728ff4aa93c64d10a4011cb2877a85d1e2f0d846a49b
+// input: apps/web/app/(main)/wallet/page.tsx 3d8de51389add209c2faf48ae5c0f4e467837fd77a6b6391bbf84d1c1491ff90
 // input: apps/web/app/(main)/wallet/recharge/fail/page.tsx 832f3347693415d4fce788faeffb0d9441afed480364754afa506b881ca5ceae
 // input: apps/web/app/(main)/wallet/recharge/page.tsx d8a6e5398125764a49e9f74049dd0405b5dd21735854e51628c8300254942d1c
 // input: apps/web/app/(main)/wallet/recharge/success/page.tsx 832f3347693415d4fce788faeffb0d9441afed480364754afa506b881ca5ceae
@@ -971,7 +971,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 35efcf616fc264c76204fb3d155f464682cd239b37965652b930391e0e7144b6
 // input: apps/web/app/status/page.tsx bf75df2bfcad093f6ec6405984b9a3fa2e7cba0c353f405066f6809c382bceca
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-11-28T04:12:40.003Z
+// generatedAt: 2026-11-28T04:32:53.151Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
