@@ -49,6 +49,7 @@ import type { SkillMarketEntry } from '@ihui/shared/skills/market'
 import { BackButton, AuthGatePrompt } from '@/components/common'
 import { Badge } from '@/components/data'
 import { Button, Input } from '@ihui/ui-react'
+import { useConfirm } from '@/hooks/use-confirm'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 
 /**
@@ -69,6 +70,7 @@ import { useAuthGate } from '@/hooks/use-auth-gate'
  */
 export default function SkillsMarketPageClient({ deepLinkName }: { deepLinkName?: string }) {
   const t = useTranslations('skillMarket')
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const qc = useQueryClient()
   const router = useRouter()
   // 登录态门(与签到助手同型):未就绪/未登录不发注定 401 的挂载请求,改显登录引导
@@ -185,9 +187,11 @@ export default function SkillsMarketPageClient({ deepLinkName }: { deepLinkName?
     const priceCents = entry.priceCents ?? 0
     if (priceCents > 0) {
       const priceText = (priceCents / 100).toFixed(2)
-      const confirmed = window.confirm(
-        t('purchaseConfirm', { name: entry.name, price: priceText }),
-      )
+      // 2026-11-28:window.confirm → 项目标准 useConfirm(§4 禁原生提示窗;TaskCard/scope-card 同型)
+      const confirmed = await confirm({
+        title: entry.name,
+        description: t('purchaseConfirm', { name: entry.name, price: priceText }),
+      })
       if (!confirmed) return
     }
     setActingName(entry.name)
@@ -385,6 +389,8 @@ export default function SkillsMarketPageClient({ deepLinkName }: { deepLinkName?
       )}
 
       {detail && <SkillDetailDialog entry={detail} onClose={closeDetail} />}
+      {/* useConfirm 弹窗挂载点(Dialog 走 portal) */}
+      <ConfirmDialogRenderer />
     </div>
   )
 }
@@ -426,7 +432,7 @@ function SkillCard({
   const t = useTranslations('skillMarket')
 
   return (
-    <div className="flex flex-col gap-2.5 rounded-lg border bg-card p-3 transition-colors hover:border-foreground/20">
+    <div className="flex flex-col gap-2.5 rounded-lg border bg-card p-3 transition-colors hover:border-stroke-strong">
       <div className="flex items-start gap-2.5">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
           <Wand2 className="h-5 w-5" />
@@ -468,7 +474,7 @@ function SkillCard({
           {entry.author}
         </span>
         <span>v{entry.version}</span>
-        <span className="font-semibold text-amber-600">
+        <span className="font-semibold text-amber-600 dark:text-amber-400">
           {(entry.priceCents ?? 0) > 0
             ? `¥${((entry.priceCents ?? 0) / 100).toFixed(2)}`
             : t('free')}
@@ -617,7 +623,7 @@ function SkillDetailDialog({ entry, onClose }: { entry: SkillMarketEntry; onClos
               <h2 className="text-lg font-bold tracking-tight text-foreground">{entry.name}</h2>
               <Badge variant="primary">v{entry.version}</Badge>
               <Badge variant="default">{entry.license}</Badge>
-              <span className="text-label font-semibold text-amber-600">
+              <span className="text-label font-semibold text-amber-600 dark:text-amber-400">
                 {(entry.priceCents ?? 0) > 0
                   ? `¥${((entry.priceCents ?? 0) / 100).toFixed(2)}`
                   : t('free')}

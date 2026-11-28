@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { ExternalLink, Loader2, Sparkles } from 'lucide-react'
+import { ExternalLink, Loader2, Sparkles, Circle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   reviewDocumentBlocks,
@@ -551,6 +551,8 @@ function DocxBody({
         'font-size:9px',
         'line-height:1',
         'cursor:pointer',
+        // 豁免类别: xlsx 网格内嵌 pin 的聚焦环(动态 DOM,不在 Tailwind class 体系;
+        // 环形投影仿 React 侧 ring-violet-500/50 的选中反馈,非 elevation)
         pin.id === focusedAnnotationId ? 'box-shadow:0 0 0 2px rgba(124,58,237,.45)' : '',
       ].join(';')
       marker.addEventListener('click', (event) => {
@@ -781,7 +783,8 @@ function XlsxGrid({
         pin.id === focusedAnnotationId && 'ring-2 ring-violet-500/50',
       )}
     >
-      ●
+      {/* 2026-11-28:字符 ● → lucide 矢量圆点(fill 继承字色) */}
+      <Circle className="h-1.5 w-1.5 fill-current" aria-hidden />
     </button>
   )
 

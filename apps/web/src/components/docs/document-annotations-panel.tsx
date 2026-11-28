@@ -233,7 +233,7 @@ export function DocumentAnnotationsPanel({
     <aside
       ref={asideRef}
       className={cn(
-        'flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-stroke-subtle bg-background shadow-xl',
+        'flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-stroke-subtle bg-background shadow-elevation-xl',
         className,
       )}
       data-testid="document-annotations-panel"

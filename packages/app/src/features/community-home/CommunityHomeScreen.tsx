@@ -28,7 +28,7 @@ import {
 } from 'react-native'
 import { rnRadius, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
 import { COMMUNITY_BANNER_FALLBACK_TONES } from '@ihui/shared/ui/community-banner-spec'
-import { ChevronRight, Clock, Image as ImageIcon, Mic, Plus, Search } from 'lucide-react-native'
+import { ChevronRight, Clock, Image as ImageIcon, Mic, Plus, Search, Sparkle } from 'lucide-react-native'
 
 /**
  * banner 文案压暗层:1×128 的透明→黑 60% 竖向渐变 PNG(data URI)。
@@ -540,9 +540,10 @@ export function CommunityHomeScreen({
                     <>
                       <View style={styles.bannerRingLarge} />
                       <View style={styles.bannerRingSmall} />
-                      <Text style={[styles.bannerSparkle, { color: '#fff', opacity: 0.16 }]}>
-                        ✦
-                      </Text>
+                      {/* 2026-11-28:字符 ✦ → lucide 矢量图标(web PageClient 装饰星同型) */}
+                      <View style={[styles.bannerSparkle, { opacity: 0.16 }]}>
+                        <Sparkle size={36} color="#fff" fill="#fff" strokeWidth={0} />
+                      </View>
                     </>
                   ) : null}
                   {hasImage ? (
