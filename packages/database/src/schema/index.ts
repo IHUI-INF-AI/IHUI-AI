@@ -196,6 +196,7 @@ export * from './self-media.js'
 export * from './publish-platform.js'
 export * from './publish-api-usage.js'
 export * from './skill-market-purchases.js'
+export * from './skill-market-refund-requests.js'
 export * from './publish-account-pool.js'
 // 搜索热词表(2026-07-20 补建,迁移报告 P0 缺失项)
 export * from './search-hot-words.js'

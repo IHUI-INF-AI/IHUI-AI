@@ -22,6 +22,8 @@ import { z } from 'zod'
 import { sql } from 'drizzle-orm'
 import type { SkillSource, SkillFrontmatter } from '@ihui/types'
 import type {
+  AdminSkillRefundRequestListResponse,
+  AdminSkillRefundRequestReviewResponse,
   SkillMarketEntry,
   SkillRating,
   SkillMarketListResponse,
@@ -34,18 +36,27 @@ import type {
   SkillMarketPurchaseAdminListResponse,
   SkillMarketSettlementResponse,
   SkillSellerAccountsResponse,
+  SkillMyPurchasesResponse,
+  SkillRefundRequestCreateResponse,
 } from '@ihui/shared/skills/market'
 import {
   InsufficientSkillFundsError,
   SkillPurchaseNotFoundError,
   SkillPurchaseStateError,
+  SkillRefundRequestNotFoundError,
+  SkillRefundRequestStateError,
+  approveSkillRefundRequest,
+  createSkillRefundRequest,
   getSkillEarnings,
   getSkillMarketSettlement,
   getSkillMarketSellerAccounts,
   hasPurchasedSkill,
+  listSkillMyPurchases,
   listSkillMarketPurchasesAdmin,
+  listSkillRefundRequestsAdmin,
   purchasePaidSkill,
   refundSkillPurchase,
+  rejectSkillRefundRequest,
   resolveSkillAuthorShareBps,
 } from '../services/skill-market-purchase-service.js'
 import {
@@ -874,6 +885,60 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(await getSkillEarnings(userId)))
   })
 
+  // GET /skills/market/purchases — 当前买家的购买记录与最近一次退款申请。
+  server.get('/skills/market/purchases', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const result: SkillMyPurchasesResponse = await listSkillMyPurchases(request.userId!)
+    return reply.send(success(result))
+  })
+
+  // POST /skills/market/purchases/:id/refund-request — 买家提交退款申请。
+  // 只写申请，不动钱；运营审核通过后才调用退款事务。
+  server.post<{ Params: { id: string } }>(
+    '/skills/market/purchases/:id/refund-request',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      const idParsed = z
+        .object({ id: z.uuid({ error: '无效的购买记录 ID' }) })
+        .safeParse(request.params)
+      if (!idParsed.success) {
+        return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const bodyParsed = z
+        .object({
+          reason: z
+            .string()
+            .trim()
+            .min(5, '退款原因至少 5 个字')
+            .max(500, '退款原因最多 500 个字'),
+        })
+        .safeParse(request.body ?? {})
+      if (!bodyParsed.success) {
+        return reply
+          .status(400)
+          .send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
+      }
+
+      let result: SkillRefundRequestCreateResponse
+      try {
+        result = await createSkillRefundRequest({
+          purchaseId: idParsed.data.id,
+          buyerUserId: request.userId!,
+          reason: bodyParsed.data.reason,
+        })
+      } catch (err) {
+        if (err instanceof SkillRefundRequestNotFoundError) {
+          return reply.status(404).send(error(404, err.message))
+        }
+        if (err instanceof SkillRefundRequestStateError) {
+          return reply.status(409).send(error(409, err.message))
+        }
+        throw err
+      }
+      return reply.status(201).send(success(result))
+    },
+  )
+
   // POST /skills/:name/install — 安装 skill(installCount++ + 写入用户私有库 Hash)
   server.post<{ Params: { name: string } }>('/skills/:name/install', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
@@ -1195,6 +1260,126 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
         buyerBalanceAfter: result.buyerBalanceAfter,
       }
       return reply.send(success(resp))
+    },
+  )
+
+  // GET /admin/skills-market/refund-requests — 买家退款申请列表。
+  server.get(
+    '/admin/skills-market/refund-requests',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const queryParsed = z
+        .object({
+          page: z.coerce.number().int().min(1).default(1),
+          pageSize: z.coerce.number().int().min(1).max(100).default(20),
+          status: z.enum(['pending', 'approved', 'rejected', 'cancelled']).optional(),
+        })
+        .safeParse(request.query)
+      if (!queryParsed.success) {
+        return reply
+          .status(400)
+          .send(error(400, queryParsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const result: AdminSkillRefundRequestListResponse = await listSkillRefundRequestsAdmin({
+        page: queryParsed.data.page,
+        pageSize: queryParsed.data.pageSize,
+        status: queryParsed.data.status,
+      })
+      return reply.send(success(result))
+    },
+  )
+
+  // POST /admin/skills-market/refund-requests/:id/approve — 批准并执行退款。
+  server.post<{ Params: { id: string } }>(
+    '/admin/skills-market/refund-requests/:id/approve',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const idParsed = z
+        .object({ id: z.uuid({ error: '无效的退款申请 ID' }) })
+        .safeParse(request.params)
+      if (!idParsed.success) {
+        return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const bodyParsed = z
+        .object({ note: z.string().max(500).optional() })
+        .safeParse(request.body ?? {})
+      if (!bodyParsed.success) {
+        return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
+      }
+
+      let result: AdminSkillRefundRequestReviewResponse
+      try {
+        result = await approveSkillRefundRequest({
+          requestId: idParsed.data.id,
+          operatorId: request.userId ?? null,
+          note: bodyParsed.data.note,
+        })
+      } catch (err) {
+        if (err instanceof SkillRefundRequestNotFoundError) {
+          return reply.status(404).send(error(404, err.message))
+        }
+        if (err instanceof SkillRefundRequestStateError) {
+          return reply.status(409).send(error(409, err.message))
+        }
+        if (err instanceof SkillPurchaseNotFoundError) {
+          return reply.status(404).send(error(404, '购买记录不存在'))
+        }
+        if (err instanceof SkillPurchaseStateError) {
+          return reply.status(409).send(error(409, err.message))
+        }
+        throw err
+      }
+
+      // 与直接退款保持一致：退款后撤掉买家已安装的技能；撤失败不回滚退款。
+      if (result.skillName && result.buyerUserId) {
+        const userKey = `skills:${result.buyerUserId}`
+        const installed = await readSkills(server.redis, userKey)
+        const remaining = installed.filter((s) => s.name !== result.skillName)
+        if (remaining.length !== installed.length) {
+          await writeSkills(server.redis, userKey, remaining)
+        }
+        await removeEnabled(server.redis, enabledKey(result.buyerUserId), result.skillName!)
+      }
+
+      return reply.send(success(result))
+    },
+  )
+
+  // POST /admin/skills-market/refund-requests/:id/reject — 拒绝申请，不动钱。
+  server.post<{ Params: { id: string } }>(
+    '/admin/skills-market/refund-requests/:id/reject',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const idParsed = z
+        .object({ id: z.uuid({ error: '无效的退款申请 ID' }) })
+        .safeParse(request.params)
+      if (!idParsed.success) {
+        return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const bodyParsed = z
+        .object({ note: z.string().max(500).optional() })
+        .safeParse(request.body ?? {})
+      if (!bodyParsed.success) {
+        return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
+      }
+
+      let result: AdminSkillRefundRequestReviewResponse
+      try {
+        result = await rejectSkillRefundRequest({
+          requestId: idParsed.data.id,
+          operatorId: request.userId ?? null,
+          note: bodyParsed.data.note,
+        })
+      } catch (err) {
+        if (err instanceof SkillRefundRequestNotFoundError) {
+          return reply.status(404).send(error(404, err.message))
+        }
+        if (err instanceof SkillRefundRequestStateError) {
+          return reply.status(409).send(error(409, err.message))
+        }
+        throw err
+      }
+      return reply.send(success(result))
     },
   )
 

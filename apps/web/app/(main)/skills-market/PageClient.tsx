@@ -23,6 +23,7 @@ import {
   User,
   Eye,
   EyeOff,
+  ShoppingBag,
   TrendingUp,
 } from 'lucide-react'
 
@@ -284,6 +285,13 @@ export default function SkillsMarketPageClient({ deepLinkName }: { deepLinkName?
         >
           <TrendingUp className="h-3.5 w-3.5" />
           {t('earnings')}
+        </Link>
+        <Link
+          href="/skills-market/purchases"
+          className="inline-flex items-center gap-1 text-label font-medium text-primary hover:underline"
+        >
+          <ShoppingBag className="h-3.5 w-3.5" />
+          我的购买
         </Link>
       </header>
 

@@ -15,6 +15,8 @@ import type {
   SkillNotification,
   SkillPurchaseResponse,
   SkillEarningsResponse,
+  SkillMyPurchasesResponse,
+  SkillRefundRequestCreateResponse,
 } from '@ihui/shared/skills/market'
 
 export const SKILL_MARKET_PAGE_SIZE = 20
@@ -45,6 +47,25 @@ export function purchaseSkill(name: string): Promise<SkillPurchaseResponse> {
 /** 当前用户的技能分成收益（金额单位：分）。 */
 export function fetchSkillEarnings(): Promise<SkillEarningsResponse> {
   return apiOrThrow<SkillEarningsResponse>('/api/skills/market/earnings')
+}
+
+/** 当前买家的购买记录与最近一次退款申请。 */
+export function fetchMySkillPurchases(): Promise<SkillMyPurchasesResponse> {
+  return apiOrThrow<SkillMyPurchasesResponse>('/api/skills/market/purchases')
+}
+
+/** 提交退款申请；只落申请，不立即退款。 */
+export function requestSkillRefund(
+  purchaseId: string,
+  reason: string,
+): Promise<SkillRefundRequestCreateResponse> {
+  return apiOrThrow<SkillRefundRequestCreateResponse>(
+    `/api/skills/market/purchases/${encodeURIComponent(purchaseId)}/refund-request`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    },
+  )
 }
 
 export function rateSkill(name: string, body: SkillRateRequest): Promise<SkillRating> {
