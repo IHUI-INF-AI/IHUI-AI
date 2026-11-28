@@ -30545,7 +30545,21 @@
     "approvalOpen": "보기",
     "approvalNone": "승인 인스턴스 없음(다단계 규칙 미일치, 단계 단일 처리)",
     "approvalStep": "{current}/{total} 단계",
-    "approvalReason": "반려 사유"
+    "approvalReason": "반려 사유",
+    "syncHint": "Feishu 출퇴근 기록에서 근태 데이터를 동기화합니다. 결과는 임시 배치로 들어가며 확인 후 반영됩니다.",
+    "syncEnabled": "사용",
+    "syncDisabledBadge": "사용 안 함",
+    "syncScannedUsers": "스캔한 사용자 수",
+    "syncAttempted": "동기화 시도 횟수",
+    "syncSyncedBatches": "동기화 성공 배치 수",
+    "syncSkippedNotImplemented": "미구현 건너뛴 수",
+    "syncFinishedAt": "완료 시각",
+    "syncErrors": "오류 상세({count})",
+    "syncLoading": "동기화 상태를 불러오는 중…",
+    "syncRunNow": "지금 동기화",
+    "syncRunning": "동기화 중…",
+    "syncRan": "동기화 완료: {syncedBatches}개 배치를 기록했습니다",
+    "syncDisabled": "동기화가 꺼져 있습니다. 먼저 시스템 설정에서 활성화하세요."
   },
   "financeAi": {
     "automationTitle": "자동화",

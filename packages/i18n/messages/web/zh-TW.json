@@ -30408,7 +30408,21 @@
     "insuranceReadyChip": "社保配置就緒",
     "insuranceNotReadyChip": "社保配置缺 {count} 項",
     "insuranceIssuesTitle": "算薪前配置體檢",
-    "insuranceRoster": "已有 {count} 筆地區年度配置"
+    "insuranceRoster": "已有 {count} 筆地區年度配置",
+    "syncHint": "從飛書打卡記錄同步考勤資料；同步結果先進入暫存批次，確認後才會生效。",
+    "syncEnabled": "已開啟",
+    "syncDisabledBadge": "未開啟",
+    "syncScannedUsers": "掃描使用者數",
+    "syncAttempted": "嘗試同步次數",
+    "syncSyncedBatches": "成功同步批次數",
+    "syncSkippedNotImplemented": "未實作跳過數",
+    "syncFinishedAt": "完成時間",
+    "syncErrors": "錯誤明細（{count}）",
+    "syncLoading": "正在讀取同步狀態…",
+    "syncRunNow": "立即同步",
+    "syncRunning": "同步中…",
+    "syncRan": "同步完成，成功寫入 {syncedBatches} 個批次",
+    "syncDisabled": "同步開關未開啟，請先於系統設定啟用"
   },
   "financeAi": {
     "automationTitle": "自動化處理",

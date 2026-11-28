@@ -30913,7 +30913,21 @@
     "insuranceReadyChip": "社保配置就绪",
     "insuranceNotReadyChip": "社保配置缺 {count} 项",
     "insuranceIssuesTitle": "算薪前配置体检",
-    "insuranceRoster": "已有 {count} 条地区年度配置"
+    "insuranceRoster": "已有 {count} 条地区年度配置",
+    "syncHint": "从飞书打卡记录同步考勤数据；同步结果先进入暂存批次，确认后才会生效。",
+    "syncEnabled": "已开启",
+    "syncDisabledBadge": "未开启",
+    "syncScannedUsers": "扫描用户数",
+    "syncAttempted": "尝试同步次数",
+    "syncSyncedBatches": "成功同步批次数",
+    "syncSkippedNotImplemented": "未实现跳过数",
+    "syncFinishedAt": "完成时间",
+    "syncErrors": "错误明细（{count}）",
+    "syncLoading": "正在读取同步状态…",
+    "syncRunNow": "立即同步",
+    "syncRunning": "同步中…",
+    "syncRan": "同步完成，成功写入 {syncedBatches} 个批次",
+    "syncDisabled": "同步开关未开启，请先在系统配置中启用"
   },
   "financeAi": {
     "automationTitle": "自动化处理",

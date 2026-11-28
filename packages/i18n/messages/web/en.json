@@ -30248,7 +30248,21 @@
     "insuranceReadyChip": "Social insurance ready",
     "insuranceNotReadyChip": "{count} config issues",
     "insuranceIssuesTitle": "Pre-payroll config check",
-    "insuranceRoster": "{count} region-year configs"
+    "insuranceRoster": "{count} region-year configs",
+    "syncHint": "Sync attendance data from Feishu clock-in records. Results enter a staging batch and take effect only after confirmation.",
+    "syncEnabled": "Enabled",
+    "syncDisabledBadge": "Disabled",
+    "syncScannedUsers": "Users scanned",
+    "syncAttempted": "Sync attempts",
+    "syncSyncedBatches": "Batches synced",
+    "syncSkippedNotImplemented": "Skipped (not implemented)",
+    "syncFinishedAt": "Finished at",
+    "syncErrors": "Errors ({count})",
+    "syncLoading": "Loading sync status…",
+    "syncRunNow": "Sync now",
+    "syncRunning": "Syncing…",
+    "syncRan": "Sync completed: {syncedBatches} batches written",
+    "syncDisabled": "Sync is disabled. Enable it in system settings first."
   },
   "financeAi": {
     "automationTitle": "Automation",

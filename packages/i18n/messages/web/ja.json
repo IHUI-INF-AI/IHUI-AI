@@ -30545,7 +30545,21 @@
     "approvalOpen": "表示",
     "approvalNone": "承認インスタンスなし(多段階ルール未一致、単段階で処理)",
     "approvalStep": "第 {current}/{total} 段階",
-    "approvalReason": "差し戻し理由"
+    "approvalReason": "差し戻し理由",
+    "syncHint": "Feishu の打刻記録から勤怠データを同期します。結果は一時バッチに入り、確認後に反映されます。",
+    "syncEnabled": "有効",
+    "syncDisabledBadge": "無効",
+    "syncScannedUsers": "スキャン対象ユーザー数",
+    "syncAttempted": "同期試行回数",
+    "syncSyncedBatches": "同期成功バッチ数",
+    "syncSkippedNotImplemented": "未実装スキップ数",
+    "syncFinishedAt": "完了時刻",
+    "syncErrors": "エラー詳細（{count}）",
+    "syncLoading": "同期状態を読み込み中…",
+    "syncRunNow": "今すぐ同期",
+    "syncRunning": "同期中…",
+    "syncRan": "同期完了：{syncedBatches} バッチを書き込みました",
+    "syncDisabled": "同期が無効です。先にシステム設定で有効にしてください。"
   },
   "financeAi": {
     "automationTitle": "自動化",
