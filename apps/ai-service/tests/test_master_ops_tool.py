@@ -564,6 +564,91 @@ async def test_dispatch_single_creates_run_and_executes(monkeypatch: pytest.Monk
 
 
 @pytest.mark.asyncio
+async def test_run_pause_rejects_multi_mode() -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "code": 0,
+                "data": {
+                    "action": "run_get",
+                    "result": {
+                        "id": "run-multi",
+                        "status": "running",
+                        "sessionId": "session-multi",
+                        "mode": "parallel",
+                    },
+                },
+            },
+        )
+
+    envelope = await _tool(handler).handle(
+        {"action": "run_pause", "runId": "run-multi"}, user_id="user-1"
+    )
+
+    assert envelope["ok"] is False
+    assert envelope["error"]["code"] == "AGENT_RUN_PAUSE_UNSUPPORTED"
+
+
+@pytest.mark.asyncio
+async def test_run_resume_rejects_non_paused_run() -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "code": 0,
+                "data": {
+                    "action": "run_get",
+                    "result": {
+                        "id": "run-running",
+                        "status": "running",
+                        "sessionId": "session-running",
+                        "mode": "single",
+                    },
+                },
+            },
+        )
+
+    envelope = await _tool(handler).handle(
+        {"action": "run_resume", "runId": "run-running"}, user_id="user-1"
+    )
+
+    assert envelope["ok"] is False
+    assert envelope["error"]["code"] == "AGENT_RUN_NOT_PAUSED"
+
+
+@pytest.mark.asyncio
+async def test_run_talk_prefers_local_steer(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(ops_module, "request_local_steer", lambda _run_id, _text: True)
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "code": 0,
+                "data": {
+                    "action": "run_get",
+                    "result": {
+                        "id": "run-live",
+                        "status": "running",
+                        "sessionId": "session-live",
+                        "mode": "single",
+                    },
+                },
+            },
+        )
+
+    envelope = await _tool(handler).handle(
+        {"action": "run_talk", "runId": "run-live", "message": "补充风险点"},
+        user_id="user-1",
+    )
+
+    assert envelope["ok"] is True
+    assert envelope["data"]["outcome"] == "steered"
+    assert envelope["data"]["delivery"] == "next_iteration"
+
+
+@pytest.mark.asyncio
 async def test_health_is_passthrough() -> None:
     def handler(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"code": 0, "data": {"action": "health", "result": {"ok": True}}})

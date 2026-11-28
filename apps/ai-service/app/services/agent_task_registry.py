@@ -22,6 +22,7 @@ __all__ = [
     "cancel_tasks",
     "register_run_control",
     "register_task",
+    "request_local_steer",
     "request_local_stop",
     "run_task_key",
     "session_task_key",
@@ -95,6 +96,15 @@ def request_local_stop(run_id: str) -> bool:
         return False
     request_stop()
     return True
+
+
+def request_local_steer(run_id: str, text: str) -> bool:
+    """向本进程的 run 控制句柄注入一条中途提示；没有句柄/已停止返回 False。"""
+    control = _controls.get(run_id)
+    steer = getattr(control, "steer", None) if control is not None else None
+    if not callable(steer):
+        return False
+    return bool(steer(text))
 
 
 async def cancel_tasks(

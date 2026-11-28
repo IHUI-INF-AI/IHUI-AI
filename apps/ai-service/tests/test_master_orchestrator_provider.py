@@ -146,7 +146,7 @@ async def test_ledger_gets_registry_enum_not_completed(monkeypatch: pytest.Monke
             pass
 
     class FakeLedger:
-        def session(self, run_id: str) -> FakeSession:
+        def session(self, run_id: str, *, start_seq: int = 1) -> FakeSession:
             return FakeSession(run_id)
 
     runtime = _runtime()
@@ -259,7 +259,7 @@ async def test_run_ledger_records_status_and_tool_steps(monkeypatch: pytest.Monk
         def __init__(self) -> None:
             self.session_obj = FakeSession()
 
-        def session(self, _run_id: str) -> FakeSession:
+        def session(self, _run_id: str, *, start_seq: int = 1) -> FakeSession:
             return self.session_obj
 
     ledger = FakeLedger()
@@ -280,6 +280,6 @@ async def test_run_ledger_records_status_and_tool_steps(monkeypatch: pytest.Monk
     assert result.status == "completed"
     assert ledger.session_obj.events == [
         ("status", {"status": "running"}),
-        ("status", {"status": "succeeded", "error_code": None, "error_message": None}),
         ("step", {"iteration": 1, "tool": "read_file", "ok": True, "blocked": False}),
+        ("status", {"status": "succeeded", "error_code": None, "error_message": None}),
     ]

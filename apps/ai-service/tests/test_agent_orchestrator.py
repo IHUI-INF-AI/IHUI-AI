@@ -155,6 +155,129 @@ class TestInvoke:
         assert result.tool_calls == []
 
     @pytest.mark.asyncio
+    async def test_request_pause_returns_paused_at_round_boundary(self):
+        """暂停：轮次边界收口为 paused，保留已完成输出，错误码可区分 stop/cancel。"""
+        orchestrator = AgentOrchestrator()
+        orchestrator.request_pause()
+        result = await orchestrator.invoke(
+            agent_name="researcher",
+            user_input="暂停前不应继续调用模型",
+            session_id="test-orch-pause",
+        )
+        assert result.status == "paused"
+        assert result.error_code == "AGENT_RUN_PAUSED"
+        assert result.iterations == 0
+        assert result.tool_calls == []
+
+    @pytest.mark.asyncio
+    async def test_steer_is_accepted_only_while_run_is_live(self):
+        orchestrator = AgentOrchestrator()
+        assert orchestrator.steer("run 还没开始") is False
+        observed: dict[str, bool] = {}
+
+        async def fake_run_agent(*_args, **_kwargs):
+            observed["accepted"] = orchestrator.steer("下一轮请补充风险点")
+            return AgentStepResult(
+                agent_name="researcher",
+                input="x",
+                output="done",
+                status="completed",
+            )
+
+        orchestrator._run_agent = fake_run_agent  # type: ignore[method-assign]
+        result = await orchestrator.invoke(
+            "researcher", "整理结论", session_id="test-orch-steer"
+        )
+        assert result.status == "completed"
+        assert observed["accepted"] is True
+        assert orchestrator.steer("run 已结束") is False
+
+    @pytest.mark.asyncio
+    async def test_pause_writes_eager_checkpoint_with_owner_metadata(self):
+        from app.services.agent_checkpoint import AgentLoopCheckpoint
+
+        class FakeCheckpointManager:
+            def __init__(self):
+                self.calls: list[dict] = []
+
+            async def save_checkpoint(self, session_id, iteration, messages, tool_state, **kwargs):
+                self.calls.append(
+                    {
+                        "session_id": session_id,
+                        "iteration": iteration,
+                        "messages": messages,
+                        "tool_state": tool_state,
+                        **kwargs,
+                    }
+                )
+                return "cp-paused-1"
+
+        manager = FakeCheckpointManager()
+        orchestrator = AgentOrchestrator(
+            checkpoint_manager=manager, owner_user_id="user-1", definition_id="def-1"
+        )
+        orchestrator._current_messages = [
+            {"role": "system", "content": "sys"},
+            {"role": "user", "content": "q"},
+        ]
+        orchestrator._current_session_id = "session-pause-cp"
+        orchestrator._current_iteration = 1
+        orchestrator._current_agent_name = "coder"
+        orchestrator._current_user_input = "q"
+        checkpoint_id = await orchestrator.pause()
+
+        assert checkpoint_id == "cp-paused-1"
+        call = manager.calls[0]
+        assert call["status"] == "paused"
+        assert call["owner_user_id"] == "user-1"
+        assert call["metadata"]["definition_id"] == "def-1"
+        assert call["metadata"]["checkpoint_stage"] == "eager"
+        assert call["messages"][1]["content"] == "q"
+
+    @pytest.mark.asyncio
+    async def test_resume_reuses_checkpoint_context(self, monkeypatch):
+        from app.services.agent_checkpoint import AgentLoopCheckpoint
+
+        checkpoint = AgentLoopCheckpoint(
+            checkpoint_id="cp-1",
+            session_id="session-resume",
+            iteration=2,
+            messages=[{"role": "user", "content": "q"}],
+            tool_state={},
+            status="paused",
+            created_at=1.0,
+            expires_at=9999999999.0,
+            metadata={
+                "agent_name": "coder",
+                "user_input": "q",
+                "session_id": "session-resume",
+                "definition_id": "def-1",
+                "output": "已完成两步",
+                "tool_allow": ["read_file"],
+                "owner_user_id": "user-1",
+            },
+        )
+        captured: dict = {}
+        orchestrator = AgentOrchestrator()
+
+        async def fake_invoke(*args, **kwargs):
+            captured["args"] = args
+            captured["kwargs"] = kwargs
+            return AgentStepResult(
+                agent_name="coder", input="q", output="续跑完成", status="completed"
+            )
+
+        monkeypatch.setattr(orchestrator, "invoke", fake_invoke)
+        result = await orchestrator.resume(checkpoint, run_id="run-resume")
+
+        assert result.status == "completed"
+        assert captured["args"] == ("coder", "q")
+        assert captured["kwargs"]["resume_checkpoint"] is checkpoint
+        assert captured["kwargs"]["run_id"] == "run-resume"
+        assert captured["kwargs"]["session_id"] == "session-resume"
+        assert captured["kwargs"]["tool_allow"] == ["read_file"]
+
+    @pytest.mark.asyncio
     async def test_terminal_status_event_lands_after_step_events(self):
         """终态事件必须在 step 之后；否则时间线会变成“已结束又执行了一步”。"""
         calls: list[tuple[str, dict]] = []
@@ -167,7 +290,7 @@ class TestInvoke:
                 calls.append(("append", {"type": event_type, "payload": payload}))
 
         class FakeLedger:
-            def session(self, _run_id: str) -> FakeSession:
+            def session(self, _run_id: str, *, start_seq: int = 1) -> FakeSession:
                 return FakeSession()
 
         orchestrator = AgentOrchestrator(run_ledger=FakeLedger())

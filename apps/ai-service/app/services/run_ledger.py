@@ -211,6 +211,25 @@ class RunLedgerClient:
         )
         return data
 
+    async def max_event_seq(self, run_id: str) -> int:
+        """读该 run 已落库的最大事件 seq；续跑从 max+1 起算，避免撞号后空转。"""
+        try:
+            data = await self._request(
+                "POST",
+                "/api/internal/agent-registry/ops",
+                json={"action": "run_logs", "runId": run_id, "limit": 100},
+            )
+        except Exception:  # noqa: BLE001 - 查不到就按 0，让 append 的撞号顺延兜底
+            return 0
+        items = data.get("items") if isinstance(data, dict) else None
+        if not isinstance(items, list) and isinstance(data, dict):
+            result = data.get("result")
+            items = result.get("items") if isinstance(result, dict) else None
+        if not isinstance(items, list):
+            return 0
+        seqs = [int(item.get("seq") or 0) for item in items if isinstance(item, dict)]
+        return max(seqs, default=0)
+
     async def append_event(
         self,
         run_id: str,
@@ -237,9 +256,26 @@ class RunLedgerClient:
         items = outbox.pending()
         for index, item in enumerate(items):
             delivered = False
+            duplicate_retries = 0
             while item.attempt < len(_RETRY_DELAYS):
                 try:
-                    await self.append_event(item.run_id, item.seq, item.type, item.payload)
+                    result = await self.append_event(
+                        item.run_id, item.seq, item.type, item.payload
+                    )
+                    if result.get("duplicate"):
+                        # 同一 run 续跑/重试会重新从 seq=1 起算；撞到已存在的事件时
+                        # 必须顺延 seq 后再发，否则 API 只返回 duplicate、完全不改 run 状态。
+                        duplicate_retries += 1
+                        if duplicate_retries > 200:
+                            raise ValueError(f"事件 seq 连续重复超过 200 次 run={item.run_id}")
+                        logger.warning(
+                            "[run-ledger] 事件 seq 已存在，顺延重发 run=%s seq=%s type=%s",
+                            item.run_id,
+                            item.seq,
+                            item.type,
+                        )
+                        item.seq += 1
+                        continue
                     delivered = True
                     break
                 except (httpx.HTTPError, InternalServiceCredentialError, ValueError) as exc:

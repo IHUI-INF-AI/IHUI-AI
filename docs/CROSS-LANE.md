@@ -223,7 +223,26 @@
   `agent_runs` 为 `canceled / AGENT_RUN_STOPPED / 用户请求停止执行`；事件顺序
   `running → step ×3 → canceled`，终态落在步骤之后。同轮修复终态事件先于 step 的顺序问题，
   并让 API 在 canceled/timeout 终态也持久化 `errorCode/errorMessage`。
+- 已落（2026-11-28）: `run_pause` / `run_resume` / `run_talk` 对 master 自己派发的 single run 真跑通过。
+  `agent_ops.dispatch` 现在把真实 `AgentOrchestrator` 注册进 `agent_run_control`，暂停时落 eager +
+  轮次边界两份 `agent_checkpoints`（带 `owner_user_id`、messages、iteration、output），run 以
+  `paused / AGENT_RUN_PAUSED` 收口；`run_resume` 用自定义 runner 从最新 paused checkpoint 重建
+  `AgentOrchestrator`，不重跑已完成轮次；`run_talk` 优先注入本地 steer 队列，下一轮 LLM 前生效，
+  没有再回退 `wake_session`。实测 run `663bdfc9-a037-4f77-867f-29d51312e792`：
+  `run_talk=steered / delivery=next_iteration` 且 LLM 第 3 轮看到提示；`run_pause=paused /
+  checkpointId=1073495699c44a7195cabaa3c8382d62 / runStatus=paused`，dispatch 返回
+  `status=paused / iterations=4 / output=已完成的步骤 4`；`run_resume=resumed`，结果
+  `completed / iterations=5 / output=pause-resume-e2e-finished`。DB 终态 `succeeded`，事件
+  `running → step ×4 → paused → running → step → succeeded`。
+- 已落（2026-11-28）: 跨进程续跑真跑通过：暂停进程退出后，新进程只用 DB 里的 paused checkpoint
+  调 `run_resume`，无进程内 `agent_run_control` 记录仍能恢复。实测 run
+  `985b4abc-8103-4232-814f-5c9fb848be8a`（含 max seq 修复后的最终复验）与
+  `bbf99488-257f-4b44-99cc-fcf24d06d78b`，均为 `outcome=resumed / result.status=completed`，
+  DB 终态 `succeeded`。同轮修复两个 Windows/账本坑：psycopg async 不能在 ProactorEventLoop 上跑，
+  checkpoint 持久层在 Windows 自动降级为线程内同步连接（真库写读已验）；同一 run 续跑的事件 seq
+  从 1 重算会撞号，`run_logs` 读最大 seq 后从 max+1 起算，重复时仍顺延自愈。
 - 没落: `master_memory` 的 agent 作用域仍明确拒绝（`agent_memory.py` 只是进程内缓存，不是长期 DB 权威）；
-  `run_stop` 已与 `run_cancel` 分离，但只到“轮次边界”粒度，工具批中途不硬砍；`master` 自己派发的
-  run 的 pause/resume 仍走 `AgentLoopV2` 会话控制面，未接 master dispatch 的 checkpoint。
+  `run_stop` 只到“轮次边界”粒度，工具批中途不硬砍；`run_pause` / `run_resume` 只支持 `mode=single`，
+  multi 模式显式返回 `AGENT_RUN_PAUSE_UNSUPPORTED`；`run_talk` 跨实例仍只有 `wake_session` 回退，
+  没有 Redis steer 通道。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

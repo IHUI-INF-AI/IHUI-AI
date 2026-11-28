@@ -24,6 +24,7 @@ import importlib
 import json
 import logging
 import os
+import sys
 import time
 import uuid
 from dataclasses import dataclass, field, replace
@@ -538,6 +539,7 @@ class AgentCheckpointManager:
         self._db_url = db_url
         self._pool: Any | None = None  # AsyncConnectionPool
         self._table_ready = False
+        self._pg_thread_mode: bool | None = None
         self._use_pg = bool(db_url) and _PSYCOPG_AVAILABLE
         if db_url and not _PSYCOPG_AVAILABLE:
             logger.warning(
@@ -570,6 +572,68 @@ class AgentCheckpointManager:
             for sql in _ENSURE_TABLE_SQLS:
                 await conn.execute(sql)
         self._table_ready = True
+
+    def _need_pg_thread(self) -> bool:
+        """Windows ProactorEventLoop 下 psycopg async 不可用,改走线程 + 同步连接。
+
+        psycopg 的异步连接要求 SelectorEventLoop;uvicorn 在 Windows 默认
+        ProactorEventLoop。全局换 loop 会打断 create_subprocess_exec,所以只在
+        checkpoint 持久层内部降级,记忆/redis/工具语义不变。
+        """
+        if self._pg_thread_mode is None:
+            try:
+                loop = asyncio.get_running_loop()
+                self._pg_thread_mode = (
+                    sys.platform == "win32"
+                    and type(loop).__name__ == "ProactorEventLoop"
+                )
+            except RuntimeError:
+                self._pg_thread_mode = False
+        return bool(self._pg_thread_mode)
+
+    def _pg_sync_connect(self) -> Any:
+        import psycopg
+
+        return psycopg.connect(
+            self._db_url,
+            autocommit=True,
+            row_factory=_psycopg_rows.dict_row,
+        )
+
+    def _pg_sync_ensure_table(self, conn: Any) -> None:
+        if self._table_ready:
+            return
+        for sql in _ENSURE_TABLE_SQLS:
+            conn.execute(sql)
+        self._table_ready = True
+
+    def _save_checkpoint_pg_sync(self, checkpoint: AgentLoopCheckpoint) -> None:
+        with self._pg_sync_connect() as conn:
+            self._pg_sync_ensure_table(conn)
+            conn.execute(
+                _UPSERT_SQL,
+                (
+                    checkpoint.checkpoint_id,
+                    checkpoint.session_id,
+                    checkpoint.status,
+                    checkpoint.iteration,
+                    _json_dumps(checkpoint.to_dict()),
+                    _ts_to_iso(checkpoint.created_at),
+                    _ts_to_iso(checkpoint.expires_at),
+                ),
+            )
+
+    def _load_checkpoint_pg_sync(self, checkpoint_id: str) -> AgentLoopCheckpoint | None:
+        with self._pg_sync_connect() as conn:
+            self._pg_sync_ensure_table(conn)
+            row = conn.execute(_SELECT_BY_ID_SQL, (checkpoint_id,)).fetchone()
+        return _row_to_agent_checkpoint(row) if row is not None else None
+
+    def _load_latest_pg_sync(self, session_id: str) -> AgentLoopCheckpoint | None:
+        with self._pg_sync_connect() as conn:
+            self._pg_sync_ensure_table(conn)
+            row = conn.execute(_SELECT_LATEST_BY_SESSION_SQL, (session_id,)).fetchone()
+        return _row_to_agent_checkpoint(row) if row is not None else None
 
     async def _get_redis(self) -> Any:
         """获取 redis 客户端,连接失败时降级为内存模式。"""
@@ -672,19 +736,22 @@ class AgentCheckpointManager:
         # PG 持久写入(三层存储之持久层,失败只 warning,不阻塞 loop)
         if self._use_pg:
             try:
-                pool = await self._get_pool()
-                await self._ensure_table()
-                async with pool.connection() as conn:
-                    await conn.execute(
-                        _UPSERT_SQL,
-                        checkpoint.checkpoint_id,
-                        checkpoint.session_id,
-                        checkpoint.status,
-                        checkpoint.iteration,
-                        _json_dumps(checkpoint.to_dict()),
-                        _ts_to_iso(checkpoint.created_at),
-                        _ts_to_iso(checkpoint.expires_at),
-                    )
+                if self._need_pg_thread():
+                    await asyncio.to_thread(self._save_checkpoint_pg_sync, checkpoint)
+                else:
+                    pool = await self._get_pool()
+                    await self._ensure_table()
+                    async with pool.connection() as conn:
+                        await conn.execute(
+                            _UPSERT_SQL,
+                            checkpoint.checkpoint_id,
+                            checkpoint.session_id,
+                            checkpoint.status,
+                            checkpoint.iteration,
+                            _json_dumps(checkpoint.to_dict()),
+                            _ts_to_iso(checkpoint.created_at),
+                            _ts_to_iso(checkpoint.expires_at),
+                        )
             except Exception as e:
                 logger.warning("AgentCheckpointManager PG 写入失败(降级继续): %s", e)
 
@@ -855,19 +922,23 @@ class AgentCheckpointManager:
         # 3. PG 兜底查(持久层,命中回填内存;过期留给 cleanup_expired 清理)
         if self._use_pg:
             try:
-                pool = await self._get_pool()
-                await self._ensure_table()
-                async with pool.connection() as conn:
-                    cur = await conn.execute(_SELECT_BY_ID_SQL, checkpoint_id)
-                    row = await cur.fetchone()
-                if row is not None:
-                    cp = _row_to_agent_checkpoint(row)
-                    if not cp.is_expired(now):
-                        # 回填内存缓存
-                        async with self._lock:
-                            self._checkpoints[checkpoint_id] = cp
-                            self._session_index[cp.session_id] = checkpoint_id
-                        return await self._reconcile_loaded(cp, now=now)
+                if self._need_pg_thread():
+                    cp = await asyncio.to_thread(
+                        self._load_checkpoint_pg_sync, checkpoint_id
+                    )
+                else:
+                    pool = await self._get_pool()
+                    await self._ensure_table()
+                    async with pool.connection() as conn:
+                        cur = await conn.execute(_SELECT_BY_ID_SQL, checkpoint_id)
+                        row = await cur.fetchone()
+                    cp = _row_to_agent_checkpoint(row) if row is not None else None
+                if cp is not None and not cp.is_expired(now):
+                    # 回填内存缓存
+                    async with self._lock:
+                        self._checkpoints[checkpoint_id] = cp
+                        self._session_index[cp.session_id] = checkpoint_id
+                    return await self._reconcile_loaded(cp, now=now)
             except Exception as e:
                 logger.warning("AgentCheckpointManager PG 读取失败(降级继续): %s", e)
 
@@ -896,19 +967,21 @@ class AgentCheckpointManager:
         # 3. PG 按 session 查最新(持久层,命中回填内存)
         if self._use_pg:
             try:
-                pool = await self._get_pool()
-                await self._ensure_table()
-                async with pool.connection() as conn:
-                    cur = await conn.execute(_SELECT_LATEST_BY_SESSION_SQL, session_id)
-                    row = await cur.fetchone()
-                if row is not None:
-                    cp = _row_to_agent_checkpoint(row)
-                    if not cp.is_expired(now):
-                        # 回填内存缓存
-                        async with self._lock:
-                            self._checkpoints[cp.checkpoint_id] = cp
-                            self._session_index[cp.session_id] = cp.checkpoint_id
-                        return await self._reconcile_loaded(cp, now=now)
+                if self._need_pg_thread():
+                    cp = await asyncio.to_thread(self._load_latest_pg_sync, session_id)
+                else:
+                    pool = await self._get_pool()
+                    await self._ensure_table()
+                    async with pool.connection() as conn:
+                        cur = await conn.execute(_SELECT_LATEST_BY_SESSION_SQL, session_id)
+                        row = await cur.fetchone()
+                    cp = _row_to_agent_checkpoint(row) if row is not None else None
+                if cp is not None and not cp.is_expired(now):
+                    # 回填内存缓存
+                    async with self._lock:
+                        self._checkpoints[cp.checkpoint_id] = cp
+                        self._session_index[cp.session_id] = cp.checkpoint_id
+                    return await self._reconcile_loaded(cp, now=now)
             except Exception as e:
                 logger.warning("AgentCheckpointManager PG session 查询失败(降级继续): %s", e)
 

@@ -337,18 +337,130 @@ class AgentOrchestrator:
         definition_provider: Callable[[str], RuntimeAgentDefinition] | None = None,
         run_ledger: RunLedgerClient | None = None,
         available_tool_names: set[str] | None = None,
+        owner_user_id: str | None = None,
+        checkpoint_manager: Any | None = None,
+        definition_id: str | None = None,
     ) -> None:
         self._registry = registry or AgentRegistry()
         self._definition_provider = definition_provider
         self._run_ledger = run_ledger
         self._available_tool_names = available_tool_names
         self._tool_names_loaded = available_tool_names is not None
+        self._owner_user_id = owner_user_id
+        self._checkpoint_manager = checkpoint_manager
+        self._definition_id = definition_id
         # `agent_ops.run_stop` 的优雅停止信号：只在轮次边界生效，不中途 task.cancel()。
         self._stop_requested = False
+        # `agent_ops.run_pause` 的暂停信号；与 stop 分开，暂停要落 checkpoint 才能续跑。
+        self._pause_requested = False
+        self._steer_queue: list[str] = []
+        self._accepting_steer = False
+        self._current_messages: list[dict[str, Any]] | None = None
+        self._current_iteration = 0
+        self._current_output = ""
+        self._current_session_id: str | None = None
+        self._current_run_id: str | None = None
+        self._current_agent_name: str | None = None
+        self._current_user_input = ""
+        self._current_model: str | None = None
+        self._current_chat_mode: str | None = None
+        self._current_permission_mode: str | None = None
+        self._current_tool_allow: list[str] | None = None
+        self._current_tool_deny: list[str] | None = None
 
     def request_stop(self) -> None:
         """请求在当前轮次结束后停止；幂等，不改变已完成的输出。"""
         self._stop_requested = True
+
+    def request_pause(self) -> None:
+        """请求在当前轮次结束后暂停；续跑需要 checkpoint，落盘失败由 pause() 明说。"""
+        self._pause_requested = True
+
+    def steer(self, text: str) -> bool:
+        """把一条中途提示排进下一轮；run 已不在接收态时返回 False。"""
+        if not self._accepting_steer or self._stop_requested or self._pause_requested:
+            return False
+        message = text.strip()
+        if not message:
+            return False
+        self._steer_queue.append(message)
+        return True
+
+    def _checkpoint_metadata(self, *, stage: str) -> dict[str, Any]:
+        return {
+            "agent_name": self._current_agent_name,
+            "definition_id": self._definition_id,
+            "user_input": self._current_user_input,
+            "model": self._current_model,
+            "session_id": self._current_session_id,
+            "run_id": self._current_run_id,
+            "chat_mode": self._current_chat_mode,
+            "permission_mode": self._current_permission_mode,
+            "tool_allow": self._current_tool_allow,
+            "tool_deny": self._current_tool_deny,
+            "output": self._current_output,
+            "iteration": self._current_iteration,
+            "checkpoint_stage": stage,
+        }
+
+    async def _save_pause_checkpoint(self, *, stage: str) -> str | None:
+        if self._checkpoint_manager is None or not self._current_messages:
+            return None
+        if not self._current_session_id:
+            return None
+        try:
+            return await self._checkpoint_manager.save_checkpoint(
+                self._current_session_id,
+                self._current_iteration,
+                self._current_messages,
+                {},
+                status="paused",
+                metadata=self._checkpoint_metadata(stage=stage),
+                owner_user_id=self._owner_user_id,
+            )
+        except Exception as error:  # noqa: BLE001 -- checkpoint 落盘失败要显式报不可续跑
+            logger.warning("[orchestrator] pause checkpoint save failed: %s", error)
+            return None
+
+    async def pause(self) -> str | None:
+        """立即落一份 eager checkpoint 并请求轮次边界暂停，返回 checkpoint id。
+
+        与 AgentLoopV2 的既有形状一致：eager checkpoint 只用于当场回执；真正可续跑的
+        权威点是轮次边界那份，续跑按 session 取最新。
+        """
+        self._pause_requested = True
+        return await self._save_pause_checkpoint(stage="eager")
+
+    async def resume(self, checkpoint: Any, *, run_id: str) -> AgentStepResult:
+        """从暂停 checkpoint 继续同一 run；只用于真实 paused checkpoint。"""
+        metadata = getattr(checkpoint, "metadata", None) or {}
+        agent_name = str(metadata.get("agent_name") or "").strip()
+        user_input = str(metadata.get("user_input") or "")
+        if not agent_name:
+            raise AgentResolveError(
+                "AGENT_RESUME_CONTEXT_MISSING",
+                "暂停 checkpoint 缺少 agent_name，无法续跑",
+            )
+        return await self.invoke(
+            agent_name,
+            user_input,
+            session_id=str(metadata.get("session_id") or "") or None,
+            model_override=str(metadata.get("model") or "") or None,
+            chat_mode=str(metadata.get("chat_mode") or "") or None,
+            permission_mode=str(metadata.get("permission_mode") or "") or None,
+            tool_allow=(
+                metadata.get("tool_allow")
+                if isinstance(metadata.get("tool_allow"), list)
+                else None
+            ),
+            tool_deny=(
+                metadata.get("tool_deny")
+                if isinstance(metadata.get("tool_deny"), list)
+                else None
+            ),
+            run_id=run_id,
+            resume_checkpoint=checkpoint,
+        )
 
     @property
     def registry(self) -> AgentRegistry:
@@ -420,6 +532,7 @@ class AgentOrchestrator:
         tool_allow: list[str] | None = None,
         tool_deny: list[str] | None = None,
         run_id: str | None = None,
+        resume_checkpoint: Any | None = None,
     ) -> AgentStepResult:
         """调用单个 agent 执行任务。
 
@@ -434,12 +547,30 @@ class AgentOrchestrator:
                                 **绝不**在本处再猜一个方向。
         """
         start = time.monotonic()
+        self._accepting_steer = True
+        self._current_session_id = session_id
+        self._current_run_id = run_id
+        self._current_agent_name = agent_name
+        self._current_user_input = user_input
+        self._current_model = model_override
+        self._current_chat_mode = chat_mode
+        self._current_permission_mode = permission_mode
+        self._current_tool_allow = tool_allow
+        self._current_tool_deny = tool_deny
         ledger_session: RunLedgerSession | None = None
         if self._run_ledger is not None and run_id:
-            ledger_session = self._run_ledger.session(run_id)
+            start_seq = 1
+            max_event_seq = getattr(self._run_ledger, "max_event_seq", None)
+            if callable(max_event_seq):
+                try:
+                    start_seq = int(await max_event_seq(run_id)) + 1
+                except Exception as error:  # noqa: BLE001 - 撞号顺延仍能自愈
+                    logger.warning("[orchestrator] 读取 run 最大事件 seq 失败: %s", error)
+            ledger_session = self._run_ledger.session(run_id, start_seq=start_seq)
             await ledger_session.status("running")
 
         async def finish(result: AgentStepResult) -> AgentStepResult:
+            self._accepting_steer = False
             if ledger_session is not None:
                 registry_status = to_run_registry_status(result.status)
                 error_code = result.error_code
@@ -499,6 +630,7 @@ class AgentOrchestrator:
         run_key = run_task_key(run_id) if run_id else ""
         task = asyncio.current_task()
         register_task(run_key, task)
+        resume_meta = getattr(resume_checkpoint, "metadata", None) or {}
         try:
             result = await self._run_agent(
                 agent,
@@ -510,8 +642,12 @@ class AgentOrchestrator:
                 permission_mode=permission_mode,
                 tool_allow=tool_allow,
                 tool_deny=tool_deny,
+                resume_messages=getattr(resume_checkpoint, "messages", None),
+                resume_iteration=int(getattr(resume_checkpoint, "iteration", 0) or 0),
+                resume_output=str(resume_meta.get("output") or ""),
             )
         finally:
+            self._accepting_steer = False
             unregister_task(run_key, task)
         if runtime is not None:
             result.definition_id = runtime.id
@@ -1681,6 +1817,9 @@ class AgentOrchestrator:
         permission_mode: str | None = None,
         tool_allow: list[str] | None = None,
         tool_deny: list[str] | None = None,
+        resume_messages: list[dict[str, Any]] | None = None,
+        resume_iteration: int = 0,
+        resume_output: str = "",
     ) -> AgentStepResult:
         """登记当前 asyncio 任务后执行单 agent；供进程内 cancel 按 session 查找。"""
         from .agent_task_registry import register_task, session_task_key, unregister_task
@@ -1699,6 +1838,9 @@ class AgentOrchestrator:
                 permission_mode=permission_mode,
                 tool_allow=tool_allow,
                 tool_deny=tool_deny,
+                resume_messages=resume_messages,
+                resume_iteration=resume_iteration,
+                resume_output=resume_output,
             )
         finally:
             unregister_task(key, task)
@@ -1714,6 +1856,9 @@ class AgentOrchestrator:
         permission_mode: str | None = None,
         tool_allow: list[str] | None = None,
         tool_deny: list[str] | None = None,
+        resume_messages: list[dict[str, Any]] | None = None,
+        resume_iteration: int = 0,
+        resume_output: str = "",
     ) -> AgentStepResult:
         """执行单个 agent(直接调 LLM + tools,不走 agent_loop 任务管理)。
 
@@ -1726,14 +1871,26 @@ class AgentOrchestrator:
                 - {"phase": "output_ready", "output_preview": str} — 最终输出就绪
             chat_mode / permission_mode: G2 权限并轨(2026-09-27)的两轴输入。见 invoke。
         """
+        if self._pause_requested:
+            await self._save_pause_checkpoint(stage="boundary")
+            return AgentStepResult(
+                agent_name=agent.name,
+                input=user_input,
+                output=resume_output,
+                status="paused",
+                duration_ms=0.0,
+                iterations=resume_iteration,
+                error="用户请求暂停执行",
+                error_code="AGENT_RUN_PAUSED",
+            )
         if self._stop_requested:
             return AgentStepResult(
                 agent_name=agent.name,
                 input=user_input,
-                output="",
+                output=resume_output,
                 status="canceled",
                 duration_ms=0.0,
-                iterations=0,
+                iterations=resume_iteration,
                 error="用户请求停止执行",
                 error_code="AGENT_RUN_STOPPED",
             )
@@ -1788,7 +1945,8 @@ class AgentOrchestrator:
         used_model = model_override or agent.model
         stub = False
         tool_calls: list[dict[str, Any]] = []
-        iterations = 0
+        iterations = max(0, resume_iteration)
+        output = resume_output
 
         # 安全调用进度回调(回调异常不影响执行)
         def _emit(evt: dict[str, Any]) -> None:
@@ -1797,17 +1955,23 @@ class AgentOrchestrator:
                     progress_callback(evt)
 
         try:
-            await memory_store.add(sid, "user", user_input)
-            history = await memory_store.get(sid, limit=20)
-            messages: list[dict[str, Any]] = [
-                {"role": "system", "content": agent.system_prompt},
-            ]
-            for m in history[:-1]:
-                role = m.get("role")
-                content = m.get("content", "")
-                if role in ("user", "assistant") and content:
-                    messages.append({"role": role, "content": content})
-            messages.append({"role": "user", "content": user_input})
+            if resume_messages:
+                messages = [dict(item) for item in resume_messages]
+            else:
+                await memory_store.add(sid, "user", user_input)
+                history = await memory_store.get(sid, limit=20)
+                messages = [
+                    {"role": "system", "content": agent.system_prompt},
+                ]
+                for m in history[:-1]:
+                    role = m.get("role")
+                    content = m.get("content", "")
+                    if role in ("user", "assistant") and content:
+                        messages.append({"role": role, "content": content})
+                messages.append({"role": "user", "content": user_input})
+            self._current_messages = messages
+            self._current_output = output
+            self._current_iteration = iterations
 
             # 准备 tools:能力名单(agent.tools)∩ 注册表在 _filter_tools 里映射,
             # 而「这一档允许哪些工具」只由 core/permission_mode.allowed_tool_names
@@ -1817,9 +1981,24 @@ class AgentOrchestrator:
                 mode_policy,
             )
 
-            output = ""
-            for it in range(agent.max_iterations):
+            for it in range(iterations, agent.max_iterations):
                 iterations = it + 1
+                self._current_iteration = it
+                self._current_output = output
+                if self._pause_requested:
+                    # 暂停与 stop 分开：落权威 checkpoint 后以 paused 收口，不丢已完成轮次。
+                    await self._save_pause_checkpoint(stage="boundary")
+                    return AgentStepResult(
+                        agent_name=agent.name,
+                        input=user_input,
+                        output=output,
+                        status="paused",
+                        duration_ms=round((time.monotonic() - start) * 1000, 2),
+                        iterations=it,
+                        tool_calls=tool_calls,
+                        error="用户请求暂停执行",
+                        error_code="AGENT_RUN_PAUSED",
+                    )
                 if self._stop_requested:
                     # 优雅停止：上一轮已完成的输出保留，不在工具批中途硬砍。
                     return AgentStepResult(
@@ -1833,6 +2012,9 @@ class AgentOrchestrator:
                         error="用户请求停止执行",
                         error_code="AGENT_RUN_STOPPED",
                     )
+                while self._steer_queue:
+                    steer_text = self._steer_queue.pop(0)
+                    messages.append({"role": "user", "content": steer_text})
                 _emit({"phase": "thinking", "iteration": iterations})
                 # 子代理 context 预算隔离(Codex subagent_default_context_limits 对位):
                 # 每轮进 LLM 前把 messages 裁到 token 预算内(保 system + 末轮 user,
@@ -1854,6 +2036,21 @@ class AgentOrchestrator:
                 tc_raw = result.get("tool_calls") or []
                 if not tc_raw:
                     output = content
+                    if self._pause_requested:
+                        self._current_output = output
+                        self._current_iteration = iterations
+                        await self._save_pause_checkpoint(stage="boundary")
+                        return AgentStepResult(
+                            agent_name=agent.name,
+                            input=user_input,
+                            output=output,
+                            status="paused",
+                            duration_ms=round((time.monotonic() - start) * 1000, 2),
+                            iterations=iterations,
+                            tool_calls=tool_calls,
+                            error="用户请求暂停执行",
+                            error_code="AGENT_RUN_PAUSED",
+                        )
                     if self._stop_requested:
                         return AgentStepResult(
                             agent_name=agent.name,
@@ -1952,6 +2149,23 @@ class AgentOrchestrator:
                             str(exec_result)[:4000], tool_name=tool_name
                         ),
                     })
+                if self._pause_requested:
+                    # 工具批已经跑完，checkpoint 带上最近消息；下一轮由 resume 继续。
+                    output = content or output
+                    self._current_output = output
+                    self._current_iteration = iterations
+                    await self._save_pause_checkpoint(stage="boundary")
+                    return AgentStepResult(
+                        agent_name=agent.name,
+                        input=user_input,
+                        output=output,
+                        status="paused",
+                        duration_ms=round((time.monotonic() - start) * 1000, 2),
+                        iterations=iterations,
+                        tool_calls=tool_calls,
+                        error="用户请求暂停执行",
+                        error_code="AGENT_RUN_PAUSED",
+                    )
                 if self._stop_requested:
                     # 工具批已经跑完，保留本批 side effect；下一轮不再进入。
                     return AgentStepResult(
@@ -1970,6 +2184,21 @@ class AgentOrchestrator:
                     summary = await llm_gateway.complete(messages, model=used_model)
                     output = str(summary.get("content", "") or "")
                     stub = stub or bool(summary.get("stub", False))
+                    if self._pause_requested:
+                        self._current_output = output
+                        self._current_iteration = iterations
+                        await self._save_pause_checkpoint(stage="boundary")
+                        return AgentStepResult(
+                            agent_name=agent.name,
+                            input=user_input,
+                            output=output,
+                            status="paused",
+                            duration_ms=round((time.monotonic() - start) * 1000, 2),
+                            iterations=iterations,
+                            tool_calls=tool_calls,
+                            error="用户请求暂停执行",
+                            error_code="AGENT_RUN_PAUSED",
+                        )
                     if self._stop_requested:
                         return AgentStepResult(
                             agent_name=agent.name,

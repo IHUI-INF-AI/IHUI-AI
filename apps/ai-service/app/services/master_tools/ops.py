@@ -34,6 +34,7 @@ from ..agent_task_registry import (
     cancel_tasks,
     register_run_control,
     register_task,
+    request_local_steer,
     request_local_stop,
     run_task_key,
     session_task_key,
@@ -456,29 +457,72 @@ class AgentOpsTool:
                 details={"runId": run_id},
             )
 
-        from ..agent_run_control import pause_session, resume_session, wake_session
+        from ..agent_run_control import PauseOutcome, pause_session, resume_session, wake_session
+
+        if action in ("run_pause", "run_resume"):
+            mode = str(run.get("mode") or "") if isinstance(run, dict) else ""
+            if mode != "single":
+                raise OpsToolError(
+                    "AGENT_RUN_PAUSE_UNSUPPORTED",
+                    "pause/resume 只支持 single 模式；multi 模式的检查点无法安全重建全部参与者",
+                    details={"runId": run_id, "mode": mode},
+                )
+            run_status = str(run.get("status") or "") if isinstance(run, dict) else ""
+            if action == "run_pause" and run_status in {
+                "succeeded",
+                "failed",
+                "canceled",
+                "timeout",
+            }:
+                raise OpsToolError(
+                    "AGENT_RUN_ALREADY_TERMINAL",
+                    "run 已终态，不能再暂停",
+                    details={"runId": run_id, "runStatus": run_status},
+                )
+            if action == "run_resume" and run_status != "paused":
+                raise OpsToolError(
+                    "AGENT_RUN_NOT_PAUSED",
+                    "只有 paused 状态的 run 才能续跑；completed checkpoint 不是暂停点",
+                    details={"runId": run_id, "runStatus": run_status},
+                )
 
         if action == "run_pause":
             result = await pause_session(session_id, user_id)
-            return {
+            data = {
                 "runId": run_id,
                 "sessionId": session_id,
                 "outcome": _enum_value(result.outcome),
                 "changed": result.changed,
                 "detail": result.detail,
             }
+            if result.checkpoint_id:
+                data["checkpointId"] = result.checkpoint_id
+            if result.outcome == PauseOutcome.PAUSED:
+                await self._await_paused(run_id=run_id, user_id=user_id, data=data)
+            return data
         if action == "run_resume":
-            resumed = await resume_session(session_id, user_id)
+            runner = self._make_resume_runner(run, run_id=run_id, user_id=user_id)
+            resumed = await resume_session(session_id, user_id, runner=runner)
             return {
                 "runId": run_id,
                 "sessionId": session_id,
                 "outcome": _enum_value(resumed.outcome),
                 "changed": resumed.changed,
+                "checkpointId": resumed.checkpoint_id,
+                "result": resumed.result,
                 "detail": resumed.detail,
             }
         message = str(payload.get("message") or "").strip()
         if not message:
             raise OpsToolError("AGENT_MESSAGE_REQUIRED", "run_talk 需要 message")
+        if request_local_steer(run_id, message):
+            return {
+                "runId": run_id,
+                "sessionId": session_id,
+                "outcome": "steered",
+                "changed": True,
+                "delivery": "next_iteration",
+            }
         woken = await wake_session(session_id, owner_user_id=user_id, text=message)
         return {"runId": run_id, "sessionId": session_id, **woken}
 
@@ -769,6 +813,112 @@ class AgentOpsTool:
                 }
             await asyncio.sleep(_REMOTE_CANCEL_POLL_SECONDS)
 
+    async def _await_paused(
+        self, *, run_id: str, user_id: str, data: dict[str, Any]
+    ) -> dict[str, Any]:
+        """暂停请求发出后等 run 真正落到 paused；超时只报 pause_requested。"""
+        deadline = time.monotonic() + _GRACEFUL_STOP_TIMEOUT_SECONDS
+        status = "running"
+        while True:
+            try:
+                after = await self._post_ops(
+                    {"action": "run_get", "runId": run_id}, user_id=user_id
+                )
+                status = str(after.get("status") or "") if isinstance(after, dict) else status
+            except Exception as error:  # noqa: BLE001
+                logger.warning("[master-ops] pause poll failed run=%s: %s", run_id, error)
+                data.update(outcome="pause_requested", runStatus=status)
+                return data
+            if status == "paused":
+                data.update(outcome="paused", changed=True, runStatus="paused")
+                return data
+            if status in {"succeeded", "failed", "canceled", "timeout"}:
+                data.update(
+                    outcome="pause_incomplete",
+                    changed=False,
+                    runStatus=status,
+                    reason="暂停请求到达前 run 已进入其它终态",
+                )
+                return data
+            if time.monotonic() >= deadline:
+                data.update(
+                    outcome="pause_requested",
+                    runStatus=status,
+                    reason="暂停请求已发出，等待轮次边界收口超时",
+                )
+                return data
+            await asyncio.sleep(_REMOTE_CANCEL_POLL_SECONDS)
+
+    def _make_resume_runner(
+        self, run: Any, *, run_id: str, user_id: str
+    ) -> Any:
+        async def runner(checkpoint: Any, requester: str) -> dict[str, Any]:
+            return await self._resume_master_checkpoint(
+                run, run_id=run_id, user_id=requester, checkpoint=checkpoint
+            )
+
+        return runner
+
+    async def _resume_master_checkpoint(
+        self,
+        run: Any,
+        *,
+        run_id: str,
+        user_id: str,
+        checkpoint: Any,
+    ) -> dict[str, Any]:
+        """从真实 paused checkpoint 继续同一 run；不重跑已完成轮次。"""
+        from ..agent_definition_provider import AgentDefinitionProvider
+        from ..agent_orchestrator import AgentOrchestrator, to_run_registry_status
+        from ..agent_registry_client import AgentRegistryClient
+        from ..agent_checkpoint import get_agent_checkpoint_manager
+        from ..run_ledger import RunLedgerClient
+
+        metadata = getattr(checkpoint, "metadata", None) or {}
+        definition_ref = str(
+            metadata.get("definition_id")
+            or (run.get("definitionId") if isinstance(run, dict) else "")
+            or metadata.get("agent_name")
+            or ""
+        ).strip()
+        if not definition_ref:
+            raise OpsToolError(
+                "AGENT_RESUME_CONTEXT_MISSING",
+                "暂停 checkpoint 缺少 definition_id / agent_name，无法续跑",
+                details={"runId": run_id},
+            )
+        client = AgentRegistryClient(
+            user_id=user_id, base_url=self._base_url, transport=self._transport
+        )
+        provider = AgentDefinitionProvider(client, user_id=user_id)
+        await provider.prepare()
+        definition = _resolve_dispatchable(provider, definition_ref)
+        ledger = RunLedgerClient(
+            user_id=user_id, base_url=self._base_url, transport=self._transport
+        )
+        orchestrator = AgentOrchestrator(
+            definition_provider=provider,
+            run_ledger=ledger,
+            owner_user_id=user_id,
+            checkpoint_manager=get_agent_checkpoint_manager(),
+            definition_id=definition.id,
+        )
+        register_run_control(run_id, orchestrator)
+        try:
+            result = await orchestrator.resume(checkpoint, run_id=run_id)
+        finally:
+            unregister_run_control(run_id, orchestrator)
+        return {
+            "status": result.status,
+            "runStatus": to_run_registry_status(result.status),
+            "stop_reason": "paused" if result.status == "paused" else None,
+            "output": result.output,
+            "error": result.error,
+            "errorCode": result.error_code,
+            "iterations": result.iterations,
+            "durationMs": result.duration_ms,
+        }
+
     async def _retry_run(self, run: Any, *, run_id: str, user_id: str) -> dict[str, Any]:
         """按创建 run 时保存的 dispatch 快照重建一次新 run；旧 run 不改状态。"""
         status = str(run.get("status") or "") if isinstance(run, dict) else ""
@@ -939,10 +1089,28 @@ class AgentOpsTool:
             }
         )
 
+        from ..agent_checkpoint import get_agent_checkpoint_manager
+        from ..agent_run_control import RunRegistration, detach_run, register_run
+
         orchestrator = AgentOrchestrator(
             definition_provider=provider,
             run_ledger=ledger,
+            owner_user_id=user_id,
+            checkpoint_manager=get_agent_checkpoint_manager(),
+            definition_id=definition.id,
         )
+        registration = await register_run(
+            session_id,
+            owner_user_id=user_id,
+            loop=orchestrator,
+            max_turns=definition.max_iterations,
+        )
+        if registration != RunRegistration.REGISTERED:
+            raise OpsToolError(
+                "AGENT_SESSION_BUSY",
+                "该会话已有未终态 run，拒绝覆盖控制面载体",
+                details={"runId": run_id, "sessionId": session_id, "registration": registration.value},
+            )
         register_run_control(run_id, orchestrator)
         task = asyncio.current_task()
         register_task(run_task_key(run_id), task)
@@ -987,7 +1155,7 @@ class AgentOpsTool:
             unregister_run_control(run_id, orchestrator)
             unregister_task(run_task_key(run_id), task)
             await stop_remote_cancel_watch(watcher)
-
+            await detach_run(session_id, owner_user_id=user_id)
 
         return {
             "runId": run_id,
