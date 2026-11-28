@@ -161,6 +161,6 @@ BankCard 原先只有 `withdrawal_flows.account_info` 的只读投影，没有�
 - **边界**：H5 子包深链首帧已修复；冷启动会短经首页再落目标（本次 4s 内可交互），不是原生级定向启动，但不再空白/永不挂载。真实后端链路已由 API real 25/25 + Web E2E 4/4 覆盖，H5 用 `{code:0}` 信封 route mock 聚焦壳层取数/选卡/确认弹层/提交体。
 - **报告**：`docs/engineering/h5-acceptance-2026-11-28.md`。
 
-> H5 验收提交：`e684f740ac`（H5 构建、AppConfirmHost 宿主、费用文案）、`bf15f38a38`（确认弹层 0 宽修复、真实指针验收、成功态保留选卡、截图与文档）；production HEAD 仍为 `f03d92b6cb`，本轮 H5/小程序/RN 改动未触发生产 Web/API 部署。
+> H5 验收提交：`e684f740ac`（H5 构建、AppConfirmHost 宿主、费用文案）、`bf15f38a38`（确认弹层 0 宽修复、真实指针验收、成功态保留选卡、截图与文档）、`b410e589f6`（H5 子包深链首帧修复、深链直达验收、终版截图）；production HEAD 仍为 `f03d92b6cb`，本轮 H5/小程序/RN 改动未触发生产 Web/API 部署。
 
 > 本轮提交：`73121f8036`（DB 锁/真实库/跨进程脚本）、`8077b159`（RN/小程序提现接卡）、`f03d92b6cb`（Web 只读过滤 + types 构建修复）、`099a6b95`（Web 提现只读过滤回归用例）、`40cb38b6`（RN 提现只读过滤回归用例）；本文档随后单独提交。

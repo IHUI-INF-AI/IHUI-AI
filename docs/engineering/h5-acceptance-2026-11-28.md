@@ -84,4 +84,5 @@ RN/小程序提现接卡链路已通过 **H5 验收**：Taro H5 产物成功构�
 
 - `e684f740ac`：H5 构建编译面、`@rn-components` alias、提现页 `AppConfirmHost`、`feeHint` 插值与首版验收文档。
 - `bf15f38a38`：rn-compat Modal / BottomPops 宽度修复、真实指针确认、成功态保留选卡、确认态截图与文档终版。
+- `b410e589f6`：H5 子包深链首帧修复（`H5DeepLinkBootHandler`）、深链直达交互验收与终版截图。
 - production 代码 HEAD 仍为 `f03d92b6cb`；本轮只涉及小程序 H5 / weapp / RN 壳层，不触发生产 Web/API 部署。
