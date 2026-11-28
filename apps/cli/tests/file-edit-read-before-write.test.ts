@@ -62,6 +62,18 @@ describe('write_file / edit_file 读后写校验', () => {
     expect(readDisk('b.txt')).toBe('v2');
   });
 
+  it('执行层复制 ctx({...ctx})时已读状态仍跨工具共享', async () => {
+    // 回归:executeWithinExecBudget 传给工具的是 ctx 的浅拷贝，对象身份逐次变化。
+    // 若只按对象身份存 WeakMap，read_file 的“已读”在 write_file 里永远看不到。
+    fs.writeFileSync(abs('copy.txt'), 'v1', 'utf-8');
+    const stable = { ...ctx, readFileStateKey: 'copy-share-test' };
+    const read = await read_file.execute({ path: 'copy.txt' }, { ...stable });
+    expect(read.success).toBe(true);
+    const r = await writeTool.execute({ path: 'copy.txt', content: 'v2' }, { ...stable });
+    expect(r.success).toBe(true);
+    expect(readDisk('copy.txt')).toBe('v2');
+  });
+
   it('读后被外部改动 ⇒ 拒绝(file_stale_read),不覆盖外部内容', async () => {
     fs.writeFileSync(abs('c.txt'), 'v1', 'utf-8');
     await read_file.execute({ path: 'c.txt' }, ctx);
@@ -72,6 +84,14 @@ describe('write_file / edit_file 读后写校验', () => {
     expect(r.errorType).toBe('file_stale_read');
     expect(r.error).toContain('FILE_STALE_READ');
     expect(readDisk('c.txt')).toBe('externally changed with longer content');
+  });
+
+  it('写入后第一次 read_file 回真实正文(不能拿“自己写过”当已读短路)', async () => {
+    expect((await writeTool.execute({ path: 'verify.txt', content: 'after-write' }, ctx)).success).toBe(true);
+    const first = await read_file.execute({ path: 'verify.txt' }, ctx);
+    expect(first.output).toContain('after-write');
+    const second = await read_file.execute({ path: 'verify.txt' }, ctx);
+    expect(second.output).toContain('Wasted call');
   });
 
   it('本工具自己写过的文件可连续覆盖/编辑(内容由写入确定,无需重读)', async () => {

@@ -42,6 +42,8 @@ export interface ResolvedProvider {
   chatCompletionsUrl?: string;
   /** 本地默认模型名(kind 存在且 defaultModel 非占位 'default' 时用 defaultModel) */
   model?: string;
+  /** OpenAI 兼容端点的 Bearer 凭据；从 IHUI_PROVIDER_API_KEY 读，不落 settings 文件。 */
+  apiKey?: string;
 }
 
 /** 归一化 baseUrl:去尾部斜杠 */
@@ -86,7 +88,12 @@ export function resolveProvider(settings: Settings): ResolvedProvider {
         ? settings.localQwen?.modelName
         : undefined;
 
-  return { kind, chatCompletionsUrl: `${trimSlash(base)}/chat/completions`, model };
+  return {
+    kind,
+    chatCompletionsUrl: `${trimSlash(base)}/chat/completions`,
+    ...(model ? { model } : {}),
+    ...(process.env.IHUI_PROVIDER_API_KEY ? { apiKey: process.env.IHUI_PROVIDER_API_KEY } : {}),
+  };
 }
 
 // ==================== OpenAI 兼容流式客户端 ====================
@@ -107,6 +114,8 @@ export interface OpenAiStreamOptions {
   url: string;
   model: string;
   messages: ChatCompletionMessage[];
+  /** OpenAI 兼容端点的 Bearer 凭据（本地 vLLM 通常不需要）。 */
+  apiKey?: string;
   /** 原生 tools schema(OpenAI function calling 格式,可选) */
   tools?: unknown[];
   temperature?: number;
@@ -194,7 +203,7 @@ export async function streamOpenAiCompatible(
 
     // 2026-11-27:本地 provider 原先不带鉴权头,只能连无鉴权的 Ollama。号池 relay 的
     // OpenAI 兼容端点要求 Bearer(ihui_xxx.sk_xxx 单凭据),故按 IHUI_API_KEY 注入。
-    const apiKey = process.env.IHUI_API_KEY?.trim();
+    const apiKey = opts.apiKey?.trim() || process.env.IHUI_API_KEY?.trim();
     const resp = await fetch(opts.url, {
       method: 'POST',
       headers: {

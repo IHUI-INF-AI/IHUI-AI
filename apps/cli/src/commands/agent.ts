@@ -51,7 +51,9 @@ import {
   resolveDangerousConfirmation,
   type Tool,
   type ToolContext,
+  type ToolContentBlock,
 } from '../tools/index.js';
+import { materializeToolContent } from '../tools/result-envelope/tool-content.js';
 import {
   MAX_PARALLEL_TOOL_CALLS_ENV,
   executeToolCallsInBatches,
@@ -271,6 +273,12 @@ type ChatMessage = {
   content: string;
   tool_calls?: ChatMessageToolCall[];
   tool_call_id?: string;
+  /**
+   * 工具结果的结构化多段内容（已落盘的图片/音频/文档）。
+   * 只作宿主渲染与审计，不整块进 OpenAI 兼容消息；模型看到的是 content 里的
+   * 路径说明，避免 base64 撑爆上下文。
+   */
+  contentBlocks?: ToolContentBlock[];
 };
 
 export interface AgentOptions {
@@ -1030,6 +1038,11 @@ export interface RunToolLoopOptions {
   signal?: AbortSignal;
   /** 关联会话 ID(用于 hook 埋点传递) */
   sessionId?: string;
+  /**
+   * 测试/嵌入式调用用的配置覆盖（浅合并到 loadSettings 结果）。
+   * 生产 CLI 不传，行为与改动前一致；真实模型 A/B 用它隔离用户全局配置。
+   */
+  settingsOverride?: Partial<import('./settings.js').Settings>;
   onDelta?: (delta: string) => void | Promise<void>;
   /**
    * F-127:本段已 emit 的增量作废信号。采样被判可重试、重新发起之前触发一次,
@@ -2367,6 +2380,10 @@ async function runToolLoopInner(
     ...opts.ctx,
     ...(opts.signal ? { signal: opts.signal } : {}),
     ...(opts.sessionId ? { sessionId: opts.sessionId } : {}),
+    // 工具执行时 ctx 会被浅拷贝；已读状态必须挂在稳定作用域名上才能跨 read/write 传递。
+    ...((opts.ctx.readFileStateKey ?? opts.sessionId)
+      ? { readFileStateKey: opts.ctx.readFileStateKey ?? opts.sessionId }
+      : { readFileStateKey: randomUUID() }),
   };
   // W4-14 第十七轴:回合预算只在本回合内共享;每个 runToolLoop 新建一份,
   // 多个 run_code 共用同一个可同步扣减的 remaining,回合结束自然丢弃。
@@ -2495,7 +2512,9 @@ async function runToolLoopInner(
   }
 
   // P1-2 Compaction V2:加载 settings 一次(feature flag 默认关闭,启用后用 LLM 摘要压缩)
-  const settings = loadSettings();
+  const settings = opts.settingsOverride
+    ? { ...loadSettings(), ...opts.settingsOverride }
+    : loadSettings();
 
   // ===== WP-2 三道守卫 + WP-3 已读状态:一次运行一个实例 =====
   // G-916940③:兜底默认改引用唯一容量出口 —— 用户没传 contextLimit 就按当前模型取容量;
@@ -2945,6 +2964,7 @@ async function runToolLoopInner(
         const result = await streamOpenAiCompatible({
           url: localProvider.chatCompletionsUrl!,
           model: localProvider.model || opts.modelId,
+          ...(localProvider.apiKey ? { apiKey: localProvider.apiKey } : {}),
           messages: sanitizeMessagesForTransport(toOpenAiMessages(requestMessages)),
           ...(withTools && nativeExtraBody
             ? { tools: (nativeExtraBody as { tools?: unknown[] }).tools }
@@ -3587,14 +3607,31 @@ async function runToolLoopInner(
         },
       );
       for (const { call, result, durationMs } of parallelResults) {
+        // 多段内容先落盘再进预算：图片/文档的 base64 不进上下文，只留相对路径说明。
+        // 落盘失败时 notes 里会点名失败，不静默丢掉这一段。
+        const materialized = materializeToolContent(result.content, {
+          workspacePath: opts.ctx.workspacePath,
+          sessionId: opts.sessionId,
+          toolName: call.name,
+        });
+        const effectiveResult =
+          materialized.content.length > 0 || materialized.notes.length > 0
+            ? {
+                ...result,
+                ...(materialized.content.length > 0 ? { content: materialized.content } : {}),
+                ...(materialized.notes.length > 0
+                  ? { output: `${result.output}${result.output ? '\n' : ''}${materialized.notes.join('\n')}` }
+                  : {}),
+              }
+            : result;
         auditLog({
           timestamp: new Date().toISOString(),
           tool: call.name,
           input: call.arguments,
-          output: result.output,
-          success: result.success,
+          output: effectiveResult.output,
+          success: effectiveResult.success,
           durationMs,
-          error: result.error,
+          error: effectiveResult.error,
         });
         // 自动复审触发(2026-11-12):旁路,默认关闭。只判"该不该跑",不在此执行诊断本身
         // —— 诊断要起 tsc/eslint,放在工具循环内会拖住回合。这里只累计状态并把
@@ -3604,7 +3641,7 @@ async function runToolLoopInner(
             policy: reviewPolicy,
             state: reviewState,
             toolName: call.name,
-            succeeded: result.success,
+            succeeded: effectiveResult.success,
             now: Date.now(),
           });
           reviewState = decision.nextState;
@@ -3613,10 +3650,10 @@ async function runToolLoopInner(
         // P3-2 Telemetry:工具调用完成后上报(失败忽略,不影响主流程)
         trackTelemetry('tool_call_completed', {
           toolName: call.name,
-          success: result.success,
+          success: effectiveResult.success,
           durationMs,
         });
-        if (result.success) {
+        if (effectiveResult.success) {
           failureStreak.record(call.name, true);
         } else {
           const outcome = failureStreak.record(call.name, false);
@@ -3625,7 +3662,7 @@ async function runToolLoopInner(
               'reminder_tool_failure',
               frameSystemReminder(
                 'tool_failure_reflection',
-                `工具 ${call.name} 已连续失败 ${outcome.streak} 次。请反思:参数是否正确?是否应该换一种工具或方案?当前失败原因:${result.error ?? '未知'}`,
+                `工具 ${call.name} 已连续失败 ${outcome.streak} 次。请反思:参数是否正确?是否应该换一种工具或方案?当前失败原因:${effectiveResult.error ?? '未知'}`,
               ),
             );
             // prompt 模式保持原顺序：失败提醒紧跟在该工具结果之前。
@@ -3636,10 +3673,10 @@ async function runToolLoopInner(
         }
         await opts.onToolResult?.(
           call.name,
-          result.success,
-          result.output,
-          result.display,
-          result.error,
+          effectiveResult.success,
+          effectiveResult.output,
+          effectiveResult.display,
+          effectiveResult.error,
         );
         // WP-8③ 采集面:goal 校验只认"本轮真跑过什么"。这里记的是**调用与结果**,
         // 模型的自述(final_response)不进这一列 —— §8 禁止执行者自证完成。
@@ -3647,21 +3684,21 @@ async function runToolLoopInner(
           id: `e${goalCallRecords.length + 1}`,
           toolName: call.name,
           args: call.arguments,
-          ok: result.success,
-          output: result.output,
+          ok: effectiveResult.success,
+          output: effectiveResult.output,
         });
         // Plugin hooks 入口:postToolCall(若 plugins 存在)
         await runPluginHooks(opts.plugins, 'postToolCall', {
           toolName: call.name,
           args: call.arguments,
-          result,
+          result: effectiveResult,
         });
         // WP-3 预算信封:超限结果**不得整段进上下文** —— 落盘到项目内会话产物目录,
         // 这里只回灌"路径 + 前 K 字符预览 + 已截断说明"的信封(已信封的结果幂等跳过)。
         // 预算优先取工具**声明的**契约结果档(A13 / ToolContractMount),没有才落回登记表。
         const budgeted = envelopeToolResult({
           call,
-          result,
+          result: effectiveResult,
           workspacePath: opts.ctx.workspacePath,
           sessionId: opts.sessionId,
           turn: iterations,
@@ -3671,7 +3708,7 @@ async function runToolLoopInner(
           resultBudget: getTool(call.name)?.contract?.resultBudget,
         });
         const formattedToolResult = formatToolResult(call, {
-          ...result,
+          ...effectiveResult,
           output: neutralizeBoundaries(budgeted.output),
         });
         promptParts.push(formattedToolResult);
@@ -3679,11 +3716,12 @@ async function runToolLoopInner(
           role: 'tool',
           // 原生 tool 消息只放工具正文/错误，不套 `[工具结果]` 包装；包装是 prompt 模式的产物。
           content: neutralizeBoundaries(
-            result.success
+            effectiveResult.success
               ? budgeted.output || '(no output)'
-              : result.error ?? (budgeted.output || 'tool failed'),
+              : effectiveResult.error ?? (budgeted.output || 'tool failed'),
           ),
           tool_call_id: call.id,
+          ...(effectiveResult.content ? { contentBlocks: effectiveResult.content } : {}),
         });
       }
 

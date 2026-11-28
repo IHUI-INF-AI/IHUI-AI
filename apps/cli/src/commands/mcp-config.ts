@@ -16,7 +16,11 @@ import { findRepoRoot } from '../skills/index.js';
 export type MCPTransport = 'stdio' | 'http' | 'sse';
 
 export interface MCPAuth {
-  type: 'none' | 'bearer' | 'oauth';
+  /**
+   * enterprise-managed = SEP-990 EMA：企业 IdP 先签 ID-JAG，再换 MCP AS 的 access token。
+   * 该路径没有浏览器同意页；身份断言来自企业 SSO 登录（配置在 enterpriseManaged）。
+   */
+  type: 'none' | 'bearer' | 'oauth' | 'enterprise-managed';
   token?: string;
 }
 
@@ -25,21 +29,76 @@ export interface MCPAuth {
  * 描述如何与 OAuth 授权服务器交互,对应 mcp-oauth.ts 的 OAuthConfig。
  */
 export interface McpOAuthConfig {
-  /** 授权页 endpoint,如 https://github.com/login/oauth/authorize */
-  authorizationEndpoint: string;
-  /** 换 token endpoint,如 https://github.com/login/oauth/access_token */
-  tokenEndpoint: string;
-  /** OAuth client_id(注册 OAuth App 时获得) */
-  clientId: string;
+  /**
+   * 授权页 endpoint。配置 `discovery` 时可省略，由 RFC 8414 metadata 发现补齐。
+   */
+  authorizationEndpoint?: string;
+  /** 换 token endpoint。配置 `discovery` 时可省略。 */
+  tokenEndpoint?: string;
+  /** 预注册 client_id；不填则由 discovery + CIMD/DCR 解析。 */
+  clientId?: string;
   /** OAuth client_secret(机密,从环境变量读取;可选,PKCE 流程不需要) */
   clientSecret?: string;
   /** 本地回调 URL,如 http://localhost:8765/callback(端口必须与 redirectUri 一致) */
   redirectUri: string;
   /** 申请的 scope 列表,如 ['repo', 'read:user'] */
   scope: string[];
+  /**
+   * MCP 2026 OAuth 发现。配置后 CLI 先拉授权服务器 metadata（校验 issuer 精确一致），
+   * 再按 预注册 > CIMD > DCR 的顺序解析客户端身份。
+   */
+  discovery?: {
+    /** 授权服务器 issuer（RFC 8414 metadata 的 issuer 必须与它完全一致） */
+    issuer: string;
+    /** 客户端自己发布的 CIMD 文档 URL；授权服务器声明支持时作为 client_id */
+    clientMetadataDocumentUrl?: string;
+    /** DCR 注册时展示的客户端名 */
+    clientName?: string;
+    /** 显式覆盖 application_type；缺省按回调地址自动判 native/web */
+    applicationType?: 'native' | 'web';
+  };
+  /**
+   * RFC 9207 / SEP-2468：授权服务器 metadata 里的 issuer 标识（必须与 iss 完全一致）。
+   * 未配置 discovery 时可单独填。
+   */
+  issuer?: string;
+  /** issuer 已配置但授权响应没带 iss 时是否拒绝；缺省 true（严格）。 */
+  requireIssuer?: boolean;
 }
 
 export type McpStdioFraming = 'ndjson' | 'content-length';
+
+/**
+ * Enterprise-Managed Authorization（SEP-990 / EMA）配置。
+ *
+ * 企业 IdP 是唯一策略决策点：客户端拿 SSO 身份断言换短期 ID-JAG，
+ * 再以 RFC 7523 jwt-bearer 换 MCP 授权服务器的 access token。
+ * 密钥类字段建议写 ${ENV} 占位，避免明文落盘。
+ */
+export interface McpEnterpriseManagedConfig {
+  /** 企业 IdP token endpoint（RFC 8693 token exchange） */
+  idpTokenEndpoint: string;
+  idpClientId: string;
+  idpClientSecret?: string;
+  /** 企业 SSO 登录得到的身份断言（OIDC ID token / SAML assertion） */
+  identityAssertion: string;
+  subjectTokenType?:
+    | 'urn:ietf:params:oauth:token-type:id_token'
+    | 'urn:ietf:params:oauth:token-type:saml2'
+    | 'urn:ietf:params:oauth:token-type:refresh_token';
+  /** MCP 授权服务器 issuer（ID-JAG audience，必填） */
+  authorizationServerIssuer: string;
+  /** MCP server canonical resource URI（可选） */
+  resource?: string;
+  scope?: string[];
+  /** MCP 授权服务器 token endpoint */
+  tokenEndpoint: string;
+  /** 客户端在 MCP AS 的 client_id */
+  clientId: string;
+  clientSecret?: string;
+  tokenEndpointAuthMethod?: 'client_secret_basic' | 'client_secret_post' | 'none';
+  idpTokenEndpointAuthMethod?: 'client_secret_basic' | 'client_secret_post' | 'none';
+}
 
 export interface McpServer {
   name: string;
@@ -71,6 +130,8 @@ export interface McpServer {
   auth?: MCPAuth;
   /** OAuth provider 元数据(仅当 auth.type === 'oauth' 时生效) */
   oauth?: McpOAuthConfig;
+  /** EMA 元数据(仅当 auth.type === 'enterprise-managed' 时生效) */
+  enterpriseManaged?: McpEnterpriseManagedConfig;
 }
 
 export interface McpConfig {

@@ -145,14 +145,61 @@ function detectOauthErrorCode(text: string): string | undefined {
   return undefined;
 }
 
-export interface OAuthConfig {
-  authorizationEndpoint: string;
+/**
+ * Enterprise-Managed Authorization（EMA / SEP-990）客户端配置。
+ *
+ * 与普通 OAuth 的差别：没有浏览器、没有 per-server 同意页、没有授权码。
+ * 企业 IdP 先按组织策略签发短期 ID-JAG（RFC 8693 token exchange），
+ * 客户端再拿 ID-JAG 到 MCP 授权服务器换 access token（RFC 7523 jwt-bearer）。
+ * 身份断言（OIDC ID token / SAML assertion）来自企业 SSO 登录，本模块不负责登录。
+ */
+export interface EnterpriseManagedAuthConfig {
+  /** MCP server URL，凭据 key */
+  serverUrl: string;
+  /** 企业 IdP token endpoint（RFC 8693 token exchange） */
+  idpTokenEndpoint: string;
+  /** 企业在 IdP 注册的 client_id */
+  idpClientId: string;
+  idpClientSecret?: string;
+  /** 企业 SSO 登录得到的身份断言（ID token 或 SAML assertion） */
+  identityAssertion: string;
+  /**
+   * 身份断言类型，缺省 id_token。
+   * SAML 可传 urn:ietf:params:oauth:token-type:saml2；也可先换 refresh_token 再传 refresh_token 类型。
+   */
+  subjectTokenType?:
+    | 'urn:ietf:params:oauth:token-type:id_token'
+    | 'urn:ietf:params:oauth:token-type:saml2'
+    | 'urn:ietf:params:oauth:token-type:refresh_token';
+  /** MCP 授权服务器的 issuer；作为 ID-JAG 的 audience（必填，防止换到别家 AS 的 token） */
+  authorizationServerIssuer: string;
+  /** MCP server 的 canonical resource URI（可选；带上则 token 受众被钉到该 server） */
+  resource?: string;
+  scope?: string[];
+  /** MCP 授权服务器 token endpoint */
+  tokenEndpoint: string;
+  /** 客户端在 MCP 授权服务器注册的 client_id */
+  clientId: string;
+  clientSecret?: string;
+  /** AS token endpoint 的客户端认证方式，缺省 client_secret_post；机密客户端可用 basic */
+  tokenEndpointAuthMethod?: 'client_secret_basic' | 'client_secret_post' | 'none';
+  /** IdP token endpoint 的客户端认证方式，缺省 client_secret_post */
+  idpTokenEndpointAuthMethod?: 'client_secret_basic' | 'client_secret_post' | 'none';
+  idpTokenEndpointTrust?: SelfHostedTrust;
+  tokenEndpointTrust?: SelfHostedTrust;
+}
+
+export interface OAuthConfig {  authorizationEndpoint: string;
   tokenEndpoint: string;
   clientId: string;
   clientSecret?: string;
   /** http://localhost:PORT/callback */
   redirectUri: string;
   scope: string[];
+  /** RFC 9207：授权服务器 metadata 的 issuer；配置后校验回调里的 iss。 */
+  issuer?: string;
+  /** 缺少 iss 时是否拒绝；缺省 true（严格，仅 issuer 已配置时生效）。 */
+  requireIssuer?: boolean;
   /** MCP server URL,作为凭证 key */
   serverUrl: string;
   /**
@@ -241,7 +288,13 @@ export async function startOAuthFlow(
     const codeChallenge = createHash('sha256').update(codeVerifier).digest('base64url');
 
     // 4. 启动本地 callback server(可被测试替换)
-    const handle = _startLocalCallbackServer(port, state, OAUTH_TIMEOUT_MS);
+    const handle = _startLocalCallbackServer(
+      port,
+      state,
+      OAUTH_TIMEOUT_MS,
+      config.issuer,
+      config.requireIssuer !== false,
+    );
 
     // 5. 构造授权 URL + 打开浏览器
     const authUrl = buildFullAuthorizationUrl(config, state, codeChallenge);
@@ -276,6 +329,109 @@ export async function startOAuthFlow(
 }
 
 /**
+ * Enterprise-Managed Authorization（EMA / SEP-990）取 token。
+ *
+ * 流程（无浏览器、无 consent）：
+ *   1. 企业 IdP token endpoint：RFC 8693 token exchange，用 SSO 身份断言换 ID-JAG
+ *   2. MCP 授权服务器 token endpoint：RFC 7523 jwt-bearer，用 ID-JAG 换 access token
+ *
+ * 安全边界：
+ *   - ID-JAG 的 audience 必须显式给 MCP AS issuer，绝不缺省（缺省会把断言发给错误的 AS）
+ *   - 两个 token endpoint 都过共享 SSRF 守卫；只有用户配置里的端点可带信任声明
+ *   - 响应里出现 issued_token_type 时必须与 id-jag 精确匹配，防止被换成别的 token 类型
+ *   - 按 EMA 规范不保存 refresh_token：token 过期后重新走一次 ID-JAG，把撤销权留在 IdP
+ */
+export async function startEnterpriseManagedOAuthFlow(
+  config: EnterpriseManagedAuthConfig,
+): Promise<OAuthResult> {
+  await acquireLock(config.serverUrl);
+  try {
+    const idJagBody = new URLSearchParams();
+    idJagBody.set('grant_type', 'urn:ietf:params:oauth:grant-type:token-exchange');
+    idJagBody.set('requested_token_type', 'urn:ietf:params:oauth:token-type:id-jag');
+    idJagBody.set('subject_token', config.identityAssertion);
+    idJagBody.set(
+      'subject_token_type',
+      config.subjectTokenType ?? 'urn:ietf:params:oauth:token-type:id_token',
+    );
+    idJagBody.set('audience', config.authorizationServerIssuer);
+    if (config.resource) idJagBody.set('resource', config.resource);
+    if (config.scope && config.scope.length > 0) idJagBody.set('scope', config.scope.join(' '));
+    const idpAuth = buildClientAuth(config.idpTokenEndpointAuthMethod ?? 'client_secret_post', config.idpClientId, config.idpClientSecret);
+    if (idpAuth.body.client_id) idJagBody.set('client_id', idpAuth.body.client_id);
+    if (idpAuth.body.client_secret) idJagBody.set('client_secret', idpAuth.body.client_secret);
+
+    const idJagResponse = await postTokenEndpoint(
+      config.idpTokenEndpoint,
+      idJagBody,
+      config.idpTokenEndpointTrust,
+      idpAuth.headers,
+    );
+    const idJag = idJagResponse.access_token;
+    if (!idJag) throw new Error('企业 IdP 响应缺少 ID-JAG（token exchange 的 access_token 字段为空）');
+    if (
+      idJagResponse.issued_token_type &&
+      idJagResponse.issued_token_type !== 'urn:ietf:params:oauth:token-type:id-jag'
+    ) {
+      throw new Error(
+        `企业 IdP 返回的 issued_token_type 不是 ID-JAG：${idJagResponse.issued_token_type}`,
+      );
+    }
+
+    const tokenBody = new URLSearchParams();
+    tokenBody.set('grant_type', 'urn:ietf:params:oauth:grant-type:jwt-bearer');
+    tokenBody.set('assertion', idJag);
+    const asAuth = buildClientAuth(
+      config.tokenEndpointAuthMethod ?? (config.clientSecret ? 'client_secret_post' : 'none'),
+      config.clientId,
+      config.clientSecret,
+    );
+    if (asAuth.body.client_id) tokenBody.set('client_id', asAuth.body.client_id);
+    if (asAuth.body.client_secret) tokenBody.set('client_secret', asAuth.body.client_secret);
+
+    const tokenResponse = await postTokenEndpoint(
+      config.tokenEndpoint,
+      tokenBody,
+      config.tokenEndpointTrust,
+      asAuth.headers,
+    );
+    if (!tokenResponse.access_token) throw new Error('MCP 授权服务器响应缺少 access_token');
+    const result = parseTokenResponse(tokenResponse, config.scope ?? []);
+    // EMA 刻意不保存 refresh_token：过期后重新向 IdP 要 ID-JAG，撤销权留在 IdP。
+    delete result.refreshToken;
+
+    await setCredential(config.serverUrl, {
+      accessToken: result.accessToken,
+      expiresAt: result.expiresAt,
+      scope: result.scope,
+      obtainedAt: Date.now(),
+    });
+    await announceCredentialStore();
+    return result;
+  } finally {
+    await releaseLock();
+  }
+}
+
+/** 按 OAuth token endpoint 客户端认证方式，产出 body 字段与 Authorization 头 */
+function buildClientAuth(
+  method: 'client_secret_basic' | 'client_secret_post' | 'none',
+  clientId: string,
+  clientSecret?: string,
+): { body: { client_id?: string; client_secret?: string }; headers: Record<string, string> } {
+  if (method === 'client_secret_basic') {
+    if (!clientSecret) throw new Error('client_secret_basic 需要 clientSecret');
+    const encoded = Buffer.from(`${encodeURIComponent(clientId)}:${encodeURIComponent(clientSecret)}`).toString('base64');
+    return { body: {}, headers: { Authorization: `Basic ${encoded}` } };
+  }
+  if (method === 'none') return { body: { client_id: clientId }, headers: {} };
+  return {
+    body: { client_id: clientId, ...(clientSecret ? { client_secret: clientSecret } : {}) },
+    headers: {},
+  };
+}
+
+/**
  * 启动本地 http server 监听 callback。
  * - 验证 state 匹配(不匹配返回 400,拒绝)
  * - 收到 code 后关闭 server,resolve Promise
@@ -288,6 +444,8 @@ export function startLocalCallbackServer(
   port: number,
   expectedState: string,
   timeoutMs: number,
+  expectedIssuer?: string,
+  requireIssuer = true,
 ): CallbackHandle {
   let server: Server | null = null;
   let settled = false;
@@ -352,6 +510,29 @@ export function startLocalCallbackServer(
         res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end('<html><body>state 不匹配,拒绝授权(CSRF 防护)。</body></html>');
         return;
+      }
+
+      // RFC 9207 / SEP-2468：issuer 必须与授权服务器 metadata 完全一致；
+      // 配置了 issuer 时，缺 iss 也拒绝（严格档，堵授权服务器混用）。
+      if (expectedIssuer !== undefined) {
+        const iss = url.searchParams.get('iss');
+        if (!iss) {
+          if (requireIssuer) {
+            settled = true;
+            cleanup();
+            res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
+            res.end('<html><body>授权响应缺少 iss 参数,拒绝授权(RFC 9207)。</body></html>');
+            reject(new Error('OAuth 授权响应缺少 iss 参数（RFC 9207 严格校验）'));
+            return;
+          }
+        } else if (iss !== expectedIssuer) {
+          settled = true;
+          cleanup();
+          res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
+          res.end('<html><body>iss 与预期授权服务器不一致,拒绝授权(RFC 9207)。</body></html>');
+          reject(new Error(`OAuth iss 不匹配：收到 ${iss}，预期 ${expectedIssuer}`));
+          return;
+        }
       }
 
       // 成功
@@ -597,11 +778,13 @@ async function postTokenEndpoint(
   tokenEndpoint: string,
   body: URLSearchParams,
   trust?: SelfHostedTrust,
+  extraHeaders?: Record<string, string>,
 ): Promise<{
   access_token?: string;
   refresh_token?: string;
   expires_in?: number;
   scope?: string | string[];
+  issued_token_type?: string;
   error?: string;
   error_description?: string;
 }> {
@@ -618,6 +801,7 @@ async function postTokenEndpoint(
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
         Accept: 'application/json',
+        ...(extraHeaders ?? {}),
       },
       body: body.toString(),
       signal: controller.signal,
@@ -636,6 +820,7 @@ async function postTokenEndpoint(
       refresh_token?: string;
       expires_in?: number;
       scope?: string | string[];
+      issued_token_type?: string;
       error?: string;
       error_description?: string;
     };
