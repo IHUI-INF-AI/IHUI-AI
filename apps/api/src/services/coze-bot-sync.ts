@@ -24,6 +24,7 @@ import {
 import type { CozeBotConfig } from '@ihui/types'
 import { db, dbRead } from '../db/index.js'
 import { mapCozeBotConfig, toCozePublicCapabilities, type CozeConfigSource } from '../lib/coze-bot-config.js'
+import { getCozeAccessToken, loadCozeOAuthConfig } from './coze-auth-utils.js'
 
 const DEFAULT_COZE_BASE_URL = 'https://api.coze.cn'
 const FETCH_TIMEOUT_MS = 20000
@@ -62,38 +63,64 @@ export class CozeSyncError extends Error {
 
 export interface CozeCredentialStatus {
   configured: boolean
+  mode: 'pat' | 'oauth' | 'none'
   envName: string | null
   baseUrl: string
 }
 
+function resolveCozeBaseUrl(): string {
+  return (process.env.COZE_API_BASE_URL || process.env.COZE_API_BASE || DEFAULT_COZE_BASE_URL).replace(
+    /\/$/,
+    '',
+  )
+}
+
 export function getCozeCredentialStatus(): CozeCredentialStatus {
+  if (loadCozeOAuthConfig()) {
+    return {
+      configured: true,
+      mode: 'oauth',
+      envName: 'COZE_OAUTH_JWT',
+      baseUrl: resolveCozeBaseUrl(),
+    }
+  }
   const candidates = ['COZE_API_KEY', 'COZE_API_TOKEN', 'COZE_PAT_TOKEN'] as const
   for (const name of candidates) {
     if (process.env[name]?.trim()) {
       return {
         configured: true,
+        mode: 'pat',
         envName: name,
-        baseUrl: (process.env.COZE_API_BASE_URL || DEFAULT_COZE_BASE_URL).replace(/\/$/, ''),
+        baseUrl: resolveCozeBaseUrl(),
       }
     }
   }
   return {
     configured: false,
+    mode: 'none',
     envName: null,
-    baseUrl: (process.env.COZE_API_BASE_URL || DEFAULT_COZE_BASE_URL).replace(/\/$/, ''),
+    baseUrl: resolveCozeBaseUrl(),
   }
 }
 
-function requireCozeToken(): string {
+async function resolveCozeToken(): Promise<string> {
+  // OAuth JWT 优先：一次配置长期自动换 token，PAT 只作为兜底。
+  if (loadCozeOAuthConfig()) {
+    const oauthToken = await getCozeAccessToken()
+    if (oauthToken) return oauthToken
+    console.error('[coze-bot-sync] OAuth JWT 未取到 token，回退 PAT')
+  }
   const token =
     process.env.COZE_API_KEY?.trim() ||
     process.env.COZE_API_TOKEN?.trim() ||
     process.env.COZE_PAT_TOKEN?.trim() ||
     ''
   if (!token) {
-    throw new CozeSyncError('COZE_TOKEN_MISSING', 'COZE_API_KEY / COZE_API_TOKEN 未配置', {
-      statusCode: 503,
-    })
+    throw new CozeSyncError(
+      'COZE_TOKEN_MISSING',
+      'COZE_OAUTH_APP_ID/COZE_PUBLIC_KEY_ID/COZE_PRIVATE_KEY(_PATH) 与 PAT 均未配置',
+      { statusCode: 503 },
+    )
   }
   return token
 }
@@ -239,7 +266,7 @@ async function fetchCozeBot(
   botId: string,
   opts: { isPublished: boolean; allowDraft: boolean },
 ): Promise<CozeFetchResult> {
-  const token = requireCozeToken()
+  const token = await resolveCozeToken()
   const baseUrl = getCozeCredentialStatus().baseUrl
   let firstError: CozeSyncError | null = null
   try {
@@ -420,7 +447,7 @@ export interface SyncManyResult {
 
 export async function syncManyCozeAgents(opts: SyncManyOptions = {}): Promise<SyncManyResult> {
   // 凭据缺失直接 503，不逐条写库；否则 116 条都会被标成 skipped_no_token。
-  requireCozeToken()
+  await resolveCozeToken()
   const limit = Math.min(Math.max(opts.limit ?? DEFAULT_SYNC_BATCH, 1), MAX_SYNC_BATCH)
   const concurrency = Math.min(Math.max(opts.concurrency ?? 4, 1), 8)
   const conditions = [isNotNull(agents.botId)]
