@@ -100,6 +100,7 @@ import { registerDeveloperCommand, registerPlaygroundCommand } from './commands/
 import { registerKnowledgeCommand, registerRagCommand } from './commands/knowledge.js';
 import { registerWikiCommand } from './commands/wiki.js';
 import { registerMcpMarketCommand } from './commands/mcp-market.js';
+import { registerMcpDiscoverCommand } from './commands/mcp-discover.js';
 import { registerModelsCommand } from './commands/models.js';
 import { registerSecurityCommand } from './commands/security.js';
 import { registerCheckpointCommand } from './commands/checkpoint.js';
@@ -1398,6 +1399,7 @@ export function buildMcpAddCommand(parent: Command): Command {
 }
 
 buildMcpAddCommand(mcpCmd);
+registerMcpDiscoverCommand(mcpCmd);
 
 mcpCmd
   .command('remove <name>')

@@ -38,7 +38,14 @@
 - 单条坏卡只在该条 `ok:false` 里报错，不拖垮整批；目录本身失败才整批为空；
 - 只返回候选卡片，不自动建立连接，不把目录/卡片声明的身份当安全凭据。
 
-目前只提供库接口，不新增 `ihui mcp discover` 子命令；调用方拿到候选后仍需显式落配置或走自己的连接确认。
+CLI 面由 `ihui mcp discover <domain-or-url>` 提供，只打印候选，不写配置、不建连接：
+
+```bash
+ihui mcp discover example.com
+ihui mcp discover https://example.com/.well-known/ai-catalog.json --json --max-cards 20
+```
+
+`--max-cards` 默认 10、上限 100；目录拉取失败退出 1，目录合法但零卡片退出 0——空目录是合法状态，不能扮成错误。`--json` 与 `discoverMcpServerCards()` 的返回同构，便于脚本接管；真正落配置仍需用户显式执行 `ihui mcp add` 或走自己的连接确认。
 
 ## Skills over MCP（SEP-2640，beta）
 
