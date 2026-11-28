@@ -14976,7 +14976,11 @@
       "reviseSaveToDocs": "ドキュメントに保存",
       "reviseSavingToDocs": "保存中…",
       "reviseSavedToDocs": "ドキュメントに保存しました:{name}",
-      "reviseSaveToDocsFailed": "ドキュメントへの保存に失敗しました。後でもう一度お試しください"
+      "reviseSaveToDocsFailed": "ドキュメントへの保存に失敗しました。後でもう一度お試しください",
+      "revisePickProject": "プロジェクトを選択",
+      "reviseLoadingProjects": "プロジェクトを読み込み中…",
+      "reviseSaveConfirm": "保存",
+      "reviseNoProjects": "プロジェクトがありません。先にワークスペースで作成してください"
     }
   },
   "drama": {

@@ -14956,7 +14956,11 @@
       "reviseSaveToDocs": "保存到文档中心",
       "reviseSavingToDocs": "保存中…",
       "reviseSavedToDocs": "已保存到文档中心:{name}",
-      "reviseSaveToDocsFailed": "保存到文档中心失败,请稍后重试"
+      "reviseSaveToDocsFailed": "保存到文档中心失败,请稍后重试",
+      "revisePickProject": "选择项目",
+      "reviseLoadingProjects": "加载项目中…",
+      "reviseSaveConfirm": "保存",
+      "reviseNoProjects": "还没有项目,请先在工作区创建项目"
     }
   },
   "drama": {

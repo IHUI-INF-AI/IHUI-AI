@@ -156,6 +156,11 @@ export function AiRevisionPanel({
   )
   const [exporting, setExporting] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
+  // 对话附件没有项目归属:保存前先让用户选一个项目(项目文件查看器已带 projectId,直接存)。
+  const [pickerOpen, setPickerOpen] = React.useState(false)
+  const [projects, setProjects] = React.useState<Array<{ id: string; name: string }> | null>(null)
+  const [pickerProjectId, setPickerProjectId] = React.useState('')
+  const [loadingProjects, setLoadingProjects] = React.useState(false)
   const [copied, setCopied] = React.useState(false)
   // 多轮修订:baseText 非空 ⇒ 下一轮以"上一轮已接受的合并稿"为输入,而不是原文件;
   // rootOriginal 始终保留第一轮原文 —— docx 回写要靠它与原文件段落 1:1 对齐。
@@ -363,8 +368,9 @@ export function AiRevisionPanel({
    * 文档中心「我的项目文件」立即可见。刻意不覆盖原文件:修订稿是**另一份**候选版本,
    * 原文件保持可对照;等版本链落地后再改成同一文件的版本关系。
    */
-  const saveToDocs = async () => {
-    if (!projectId || !result || !diff || accepted.size === 0) return
+  const saveToDocs = async (targetProjectId?: string) => {
+    const pid = targetProjectId ?? projectId
+    if (!pid || !result || !diff || accepted.size === 0) return
     setSaving(true)
     try {
       const exported = await buildExport()
@@ -376,15 +382,42 @@ export function AiRevisionPanel({
         new File([exported.blob], exported.filename, { type: exported.blob.type }),
       )
       const res = await fetchApi<{ file?: { id: string; name: string } }>(
-        `/api/workspace/projects/${encodeURIComponent(projectId)}/files`,
+        `/api/workspace/projects/${encodeURIComponent(pid)}/files`,
         { method: 'POST', body: form },
       )
       if (!res.success) throw new Error(res.error || 'SAVE_FAILED')
       toast.success(t('reviseSavedToDocs', { name: exported.filename }))
+      setPickerOpen(false)
     } catch {
       toast.error(t('reviseSaveToDocsFailed'))
     } finally {
       setSaving(false)
+    }
+  }
+
+  /**
+   * 保存入口:项目文件查看器已带 projectId 直接上传;对话附件没有归属,先拉项目列表让用户选。
+   * 只读当前用户的项目(接口按 userId 过滤),不缓存 —— 选错项目会把修订稿传进别人的项目。
+   */
+  const startSave = async () => {
+    if (projectId) {
+      await saveToDocs(projectId)
+      return
+    }
+    setPickerOpen(true)
+    if (projects !== null || loadingProjects) return
+    setLoadingProjects(true)
+    try {
+      const res = await fetchApi<{ projects?: Array<{ id: string; name: string }> }>(
+        '/api/workspace/projects',
+      )
+      const list = res.success ? (res.data?.projects ?? []) : []
+      setProjects(list)
+      setPickerProjectId((prev) => prev || (list[0]?.id ?? ''))
+    } catch {
+      setProjects([])
+    } finally {
+      setLoadingProjects(false)
     }
   }
 
@@ -806,10 +839,10 @@ export function AiRevisionPanel({
                 {t('reviseContinue')}
               </button>
             ) : null}
-            {projectId && totalHunks > 0 ? (
+            {totalHunks > 0 ? (
               <button
                 type="button"
-                onClick={() => void saveToDocs()}
+                onClick={() => void startSave()}
                 disabled={accepted.size === 0 || saving || exporting}
                 className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-violet-300/70 px-3 py-1.5 text-[11px] font-medium text-violet-700 hover:bg-violet-50 disabled:opacity-50 dark:border-violet-800 dark:text-violet-300 dark:hover:bg-violet-950/40"
               >
@@ -827,7 +860,7 @@ export function AiRevisionPanel({
               disabled={accepted.size === 0 || exporting || saving}
               className={cn(
                 'inline-flex items-center gap-1.5 rounded-md bg-violet-600 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-violet-700 disabled:opacity-50',
-                !projectId && 'ml-auto',
+                totalHunks === 0 && 'ml-auto',
               )}
             >
               {exporting ? (
@@ -838,6 +871,52 @@ export function AiRevisionPanel({
               {exporting ? t('reviseExporting') : t('reviseExport')}
             </button>
           </footer>
+          {pickerOpen ? (
+            <div
+              data-testid="revision-project-picker"
+              className="flex flex-wrap items-center gap-2 border-t border-border/60 px-3 py-2 text-[11px]"
+            >
+              <span className="text-muted-foreground">{t('revisePickProject')}</span>
+              {loadingProjects ? (
+                <span className="inline-flex items-center gap-1 text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  {t('reviseLoadingProjects')}
+                </span>
+              ) : projects && projects.length > 0 ? (
+                <>
+                  <select
+                    aria-label={t('revisePickProject')}
+                    value={pickerProjectId}
+                    onChange={(event) => setPickerProjectId(event.target.value)}
+                    className="min-w-0 max-w-[16rem] rounded-md border bg-background px-2 py-1 text-[11px]"
+                  >
+                    {projects.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => void saveToDocs(pickerProjectId)}
+                    disabled={!pickerProjectId || saving}
+                    className="rounded-md bg-violet-600 px-2.5 py-1 font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+                  >
+                    {t('reviseSaveConfirm')}
+                  </button>
+                </>
+              ) : (
+                <span className="text-muted-foreground">{t('reviseNoProjects')}</span>
+              )}
+              <button
+                type="button"
+                onClick={() => setPickerOpen(false)}
+                className="ml-auto rounded-md border px-2.5 py-1 text-muted-foreground hover:bg-muted"
+              >
+                {t('reviseClose')}
+              </button>
+            </div>
+          ) : null}
           {totalHunks === 0 ? (
             <p className="px-3 pb-2 text-[11px] text-muted-foreground">{t('reviseNoChanges')}</p>
           ) : accepted.size === 0 ? (

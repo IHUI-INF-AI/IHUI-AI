@@ -14911,7 +14911,11 @@
       "reviseSaveToDocs": "儲存到文件中心",
       "reviseSavingToDocs": "儲存中…",
       "reviseSavedToDocs": "已儲存到文件中心:{name}",
-      "reviseSaveToDocsFailed": "儲存到文件中心失敗,請稍後重試"
+      "reviseSaveToDocsFailed": "儲存到文件中心失敗,請稍後重試",
+      "revisePickProject": "選擇專案",
+      "reviseLoadingProjects": "載入專案中…",
+      "reviseSaveConfirm": "儲存",
+      "reviseNoProjects": "尚無專案,請先在工作區建立專案"
     }
   },
   "drama": {

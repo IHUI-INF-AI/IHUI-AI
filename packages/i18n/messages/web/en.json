@@ -14902,7 +14902,11 @@
       "reviseSaveToDocs": "Save to docs",
       "reviseSavingToDocs": "Saving…",
       "reviseSavedToDocs": "Saved to docs: {name}",
-      "reviseSaveToDocsFailed": "Failed to save to docs, please retry later"
+      "reviseSaveToDocsFailed": "Failed to save to docs, please retry later",
+      "revisePickProject": "Choose project",
+      "reviseLoadingProjects": "Loading projects…",
+      "reviseSaveConfirm": "Save",
+      "reviseNoProjects": "No projects yet — create one in the workspace first"
     }
   },
   "drama": {

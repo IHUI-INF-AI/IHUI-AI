@@ -161,11 +161,25 @@ describe('AiRevisionPanel', () => {
     expect(sent.name).not.toBe('合同.txt')
   })
 
-  it('无项目归属时不显示「保存到文档中心」(只有下载)', async () => {
+  it('对话附件无项目归属:先选项目再保存,上传到所选项目', async () => {
+    fetchApiMock.mockImplementation(async (url: string) =>
+      url === '/api/workspace/projects'
+        ? { success: true, data: { projects: [{ id: 'p-9', name: '项目九' }] } }
+        : { success: true, data: { file: { id: 'f-9', name: '合同-修订稿.txt' } } },
+    )
     render(<AiRevisionPanel file={fileOf('合同.txt')} name="合同.txt" />)
     fireEvent.click(screen.getByText('reviseRun'))
     await expectBodyContains('第一条 甲方应在五个工作日内付款。')
-    expect(screen.queryByText('reviseSaveToDocs')).toBeNull()
+
+    fireEvent.click(screen.getByText('reviseSaveToDocs'))
+    await waitFor(() => expect(screen.getByTestId('revision-project-picker')).toBeTruthy())
+    const select = screen.getByLabelText('revisePickProject') as HTMLSelectElement
+    expect(select.value).toBe('p-9')
+
+    fireEvent.click(screen.getByText('reviseSaveConfirm'))
+    await waitFor(() => expect(fetchApiMock).toHaveBeenCalledTimes(2))
+    expect((fetchApiMock.mock.calls[1] as [string])[0]).toBe('/api/workspace/projects/p-9/files')
+    await waitFor(() => expect(screen.queryByTestId('revision-project-picker')).toBeNull())
   })
 
   it('长文逐处导航:上一处/下一处切换定位并高亮当前 hunk', async () => {
