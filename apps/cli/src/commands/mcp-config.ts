@@ -206,7 +206,10 @@ export interface McpValidationResult {
  * - name:非空字符串
  * - transport='stdio'(或缺省):必须有非空 command;args 若存在必须是字符串数组;env 必须是字符串 map
  * - transport='http'|'sse':必须有非空 url
- * - auth.type='oauth':oauth 元数据必填字段(authorizationEndpoint/tokenEndpoint/clientId/redirectUri/scope)
+ * - auth.type='oauth':oauth 元数据必填 redirectUri/scope，端点/clientId 可静态给，
+ *   或用 discovery（RFC 8414 + 预注册 > CIMD > DCR）
+ * - auth.type='enterprise-managed':EMA/ID-JAG 六件套必填
+ * - auth.type='oauth-client-credentials':tokenEndpoint/clientId 必填
  * 不抛错,返回 { valid, errors },由调用方决定提示方式。
  */
 export function validateMcpConfig(config: unknown): McpValidationResult {
@@ -254,15 +257,64 @@ export function validateMcpConfig(config: unknown): McpValidationResult {
     }
     if (s.auth?.type === 'oauth') {
       const o = s.oauth;
-      if (
-        !o ||
+      if (!o || typeof o.redirectUri !== 'string' || !Array.isArray(o.scope)) {
+        err("auth.type='oauth' 要求 oauth 元数据含 redirectUri/scope");
+        continue;
+      }
+      if (o.discovery) {
+        if (
+          typeof o.discovery.issuer !== 'string' ||
+          !o.discovery.issuer.trim() ||
+          (o.discovery.clientMetadataDocumentUrl !== undefined &&
+            typeof o.discovery.clientMetadataDocumentUrl !== 'string')
+        ) {
+          err("oauth.discovery 要求 issuer，clientMetadataDocumentUrl 必须是字符串");
+          continue;
+        }
+        // discovery 路径允许端点/clientId 缺省（运行时由 RFC 8414 + CIMD/DCR 补齐）；
+        // 显式给了就必须是字符串，避免 undefined 混进 URL。
+        if (
+          (o.authorizationEndpoint !== undefined && typeof o.authorizationEndpoint !== 'string') ||
+          (o.tokenEndpoint !== undefined && typeof o.tokenEndpoint !== 'string') ||
+          (o.clientId !== undefined && typeof o.clientId !== 'string')
+        ) {
+          err('oauth.discovery 下显式端点/clientId 必须是字符串');
+          continue;
+        }
+      } else if (
         typeof o.authorizationEndpoint !== 'string' ||
         typeof o.tokenEndpoint !== 'string' ||
-        typeof o.clientId !== 'string' ||
-        typeof o.redirectUri !== 'string' ||
-        !Array.isArray(o.scope)
+        typeof o.clientId !== 'string'
       ) {
-        err("auth.type='oauth' 要求 oauth 元数据含 authorizationEndpoint/tokenEndpoint/clientId/redirectUri/scope");
+        err(
+          "auth.type='oauth' 要求 oauth 元数据含 authorizationEndpoint/tokenEndpoint/clientId，或提供 discovery",
+        );
+        continue;
+      }
+    }
+    if (s.auth?.type === 'enterprise-managed') {
+      const e = s.enterpriseManaged;
+      if (
+        !e ||
+        typeof e.idpTokenEndpoint !== 'string' ||
+        typeof e.idpClientId !== 'string' ||
+        typeof e.identityAssertion !== 'string' ||
+        typeof e.authorizationServerIssuer !== 'string' ||
+        typeof e.tokenEndpoint !== 'string' ||
+        typeof e.clientId !== 'string'
+      ) {
+        err(
+          "auth.type='enterprise-managed' 要求 enterpriseManaged 含 idpTokenEndpoint/idpClientId/identityAssertion/authorizationServerIssuer/tokenEndpoint/clientId",
+        );
+        continue;
+      }
+    }
+    if (s.auth?.type === 'oauth-client-credentials') {
+      const cc = s.oauthClientCredentials;
+      if (!cc || typeof cc.tokenEndpoint !== 'string' || typeof cc.clientId !== 'string') {
+        err(
+          "auth.type='oauth-client-credentials' 要求 oauthClientCredentials 含 tokenEndpoint/clientId",
+        );
         continue;
       }
     }
