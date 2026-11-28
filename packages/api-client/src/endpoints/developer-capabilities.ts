@@ -73,4 +73,33 @@ export async function getDeveloperApiKeyUsage(
 ): Promise<ApiResult<DeveloperApiKeyUsage>> {
   return fetchApi<DeveloperApiKeyUsage>(`/api/developer/api-keys/${keyId}/usage`)
 }
+
+/** 发布 API 独立账本：只统计开放能力真正创建成功的任务，与 HTTP 审计流水分开。 */
+export interface DeveloperPublishUsageItem {
+  id: string
+  action: string
+  taskId: string | null
+  statusCode: number
+  units: number
+  createdAt: string
+}
+
+export interface DeveloperPublishUsage {
+  keyId: string
+  capability: string
+  units: number
+  records: number
+  lastUsedAt: string | null
+  items: DeveloperPublishUsageItem[]
+}
+
+/** `GET /api/developer/api-keys/:id/publish-usage` 的真实返回。 */
+export async function getDeveloperApiKeyPublishUsage(
+  keyId: string,
+  limit = 20,
+): Promise<ApiResult<DeveloperPublishUsage>> {
+  return fetchApi<DeveloperPublishUsage>(
+    `/api/developer/api-keys/${keyId}/publish-usage?limit=${encodeURIComponent(String(limit))}`,
+  )
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

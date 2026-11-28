@@ -1341,10 +1341,7 @@ export function Modal(props: RNBaseProps) {
           onClick={onBack}
         />
       ) : null}
-      {/* 透明 Modal 的内容层此前是裸 View:overlay 用 alignItems:center 收缩,裸 View 宽度=0,
-          其后再挂 BottomPops 的 absolute left/right:0 sheet 就被压成 0 宽(标题 x=195/宽 0)。
-          RN Modal 的内容层语义上就是满屏,这里显式 width:100% 交给子内容,布局不再由内容反推。 */}
-      <View style={{ flex: 1, width: '100%' }}>{props.children}</View>
+      <View style={transparent ? undefined : { flex: 1 }}>{props.children}</View>
     </View>
   )
   /**

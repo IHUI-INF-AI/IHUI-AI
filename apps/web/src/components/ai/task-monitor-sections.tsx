@@ -49,7 +49,7 @@ export const TASK_MONITOR_ZONES: Readonly<Record<TaskZone, readonly ToolTabKey[]
     'hooks',
   ],
   results: ['bestof', 'worlds', 'atomicrollback', 'tokens', 'spec', 'wiki'],
-  auxiliary: ['routines', 'integrations', 'workspace', 'inspector', 'coze'],
+  auxiliary: ['routines', 'integrations', 'workspace', 'inspector'],
 }
 
 const ZONE_ORDER: readonly TaskZone[] = ['progress', 'activity', 'results', 'auxiliary']

@@ -24,11 +24,7 @@ import {
   type AnalyticsMetricsSummary,
   type AccountHealth,
 } from '@/components/publish/AnalyticsDashboard'
-import {
-  dedupeContent,
-  rankTopContent,
-  type ContentPerformance,
-} from '@/lib/publish/top-content'
+import { rankTopContent, type ContentPerformance } from '@/lib/publish/top-content'
 
 interface OverviewResponse {
   totalPublished: number
@@ -39,7 +35,58 @@ interface OverviewResponse {
   platformDistribution: ReadonlyArray<{ platform: string; count: number; color: string }>
   failureReasons: ReadonlyArray<{ reason: string; count: number }>
   metrics?: AnalyticsMetricsSummary | null
-  topContent?: ReadonlyArray<ContentPerformance>
+}
+
+interface MonitorMetrics {
+  views: number
+  likes: number
+  comments: number
+  shares: number
+}
+
+/** 监测页已经在用的逐篇快照;这里只取复盘需要的字段,不跨路由 import 组件类型。 */
+interface MonitorItemLite {
+  task_id: string
+  title: string
+  platform: string
+  created_at: string | null
+  finished_at: string | null
+  published_url: string | null
+  metrics: MonitorMetrics | null
+}
+
+const PERIOD_DAYS: Record<AnalyticsPeriod, number> = {
+  '7d': 7,
+  '30d': 30,
+  '90d': 90,
+}
+
+function buildTopContent(
+  items: ReadonlyArray<MonitorItemLite>,
+  period: AnalyticsPeriod,
+  now = Date.now(),
+): ContentPerformance[] {
+  const cutoff = now - PERIOD_DAYS[period] * 24 * 60 * 60 * 1000
+  const candidates = items
+    .filter((item) => {
+      if (!item.metrics) return false
+      const ts = item.finished_at ?? item.created_at
+      if (!ts) return false
+      const time = new Date(ts).getTime()
+      return Number.isFinite(time) && time >= cutoff
+    })
+    .map((item) => ({
+      taskId: item.task_id,
+      title: item.title,
+      platform: item.platform,
+      views: item.metrics?.views ?? 0,
+      likes: item.metrics?.likes ?? 0,
+      comments: item.metrics?.comments ?? 0,
+      shares: item.metrics?.shares ?? 0,
+      publishedAt: item.finished_at ?? item.created_at,
+      publishedUrl: item.published_url,
+    }))
+  return rankTopContent(candidates, 5)
 }
 
 export default function AnalyticsPage() {
@@ -55,13 +102,16 @@ export default function AnalyticsPage() {
     async (p: AnalyticsPeriod) => {
       setLoading(true)
       try {
-        const [ovRes, acRes] = await Promise.all([
+        const [ovRes, acRes, monitorRes] = await Promise.all([
           apiOrThrow<OverviewResponse>(`/api/publish/analytics/overview?period=${p}`).catch(
             () => null,
           ),
           apiOrThrow<AccountHealth[]>(`/api/publish/analytics/accounts?period=${p}`).catch(
             () => [],
           ),
+          apiOrThrow<{ items?: MonitorItemLite[] }>(
+            '/api/publish/monitor/overview?limit=50',
+          ).catch(() => ({ items: [] as MonitorItemLite[] })),
         ])
         if (ovRes) {
           setOverview({
@@ -74,12 +124,11 @@ export default function AnalyticsPage() {
             failureReasons: ovRes.failureReasons,
             metrics: ovRes.metrics ?? null,
           })
-          setTopContent(rankTopContent(dedupeContent(ovRes.topContent ?? []), 5))
         } else {
           setOverview(null)
-          setTopContent([])
         }
         setAccounts(acRes)
+        setTopContent(buildTopContent(monitorRes.items ?? [], p))
       } catch (e) {
         toast.error((e as Error).message)
       } finally {

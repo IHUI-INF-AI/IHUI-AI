@@ -9,8 +9,10 @@ import { useLocale, useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 import {
   getDeveloperApiKeyUsage,
+  getDeveloperApiKeyPublishUsage,
   type DeveloperApiKeyUsage,
   type DeveloperApiKeyWithQuota,
+  type DeveloperPublishUsage,
 } from '@ihui/api-client/endpoints/developer-capabilities'
 
 /** 时间一律用 Intl.DateTimeFormat(AGENTS.md §4),不手拼字符串。 */
@@ -28,6 +30,41 @@ type UsageState =
   | { phase: 'loading' }
   | { phase: 'error'; message: string }
   | { phase: 'ready'; usage: DeveloperApiKeyUsage }
+
+type PublishUsageState =
+  | { phase: 'loading' }
+  | { phase: 'error'; message: string }
+  | { phase: 'ready'; usage: DeveloperPublishUsage }
+
+/** 独立计费账本：只显示"成功创建任务"的计量，不把 HTTP 审计调用混进来。 */
+function PublishUsageSummary({
+  usage,
+  locale,
+}: {
+  usage: DeveloperPublishUsage
+  locale: string
+}): React.JSX.Element {
+  const t = useTranslations('developer.capabilities')
+  return (
+    <div className="space-y-1 border-t border-border/60 pt-2">
+      <p className="text-[11px] font-semibold">Publish API</p>
+      {usage.records > 0 ? (
+        <>
+          <p className="text-[11px] text-muted-foreground tabular-nums">
+            {t('callsTotal', { times: usage.units })}
+          </p>
+          {usage.lastUsedAt ? (
+            <p className="text-[11px] text-muted-foreground">
+              {t('lastUsedAt', { time: formatDateTime(usage.lastUsedAt, locale) })}
+            </p>
+          ) : null}
+        </>
+      ) : (
+        <p className="text-[11px] text-muted-foreground">{t('lastUsedNever')}</p>
+      )}
+    </div>
+  )
+}
 
 /** 真实用量:来自有端点的 GET /api/developer/api-keys/:id/usage。 */
 function UsageSummary({
@@ -81,13 +118,23 @@ export function KeyUsagePanel({ apiKey }: { apiKey: DeveloperApiKeyWithQuota }):
   const t = useTranslations('developer.capabilities')
   const locale = useLocale()
   const [state, setState] = React.useState<UsageState>({ phase: 'loading' })
+  const [publishState, setPublishState] = React.useState<PublishUsageState>({ phase: 'loading' })
 
   React.useEffect(() => {
     let alive = true
     setState({ phase: 'loading' })
+    setPublishState({ phase: 'loading' })
     void getDeveloperApiKeyUsage(apiKey.id).then((result) => {
       if (!alive) return
       setState(
+        result.success
+          ? { phase: 'ready', usage: result.data }
+          : { phase: 'error', message: result.error },
+      )
+    })
+    void getDeveloperApiKeyPublishUsage(apiKey.id).then((result) => {
+      if (!alive) return
+      setPublishState(
         result.success
           ? { phase: 'ready', usage: result.data }
           : { phase: 'error', message: result.error },
@@ -144,6 +191,20 @@ export function KeyUsagePanel({ apiKey }: { apiKey: DeveloperApiKeyWithQuota }):
         </p>
       ) : (
         <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+          <span>{t('usageLoading')}</span>
+        </p>
+      )}
+
+      {publishState.phase === 'ready' ? (
+        <PublishUsageSummary usage={publishState.usage} locale={locale} />
+      ) : publishState.phase === 'error' ? (
+        <p className="text-[11px] text-rose-600 dark:text-rose-400">
+          {t('usageError')}
+          <span className="ml-1 font-mono">{publishState.message}</span>
+        </p>
+      ) : (
+        <p className="flex items-center gap-1.5 border-t border-border/60 pt-2 text-[11px] text-muted-foreground">
           <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
           <span>{t('usageLoading')}</span>
         </p>

@@ -222,18 +222,6 @@ export default defineConfig(async (merge) => {
         'src',
         'screens',
       ),
-      // 2026-11-28 H5/小程序验收:RN 壳里 appAlert 的宿主 AppConfirmHost 必须挂到
-      // 承载页,否则 showModal 无宿主 ⇒ 确认弹窗只改模块变量、页面无反应。
-      '@rn-components': path.resolve(
-        __dirname,
-        '..',
-        '..',
-        '..',
-        'apps',
-        'mobile-rn',
-        'src',
-        'components',
-      ),
       // react 强制收敛到端内 react@18(与 mini 段 2026-09-11 双实例白屏修复同理:
       // packages/app 自带 react@19 依赖,h5 经 webpack 从 importer 目录解析会出双实例)
       react: path.resolve(__dirname, '..', 'node_modules', 'react'),
@@ -458,17 +446,6 @@ export default defineConfig(async (merge) => {
           'src',
           'screens',
         ),
-        // 同顶层:提现页挂 AppConfirmHost 需要 RN 组件目录;mini 段 alias 是整体替换。
-        '@rn-components': path.resolve(
-          __dirname,
-          '..',
-          '..',
-          '..',
-          'apps',
-          'mobile-rn',
-          'src',
-          'components',
-        ),
       },
       // 2026-09-10 主包 2MB 硬上限治理:把仅被分包引用的公共 chunk 自动
       // 下沉到分包,避免 common.js 整体压在主包(webpack5 编译器专属能力)
@@ -534,10 +511,6 @@ export default defineConfig(async (merge) => {
                   // 壳复用腿:RN 壳目录也在 mini 编译面里(未预编译的 TS 源,默认 exclude 会
                   // 让它落进"无 loader"而 ModuleParseError;与 @ihui/* 同一条处理法)
                   path.resolve(__dirname, '..', '..', '..', 'apps', 'mobile-rn', 'src'),
-                  // 2026-11-28:部分 @ihui/* junction 指向 .tmp/coze-full 镜像,其 TS 源
-                  // 不在 canonical 根下;两处镜像根一并入列,避免 ModuleParseError(avatar-spec)。
-                  path.resolve(__dirname, '..', '..', '..', '.tmp', 'coze-full', 'packages'),
-                  path.resolve(__dirname, '..', '..', '..', '.tmp', 'sync', 'packages'),
                 ]
               })(),
             },
@@ -759,40 +732,6 @@ export default defineConfig(async (merge) => {
       // - runtime: webpack 运行时单独抽出，利于长缓存
       // 优化前 app.js 单文件 823 KiB（含全部 vendor + runtime），优化后主 bundle 显著下降
       webpackChain: (chain: any) => {
-        // 2026-11-28 H5 构建补:@ihui/shared/artifact 的 runtime 源(未预编译 TS)进入
-        // RN 壳闭包后,仅靠 h5.compile.include 未命中 Taro 的 script 规则 ⇒
-        // `import type` 被当 JS 解析(ModuleParseError 18:12)。直接把 workspace 源
-        // 根挂到现有 script 规则 include,确保 babel-loader 对它生效。
-        const workspaceTsRoots = [
-          'api-client',
-          'design-tokens',
-          'i18n',
-          'shared',
-          'types',
-          'app',
-          'ui-native',
-        ].map((pkg) => path.resolve(__dirname, '..', '..', '..', 'packages', pkg, 'src'))
-        workspaceTsRoots.push(
-          path.resolve(__dirname, '..', '..', '..', 'apps', 'mobile-rn', 'src'),
-          // 2026-11-28:本机 workspace 的部分 @ihui/* junction 指向 .tmp/coze-full 镜像
-          // (与 canonical 源同内容),H5 解析会落到镜像路径;两处镜像根一并过 loader。
-          path.resolve(__dirname, '..', '..', '..', '.tmp', 'coze-full', 'packages'),
-          path.resolve(__dirname, '..', '..', '..', '.tmp', 'sync', 'packages'),
-        )
-        for (const root of workspaceTsRoots) chain.module.rule('script').include.add(root)
-        // 独立兜底规则:不依赖 Taro 的 script 规则名/生命周期,只对 workspace TS 源
-        // 显式挂 babel-loader。H5 的 `h5.compile.include` 在本轮 Taro 4.2 未命中。
-        // webpack-chain 的 `.include.add(...many)` 实测只保留首个,逐条 add。
-        const workspaceRule = chain.module
-          .rule('ihuiWorkspaceTs')
-          .test(/\.(ts|tsx)$/)
-        for (const root of workspaceTsRoots) workspaceRule.include.add(root)
-        workspaceRule
-          .use('babelLoader')
-          .loader(require.resolve('babel-loader'))
-          .options({
-            presets: [['taro', { framework: 'react', ts: true, compiler: 'webpack5' }]],
-          })
         chain.module
           .rule('script')
           .use('babelLoader')
