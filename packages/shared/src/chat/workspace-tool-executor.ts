@@ -569,3 +569,148 @@ export interface AdminContentOps {
   createCarousel(body: Record<string, unknown>): Promise<AdminContentOpOutcome>
   updateCarousel(id: string, body: Record<string, unknown>): Promise<AdminContentOpOutcome>
 }
+
+function pickString(args: Record<string, unknown>, key: string): string | undefined {
+  const v = args[key]
+  return typeof v === 'string' && v.length > 0 ? v : undefined
+}
+
+function pickBoolean(args: Record<string, unknown>, key: string): boolean | undefined {
+  const v = args[key]
+  return typeof v === 'boolean' ? v : undefined
+}
+
+function pickNumber(args: Record<string, unknown>, key: string): number | undefined {
+  const v = args[key]
+  return typeof v === 'number' && Number.isFinite(v) ? v : undefined
+}
+
+/**
+ * 运营内容工具的**唯一委托入口**(G-17,2026-11-28)。
+ * 与 executeWorkspaceTool 分立:fs 工具依赖 FileSystemDirectoryHandle,运营内容工具
+ * 走用户本人会话调 admin 端点,不依赖工作区句柄。
+ */
+export async function executeAdminContentTool(
+  toolName: string,
+  args: Record<string, unknown>,
+  adminOps?: AdminContentOps,
+): Promise<ToolExecutionResult> {
+  try {
+    return await toolAdminContent(toolName, args, adminOps)
+  } catch (err) {
+    return { result: null, error: (err as Error).message }
+  }
+}
+
+async function toolAdminContent(
+  toolName: string,
+  args: Record<string, unknown>,
+  adminOps?: AdminContentOps,
+): Promise<ToolExecutionResult> {
+  if (!adminOps) {
+    return {
+      result: null,
+      error: `${toolName}: 运营内容工具由浏览器端以用户本人会话执行,当前端未接入执行面(仅 web 聊天可用)`,
+    }
+  }
+  let outcome: AdminContentOpOutcome
+  switch (toolName) {
+    case 'announce_list': {
+      const query: Record<string, unknown> = {}
+      const page = pickNumber(args, 'page')
+      if (page !== undefined) query.page = page
+      const pageSize = pickNumber(args, 'pageSize')
+      if (pageSize !== undefined) query.pageSize = pageSize
+      const title = pickString(args, 'title')
+      if (title !== undefined) query.title = title
+      const isPublished = pickBoolean(args, 'isPublished')
+      if (isPublished !== undefined) query.isPublished = isPublished
+      outcome = await adminOps.listAnnouncements(query)
+      break
+    }
+    case 'announce_create': {
+      const title = pickString(args, 'title')
+      const content = args.content
+      if (!title) return { result: null, error: 'announce_create: title 参数缺失' }
+      if (typeof content !== 'string' || content.length === 0) {
+        return { result: null, error: 'announce_create: content 参数缺失' }
+      }
+      const body: Record<string, unknown> = { title, content }
+      const type = pickString(args, 'type')
+      if (type !== undefined) body.type = type
+      const isPinned = pickBoolean(args, 'isPinned')
+      if (isPinned !== undefined) body.isPinned = isPinned
+      const isPublished = pickBoolean(args, 'isPublished')
+      if (isPublished !== undefined) body.isPublished = isPublished
+      outcome = await adminOps.createAnnouncement(body)
+      break
+    }
+    case 'announce_update': {
+      const id = pickString(args, 'id')
+      if (!id) return { result: null, error: 'announce_update: id 参数缺失(先用 announce_list 查)' }
+      const body: Record<string, unknown> = {}
+      const title = pickString(args, 'title')
+      if (title !== undefined) body.title = title
+      if (typeof args.content === 'string' && args.content.length > 0) body.content = args.content
+      const type = pickString(args, 'type')
+      if (type !== undefined) body.type = type
+      const isPinned = pickBoolean(args, 'isPinned')
+      if (isPinned !== undefined) body.isPinned = isPinned
+      const isPublished = pickBoolean(args, 'isPublished')
+      if (isPublished !== undefined) body.isPublished = isPublished
+      if (Object.keys(body).length === 0) {
+        return { result: null, error: 'announce_update: 没有要更新的字段' }
+      }
+      outcome = await adminOps.updateAnnouncement(id, body)
+      break
+    }
+    case 'carousel_list': {
+      const query: Record<string, unknown> = {}
+      const page = pickNumber(args, 'page')
+      if (page !== undefined) query.page = page
+      const pageSize = pickNumber(args, 'pageSize')
+      if (pageSize !== undefined) query.pageSize = pageSize
+      const search = pickString(args, 'search')
+      if (search !== undefined) query.search = search
+      outcome = await adminOps.listCarousels(query)
+      break
+    }
+    case 'carousel_create': {
+      const body: Record<string, unknown> = {}
+      for (const key of ['title', 'position', 'imageUrl', 'linkUrl', 'description'] as const) {
+        const v = pickString(args, key)
+        if (v !== undefined) body[key] = v
+      }
+      const sort = pickNumber(args, 'sort')
+      if (sort !== undefined) body.sort = sort
+      const status = pickNumber(args, 'status')
+      if (status !== undefined) body.status = status
+      outcome = await adminOps.createCarousel(body)
+      break
+    }
+    case 'carousel_update': {
+      const id = pickString(args, 'id')
+      if (!id) return { result: null, error: 'carousel_update: id 参数缺失(先用 carousel_list 查)' }
+      const body: Record<string, unknown> = {}
+      for (const key of ['title', 'position', 'imageUrl', 'linkUrl', 'description'] as const) {
+        const v = pickString(args, key)
+        if (v !== undefined) body[key] = v
+      }
+      const sort = pickNumber(args, 'sort')
+      if (sort !== undefined) body.sort = sort
+      const status = pickNumber(args, 'status')
+      if (status !== undefined) body.status = status
+      if (Object.keys(body).length === 0) {
+        return { result: null, error: 'carousel_update: 没有要更新的字段' }
+      }
+      outcome = await adminOps.updateCarousel(id, body)
+      break
+    }
+    default:
+      return { result: null, error: `浏览器端不支持工具: ${toolName}` }
+  }
+  if (!outcome.ok) {
+    return { result: null, error: `${toolName}: ${outcome.message ?? '后台请求失败'}` }
+  }
+  return { result: JSON.stringify(outcome.data ?? {}), error: null }
+}
