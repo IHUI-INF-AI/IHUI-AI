@@ -2227,6 +2227,11 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-28**
+- 🐞 수정:面板改用 WS 短期票并透传上游失败原因 (c843cdcfc4)
+- 🐞 수정:显式声明 tslib，修复 echarts-for-react 构建解析 (d7854a60d5)
+- 🚀 기능/개선:每30分钟自动补采指标，失败不写0快照 (f0f741406b)
+- 🚀 기능/개선:中文检索二元组+词法桥;补回被删的检索质量用例;types 增 SubagentSpawnBudget (77c02d0949)
+- 🐞 수정:还原因 sync-converge 丢弃的未跟踪模块(88 路径),main 恢复可编译;feat(tool-search): 中文检索二元组+词法桥 hit@5 34/34 (c127fcf0f1)
 - 🐞 수정:WS 聊天改用 Chat v3 接口与 additional_messages (ce5ac9741a)
 - 🐞 수정:用量最近时间按毫秒比较 (656eefb9de)
 - 🚀 기능/개선:接入 LMArena/AA/OpenRouter 权威模型榜 (9f089a703a)

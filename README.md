@@ -84,6 +84,11 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 ## Recent updates (auto-maintained)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-28**
+- 🐞 修复:面板改用 WS 短期票并透传上游失败原因 (c843cdcfc4)
+- 🐞 修复:显式声明 tslib，修复 echarts-for-react 构建解析 (d7854a60d5)
+- 🚀 新功能/改进:每30分钟自动补采指标，失败不写0快照 (f0f741406b)
+- 🚀 新功能/改进:中文检索二元组+词法桥;补回被删的检索质量用例;types 增 SubagentSpawnBudget (77c02d0949)
+- 🐞 修复:还原因 sync-converge 丢弃的未跟踪模块(88 路径),main 恢复可编译;feat(tool-search): 中文检索二元组+词法桥 hit@5 34/34 (c127fcf0f1)
 - 🐞 修复:WS 聊天改用 Chat v3 接口与 additional_messages (ce5ac9741a)
 - 🐞 修复:用量最近时间按毫秒比较 (656eefb9de)
 - 🚀 新功能/改进:接入 LMArena/AA/OpenRouter 权威模型榜 (9f089a703a)
