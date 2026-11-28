@@ -19,6 +19,8 @@
  */
 
 import { callMcpServer, mcpToolName, type McpConnection, type McpToolDef } from '../mcp-runtime.js';
+import { createMcpSkillTools, mcpSkillToolName } from '../mcp-skills.js';
+import { wrapTool } from './adapter.js';
 import type { ToolContext, ToolResult } from '../index.js';
 import type { ToolHandle, ToolRegistry } from './registry.js';
 
@@ -117,6 +119,32 @@ export function registerMcpToolsToHub(opts: RegisterMcpToolsOptions): number {
       // 单个 tool 注册失败不阻塞其他
       const msg = err instanceof Error ? err.message : String(err);
       console.warn(`[hub-mcp-adapter] 注册 MCP tool 失败: ${serverName}/${mcpTool.name}: ${msg}`);
+    }
+  }
+
+  // SEP-2640：server 声明 Skills 扩展时，把两枚宿主工具也注册进 hub。
+  // skill_load 在 hub 面没有 registration 通道，按更严的 dangerous 走确认，
+  // 不允许因为“读取”语义就降成 read 绕过激活批准。
+  if (mcpConnection.mcpSkillsCapability) {
+    const loadName = mcpSkillToolName(serverName, 'load');
+    const skills = createMcpSkillTools({
+      serverName,
+      capability: mcpConnection.mcpSkillsCapability,
+      rpc: (method, params) => callMcpServer(mcpConnection, method, params),
+    });
+    for (const tool of skills) {
+      try {
+        const handle = wrapTool(tool, {
+          dangerLevel: tool.name === loadName ? 'dangerous' : 'read',
+        });
+        const existing = hub.find(handle.id);
+        if (existing) assertNoCollision(existing.id, handle.id);
+        hub.register(handle);
+        count++;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`[hub-mcp-adapter] 注册 MCP skill tool 失败: ${serverName}/${tool.name}: ${msg}`);
+      }
     }
   }
   return count;

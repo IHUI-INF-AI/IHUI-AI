@@ -18,6 +18,8 @@ import { isRecord } from '../util/json.js';
 
 export const MCP_SERVER_CARD_SCHEMA_URL =
   'https://static.modelcontextprotocol.io/schemas/v1/server-card.schema.json';
+export const MCP_SERVER_CARD_MEDIA_TYPE = 'application/mcp-server-card+json';
+export const AI_CATALOG_MEDIA_TYPE = 'application/ai-catalog+json';
 
 const CARD_NAME_RE = /^[a-zA-Z0-9.-]+\/[a-zA-Z0-9._-]+$/;
 const REMOTE_URL_RE = /^(https?:\/\/[^\s]+|\{[a-zA-Z_][a-zA-Z0-9_]*\}[^\s]*)$/;
@@ -266,7 +268,7 @@ export async function fetchMcpServerCard(
     await assertCardUrlOutbound(url, opts.trust);
     const resp = await (opts.fetchImpl ?? fetch)(url, {
       method: 'GET',
-      headers: { Accept: 'application/json' },
+      headers: { Accept: `${MCP_SERVER_CARD_MEDIA_TYPE}, application/json` },
       redirect: 'error',
       signal: controller.signal,
     });
@@ -290,4 +292,213 @@ export async function fetchMcpServerCard(
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * AI Catalog（SEP-2127 discovery）的最小读取面。
+ *
+ * 只做三件事：按 `/.well-known/ai-catalog.json` 取目录、挑出
+ * `application/mcp-server-card+json` 条目、把条目里的 url/data 交给 Server Card 校验。
+ * 不做域名爬取、不自动连接、不把目录声明的身份当安全凭据。
+ */
+export interface McpAiCatalogEntry {
+  identifier: string;
+  type: string;
+  url?: string;
+  data?: unknown;
+}
+
+export interface McpAiCatalog {
+  specVersion: string;
+  entries: McpAiCatalogEntry[];
+}
+
+export interface McpAiCatalogValidation {
+  ok: boolean;
+  errors: string[];
+  catalog?: McpAiCatalog;
+  /** 只含 Server Card 类型且形状合法的条目。 */
+  cardEntries?: McpAiCatalogEntry[];
+}
+
+const CATALOG_URL_RE = /^https?:\/\/[^\s]+$/i;
+
+/** 把域名/目录 URL 归一成 AI Catalog 的 well-known 地址。 */
+export function resolveAiCatalogUrl(input: string): string {
+  const raw = /^https?:\/\//i.test(input) ? input : `https://${input}`;
+  const url = new URL(raw);
+  if (url.pathname === '/' || url.pathname === '') {
+    url.pathname = '/.well-known/ai-catalog.json';
+  }
+  return url.toString();
+}
+
+export function parseMcpAiCatalog(value: unknown): McpAiCatalogValidation {
+  const errors: string[] = [];
+  if (!isRecord(value)) return { ok: false, errors: ['AI Catalog 必须是 JSON 对象'] };
+  let fatal = false;
+  if (typeof value.specVersion !== 'string' || !value.specVersion.trim()) {
+    errors.push('specVersion 必须是非空字符串');
+    fatal = true;
+  }
+  if (!Array.isArray(value.entries)) {
+    return { ok: false, errors: [...errors, 'entries 必须是数组'] };
+  }
+  const cardEntries: McpAiCatalogEntry[] = [];
+  for (const [i, raw] of value.entries.entries()) {
+    const where = `entries[${i}]`;
+    if (!isRecord(raw)) {
+      errors.push(`${where} 必须是对象`);
+      continue;
+    }
+    if (typeof raw.identifier !== 'string' || !raw.identifier.trim()) {
+      errors.push(`${where}.identifier 必须是非空字符串`);
+      continue;
+    }
+    if (typeof raw.type !== 'string' || !raw.type.trim()) {
+      errors.push(`${where}.type 必须是非空字符串`);
+      continue;
+    }
+    const hasUrl = raw.url !== undefined;
+    const hasData = raw.data !== undefined;
+    if (hasUrl === hasData) {
+      errors.push(`${where} 必须恰好有 url 或 data 之一`);
+      continue;
+    }
+    if (hasUrl && (typeof raw.url !== 'string' || !CATALOG_URL_RE.test(raw.url))) {
+      errors.push(`${where}.url 必须是 http(s) URL`);
+      continue;
+    }
+    if (hasData && !isRecord(raw.data)) {
+      errors.push(`${where}.data 必须是 Server Card 对象`);
+      continue;
+    }
+    if (raw.type === MCP_SERVER_CARD_MEDIA_TYPE) {
+      cardEntries.push({
+        identifier: raw.identifier,
+        type: raw.type,
+        ...(hasUrl ? { url: raw.url as string } : {}),
+        ...(hasData ? { data: raw.data } : {}),
+      });
+    }
+  }
+  return {
+    ok: !fatal,
+    errors,
+    catalog: {
+      specVersion: typeof value.specVersion === 'string' ? value.specVersion : '',
+      entries: value.entries as McpAiCatalogEntry[],
+    },
+    cardEntries,
+  };
+}
+
+export interface FetchMcpAiCatalogOptions {
+  fetchImpl?: typeof fetch;
+  timeoutMs?: number;
+  maxBytes?: number;
+  trust?: SelfHostedTrust;
+}
+
+export interface FetchMcpAiCatalogResult extends McpAiCatalogValidation {
+  url: string;
+}
+
+export async function fetchMcpAiCatalog(
+  domainOrUrl: string,
+  opts: FetchMcpAiCatalogOptions = {},
+): Promise<FetchMcpAiCatalogResult> {
+  const url = resolveAiCatalogUrl(domainOrUrl);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? 5_000);
+  try {
+    await assertCardUrlOutbound(url, opts.trust);
+    const resp = await (opts.fetchImpl ?? fetch)(url, {
+      method: 'GET',
+      headers: { Accept: `${AI_CATALOG_MEDIA_TYPE}, application/json` },
+      redirect: 'error',
+      signal: controller.signal,
+    });
+    if (!resp.ok) return { ok: false, errors: [`HTTP ${resp.status} ${resp.statusText}`], url };
+    const text = await readLimitedBody(resp, opts.maxBytes ?? 256 * 1024);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      return { ok: false, errors: ['AI Catalog 响应不是合法 JSON'], url };
+    }
+    return { ...parseMcpAiCatalog(parsed), url };
+  } catch (err) {
+    return { ok: false, errors: [err instanceof Error ? err.message : String(err)], url };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export interface DiscoverMcpServerCardsOptions extends FetchMcpAiCatalogOptions {
+  /** 目录条目里的卡片 URL 是远端下发，默认不享受自托管信任。 */
+  cardTrust?: SelfHostedTrust;
+  maxCards?: number;
+}
+
+export interface McpServerCardDiscovery {
+  identifier: string;
+  url?: string;
+  ok: boolean;
+  errors: string[];
+  card?: McpServerCard;
+}
+
+export interface DiscoverMcpServerCardsResult {
+  catalogUrl: string;
+  catalogOk: boolean;
+  errors: string[];
+  cards: McpServerCardDiscovery[];
+}
+
+/**
+ * 域名级发现：拉 AI Catalog，逐条取/验 Server Card。
+ * 这里只返回候选，不替用户建立连接；连接仍要显式配置或由调用方决定。
+ */
+export async function discoverMcpServerCards(
+  domainOrUrl: string,
+  opts: DiscoverMcpServerCardsOptions = {},
+): Promise<DiscoverMcpServerCardsResult> {
+  const catalog = await fetchMcpAiCatalog(domainOrUrl, opts);
+  const cards: McpServerCardDiscovery[] = [];
+  if (!catalog.ok || !catalog.cardEntries) {
+    return {
+      catalogUrl: catalog.url,
+      catalogOk: false,
+      errors: catalog.errors,
+      cards,
+    };
+  }
+  const limit = Math.max(0, opts.maxCards ?? 10);
+  for (const entry of catalog.cardEntries.slice(0, limit)) {
+    if (entry.url) {
+      const fetched = await fetchMcpServerCard(entry.url, {
+        fetchImpl: opts.fetchImpl,
+        timeoutMs: opts.timeoutMs,
+        maxBytes: opts.maxBytes,
+        trust: opts.cardTrust,
+      });
+      cards.push({
+        identifier: entry.identifier,
+        url: entry.url,
+        ok: fetched.ok,
+        errors: fetched.errors,
+        ...(fetched.card ? { card: fetched.card } : {}),
+      });
+      continue;
+    }
+    const checked = validateMcpServerCard(entry.data);
+    cards.push({
+      identifier: entry.identifier,
+      ok: checked.ok,
+      errors: checked.errors,
+      ...(checked.card ? { card: checked.card } : {}),
+    });
+  }
+  return { catalogUrl: catalog.url, catalogOk: true, errors: catalog.errors, cards };
 }

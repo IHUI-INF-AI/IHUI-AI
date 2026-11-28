@@ -12,6 +12,8 @@ import type {
   DeviceTaskProgress,
   RegisterDeviceTokenInput,
   RegisterDeviceTokenResponse,
+  TerminalTask,
+  ToolCall,
 } from '@ihui/types'
 
 import { fetchApi, normalizeUrlPublic } from '../client.js'
@@ -370,8 +372,8 @@ export async function deviceTaskStream(
      * 设备端 AgentCore 的 tool_call/tool_result 折叠成卡片,服务端落 metadata 并广播给同账号三端。
      * 缺省 = 本次没有执行面变化,服务端保留既有值。
      */
-    toolCalls?: Array<Record<string, unknown>>
-    terminalTasks?: Array<Record<string, unknown>>
+    toolCalls?: Array<ToolCall | Record<string, unknown>>
+    terminalTasks?: Array<TerminalTask | Record<string, unknown>>
   },
 ): Promise<ApiResult<{ message_id: string; rev: number }>> {
   return fetchDeviceApi<{ message_id: string; rev: number }>(

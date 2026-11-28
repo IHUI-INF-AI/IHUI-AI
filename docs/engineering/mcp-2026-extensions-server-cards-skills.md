@@ -29,6 +29,17 @@
 
 失败策略：`requireServerCard: true` 时卡片缺失/不合规/无兼容 remote 直接拒绝连接；缺省只告警并按原配置继续。HTTP remote 的 `supportedProtocolVersions` 只用于**预检**，最终版本以运行时协商为准。
 
+### AI Catalog 域名发现
+
+`discoverMcpServerCards(domainOrUrl)` 按 SEP-2127 的 discovery 流程读取 `https://{domain}/.well-known/ai-catalog.json`：
+
+- 目录条目只认 `type: "application/mcp-server-card+json"`，且 `url` 与 `data` 恰好一个；
+- `url` 条目逐张调 `fetchMcpServerCard()`，`data` 条目直接走同一份 v1 校验；
+- 单条坏卡只在该条 `ok:false` 里报错，不拖垮整批；目录本身失败才整批为空；
+- 只返回候选卡片，不自动建立连接，不把目录/卡片声明的身份当安全凭据。
+
+目前只提供库接口，不新增 `ihui mcp discover` 子命令；调用方拿到候选后仍需显式落配置或走自己的连接确认。
+
 ## Skills over MCP（SEP-2640，beta）
 
 只在 server 同时声明 `resources` 与 `extensions["io.modelcontextprotocol/skills"]` 时启用。连接阶段只读 `server/discover` 的 capabilities，不预取 `skills/list`，更不读取任何文件。
@@ -42,8 +53,8 @@
 
 ## 当前边界
 
-- 不实现 AI Catalog 域名发现；Server Card 只接受显式 URL。
 - Server Card 预检只消费 HTTP/SSE 的 `remotes`；stdio 连接仍可读卡片做身份展示，但不做 HTTP 端点兼容判定。
-- Skills 工具接在 CLI 工具装载路径（`loadMcpTools`）；开启 `toolHub.mcpAdapter` 时 hub 适配器目前只注册原生 MCP 工具，不注册技能工具。
+- Skills 工具接在 CLI 工具装载路径（`loadMcpTools`）；开启 `toolHub.mcpAdapter` 时 hub 适配器也会注册 `skill_list/skill_load`，但 hub 面没有 `registration` 通道，`skill_load` 以更严的 `dangerous` 走确认，不按“只读”降档。
+- `directoryRead` 只有 `skill_list` 的 `directory` 参数会触发，没有独立的目录浏览工具或 UI。
 - Skills 文件仍受工具结果预算截断；大文件不会整块塞进上下文。
 

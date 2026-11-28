@@ -95,6 +95,24 @@ describe('registerMcpToolsToHub', () => {
     ]);
   });
 
+  it('声明 Skills 扩展时额外注册 list/load，load 在 hub 面按 dangerous 走确认', () => {
+    const hub = new InMemoryRegistry();
+    const conn = {
+      ...makeMockConn('demo', []),
+      mcpSkillsCapability: { directoryRead: false },
+    };
+
+    const count = registerMcpToolsToHub({ hub, mcpConnection: conn, serverName: 'demo' });
+
+    expect(count).toBe(2);
+    expect(hub.list().map((d) => d.id).sort()).toEqual([
+      'mcp__demo__skill_list',
+      'mcp__demo__skill_load',
+    ]);
+    expect(hub.find('mcp__demo__skill_list')?.describe().dangerLevel).toBe('read');
+    expect(hub.find('mcp__demo__skill_load')?.describe().dangerLevel).toBe('dangerous');
+  });
+
   it('describe() 返回正确的 ToolDescription', () => {
     const hub = new InMemoryRegistry();
     const conn = makeMockConn('srv', [makeToolDef('read_file', 'Read a file')]);
