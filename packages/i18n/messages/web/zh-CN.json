@@ -8030,7 +8030,8 @@
           },
           "outcome": {
             "deferred": "消息未发送，仍保留在队列中",
-            "failed": "消息发送失败，请重试"
+            "failed": "消息发送失败，请重试",
+            "sent": "消息已发送"
           },
           "reorderAria": "拖动调整排队顺序；聚焦后可使用上下方向键"
         }
@@ -8097,7 +8098,7 @@
           "hour": "小时",
           "minute": "分"
         },
-        "degradeHint": "免费额度仍可使用,可切换免费模型继续,无需充值",
+        "degradeHint": "免费额度仍可使用,可切换免费模型继续,无需充值;查看用量明细请前往<link>/models/usage</link>",
         "ariaLabel": "额度归属与处理建议"
       },
       "moveToWorktree": {
@@ -9743,7 +9744,7 @@
       "createDraftPullRequest": "创建 Draft PR",
       "createDraftPullRequestOk": "Draft PR 已创建",
       "createDraftPullRequestFailed": "创建 Draft PR 失败",
-      "overflowMenu": "更多选项",
+      "overflowMenu": "面板菜单",
       "groupPanel": "面板",
       "groupTools": "工具",
       "groupSession": "会话"
@@ -9872,7 +9873,8 @@
       "noIntegration": "无集成",
       "running": "运行中",
       "exited": "已退出",
-      "links": "链接"
+      "links": "链接",
+      "title": "终端"
     },
     "pictureInPicture": {
       "autoMonitor": "自动监看新会话",
@@ -11616,10 +11618,12 @@
       "title": "本轮变更",
       "revert": "恢复到本轮之前",
       "noCheckpoints": "无可用检查点",
-      "revertConfirm": "即将把对话与文件恢复到本条 AI 回复之前。共 {count} 个文件改动将回退,此操作不可撤销。",
+      "revertConfirm": "即将把对话与文件恢复到本条 AI 回复之前。共 {count} 个文件改动将回退,此操作不可撤销。任务记录不会删除。",
       "changedFile": "修改文件",
       "createdFile": "新建文件",
-      "deletedFile": "删除文件"
+      "deletedFile": "删除文件",
+      "expiredNote": "检查点已过期并从磁盘清理(保留 {hours} 小时)。变更清单仍然保留,但无法从这里回退。",
+      "revertConfirmWithTurns": "即将把对话与文件恢复到本条 AI 回复之前。共 {count} 个文件改动、{turns} 轮修改将回退,此操作不可撤销。任务记录不会删除。"
     },
     "addContextHint": "添加上下文文件或引用",
     "addContextReference": "添加为上下文引用",
@@ -12699,7 +12703,13 @@
     "pptxOutline": "文字大纲",
     "resizeComposerHint": "拖动调整输入框高度",
     "predictiveEditSetting": "预测性编辑",
-    "predictiveEditSettingDesc": "根据上下文智能建议编辑内容"
+    "predictiveEditSettingDesc": "根据上下文智能建议编辑内容",
+    "reviewTargetBranch": "指定分支",
+    "reviewTargetBranchLabel": "分支名",
+    "reviewTargetBranchPlaceholder": "输入分支名",
+    "reviewTargetCommit": "指定 Commit",
+    "reviewTargetCommitLabel": "Commit SHA",
+    "reviewTargetCommitPlaceholder": "输入 Commit SHA"
   },
   "chatHistory": {
     "moveToGroup": "移动到分组",
@@ -21073,7 +21083,13 @@
     "market": "AI应用商店",
     "aiHome": "智汇AI",
     "feed": "动态",
-    "mine": "我的"
+    "mine": "我的",
+    "start": "开始",
+    "tasks": "任务",
+    "assets": "资产",
+    "messagesShort": "消息",
+    "allFeatures": "全部功能",
+    "unknown": "未知"
   },
   "news": {
     "allCategories": "全部分类",

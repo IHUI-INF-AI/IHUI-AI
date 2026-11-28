@@ -8030,7 +8030,8 @@
           },
           "outcome": {
             "deferred": "Message not sent; it is kept in the queue",
-            "failed": "Message failed to send; please retry"
+            "failed": "Message failed to send; please retry",
+            "sent": "Message sent"
           },
           "reorderAria": "Drag to reorder queued messages; use the up and down arrow keys while focused"
         }
@@ -8097,7 +8098,7 @@
           "hour": "h",
           "minute": "m"
         },
-        "degradeHint": "Your free tier is still available. Switch to a free model to continue — no top-up needed",
+        "degradeHint": "Your free tier is still available. Switch to a free model to continue — no top-up needed. View usage details at <link>/models/usage</link>",
         "ariaLabel": "Quota ownership and suggested actions"
       },
       "moveToWorktree": {
@@ -9719,7 +9720,7 @@
       "createDraftPullRequest": "Create Draft PR",
       "createDraftPullRequestOk": "Draft PR created",
       "createDraftPullRequestFailed": "Failed to create Draft PR",
-      "overflowMenu": "More options",
+      "overflowMenu": "Panel menu",
       "groupPanel": "Panel",
       "groupTools": "Tools",
       "groupSession": "Session"
@@ -9848,7 +9849,8 @@
       "noIntegration": "No integration",
       "running": "Running",
       "exited": "Exited",
-      "links": "Links"
+      "links": "Links",
+      "title": "Terminal"
     },
     "pictureInPicture": {
       "autoMonitor": "Auto-monitor new sessions",
@@ -11567,10 +11569,12 @@
       "title": "Changes in this turn",
       "revert": "Revert this turn",
       "noCheckpoints": "No checkpoint available",
-      "revertConfirm": "This will restore the conversation and files to before this AI reply. All {count} file changes will be reverted. This cannot be undone.",
+      "revertConfirm": "This will restore the conversation and files to before this AI reply. All {count} file changes will be reverted. This cannot be undone. The task record will not be deleted.",
       "changedFile": "Modified file",
       "createdFile": "Created file",
-      "deletedFile": "Deleted file"
+      "deletedFile": "Deleted file",
+      "expiredNote": "The checkpoint expired and was cleared from disk after {hours} hours. The change list is still available, but you cannot revert from here.",
+      "revertConfirmWithTurns": "This will restore the conversation and files to before this AI reply. {count} 个文件改动、 {turns} turns will be reverted. This cannot be undone. The task record will not be deleted."
     },
     "addContextHint": "Add context file or reference",
     "addContextReference": "Add as Context Reference",
@@ -12646,7 +12650,13 @@
     "secretMaskHide": "Hide credentials",
     "resizeComposerHint": "Drag to resize the composer height",
     "predictiveEditSetting": "Predictive Editing",
-    "predictiveEditSettingDesc": "Intelligently suggest edits based on context"
+    "predictiveEditSettingDesc": "Intelligently suggest edits based on context",
+    "reviewTargetBranch": "Specific branch",
+    "reviewTargetBranchLabel": "Branch name",
+    "reviewTargetBranchPlaceholder": "Enter a branch name",
+    "reviewTargetCommit": "Specific commit",
+    "reviewTargetCommitLabel": "Commit SHA",
+    "reviewTargetCommitPlaceholder": "Enter a commit SHA"
   },
   "chatHistory": {
     "moveToGroup": "Move to group",
@@ -20591,7 +20601,14 @@
     "hrMyTraining": "My training",
     "hrMyExpense": "My expenses",
     "financeGroup": "Finance",
-    "market": "AI App Store"
+    "market": "AI App Store",
+    "start": "Start",
+    "tasks": "Tasks",
+    "assets": "Assets",
+    "messagesShort": "Messages",
+    "mine": "Mine",
+    "allFeatures": "All features",
+    "unknown": "Unknown"
   },
   "news": {
     "allCategories": "All Categories",
