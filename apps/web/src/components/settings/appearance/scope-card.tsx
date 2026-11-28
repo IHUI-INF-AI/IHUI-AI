@@ -20,6 +20,7 @@ import { toast } from 'sonner'
 
 import { Button } from '@ihui/ui-react'
 import { clearAppearanceCloudSnapshot } from '@/hooks/use-appearance-cloud-sync'
+import { useConfirm } from '@/hooks/use-confirm'
 import { getAppearanceConfig } from '@/stores/appearance-settings'
 import { useAppearanceScopeStore } from '@/stores/appearance-scope'
 import { useAiPanelStore } from '@/stores/ai-panel'
@@ -29,6 +30,7 @@ import { SectionCard, ToggleField } from './controls'
 
 export function ScopeCard() {
   const t = useTranslations('appearanceSettings')
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const activeWorkspace = useAiPanelStore((state) => state.activeWorkspace)
   const workspacePath = activeWorkspace?.path ?? null
   const entry = useAppearanceScopeStore((state) =>
@@ -191,10 +193,16 @@ export function ScopeCard() {
               variant="ghost"
               size="sm"
               disabled={!isAuthenticated}
-              onClick={() => {
-                if (!window.confirm(t('cloudClearConfirm'))) return
-                void clearAppearanceCloudSnapshot().then((ok) => {
-                  if (ok) toast.success(t('cloudCleared'))
+              onClick={async () => {
+                // 2026-11-28 禁用原生提示窗(§4):换项目标准 useConfirm 二次确认
+                const ok = await confirm({
+                  title: t('cloudClear'),
+                  description: t('cloudClearConfirm'),
+                  variant: 'destructive',
+                })
+                if (!ok) return
+                void clearAppearanceCloudSnapshot().then((cleared) => {
+                  if (cleared) toast.success(t('cloudCleared'))
                   else toast.error(t('cloudClearFailed'))
                 })
               }}
@@ -206,6 +214,8 @@ export function ScopeCard() {
           </span>
         </div>
       </div>
+      {/* useConfirm 的弹窗必须挂载到组件树中(参照 CheckpointRewindPanel),Dialog 走 portal */}
+      <ConfirmDialogRenderer />
     </SectionCard>
   )
 }

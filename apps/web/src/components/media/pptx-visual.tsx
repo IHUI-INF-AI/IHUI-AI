@@ -1051,7 +1051,7 @@ function ShapeHit({
       type="button"
       aria-label={label}
       title={label}
-      className="absolute z-20 rounded-sm border-0 bg-transparent p-0 transition-colors hover:bg-primary/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
+      className="absolute z-20 rounded-xs border-0 bg-transparent p-0 transition-colors hover:bg-primary/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
       style={{
         left: `${shape.x * 100}%`,
         top: `${shape.y * 100}%`,
@@ -1103,7 +1103,7 @@ function VisualSlideView({
   return (
     <figure data-testid="pptx-visual-slide" className="mx-auto w-full max-w-[880px]">
       <div
-        className="relative w-full overflow-hidden rounded-sm shadow-sm ring-1 ring-border"
+        className="relative w-full overflow-hidden rounded-xs shadow-elevation-sm ring-1 ring-stroke-default"
         style={
           {
             aspectRatio: `${cx} / ${cy}`,
@@ -1198,7 +1198,7 @@ function VisualSlideView({
               data-annotation-status={pin.status}
               data-annotation-focused={focusedAnnotationId === pin.id ? 'true' : undefined}
               className={[
-                'absolute z-30 flex h-7 min-w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center gap-1 rounded-full px-1.5 text-[10px] font-semibold text-white shadow-md ring-2 ring-white/80 transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500',
+                'absolute z-30 flex h-7 min-w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center gap-1 rounded-full px-1.5 text-[10px] font-semibold text-white shadow-elevation-md ring-2 ring-white/80 transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500',
                 pin.status === 'resolved' ? 'bg-emerald-600' : 'bg-violet-600',
                 focusedAnnotationId === pin.id ? 'ring-4 ring-violet-300' : '',
               ].join(' ')}

@@ -1279,6 +1279,7 @@ const MessageItem = React.memo(function MessageItem({
                 maxHeight: `calc(${collapseLines} * var(--chat-line-height, 1.65) * 1em)`,
                 fontSize: 'calc(15px * var(--chat-font-scale, 1))',
                 overflow: 'hidden',
+                // mask-fade-exempt: 折叠渐隐仅为增强,同组件下方已有「展开全文」按钮(aria-expanded)显式出口,非以遮罩替代显式 UI;2026-11-28 机主拍板保留
                 maskImage: 'linear-gradient(to bottom, #000 78%, transparent 100%)',
                 WebkitMaskImage: 'linear-gradient(to bottom, #000 78%, transparent 100%)',
               }

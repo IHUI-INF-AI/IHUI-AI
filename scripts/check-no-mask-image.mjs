@@ -58,6 +58,7 @@ check-no-mask-image.mjs — 渐变遮罩守门(mask-image)
   node scripts/check-no-mask-image.mjs --help      显示本帮助
 
 判定:源码中出现 mask-image / -webkit-mask-image / mask-image:(注释行豁免)即违规。
+豁免:命中行或其上 2 行内带「mask-fade-exempt: <≥8字原因>」(渐隐仅为增强、同组件已有显式出口的折叠区)。
 `)
   process.exit(0)
 }
@@ -79,12 +80,17 @@ function isGradientMask(lines, idx) {
   return GRADIENT_RE.test(lines.slice(idx, idx + 3).join(' '))
 }
 
-function isExempt(line) {
-  const trimmed = line.trim()
+/** 行内豁免:`mask-fade-exempt: <≥8字原因>`(2026-11-28 立族,机主拍板)
+ *  适用位 = 渐隐只是"增强"、同组件已有显式出口(展开全文按钮/计数徽章/分页)的折叠区,
+ *  非以遮罩**替代**显式 UI。命中行或其上 2 行内带标记即免(覆盖 maskImage + WebkitMaskImage 双行)。 */
+const EXEMPT_LINE_RE = /mask-fade-exempt:\s*(\S{8,})/
+
+function isExempt(lines, idx) {
+  const trimmed = lines[idx].trim()
   if (/^\s*(\/\/|\/\*|\*|\{)/.test(trimmed)) return true
-  const m = line.match(VIOLATION_RE)
-  if (m && line.slice(0, m.index).includes('//')) return true
-  return false
+  const m = lines[idx].match(VIOLATION_RE)
+  if (m && lines[idx].slice(0, m.index).includes('//')) return true
+  return [idx - 2, idx - 1, idx].some((i) => i >= 0 && EXEMPT_LINE_RE.test(lines[i]))
 }
 
 /**
@@ -163,7 +169,7 @@ for (const rel of files) {
       const allowed = addedLinesMap.get(rel)
       if (!allowed || !allowed.has(lineNumber)) return
     }
-    if (isExempt(line)) return
+    if (isExempt(lines, idx)) return
     const m = VIOLATION_RE.exec(line)
     if (m && isGradientMask(lines, idx)) {
       findings.push({

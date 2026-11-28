@@ -22,6 +22,7 @@ vi.mock('../src/i18n', () => ({
 }))
 
 import { NavBar } from '../src/components/NavBar'
+import { Asterisk, Sparkles, Star } from 'lucide-react-native'
 
 /** 取行盒:container(最外层)→ row(左/中/右三槽) */
 function rowOf(container: HTMLElement): HTMLElement {
@@ -72,9 +73,9 @@ describe('NavBar 标题层独立居中', () => {
         onMenuClick={() => {}}
         rightText="菜单"
         rightActions={[
-          { icon: '★', onPress: () => {} },
-          { icon: '☆', onPress: () => {} },
-          { icon: '✶', onPress: () => {} },
+          { icon: Star, onPress: () => {} },
+          { icon: Sparkles, onPress: () => {} },
+          { icon: Asterisk, onPress: () => {} },
         ]}
       />,
     )
