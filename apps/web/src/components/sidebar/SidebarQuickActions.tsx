@@ -7,7 +7,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { Plus, Package, Clock, PackageOpen, Sparkles } from 'lucide-react'
+import { Plus, Package, Clock, PackageOpen, Sparkles, Bot } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BTN_NEW_CONVERSATION_CLASS } from '@/lib/nav-styles'
 import { Tooltip } from '@/components/feedback'
@@ -31,6 +31,10 @@ export function SidebarQuickActions({
   const tart = useTranslations('artifacts')
   const pathname = usePathname()
   const aiPanelOpen = useAiPanelStore((s) => s.open)
+  // 2026-11-28 用户定档:总管不再单独做页,作为 AI 面板的一种内容形态;
+  // 侧边栏入口放在「新建任务」上方,点击 = 打开面板 + 切到总管。
+  const masterMode = useAiPanelStore((s) => s.masterMode)
+  const openMaster = useAiPanelStore((s) => s.openMaster)
   // 2026-08-29 迁移整合:AI 面板 header"新建任务"按钮已移除,能力统一到此按钮。
   // isStreaming 时禁用(原 header 按钮 disabled={isStreaming} 能力)。
   const isStreaming = useChatStore((s) => s.isStreaming)
@@ -80,6 +84,53 @@ export function SidebarQuickActions({
             <Sparkles className="h-5 w-5 shrink-0" />
             <span className="min-w-0 whitespace-nowrap text-left">{t('workbench')}</span>
           </Link>
+        )}
+      </div>
+
+      {/* AI总管入口(2026-11-28 用户定档):
+          不新开页面,点击直接把现有 AI 面板切成总管形态。
+          位置在「新建任务」上方 —— 总管是"接活的人",新建任务只是开一张空白会话。 */}
+      <div className={cn('mb-1', collapsed && 'flex justify-center')}>
+        {collapsed ? (
+          <Tooltip content="AI总管" side="right">
+            <button
+              type="button"
+              onClick={() => {
+                openMaster()
+                onCloseMobile()
+              }}
+              aria-label="AI总管"
+              aria-pressed={masterMode && aiPanelOpen}
+              data-testid="quick-master"
+              className={cn(
+                'flex h-9 w-9 items-center justify-center rounded-md transition-colors',
+                masterMode && aiPanelOpen
+                  ? 'bg-cta text-cta-foreground'
+                  : 'text-muted-foreground hover:bg-sidebar-item-hover-bg hover:text-foreground',
+              )}
+            >
+              <Bot className="h-5 w-5" />
+            </button>
+          </Tooltip>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              openMaster()
+              onCloseMobile()
+            }}
+            aria-pressed={masterMode && aiPanelOpen}
+            data-testid="quick-master"
+            className={cn(
+              BTN_NEW_CONVERSATION_CLASS,
+              masterMode && aiPanelOpen
+                ? 'bg-cta text-cta-foreground font-semibold'
+                : 'text-muted-foreground hover:bg-sidebar-item-hover-bg hover:text-foreground',
+            )}
+          >
+            <Bot className="h-5 w-5 shrink-0" />
+            <span className="min-w-0 whitespace-nowrap text-left">AI总管</span>
+          </button>
         )}
       </div>
 

@@ -200,9 +200,9 @@ const WebWorkPanel = React.memo(
  */
 export function GlobalShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  // 总管是独立 Agent 工作面：/master 让出整块工作区，不再被常驻 AI 侧栏压成 760px 卡片。
-  // 只影响这一条路由；离开后侧栏按 store 原状态恢复。
-  const isMasterWorkspace = pathname === '/master'
+  // 2026-11-28 用户定档:总管不再是独立 `/master` 工作面,改为常驻 AI 面板的一种内容形态。
+  // 因此这里不再为 `/master` 隐藏 Sidebar / AISidePanel / GlobalTopBar ——
+  // 工作区里的智能体、待你确认,都用现有骨架展示。
   const [mobileOpen, setMobileOpen] = React.useState(false)
   const t = useTranslations('a11y')
   // 静态 ID(非 useId),避免 React 18 useId 在 SSR/CSR 之间偶尔漂移导致 hydration mismatch。
@@ -224,6 +224,14 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
   // 2026-08-17 工作展示区折叠:true 时隐藏 work-area,AI 面板占满右侧(用户需求)
   const workAreaCollapsed = useAiPanelStore((s) => s.workAreaCollapsed)
   const currentUserId = useAuthStore((s) => s.user?.id)
+  // 2026-11-28:总管工作区路由(智能体/待你确认)进入时,AI 面板自动切到总管形态。
+  // 放在 GlobalShell 而不是工作区组件里:GlobalShell 的 effect 一定晚于 store 水合,
+  // 不会被 persist 的 merge 覆盖回 false。
+  React.useEffect(() => {
+    if (pathname === '/master' || pathname.startsWith('/master/')) {
+      useAiPanelStore.getState().openMaster()
+    }
+  }, [pathname])
   // 2026-11-25:TRAE 同款「AI 一开浏览器小窗自动出现」;基线之外的 Browser Hub
   // 新会话会开原生监看窗。只在 Tauri + 已登录时工作(见 hook 内注释)。
   useAutoAiPip()
@@ -409,8 +417,7 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
            - 桌面/普通浏览器 env()=0,dvh≈vh,样式完全不变。 */}
         <div className="flex h-dvh overflow-hidden pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
           {/* 左列:桌面端全高侧边栏(占据左上角,不再有 40px 顶部空) */}
-          {!isMasterWorkspace && (
-            <React.Suspense
+          <React.Suspense
               // 2026-08-28 CLS 根治:此前 fallback={null},Sidebar 因内部 useSearchParams() 在
               // 预渲染/挂起阶段不渲染,懒加载完成后才以 160px 宽度插入 flex 流,
               // 把右列 work-area 从 x=0 全宽挤到 x=160 —— 一次性 0.30 CLS(web-vitals.spec.ts 实锤)。
@@ -434,7 +441,6 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
             >
               <Sidebar id={sidebarId} mobileOpen={mobileOpen} onCloseMobile={handleCloseMobile} />
             </React.Suspense>
-          )}
 
           {/* 右列:flex-row 横向排列(AISidePanel + work-area + WebWorkPanel)
             2026-07-30 彻底根治:AISidePanel 从 fixed 改为 flex 子元素,
@@ -450,8 +456,7 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
             - flex 布局保证 AISidePanel 与 work-area-portal-root 永不重叠,TagsView 永不被压缩
             - --ai-panel-occupy CSS 变量仍同步到 :root(供 WebWorkPanel 计算最大可用宽度)
           */}
-            {!isMasterWorkspace && (
-              <React.Suspense
+            <React.Suspense
                 // 2026-08-28 CLS 根治:与 Sidebar 同模式。此前 fallback={null},AISidePanel 挂起期间
                 // 不占空间,挂载后以 width+6px(默认 386px)插入 flex 流,把 work-area 从 1120px
                 // 压到 734px —— 一次性 0.26 CLS。修复:fallback 渲染等宽占位:
@@ -468,7 +473,6 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
               >
                 <AISidePanel />
               </React.Suspense>
-            )}
             {/*
             work-area-portal-root:作为 TagsView 搜索弹层(TagsViewSearchButton) 的 portal 目标。
             overflow-hidden 裁剪搜索弹层 slide-in-from-top 动画的初始 translateY(-100%)。
@@ -502,11 +506,9 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
                   页面级自定义声明(useTopBarBack/<BackButton/>)优先,一级列表/营销/分享页不声明。
                   放 GlobalTopBar 旁挂载一次即可,/login 早退分支(上方)不经过此处。 */}
               <TopBarBackAutoRegister />
-              {!isMasterWorkspace && (
-                <React.Suspense fallback={null}>
-                  <GlobalTopBarMemo mobileMenu={mobileMenuNode} />
-                </React.Suspense>
-              )}
+              <React.Suspense fallback={null}>
+                <GlobalTopBarMemo mobileMenu={mobileMenuNode} />
+              </React.Suspense>
               {/* 2026-08-01 架构改动:WebWorkPanel 从右列独立区域改为嵌入 work-area 内覆盖 children
                 (用户规则:"不允许额外出来一个窗口,所有内容必须在工作内容展示区内展示")
                 - relative 容器包裹 children + WebWorkPanel

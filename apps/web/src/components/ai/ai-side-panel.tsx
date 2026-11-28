@@ -38,6 +38,7 @@ import {
   Check,
   X,
   Settings2,
+  Bot,
 } from 'lucide-react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 // 2026-11-16 立:浮层与视口边缘的统一安全间距(单一源)
@@ -87,6 +88,7 @@ const ImportAnalysisDialog = dynamic(
   { ssr: false },
 )
 import { WorkspaceSelector } from '@/components/ai/workspace-selector'
+import { MasterAssistantPanel } from '@/components/master/MasterAssistantPanel'
 import { BrowserTaskTemplateEditor } from '@/components/browser-pip/browser-task-template-editor'
 import { Tooltip, TooltipProvider } from '@/components/feedback'
 import { useChatStore, type ChatMessage } from '@/stores/chat'
@@ -843,6 +845,10 @@ export function AISidePanel() {
   const setFloatPosition = useAiPanelStore((s) => s.setFloatPosition)
   const setFloatFabPosition = useAiPanelStore((s) => s.setFloatFabPosition)
   const openPanel = useAiPanelStore((s) => s.openPanel)
+  // 2026-11-28 用户定档:总管不再单独做页,是 AI 面板的一种内容形态。
+  // masterMode 由侧边栏「AI总管」按钮写入;新建任务 / 关闭面板会退回普通对话。
+  const masterMode = useAiPanelStore((s) => s.masterMode)
+  const exitMaster = useAiPanelStore((s) => s.exitMaster)
   const {
     messages,
     currentModel,
@@ -1657,8 +1663,9 @@ export function AISidePanel() {
   const cleanConversationTitle = conversationTitle
     ? (plainTitleText(conversationTitle) ?? DEFAULT_CONVERSATION_TITLE)
     : null
-  const displayTitle =
-    activeWorkspace?.name ?? workspaceName ?? cleanConversationTitle ?? tc('emptyWorkspace')
+  const displayTitle = masterMode
+    ? 'AI总管'
+    : (activeWorkspace?.name ?? workspaceName ?? cleanConversationTitle ?? tc('emptyWorkspace'))
 
   // 新建任务统一入口(2026-08-29 迁移整合):
   // 面板 header"新建任务"按钮已移除,三个入口(侧边栏按钮/Ctrl+Shift+N/Tauri 桌面端快捷键)
@@ -1671,6 +1678,8 @@ export function AISidePanel() {
   React.useEffect(() => {
     const onNewChat = () => {
       if (useChatStore.getState().isStreaming) return
+      // 新建任务 = 从总管模式退回普通会话(否则点新建仍停在总管,用户会以为没反应)
+      exitMaster()
       // 2026-11-11 重构:不再在这里特判 640–1279「抬浮窗」——
       // openPanel 已是桶感知的唯一出口(sheet/float 档强制浮窗并复位折叠/最小化),
       // 侧栏按钮 / 快捷键 / 任何路由触发的入口都走同一条规则,不会各写一份。
@@ -1679,7 +1688,7 @@ export function AISidePanel() {
     }
     window.addEventListener('global-shortcut:new-chat', onNewChat)
     return () => window.removeEventListener('global-shortcut:new-chat', onNewChat)
-  }, [handleNewChat, openPanel])
+  }, [exitMaster, handleNewChat, openPanel])
 
   // 2026-11-16 用户定档:ChatMode 手动入口全部移除 —— Alt+P 与 Ctrl+1~5 不再切换模式,
   // 发送链固定全工具开放,由 AI 自主决定是否使用工具。
@@ -2229,10 +2238,12 @@ export function AISidePanel() {
   }, [setFloatMinimized])
 
   const handleClosePanel = React.useCallback(() => {
+    // 关闭 = 收起表面;总管模式也一并退出,下次打开回到普通对话(与新建任务同语义)
+    exitMaster()
     // 仅浮窗形态有 FAB 可接焦点;停靠态关闭后是 6px 手柄条,不搬焦点
     if (floatMode) pendingFocusRef.current = 'fab'
     closePanel()
-  }, [closePanel, floatMode])
+  }, [closePanel, exitMaster, floatMode])
 
   /** 目标分支渲染出来后再搬焦点;尚未渲染(同一提交内被后续状态更新推迟)则留到下一轮 effect。 */
   React.useEffect(() => {
@@ -3024,11 +3035,15 @@ export function AISidePanel() {
               用户规则:这个图标应该显示对应项目图标或者模型图标
               容器去掉背景色,只显示内部图标本体(2026-07-19 用户反馈) */}
               <div className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground/80">
-                <BrandIconDeferred
-                  vendor={inferVendor(currentModel)}
-                  size={18}
-                  className="text-foreground/80"
-                />
+                {masterMode ? (
+                  <Bot className="h-[18px] w-[18px]" />
+                ) : (
+                  <BrandIconDeferred
+                    vendor={inferVendor(currentModel)}
+                    size={18}
+                    className="text-foreground/80"
+                  />
+                )}
               </div>
               <div
                 // 同 header 的拖拽语义:标题文字区是这块 flex-1,不标属性就只走 JS 兜底
@@ -3040,18 +3055,20 @@ export function AISidePanel() {
                   <span className="min-w-0 truncate text-body font-semibold">{displayTitle}</span>
                   {/* 会话累计 Token / 费用徽章(2026-09-07 工作线 A;2026-09-12 W4 成本真网计价):
                   hover 展开输入/输出/请求数明细,按 currentModel 查真实价目表计费 */}
-                  <SessionUsageBadge
-                    conversationId={storeConversationId}
-                    isStreaming={isStreaming}
-                    model={currentModel}
-                  />
+                  {!masterMode && (
+                    <SessionUsageBadge
+                      conversationId={storeConversationId}
+                      isStreaming={isStreaming}
+                      model={currentModel}
+                    />
+                  )}
                 </span>
               </div>
               {/* 工作区选择器(参考 主流 IDE 顶部 project selector):
               空工作区时显示 FolderPlus 入口,已绑定时显示 Folder 入口可切换/清除
               2026-09-17 修复:原先放在 overflow-hidden 标题容器内,displayTitle 占满宽度时
               IconButton 被裁半/遮挡;现移出到右侧按钮组最左,不再受 overflow-hidden 裁切 */}
-              <WorkspaceSelector />
+              {!masterMode && <WorkspaceSelector />}
               {/* 会话导出/分享入口(W15)已迁移至侧边栏会话"..."菜单(sidebar-chat-history) */}
               {/* Plan/Act 模式切换(2026-07-24 立,对齐 AI 工作台 plan/act toggle + Codex)
               2026-07-28 移除:PlanActToggle 按钮与 sidebar ModeSwitcher 4 态(ChatMode build/plan/review/spec)
@@ -3329,7 +3346,11 @@ export function AISidePanel() {
                 2026-11-27:匿名用户不再被整块挡在登录提示后面 —— 欢迎面(小方招手图 +
                 快捷指令卡 + 模板 chips)照常渲染,登录门只收口在发送动作上;窗格树仍只对
                 已登录用户开放(匿名没有可承载的会话)。 */}
-            {allow && d73Expanded && !floatMode ? (
+            {masterMode ? (
+              <div className="flex min-h-0 flex-1 flex-col" data-testid="ai-panel-master-body">
+                <MasterAssistantPanel />
+              </div>
+            ) : allow && d73Expanded && !floatMode ? (
               <div className="relative flex min-h-0 flex-1 flex-col" data-d73-host="">
                 <PaneSplitContainer
                   renderPaneContent={(paneConversationId, paneId) =>

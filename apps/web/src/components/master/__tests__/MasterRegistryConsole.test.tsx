@@ -152,4 +152,18 @@ describe('MasterRegistryConsole', () => {
       expect(JSON.parse(String(approve?.init?.body))).toMatchObject({ typedName: '写作助手' })
     })
   })
+
+  it('embedded 模式落在右侧工作区:只有面板,不出现独立页的聊天/导航', async () => {
+    installFetch((call) => {
+      if (call.url.includes('/approvals')) return jsonResponse({ code: 0, data: { items: [] } })
+      return jsonResponse({ code: 0, data: { items: [definition], total: 1 } })
+    })
+
+    render(<MasterRegistryConsole embedded initialView="registry" />)
+
+    await screen.findAllByText('写作助手')
+    expect(screen.getByText('你的智能体')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /智能体与子智能体/ })).toBeTruthy()
+    expect(screen.getAllByRole('button', { name: /待你确认/ }).length).toBeGreaterThan(0)
+  })
 })

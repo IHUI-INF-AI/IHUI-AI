@@ -128,6 +128,12 @@ interface AiPanelState {
    * 360 宽度拉回左侧),仅在用户**重新拖动浮窗面板**时作废(面板成为落点真相源)。
    */
   floatFabPosition: { x: number; y: number } | null
+  /**
+   * 总管模式(2026-11-28 用户定档):不再是独立 `/master` 页面,而是 AI 面板的一种内容形态。
+   * true = AI 面板主体渲染总管对话(身份胶囊 + 总管聊天 + 智能体/待确认入口),
+   * false = 原来的通用 AI 对话。会话级 UI 态,不持久化。
+   */
+  masterMode: boolean
   /** 工作展示区折叠态:true = 隐藏右侧 work-area,AI 面板占满(2026-08-17 用户需求) */
   workAreaCollapsed: boolean
   /**
@@ -139,6 +145,10 @@ interface AiPanelState {
   openPanel: () => void
   closePanel: () => void
   togglePanel: () => void
+  /** 打开 AI 面板并切到总管模式(侧边栏「AI总管」入口唯一出口) */
+  openMaster: () => void
+  /** 退出总管模式,回到普通 AI 对话(新建任务/关闭面板时调用) */
+  exitMaster: () => void
   setWidth: (w: number) => void
   setResizing: (v: boolean) => void
   setActiveWorkspace: (ws: ActiveWorkspace | null) => void
@@ -187,6 +197,7 @@ export const useAiPanelStore = create<AiPanelState>()(
       floatPosition: FLOAT_DEFAULT_POSITION,
       floatSize: FLOAT_DEFAULT_SIZE,
       floatFabPosition: null,
+      masterMode: false,
       workAreaCollapsed: false,
       workAreaFullscreen: false,
 
@@ -212,6 +223,13 @@ export const useAiPanelStore = create<AiPanelState>()(
         if (state.open) state.closePanel()
         else state.openPanel()
       },
+      openMaster: () => {
+        // 先按视口落形态(复用 openPanel),再切内容形态 —— 顺序反了会让窄屏
+        // 先渲染一帧总管再变浮窗,观感闪跳。浮窗折叠态也必须展开,否则只看到输入条。
+        get().openPanel()
+        set({ masterMode: true, floatCollapsed: false, floatMinimized: false })
+      },
+      exitMaster: () => set({ masterMode: false }),
       setWidth: (w) =>
         set({
           width: Math.min(AI_PANEL_MAX_WIDTH, Math.max(AI_PANEL_MIN_WIDTH, w)),

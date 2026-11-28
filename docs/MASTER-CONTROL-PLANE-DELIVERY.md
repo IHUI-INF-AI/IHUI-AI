@@ -9,6 +9,18 @@
 - 运行控制面：`run_pause` / `run_resume` / `run_talk` 对 master 自己派发的 `single` run 真实可用；`run_stop` / `run_cancel` 保留终态停止语义。
 - 三层治理：注册表定义（system/personal/team scope + 版本 + 内置保护）、运行账本（`agent_runs` / `agent_run_events`）、审批（删除/回滚/清理必须人工 typedName 确认）。
 
+## 2026-11-28 架构更正:总管是 AI 面板,不是独立页面
+
+用户明确否决了"单独做一个 `/master` 页面"的形态。当前定稿:
+
+- 左侧菜单栏在「新建任务」上方新增「AI总管」按钮(`SidebarQuickActions`)。
+- 点击后用 `useAiPanelStore.openMaster()` 打开**现有** AI 面板,并把面板主体切到 `MasterAssistantPanel`:
+  身份胶囊 + 总管对话 + 两枚去工作区的入口。
+- 右侧工作展示区只放面板: `/master` = 智能体与子智能体卡片墙, `/master/approvals` = 待你确认;
+  顶部 `GlobalShell`、左侧 `Sidebar`、右侧 `AISidePanel` 都保留,不再为总管隐藏任何一层。
+- `/master` 不再注册为侧栏一级导航项;顶栏标签显示「智能体」/「待你确认」。
+- 旧的 `MasterRegistryConsole` 保留 `embedded` 模式:只画工作区面板,不画顶部菜单栏和左栏导航。
+
 ## 本轮提交
 
 | 提交 | 内容 |

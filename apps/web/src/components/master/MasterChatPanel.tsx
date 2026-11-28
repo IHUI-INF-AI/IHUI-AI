@@ -83,8 +83,8 @@ export function MasterChatPanel({ masterName = '总管' }: MasterChatPanelProps)
 
   return (
     <section className="flex h-full min-h-0 flex-1 flex-col bg-white">
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-3 lg:px-[84px]">
-        <div className="mx-auto flex w-full max-w-[1100px] flex-col items-start gap-3">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+        <div className="mx-auto flex w-full flex-col items-start gap-3">
           {turns.length === 0 ? (
             <>
               <Bubble>嗨，我是{masterName}！</Bubble>
@@ -124,15 +124,15 @@ export function MasterChatPanel({ masterName = '总管' }: MasterChatPanelProps)
       </div>
 
       {error && (
-        <p className="mx-auto w-full max-w-[1100px] px-6 text-[12px] lg:px-[84px] leading-5 text-red-600">
+        <p className="mx-auto w-full px-4 text-[12px] leading-5 text-red-600">
           {error}
         </p>
       )}
 
-      <div className="shrink-0 px-6 pb-5 pt-2 lg:px-[84px]">
+      <div className="shrink-0 px-4 pb-4 pt-2">
         <form
           onSubmit={send}
-          className="mx-auto w-full max-w-[1100px] rounded-[18px] border border-[#e8e3da] bg-[#faf9f6] px-4 pb-2.5 pt-3 shadow-[0_1px_3px_rgba(34,28,18,0.03)] transition focus-within:border-[#cbc4b8]"
+          className="mx-auto w-full rounded-[18px] border border-[#e8e3da] bg-[#faf9f6] px-4 pb-2.5 pt-3 shadow-[0_1px_3px_rgba(34,28,18,0.03)] transition focus-within:border-[#cbc4b8]"
         >
           <textarea
             value={input}

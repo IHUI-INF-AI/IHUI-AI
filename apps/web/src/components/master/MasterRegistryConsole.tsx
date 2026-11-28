@@ -116,7 +116,19 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   return body.data as T
 }
 
-export function MasterRegistryConsole() {
+export function MasterRegistryConsole({
+  initialView = 'registry',
+  embedded = false,
+}: {
+  initialView?: ConsoleView
+  /**
+   * 2026-11-28 用户定档:总管不再单独做页。
+   * embedded = true 时本组件只作为"右侧工作展示区"里的一块面板:
+   * 不画顶部菜单栏、不画左栏导航,只保留智能体卡片墙 / 待你确认 / 任务运行。
+   * 对话在 AI 面板里(`MasterAssistantPanel`),不在工作区。
+   */
+  embedded?: boolean
+} = {}) {
   const [items, setItems] = useState<DefinitionView[]>([])
   const [approvals, setApprovals] = useState<ApprovalView[]>([])
   const [query, setQuery] = useState('')
@@ -131,7 +143,7 @@ export function MasterRegistryConsole() {
   const [approval, setApproval] = useState<ApprovalView | null>(null)
   const [typedName, setTypedName] = useState('')
   const [showCreate, setShowCreate] = useState(false)
-  const [view, setView] = useState<ConsoleView>('chat')
+  const [view, setView] = useState<ConsoleView>(initialView)
   const [chatKey, setChatKey] = useState(0)
   const [form, setForm] = useState({
     name: '',
@@ -342,8 +354,16 @@ export function MasterRegistryConsole() {
   const projectItems = (cleanProjectItems.length > 0 ? cleanProjectItems : items).slice(0, 4)
 
   return (
-    <div className="relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-[#f7f6f4] text-[#24211c]">
-      <header className="flex h-[60px] shrink-0 items-center gap-1 bg-[#f7f6f4] px-3 text-[14px] text-[#716a5f]">
+    <div
+      className={`relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden text-[#24211c] ${
+        embedded ? 'bg-transparent' : 'bg-[#f7f6f4]'
+      }`}
+    >
+      <header
+        className={`flex h-[60px] shrink-0 items-center gap-1 bg-[#f7f6f4] px-3 text-[14px] text-[#716a5f] ${
+          embedded ? 'hidden' : ''
+        }`}
+      >
         <Link
           href="/workspace"
           aria-label="返回工作台"
@@ -381,8 +401,14 @@ export function MasterRegistryConsole() {
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 overflow-hidden pt-6">
-        <aside className="flex w-[336px] shrink-0 flex-col overflow-hidden px-3 pb-3 max-lg:w-[280px]">
+      <div
+        className={`flex min-h-0 flex-1 overflow-hidden ${embedded ? '' : 'pt-6'}`}
+      >
+        <aside
+          className={`flex w-[336px] shrink-0 flex-col overflow-hidden px-3 pb-3 max-lg:w-[280px] ${
+            embedded ? 'hidden' : ''
+          }`}
+        >
           <button
             type="button"
             onClick={newConversation}
@@ -489,8 +515,59 @@ export function MasterRegistryConsole() {
           </div>
         </aside>
 
-        <main className="min-w-0 flex-1 pb-3 pr-3">
-          <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[14px] border border-[#e8e3da] bg-white shadow-[0_1px_2px_rgba(34,28,18,0.03)]">
+        <main className={`min-w-0 flex-1 ${embedded ? '' : 'pb-3 pr-3'}`}>
+          <div
+            className={`flex h-full min-h-0 flex-col overflow-hidden bg-white ${
+              embedded
+                ? 'rounded-none'
+                : 'rounded-[14px] border border-[#e8e3da] shadow-[0_1px_2px_rgba(34,28,18,0.03)]'
+            }`}
+          >
+            {embedded && (
+              <div className="flex h-14 shrink-0 items-center gap-1 border-b border-[#eee9e1] px-5 text-[13px]">
+                {(
+                  [
+                    { key: 'registry' as const, label: '智能体与子智能体' },
+                    { key: 'approvals' as const, label: '待你确认' },
+                    { key: 'run' as const, label: '任务运行' },
+                  ] satisfies Array<{ key: ConsoleView; label: string }>
+                ).map((item) => {
+                  const active = view === item.key
+                  return (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => setView(item.key)}
+                      aria-current={active ? 'page' : undefined}
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 transition ${
+                        active
+                          ? 'bg-[#23211d] font-medium text-white'
+                          : 'text-[#6d665b] hover:bg-[#f3efe8] hover:text-[#2c2823]'
+                      }`}
+                    >
+                      {item.label}
+                      {item.key === 'approvals' && approvals.length > 0 && (
+                        <span
+                          className={`inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] tabular-nums ${
+                            active ? 'bg-white/20 text-white' : 'bg-[#f0e0c8] text-[#8b5e20]'
+                          }`}
+                        >
+                          {approvals.length}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+                <button
+                  type="button"
+                  onClick={toggleCreate}
+                  className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-[#ded8ce] bg-white px-3 py-1.5 text-[12px] text-[#5e574d] transition hover:bg-[#f7f4ef]"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  {showCreate ? '收起新建' : '新建模板'}
+                </button>
+              </div>
+            )}
             {view === 'chat' && (
               <>
                 <MasterIdentityHeader
@@ -511,19 +588,25 @@ export function MasterRegistryConsole() {
               <div className="flex min-h-0 flex-1 flex-col">
                 <div className="flex shrink-0 flex-wrap items-start justify-between gap-3 border-b border-[#f0ebe3] px-7 py-6">
                   <div>
-                    <h2 className="text-[22px] font-semibold leading-8 text-[#23211c]">模板库</h2>
+                    <h2 className="text-[22px] font-semibold leading-8 text-[#23211c]">
+                      {embedded ? '你的智能体' : '模板库'}
+                    </h2>
                     <p className="mt-1 text-[12px] text-[#8d8579]">
-                      挑一个角色，把活交给它。删除前会先找你确认。
+                      {embedded
+                        ? '总管带的下属都在这里。挑一个角色，把活交给它；删除前会先找你确认。'
+                        : '挑一个角色，把活交给它。删除前会先找你确认。'}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={toggleCreate}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-[#23211d] px-3.5 py-2 text-[12px] font-medium text-white transition hover:bg-[#3a372f]"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    {showCreate ? '收起新建' : '新建模板'}
-                  </button>
+                  {!embedded && (
+                    <button
+                      type="button"
+                      onClick={toggleCreate}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-[#23211d] px-3.5 py-2 text-[12px] font-medium text-white transition hover:bg-[#3a372f]"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      {showCreate ? '收起新建' : '新建模板'}
+                    </button>
+                  )}
                 </div>
 
                 {showCreate && (
