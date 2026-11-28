@@ -17,9 +17,33 @@
  *      猜错会执行模型没要的工具。这类近名只给**建议**，由模型自己重发。
  */
 
-/** 归一化:小写 + 去掉所有非字母数字。`Git_Merge` / `git-merge` / `git merge` 同键。 */
+/** 归一化:小写 + 去掉所有非字母数字。`Git_Merge` / `git-merge` / `git.merge` 同键。
+ *
+ * 注意:这一层**刻意不剥命名空间**——`git.merge` 这种用点号替代下划线的写法,
+ * 整串归一正好等于 `gitmerge`,剥了反而丢信息。剥包装见 `stripToolNameWrapper`。
+ */
 export function normalizeToolName(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+/**
+ * 剥掉**传输层包装**(2026-11-28 扩):OpenAI 回放写成 `functions.git_merge`,
+ * MCP 桥写成 `mcp__ihui__git_merge`,本地 CLI 写成 `cli.git_merge`,某些封装再挂 `_tool` 尾巴。
+ * 这些都不是语义,是传输层加的;注册表里的名字都不含 `.`/`mcp__`/`_tool`,
+ * 所以剥离只可能落在同一工具上。
+ *
+ * 分两档,是因为 `functions.foo_tool` 这种"命名空间 + 后缀"叠在一起时:
+ * 只剥命名空间得到 `foo_tool`(应命中 `foo_tool`),连后缀一起剥得到 `foo`(会误命中 `foo`)。
+ * 档位顺序保证先窄后宽。
+ *
+ * @param keepSuffix true = 只剥命名空间,保留 `_tool` 后缀
+ */
+export function stripToolNameWrapper(name: string, keepSuffix = false): string {
+  let text = name.trim().toLowerCase();
+  if (text.includes('.')) text = text.slice(text.lastIndexOf('.') + 1);
+  if (text.startsWith('mcp__')) text = text.slice(text.lastIndexOf('__') + 2);
+  if (!keepSuffix && text.endsWith('_tool')) text = text.slice(0, -'_tool'.length);
+  return text.replace(/[^a-z0-9]/g, '');
 }
 
 /**
@@ -30,11 +54,20 @@ export function normalizeToolName(name: string): string {
 export function resolveToolName(name: string, candidates: readonly string[]): string | undefined {
   if (name === '') return undefined;
   if (candidates.includes(name)) return name;
-  const key = normalizeToolName(name);
-  if (key === '') return undefined;
-  const hits = candidates.filter((candidate) => normalizeToolName(candidate) === key);
-  // 归一化后仍可能撞车(如 foo_bar 与 foobar):多枚即歧义,不替模型选。
-  return hits.length === 1 ? hits[0] : undefined;
+  // 先窄后宽:整串 → 只剥命名空间 → 连 `_tool` 一起剥。同档多枚才算歧义。
+  const keys = Array.from(
+    new Set(
+      [normalizeToolName(name), stripToolNameWrapper(name, true), stripToolNameWrapper(name)].filter(
+        (key) => key !== '',
+      ),
+    ),
+  );
+  for (const key of keys) {
+    const hits = candidates.filter((candidate) => normalizeToolName(candidate) === key);
+    if (hits.length === 1) return hits[0];
+    if (hits.length > 1) return undefined;
+  }
+  return undefined;
 }
 
 /** 名字相似度打分(只用于"没找到，给你几个近名"的建议，不用于执行)。 */
@@ -56,7 +89,7 @@ export function suggestToolNames(
   candidates: readonly string[],
   limit = 3,
 ): string[] {
-  const queryKey = normalizeToolName(name);
+  const queryKey = stripToolNameWrapper(name);
   if (queryKey === '') return [];
   return candidates
     .map((candidate) => ({ candidate, score: similarityScore(queryKey, candidate) }))
