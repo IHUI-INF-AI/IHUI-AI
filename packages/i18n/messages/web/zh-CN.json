@@ -12458,7 +12458,9 @@
     "secretMaskShow": "显示凭据",
     "secretMaskHide": "隐藏凭据",
     "pptxOutline": "文字大纲",
-    "resizeComposerHint": "拖动调整输入框高度"
+    "resizeComposerHint": "拖动调整输入框高度",
+    "predictiveEditSetting": "预测性编辑",
+    "predictiveEditSettingDesc": "根据上下文智能建议编辑内容"
   },
   "chatHistory": {
     "moveToGroup": "移动到分组",

@@ -12405,7 +12405,9 @@
     "predictiveEditDelete": "刪除",
     "secretMaskShow": "顯示憑證",
     "secretMaskHide": "隱藏憑證",
-    "resizeComposerHint": "拖動調整輸入框高度"
+    "resizeComposerHint": "拖動調整輸入框高度",
+    "predictiveEditSetting": "預測性編輯",
+    "predictiveEditSettingDesc": "根據上下文智能建議編輯內容"
   },
   "chatHistory": {
     "moveToGroup": "移動到分組",
