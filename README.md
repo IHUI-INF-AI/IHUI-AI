@@ -84,8 +84,16 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 ## Recent updates (auto-maintained)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-28**
+- ♻️ 重构:撤掉 J6 并集取巧,委托集回归职责单一 (72dfbd20bf)
+- 🐞 修复:J6 第三面正式化 —— 免工作区委托入判据,并新增 J17 双豁免互斥 (9b3d74d27b)
+- 🐞 修复:原生 confirm 存量清偿 5 处 → useConfirm(§4 禁原生提示窗) (d82a881354)
+- 🐞 修复:修齐记忆错误码词条、personalHub 归属与 ITCP 审批决策词 (107b1ebd63)
+- 🐞 修复:技能市场退款弹窗 z-50→z-modal,避免被 AI 面板遮挡 (15e92e25ca)
+- 🐞 修复:G-17 六工具可达性补正 + taro 离线语言包重生成 (cdd248b888)
+- 🚀 新功能/改进:永久停用 Coze 平台集成（路由/同步/OAuth 全断） (d70a672dd1)
 - 🔧 工程/其他:G-17 运营内容工具显示名五语言(21 键,含修复 9 枚存量键缺失) (8d42005570)
 - 🚀 新功能/改进:运营内容 agent 手第一腿(G-17)——公告/轮播 CRUD 接入对话 tool loop (e8e1efbcb8)
+- 🐞 修复:SSE 开流即发首帧心跳，压掉 EdgeOne 15s 首包 524 (d2736df7b0)
 - 🐞 修复:设备请求带指纹并豁免机器链路 CSRF，修复 claim 过期参数序列化 (695368e82b)
 - 🚀 新功能/改进:权威榜新增九源平均总榜与厂商图标 (d4de982a1a)
 - 🔧 工程/其他:干净工作树先建 .ihui-agent/tmp (a3fe30053e)

@@ -2227,8 +2227,16 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-28**
+- ♻️ 리팩터:撤掉 J6 并集取巧,委托集回归职责单一 (72dfbd20bf)
+- 🐞 수정:J6 第三面正式化 —— 免工作区委托入判据,并新增 J17 双豁免互斥 (9b3d74d27b)
+- 🐞 수정:原生 confirm 存量清偿 5 处 → useConfirm(§4 禁原生提示窗) (d82a881354)
+- 🐞 수정:修齐记忆错误码词条、personalHub 归属与 ITCP 审批决策词 (107b1ebd63)
+- 🐞 수정:技能市场退款弹窗 z-50→z-modal,避免被 AI 面板遮挡 (15e92e25ca)
+- 🐞 수정:G-17 六工具可达性补正 + taro 离线语言包重生成 (cdd248b888)
+- 🚀 기능/개선:永久停用 Coze 平台集成（路由/同步/OAuth 全断） (d70a672dd1)
 - 🔧 기타:G-17 运营内容工具显示名五语言(21 键,含修复 9 枚存量键缺失) (8d42005570)
 - 🚀 기능/개선:运营内容 agent 手第一腿(G-17)——公告/轮播 CRUD 接入对话 tool loop (e8e1efbcb8)
+- 🐞 수정:SSE 开流即发首帧心跳，压掉 EdgeOne 15s 首包 524 (d2736df7b0)
 - 🐞 수정:设备请求带指纹并豁免机器链路 CSRF，修复 claim 过期参数序列化 (695368e82b)
 - 🚀 기능/개선:权威榜新增九源平均总榜与厂商图标 (d4de982a1a)
 - 🔧 기타:干净工作树先建 .ihui-agent/tmp (a3fe30053e)

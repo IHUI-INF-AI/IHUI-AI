@@ -247,6 +247,45 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   sheet_formula_validate: 'toolSheetFormulaValidate',
   subagent_job: 'toolSubagentJob',
   terminal: 'toolTerminal',
+  // 2026-11-28 补齐(守门 55 三方比对 `mcp_server._TOOLS × 本表 × 五语言 taskStatus` 停在
+  // 134/156):22 枚存量无显示名工具一次归零,界面不再退化成裸码名。分四族登记:
+  // ① 代码面四枚 —— **apply_patch_set** 与 write_file 分工是"单文件原子写 / 一组文件同成功同恢复",
+  //    故叫"多文件批量写入"而不是"改文件";**auto_rebuild_codebase** 与 index_codebase 同出域同意闸,
+  //    措辞按"重建索引"与本表既有 toolIndexCodebase 区分;find_import_edges / list_symbol_definitions
+  //    是两档检索(导入关系 × 跨文件定义),都只读。
+  // ② 发布族十枚 —— create/update/prepare_publish_draft 是草稿三态(建/改/一句话备稿),
+  //    get_publish_task / list_publish_tasks 是查(单条 × 队列),get_publish_stats / get_publish_acceptance
+  //    是数(统计 × 验收),publish_preflight 与 precheck_content 的分工是"连账号/凭据/适配器一起预检"
+  //    与"只判内容合规",措辞不合并。generate_content 只写稿不发布。
+  // ③ 财务两枚动作型 ops —— finance_ledger_ops 落正式账套(客户/凭证/结账),
+  //    finance_tax_ops 管税务/发票/银行,与既有 ai_bookkeeping / ai_tax_filing(记账/报税顾问)不同层。
+  // ④ 人事三枚动作型 ops —— hr_gap_ops 是排班/社保增减员/年终奖/经济补偿的补口,
+  //    hr_lifecycle_ops 走合同/转正/离职/招聘,hr_payout_ops 走卡号/代发批次/工资条;
+  //    与既有 hr_payroll_calc(算)、hr_my_payroll(看自己)明确分层。
+  // 规则面两枚(list_project_rules / read_project_rule)按"Cursor 规则 picker / Agent Requested 等价"落地:
+  // 前者是选择结果清单,后者按 locator 取正文,措辞用"读取这条规则"避免与清单同词。
+  apply_patch_set: 'toolApplyPatchSet',
+  auto_rebuild_codebase: 'toolAutoRebuildCodebase',
+  find_import_edges: 'toolFindImportEdges',
+  list_symbol_definitions: 'toolListSymbolDefinitions',
+  create_publish_draft: 'toolCreatePublishDraft',
+  update_publish_draft: 'toolUpdatePublishDraft',
+  prepare_publish_draft: 'toolPreparePublishDraft',
+  get_publish_task: 'toolGetPublishTask',
+  list_publish_tasks: 'toolListPublishTasks',
+  get_publish_stats: 'toolGetPublishStats',
+  get_publish_acceptance: 'toolGetPublishAcceptance',
+  publish_preflight: 'toolPublishPreflight',
+  precheck_content: 'toolPrecheckContent',
+  generate_content: 'toolGenerateContent',
+  list_publish_accounts: 'toolListPublishAccounts',
+  finance_ledger_ops: 'toolFinanceLedgerOps',
+  finance_tax_ops: 'toolFinanceTaxOps',
+  hr_gap_ops: 'toolHrGapOps',
+  hr_lifecycle_ops: 'toolHrLifecycleOps',
+  hr_payout_ops: 'toolHrPayoutOps',
+  list_project_rules: 'toolListProjectRules',
+  read_project_rule: 'toolReadProjectRule',
 }
 
 export function toolDisplayKey(toolName: string): string | null {
