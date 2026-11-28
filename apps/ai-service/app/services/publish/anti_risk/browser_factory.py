@@ -83,6 +83,14 @@ async def create_stealth_browser_context(
     Raises:
         RuntimeError: Playwright 环境不可用或代理配置错误
     """
+    # 0. 身份键归一:调度器/旧适配器可能只传 publish_accounts 行号(如 "20"),
+    #    直接落图谱会生成裸键 "20",row_id_from_account_id() 反解不到主人,
+    #    同主人的正常绑定被当成陌生设备 → risk 100 误冷却。所有浏览器入口
+    #    必须在最前面统一成 <platform>_db<行号>。
+    account_id = str(account_id or "").strip()
+    if platform and account_id.isdigit():
+        account_id = f"{platform}_db{account_id}"
+
     # 1. 获取账号画像(指纹+代理+user_data_dir,跨会话稳定)
     profile = get_account_profile(account_id, platform)
     fingerprint = profile.fingerprint

@@ -345,12 +345,24 @@ def _build_advanced_stealth_script(fingerprint_seed: int) -> str:
   // 对抗:重写 Worker 构造函数,通过 Blob URL 注入反检测脚本到 Worker 内。
   try {{
     var _workerStealthCode = [
+      '(function(){{try{{',
+      'if(typeof Navigator!=="undefined"&&Navigator.prototype){{',
       'Object.defineProperty(Navigator.prototype,"webdriver",{{get:function(){{return undefined;}},configurable:true}});',
       'try{{delete Navigator.prototype.webdriver;}}catch(e){{}}',
+      '}}',
+      '}}catch(e){{}}}})();',
     ].join('');
     var _origWorker = window.Worker;
     if (_origWorker) {{
       window.Worker = function(scriptURL, options) {{
+        // module worker 不能注入 importScripts，直接放行，避免破坏编辑器 Worker
+        if (options && options.type === 'module') {{
+          return new _origWorker(scriptURL, options);
+        }}
+        // 页面常用 blob URL 建 Worker 后立刻 revoke，包装会 import 失败；原样放行
+        if (String(scriptURL).indexOf('blob:') === 0) {{
+          return new _origWorker(scriptURL, options);
+        }}
         // 包装原始脚本:先注入反检测代码,再执行原始脚本
         var patchedScript = _workerStealthCode + '\\n' +
           'importScripts(' + JSON.stringify(scriptURL.toString()) + ');';
@@ -369,7 +381,9 @@ def _build_advanced_stealth_script(fingerprint_seed: int) -> str:
     var _origSharedWorker = window.SharedWorker;
     if (_origSharedWorker) {{
       window.SharedWorker = function(scriptURL, options) {{
-        var patchedScript = _workerStealthCode + '\\n' +
+        if (String(scriptURL).indexOf('blob:') === 0) {{
+          return new _origSharedWorker(scriptURL, options);
+        }}        var patchedScript = _workerStealthCode + '\\n' +
           'importScripts(' + JSON.stringify(scriptURL.toString()) + ');';
         var blob = new Blob([patchedScript], {{ type: 'application/javascript' }});
         var blobURL = URL.createObjectURL(blob);

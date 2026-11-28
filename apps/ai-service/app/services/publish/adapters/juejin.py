@@ -14,6 +14,8 @@
 """
 from __future__ import annotations
 
+import json
+import re
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -95,8 +97,8 @@ SUBMIT_API_PATTERNS: tuple[str, ...] = (
 #: 提交成功后的过渡页路径特征(会被重定向回首页,必须先于超时捕获)。
 PUBLISHED_URL_MARKERS: tuple[str, ...] = ("/published",)
 
-#: 审核中文章地址前缀(拿到 article_id 后回填 published_url 用)。
-SPOST_URL_PREFIX = "https://juejin.cn/spost/"
+#: 文章公开地址前缀（掘金公开文章是 /post/<id>；/spost 是旧审核中路径，不能当公开证据）。
+SPOST_URL_PREFIX = "https://juejin.cn/post/"
 
 #: 发布弹层容器候选。`publish-popup` = 2026-09-27 实测唯一可见容器;其余为改版回退
 #: (旧版只列后三族,实测面全部 0 可见 ⇒ 弹层检测恒超时、分类/标签步被静默跳过)。
@@ -113,6 +115,10 @@ CATEGORY_ITEM_SELECTORS: tuple[str, ...] = (
     ".category-list .item",
     '[class*="category-list"] [class*="item"]',
 )
+
+#: 标签兜底(配置里的标签在掘金搜索不到时，至少补一个平台真实存在的标签；
+#: 标签是发布弹层的必填项，没有 chip 时点“确定并发布”不会发出提交请求)。
+TAG_FALLBACKS: tuple[str, ...] = ("人工智能", "AI", "大模型", "前端", "后端")
 
 #: 标签输入框候选(实测 = .tag-input 内 input.byte-select__input;placeholder 不是
 #: input 属性,后一支保留作改版回退)。
@@ -157,13 +163,31 @@ def extract_article_id_from_submit(payload: object) -> str | None:
         return None
     if payload.get("err_no") not in (0, None):
         return None
+
+    def _walk(obj: object) -> str | None:
+        if isinstance(obj, dict):
+            for key in ("article_id", "articleId", "articleID"):
+                raw = obj.get(key)
+                if isinstance(raw, (str, int)) and str(raw).strip():
+                    return str(raw).strip()
+            for value in obj.values():
+                found = _walk(value)
+                if found:
+                    return found
+        elif isinstance(obj, list):
+            for item in obj:
+                found = _walk(item)
+                if found:
+                    return found
+        return None
+
+    found = _walk(payload.get("data"))
+    if found:
+        return found
+    # 兼容旧实测形态：data 直接是 id 字符串/数字
     data = payload.get("data")
-    if isinstance(data, dict):
-        raw = data.get("article_id") or data.get("articleId") or data.get("id")
-    else:
-        raw = data
-    if isinstance(raw, (str, int)) and str(raw).strip():
-        return str(raw).strip()
+    if isinstance(data, (str, int)) and str(data).strip():
+        return str(data).strip()
     return None
 
 
@@ -315,25 +339,142 @@ class JuejinAdapter(BasePlatformAdapter):
                 except Exception as e2:
                     logger.warning("juejin 分类选项 force 点击也失败: %s", e2)
                     continue
-            # 复核优先级:实测选中态 class(最可靠)→ 弹层可见文本(兜底)
+            # 复核优先级:实测选中态 class(最可靠)。**不得**再用“页面文本里出现分类名”
+            # 兜底——分类名本来就在弹层静态文案里，那个兜底等于永远判成功，会把
+            # “没选中”伪装成“已选中”，最终在提交时表现为“点了确定但无请求”。
             try:
                 cls_attr = (await target.get_attribute("class")) or ""
             except Exception:
                 cls_attr = ""
             if "active" in cls_attr:
                 return True, ""
+            # 某些改版把 active 加在内层 span；再查一次后代节点。
             try:
-                page_text: str = await page.evaluate("() => document.body.innerText")
+                inner_cls = await target.locator("[class*='active']").first.get_attribute("class")
             except Exception:
-                page_text = ""
-            if matched in page_text or category in page_text:
+                inner_cls = ""
+            if inner_cls and "active" in inner_cls:
                 return True, ""
-            return False, f"点击了分类「{matched}」但选中态(class active/文案)未确认"
+            return False, f"点击了分类「{matched}」但选中态(class active)未确认"
+
         return False, (
             f"分类「{category}」未能选中(候选平铺列表选择器={list(CATEGORY_ITEM_SELECTORS)}"
             " 均未命中或无匹配项)—— 若再现,说明掘金又把分类控件改版回了其它形态,"
             "需重开弹层实测 DOM 校准"
         )
+
+    async def _selected_tag_count(self, page: Any) -> int:
+        """弹层里已选标签 chip 数；标签是掘金当前版本的必填项。"""
+        try:
+            return int(await page.locator(".publish-popup .tag-input .byte-tag").count())
+        except Exception:
+            return 0
+
+    async def _add_tag(self, page: Any, tag: str) -> bool:
+        """添加一个标签；返回是否真的出现 chip（不按回车猜成功）。"""
+        tag_s = str(tag).strip()
+        if not tag_s:
+            return False
+        tag_box = page.locator(TAG_INPUT_SELECTOR).first
+        if await tag_box.count() == 0:
+            return False
+        before = await self._selected_tag_count(page)
+        try:
+            # 实测 placeholder 会拦截 pointer events，click 必超时；直接 focus 输入
+            await tag_box.focus(timeout=3000)
+        except Exception:
+            try:
+                await tag_box.click(force=True, timeout=2000)
+                await tag_box.focus(timeout=2000)
+            except Exception as e:
+                logger.warning("[juejin] 标签输入框聚焦失败: %s", e)
+                return False
+        try:
+            await page.keyboard.type(tag_s, delay=50)
+            await page.wait_for_timeout(1800)  # 等搜索请求 + 下拉渲染
+            safe = tag_s.replace("\\", "").replace('"', "")
+            # 只点可见选项；:visible 必须加，否则会命中隐藏的已选副本
+            opt = page.locator(
+                f'[class*="byte-select-dropdown"] li:visible:has-text("{safe}")'
+            ).first
+        except Exception as e:
+            logger.warning("[juejin] 标签 %r 添加失败: %s", tag_s, e)
+            return False
+        try:
+            if await opt.count() > 0:
+                await opt.click(force=True)
+                await page.wait_for_timeout(600)
+            else:
+                logger.warning("[juejin] 标签 %r 下拉无可见选项，未添加", tag_s)
+                return False
+            after = await self._selected_tag_count(page)
+            return after > before
+        except Exception as e:
+            logger.warning("[juejin] 标签 %r 点选失败: %s", tag_s, e)
+            return False
+
+    async def _latest_article_url(
+        self, page: Any, title: str, since_ts: float | None = None
+    ) -> str:
+        """发布成功后从创作者中心回查本次发布的公开地址。
+
+        `/published` 只是过渡页，不能当公开证据；提交接口响应也可能拿不到 id。
+        创作者首页按发布时间倒序，用标题前缀 + 发布时间下界过滤，避免匹配到
+        历史上同标题的旧文章（2026-11-26 实测：过渡页成功但回查抓到了上一轮旧文）。
+        新文章有审核/索引延迟，做 3 次短轮询；仍找不到返回空串，不伪造 id。
+        """
+        probe = None
+        try:
+            ctx = page.context
+            probe = await ctx.new_page()
+            await probe.goto(
+                "https://juejin.cn/creator/home",
+                wait_until="domcontentloaded",
+                timeout=30000,
+            )
+            prefix = (title or "").strip()[:12]
+            cutoff = ""
+            if since_ts is not None:
+                cutoff = time.strftime("%Y-%m-%d %H:%M", time.localtime(max(0, since_ts - 120)))
+            for attempt in range(3):
+                await probe.wait_for_timeout(2500 if attempt == 0 else 4000)
+                links = await probe.eval_on_selector_all(
+                    "a[href*='/post/']",
+                    "els => els.map(e => ({text:(e.innerText||'').trim(), href:e.href}))",
+                )
+                candidates: list[tuple[str, str]] = []
+                for item in links:
+                    href = str(item.get("href") or "")
+                    text = str(item.get("text") or "")
+                    if "/post/" not in href:
+                        continue
+                    if prefix and prefix not in text:
+                        continue
+                    m_time = re.search(r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2})", text)
+                    article_time = m_time.group(1) if m_time else ""
+                    if cutoff and (not article_time or article_time < cutoff):
+                        continue
+                    m_id = re.search(r"/post/(\d+)", href)
+                    if m_id:
+                        candidates.append((article_time, f"https://juejin.cn/post/{m_id.group(1)}"))
+                if candidates:
+                    # 取最新一篇；同时间时保留页面顺序（页面本身倒序）
+                    candidates.sort(key=lambda x: x[0], reverse=True)
+                    return candidates[0][1]
+            logger.warning(
+                "[juejin] 创作者中心未找到标题前缀=%r 且发布时间>=%r 的公开文章",
+                prefix, cutoff,
+            )
+            return ""
+        except Exception as e:
+            logger.warning("[juejin] 回查创作者中心失败: %s", e)
+            return ""
+        finally:
+            if probe is not None:
+                try:
+                    await probe.close()
+                except Exception:
+                    pass
 
     async def verify_credentials(self, credentials: dict[str, Any]) -> tuple[bool, str]:
         if not _HAS_PLAYWRIGHT:
@@ -354,12 +495,19 @@ class JuejinAdapter(BasePlatformAdapter):
                     await context.add_cookies(self._cookies(credentials))
                     page = await context.new_page()
                     await human_pause(1.0, 2.0)
-                    await page.goto("https://juejin.cn/", wait_until="networkidle", timeout=30000)
+                    await page.goto(
+                        "https://juejin.cn/editor/drafts/new?v=2",
+                        wait_until="domcontentloaded",
+                        timeout=30000,
+                    )
+                    await page.wait_for_timeout(2500)
+                    final_url = (page.url or "").lower()
+                    if "/login" in final_url or "passport" in final_url:
+                        return False, "cookie expired (editor redirected to login)"
                     content = await page.content()
-                    if '登录' in content and 'class="login"' in content:
-                        if "avatar" not in content.lower():
-                            return False, "cookie expired (login visible, no avatar)"
-                    return True, "connected (sessionid valid)"
+                    if 'class="login"' in content and "avatar" not in content.lower():
+                        return False, "cookie expired (login visible, no avatar)"
+                    return True, "connected (editor accessible)"
                 finally:
                     await close_stealth_context(browser, context)
         except Exception as e:
@@ -515,74 +663,72 @@ class JuejinAdapter(BasePlatformAdapter):
                             page, category
                         )
 
-                    # ③ 弹层内:标签(实测 label 带 required,但历史提交在少标签时是否被拒未取证,
-                    #    此处仍尽力而为、失败不阻断 —— 不在未实测的提交校验上冒险改语义)
-                    if modal_opened and tags:
-                        try:
-                            tag_box = page.locator(TAG_INPUT_SELECTOR).first
-                            if await tag_box.count() == 0:
-                                logger.warning("[juejin] 弹层内未找到标签输入框,跳过标签")
-                            else:
-                                for tag in tags:
-                                    tag_s = str(tag)
-                                    try:
-                                        # 实测:普通 click 被弹层遮罩拦截(pointer events)⇒ force
-                                        try:
-                                            await tag_box.click(timeout=2000)
-                                        except Exception:
-                                            await tag_box.click(force=True)
-                                        # focus() 直接置焦(不依赖 pointer),再键入即触发搜索
-                                        await tag_box.focus()
-                                        await page.keyboard.type(tag_s, delay=60)
-                                        await page.wait_for_timeout(1500)  # 搜索请求 + 下拉渲染
-                                        safe = tag_s.replace("\\", "").replace('"', "")
-                                        # 选项候选的唯一事实层(实测首选 = byte-select-dropdown li)
-                                        opt_sel = DROPDOWN_OPTION_SELECTORS[0]
-                                        opts = page.locator(
-                                            f'{opt_sel}:has-text("{safe}")'
-                                        )
-                                        if await opts.count() > 0:
-                                            # 实测:选项 li 同样需 force click
-                                            await opts.first.click(force=True)
-                                        else:
-                                            # 下拉无精确项时回车(未实测,仅兜底)并如实记日志
-                                            await page.keyboard.press("Enter")
-                                            logger.warning(
-                                                "[juejin] 标签 %r 下拉未命中选项,已回车兜底", tag_s
-                                            )
-                                        await human_pause(0.3, 0.6)
-                                    except Exception as e:
-                                        logger.warning("[juejin] tag %r 添加失败: %s", tag_s, e)
-                        except Exception as e:
-                            logger.warning("[juejin] tag input failed: %s", e)
+                    # ③ 弹层内:标签(当前掘金把标签做成必填；没有 chip 时确认按钮
+                    #    不会发提交请求，表现为“点了确定但无接口调用”)
+                    tags_selected = 0
+                    if modal_opened:
+                        configured_tags = [str(t).strip() for t in tags if str(t).strip()]
+                        for tag_s in configured_tags:
+                            if await self._add_tag(page, tag_s):
+                                tags_selected += 1
+                        tags_selected = await self._selected_tag_count(page)
+                        if tags_selected == 0:
+                            for fallback in TAG_FALLBACKS:
+                                if fallback in configured_tags:
+                                    continue
+                                if await self._add_tag(page, fallback):
+                                    logger.info("[juejin] 配置标签均未命中，已用兜底标签 %r", fallback)
+                                    break
+                            tags_selected = await self._selected_tag_count(page)
+                        if tags_selected == 0:
+                            return PublishResult(
+                                success=False, platform=self.platform_id,
+                                error_message=(
+                                    "stuck=tag-not-selected (掘金标签为必填项，"
+                                    f"配置={configured_tags} 与兜底={list(TAG_FALLBACKS)} "
+                                    "均未产生标签 chip;确认按钮不会发出提交请求)"
+                                ),
+                            )
+                        logger.info("[juejin] 已选标签数=%d", tags_selected)
 
-                    # ④ 监听真正的提交接口响应(成功判据之一;草稿保存不算)
+                    # ④ 直接拦截真正的提交接口，先读响应体再放行。
+                    #    不能只监听 page.on("response")：掘金提交成功后立即跳到 /published，
+                    #    response 回调再去 resp.text() 会报 “navigated away, body unavailable”，
+                    #     article_id 永远拿不到（2026-11-26 实测）。
                     submit_state: dict[str, Any] = {
                         "called": False,
                         "status": None,
                         "article_id": None,
                     }
 
-                    async def _on_submit_response(resp: Any) -> None:
+                    async def _on_submit_route(route: Any) -> None:
                         try:
-                            url = str(resp.url)
-                            if not match_submit_api_url(url):
-                                return
+                            resp = await route.fetch()
                             submit_state["called"] = True
                             submit_state["status"] = resp.status
                             if 200 <= int(resp.status) < 300:
+                                body_text = await resp.text()
+                                logger.info(
+                                    "[juejin] 提交响应 status=%s body=%s",
+                                    resp.status, (body_text or "")[:800],
+                                )
                                 try:
-                                    body: object = await resp.json()
+                                    body: object = json.loads(body_text) if body_text else None
                                 except Exception as e:
                                     logger.warning("juejin 提交响应解析失败: %s", e)
                                     body = None
                                 aid = extract_article_id_from_submit(body)
                                 if aid:
                                     submit_state["article_id"] = aid
+                            await route.fulfill(response=resp)
                         except Exception as e:
-                            logger.warning("juejin._on_submit_response 异常: %s", e)
+                            logger.warning("juejin._on_submit_route 异常,放行请求: %s", e)
+                            try:
+                                await route.continue_()
+                            except Exception:
+                                pass
 
-                    page.on("response", _on_submit_response)
+                    await context.route("**/content_api/v1/article/publish**", _on_submit_route)
 
                     # ⑤ 点弹层内「最终提交」按钮:按可见文案在候选集里挑(实测=确定并发布)。
                     #    单字面量「确认发布」是本次缺陷根因;挑不到就带着页面实测文案报出来。
@@ -607,6 +753,7 @@ class JuejinAdapter(BasePlatformAdapter):
                                 + f"弹层可见按钮={visible_buttons[:20]}"
                             ),
                         )
+                    submit_wall_ts = time.time()
                     await human_click(page, f'button:has-text("{confirm_text}")')
 
                     # ⑥ 成功判据:提交接口响应 article_id 或 /published 过渡页,二者任一;
@@ -622,6 +769,15 @@ class JuejinAdapter(BasePlatformAdapter):
 
                     article_id_raw = submit_state["article_id"]
                     article_id = str(article_id_raw) if article_id_raw is not None else ""
+                    # `/published` 过渡页只能证明“点了提交并跳转”，不能当公开文章证据。
+                    # 提交响应没带 article_id 时，从创作者中心第一条同名文章回查公开地址。
+                    latest_url = ""
+                    if published_landing and not article_id:
+                        latest_url = await self._latest_article_url(page, title, submit_wall_ts)
+                        if latest_url:
+                            m = re.search(r"/post/(\d+)", latest_url)
+                            if m:
+                                article_id = m.group(1)
                     if not article_id and not published_landing:
                         stuck = describe_stuck_stage(
                             modal_opened=modal_opened,
@@ -646,11 +802,12 @@ class JuejinAdapter(BasePlatformAdapter):
                             error_message=f"{stuck};最后动作={detail};当前URL={page.url}",
                         )
 
-                    final_url = (
-                        f"{SPOST_URL_PREFIX}{article_id}"
-                        if article_id
-                        else str(page.url)
-                    )
+                    if latest_url:
+                        final_url = latest_url
+                    elif article_id:
+                        final_url = f"{SPOST_URL_PREFIX}{article_id}"
+                    else:
+                        final_url = str(page.url)
                     return PublishResult(
                         success=True, platform=self.platform_id,
                         published_url=final_url,
@@ -661,6 +818,7 @@ class JuejinAdapter(BasePlatformAdapter):
                             "category": category,
                             "review_status": "checking",  # 审核中:站内搜索此期间 0 命中
                             "published_landing_seen": published_landing,
+                            "latest_article_looked_up": bool(latest_url),
                         },
                     )
                 finally:
