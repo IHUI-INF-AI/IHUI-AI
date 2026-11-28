@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: 67717890d8147abd45a8c58d3437b8bf1de623de
-// inputsSha256: bb452c1f9e73888e7717377c4e5711f663cbab9e6dd24d127df8b12ed80834d6
+// sourceCommit: 2a60643e0b2d7fefa9711bfc5fbe818864400099
+// inputsSha256: a634eb507198aab0500973298a7a9d85c13f0cbbfdcefec8be98786ec733fa0a
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx d17f249c8506951babf768ff47e0800dc7ed191a9c80ddb124142a8520bcd80e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -221,7 +221,7 @@
 // input: apps/web/app/(main)/admin/message-templates/page.tsx 8a0241e77c4e3573bf3754aa2c58da75171020a8c03731d04a9c053092e13197
 // input: apps/web/app/(main)/admin/meta-learner/page.tsx ff7ff74899336954cd5b84ee731010768a8fd6220da172e9170e36445643ce54
 // input: apps/web/app/(main)/admin/mobile-adapter/page.tsx 3cb10e33d92f3b36e7226111ed72a78966819e95dc446bdd95a2e43f16648d2f
-// input: apps/web/app/(main)/admin/model-pricing-console/page.tsx 7fd1ef740110279844e24f261c891bf68bc2de647be392c40a60e0173a9da0fd
+// input: apps/web/app/(main)/admin/model-pricing-console/page.tsx cb22b4e0997c67166b7a2f043136dff0762c5606a3cf8999da738ece957cf7d0
 // input: apps/web/app/(main)/admin/model-pricing/page.tsx 2a710ef4a58040c5c2fccd578e53bb668bebfc5779b26146894826bf6825fba7
 // input: apps/web/app/(main)/admin/monitor/alerts/page.tsx d37aedd862057efd75cd446558a24ed6f31028bb187a5b00112e0823669f0e82
 // input: apps/web/app/(main)/admin/monitor/dashboard/page.tsx 4d40e008b73375e79d42e76f737affeb62ab0c255d0e1ddfa61b6f60948c180e
@@ -320,6 +320,7 @@
 // input: apps/web/app/(main)/admin/signin-rule/page.tsx fcd2218c408001fc4717f50deab4313a8e4915ae1a8036d804d7da3f4b9c8925
 // input: apps/web/app/(main)/admin/skill-batch/page.tsx 2f75906c0ec8e004fd1d1ef0f1d7fc13318e80e0605365f3a9e8f7e8d494b95d
 // input: apps/web/app/(main)/admin/skill-categories/page.tsx 1d38feda1ed53edd28b29deed17baf994378c9a987228805b6bce86175336c98
+// input: apps/web/app/(main)/admin/skill-market/page.tsx 3be049e417bd2c582935daa09ebe139c583e543e70e6c5df31994fc180f1d61d
 // input: apps/web/app/(main)/admin/skill-stats/page.tsx 991e25cff285e901c0c8bbabb82af26832e6570b578daf67686f407f320d8c51
 // input: apps/web/app/(main)/admin/skill-versions/page.tsx 2f508287b80cc679d5b7287b5f734724f51c677398981bd2efc36486f6738ace
 // input: apps/web/app/(main)/admin/skills/page.tsx ec133e44c28944baa809162c2c651d88b608a99ea26ae0c2e43e64775b718323
@@ -786,7 +787,7 @@
 // input: apps/web/app/(main)/products/page.tsx bca2f8e745373d271291e554192cd1728570e61ba957c65a3ea48893a687b6e3
 // input: apps/web/app/(main)/publish/account-pool/page.tsx 1934a483b078a499006cb78c21c77b792d587eb33c74063daf77ea0ac1b1ecc3
 // input: apps/web/app/(main)/publish/accounts/page.tsx 599276556c4e23c66d7fb7e29ee711f0deba10518c98aeb03dbfea303f70b127
-// input: apps/web/app/(main)/publish/ai-draft/page.tsx 6826a45fd6ebe8e01037ae6406f126e7307cb2c3294d0e83489bed9bd847457c
+// input: apps/web/app/(main)/publish/ai-draft/page.tsx 1508121ca06b6dacdeee43e7cc667e9397053064de92dd037ff280aa193e044b
 // input: apps/web/app/(main)/publish/analytics/page.tsx 92f2d10c970bcf7ba78ba839ce921a1f648ce7e5235df6994ae9a81a2a9527df
 // input: apps/web/app/(main)/publish/calendar/page.tsx e86fd335003a1bffaa93f9b7e34d12cb0ef659229e67ce5d696759802e10ed48
 // input: apps/web/app/(main)/publish/history/page.tsx 25661548b187211b9a09730876ce9975f8d0401d1477184995b80a2d6f247a6c
@@ -846,6 +847,7 @@
 // input: apps/web/app/(main)/share/[code]/page.tsx 167c448e4b4a8fc29be5687451d9507f01ee71ce9633cc34fae01875dea45992
 // input: apps/web/app/(main)/share/page.tsx d5df784435de4fdc6af70d10d3c1dedeaa4359289d56e9d4da7778f0acddb552
 // input: apps/web/app/(main)/skills-market/[id]/page.tsx 22c9297245a249350e204aacc1e1e978198704afda124abd0e11d6e06c91f8f9
+// input: apps/web/app/(main)/skills-market/earnings/page.tsx ab34f863607a24b60f1cb3b13fea40a4b116544440ada90246a4462071697a38
 // input: apps/web/app/(main)/skills-market/page.tsx a766040ff3b687a5a3d7149bfcc1290d96559d2472a5240a23e5bd2b134ba600
 // input: apps/web/app/(main)/skills/market/page.tsx 411fcaa9c02ecfb2b526a2b6c013b97dfa7b33b0b1539c0a29bc8ad45e95b6a8
 // input: apps/web/app/(main)/skills/page.tsx 38765932b5d79e111a9d91fa22317363d4be64742dd17ae1e1d012e9cd098f40
@@ -971,7 +973,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 35efcf616fc264c76204fb3d155f464682cd239b37965652b930391e0e7144b6
 // input: apps/web/app/status/page.tsx bf75df2bfcad093f6ec6405984b9a3fa2e7cba0c353f405066f6809c382bceca
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-11-28T04:32:53.151Z
+// generatedAt: 2026-11-28T06:14:21.847Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
@@ -1279,6 +1281,7 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/admin/signin-rule', param: false, group: 'admin' },
   { path: '/admin/skill-batch', param: false, group: 'admin' },
   { path: '/admin/skill-categories', param: false, group: 'admin' },
+  { path: '/admin/skill-market', param: false, group: 'admin' },
   { path: '/admin/skill-stats', param: false, group: 'admin' },
   { path: '/admin/skill-versions', param: false, group: 'admin' },
   { path: '/admin/skills', param: false, group: 'admin' },
@@ -1821,6 +1824,7 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/skills', param: false, group: 'skills' },
   { path: '/skills-market', param: false, group: 'skills-market' },
   { path: '/skills-market/:id', param: true, group: 'skills-market' },
+  { path: '/skills-market/earnings', param: false, group: 'skills-market' },
   { path: '/skills/market', param: false, group: 'skills' },
   { path: '/spec', param: false, group: 'spec' },
   { path: '/spec/:id', param: true, group: 'spec' },

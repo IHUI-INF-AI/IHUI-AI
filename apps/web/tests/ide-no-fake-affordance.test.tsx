@@ -187,7 +187,7 @@ export function S() {
 
   it('对照正例:source-control-panel 的暂存钮仍走真实 handler', () => {
     const code = read('ide/source-control-panel.tsx')
-    expect(code).toContain('onClick={() => toggleStage(file)}')
+    expect(code).toContain('onClick={() => toggleStage(file, staged)}')
     expect(code).toContain(
       "aria-label={staged ? t('sourceControl.unstage') : t('sourceControl.stage')}",
     )

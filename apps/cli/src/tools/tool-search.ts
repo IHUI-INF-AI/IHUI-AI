@@ -180,6 +180,21 @@ const CJK_NAME_ALIASES: ReadonlyArray<readonly [string, readonly string[]]> = [
   ['安装', ['install']],
   ['并行', ['parallel']],
   ['子任务', ['subagent']],
+  // ==== 动作词(2026-11-28):中文查询里的动词是分辨"同一族里哪一个"的关键 ====
+  // 例:解决↔resolve、进入↔enter、打开↔open;没有这层,`打开终端` 会跟 `terminal_close` 同分。
+  ['解决', ['resolve']],
+  ['创建', ['create']],
+  ['新建', ['create']],
+  ['添加', ['add']],
+  ['进入', ['enter']],
+  ['退出', ['exit']],
+  ['召回', ['recall']],
+  ['保存', ['save']],
+  ['打开', ['open', 'navigate', 'launch']],
+  ['启动', ['launch', 'start']],
+  ['查看', ['view', 'list', 'log']],
+  ['历史', ['log', 'history']],
+  ['待办', ['todo', 'pending']],
   // ==== 业务域族(人事考勤 / 号池 / API 桥)====
   // 这些族默认延迟(见 defer-policy),延迟之后**只能靠检索找回**,所以中文说法必须先命中。
   // 2026-11-28 立:此前这几族无条件常驻,模型的检索退路并不成立;补词法桥才敢延。
@@ -345,9 +360,10 @@ export function searchTools(
       if (score > 0) pick(tool, score);
     }
   }
-  const ranked = Array.from(hits.values()).sort(
-    (a, b) => b.score - a.score || a.tool.name.localeCompare(b.tool.name),
-  );
+
+  const ranked = Array.from(hits.values());
+
+  ranked.sort((a, b) => b.score - a.score || a.tool.name.localeCompare(b.tool.name));
   const top = ranked[0]?.score ?? 0;
   const floor = top * RELEVANCE_FLOOR_RATIO;
   return ranked
