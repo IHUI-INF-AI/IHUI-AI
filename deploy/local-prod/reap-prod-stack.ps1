@@ -298,6 +298,23 @@ foreach ($o in @($nonProdOwners)) {
   if (-not $script:Dry) { Stop-Process -Id $o -Force -ErrorAction SilentlyContinue }
 }
 
+# --- 8b. 僵尸临时服务：uvicorn 起过却没占住端口的孤儿 ---
+# 验收桩常拿 88xx 临时端口另起一份 ai-service；绑定失败、端口被抢、或起完忘了关，
+# 都会剩一个「不监听任何端口、父进程已死」的 python —— 它不再提供任何服务，只是占内存。
+# 判据只认 -m uvicorn 这一类，且必须无监听、无子、无连接、父死、超 30 分钟；
+# pytest / vitest 一律不碰（那是别人会话的结果，杀了就是丢结果）。
+foreach ($p in $all) {
+  if (-not ($p.CommandLine -and $p.CommandLine -like '*-m uvicorn*')) { continue }
+  if ($protected.Contains([int]$p.ProcessId)) { continue }
+  if ($live.ContainsKey([int]$p.ParentProcessId)) { continue }
+  if (($now - $p.CreationDate).TotalSeconds -lt 1800) { continue }
+  if (@($listen | Where-Object { [int]$_.OwningProcess -eq [int]$p.ProcessId }).Count -gt 0) { continue }
+  if (@($all | Where-Object { $_.ParentProcessId -eq $p.ProcessId }).Count -gt 0) { continue }
+  if (@(Get-NetTCPConnection -OwningProcess $p.ProcessId -State Established -ErrorAction SilentlyContinue).Count -gt 0) { continue }
+  Note ('REAP 僵尸服务 {0} pid={1}（uvicorn 未占端口、父已死，已 {2:N0}s）' -f $p.Name, $p.ProcessId, ($now - $p.CreationDate).TotalSeconds)
+  if (-not $script:Dry) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue }
+}
+
 Note ('DONE 回收结束（候选 {0}，隐藏窗口 {1}，模式 {2}）' -f $cands.Count, $script:HidCount, $(if ($script:Dry) { 'dry-run' } else { 'apply' }))
 exit 0
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
