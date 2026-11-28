@@ -167,7 +167,7 @@ export function AiModelDrawer({ configId, row, governance, onClose }: Props) {
                   key={value}
                   size="xs"
                   variant={window === value ? 'default' : 'ghost'}
-                  className="h-7 px-2 text-label"
+                  className="px-2 text-label"
                   onClick={() => {
                     setWindow(value)
                     setModel(null)
