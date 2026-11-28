@@ -8030,7 +8030,8 @@
           },
           "outcome": {
             "deferred": "訊息未傳送，仍保留在佇列中",
-            "failed": "訊息傳送失敗，請重試"
+            "failed": "訊息傳送失敗，請重試",
+            "sent": "訊息已傳送"
           },
           "reorderAria": "拖動調整排隊順序；聚焦後可使用上下方向鍵"
         }
@@ -8097,7 +8098,7 @@
           "hour": "小時",
           "minute": "分"
         },
-        "degradeHint": "免費額度仍可使用,可切換免費模型繼續,無需儲值",
+        "degradeHint": "免費額度仍可使用,可切換免費模型繼續,無需儲值;查看用量明細請前往<link>/models/usage</link>",
         "ariaLabel": "額度歸屬與處理建議"
       },
       "moveToWorktree": {
@@ -9719,10 +9720,10 @@
       "createDraftPullRequest": "建立 Draft PR",
       "createDraftPullRequestOk": "Draft PR 已建立",
       "createDraftPullRequestFailed": "建立 Draft PR 失敗",
-      "overflowMenu": "更多選項",
+      "overflowMenu": "面板選單",
       "groupPanel": "面板",
       "groupTools": "工具",
-      "groupSession": "會話"
+      "groupSession": "工作階段"
     },
     "floatMode": "浮窗模式",
     "handleHint": "點擊或向右拉出AI工作區",
@@ -9848,7 +9849,8 @@
       "noIntegration": "無整合",
       "running": "執行中",
       "exited": "已結束",
-      "links": "連結"
+      "links": "連結",
+      "title": "終端"
     },
     "pictureInPicture": {
       "autoMonitor": "自動監看新工作階段",
@@ -11564,10 +11566,12 @@
       "title": "本輪變更",
       "revert": "恢復到本輪之前",
       "noCheckpoints": "無可用檢查點",
-      "revertConfirm": "即將把對話與檔案恢復到本條 AI 回覆之前。共 {count} 個檔案改動將回退,此操作不可撤銷。",
+      "revertConfirm": "即將把對話與檔案恢復到本條 AI 回覆之前。共 {count} 個檔案改動將回退,此操作不可撤銷。工作記錄不會刪除。",
       "changedFile": "修改檔案",
       "createdFile": "新建檔案",
-      "deletedFile": "刪除檔案"
+      "deletedFile": "刪除檔案",
+      "expiredNote": "檢查點已過期並從磁碟清理(保留 {hours} 小時)。變更清單仍然保留,但無法從這裡回退。",
+      "revertConfirmWithTurns": "即將把對話與檔案恢復到本條 AI 回覆之前。共 {count} 個檔案、{turns} 輪修改將回退,此操作不可撤銷。工作記錄不會刪除。"
     },
     "addContextHint": "添加上下文文件或引用",
     "addContextReference": "添加為上下文引用",
@@ -12646,7 +12650,13 @@
     "secretMaskHide": "隱藏憑證",
     "resizeComposerHint": "拖動調整輸入框高度",
     "predictiveEditSetting": "預測性編輯",
-    "predictiveEditSettingDesc": "根據上下文智能建議編輯內容"
+    "predictiveEditSettingDesc": "根據上下文智能建議編輯內容",
+    "reviewTargetBranch": "指定分支",
+    "reviewTargetBranchLabel": "分支名稱",
+    "reviewTargetBranchPlaceholder": "輸入分支名稱",
+    "reviewTargetCommit": "指定 Commit",
+    "reviewTargetCommitLabel": "Commit SHA",
+    "reviewTargetCommitPlaceholder": "輸入 Commit SHA"
   },
   "chatHistory": {
     "moveToGroup": "移動到分組",
@@ -20751,7 +20761,14 @@
     "hrMyTraining": "我的培訓",
     "hrMyExpense": "我的報銷",
     "financeGroup": "財務部",
-    "market": "AI應用商店"
+    "market": "AI應用商店",
+    "start": "開始",
+    "tasks": "任務",
+    "assets": "資產",
+    "messagesShort": "訊息",
+    "mine": "我的",
+    "allFeatures": "全部功能",
+    "unknown": "未知"
   },
   "news": {
     "allCategories": "全部分類",
@@ -30408,7 +30425,21 @@
     "insuranceReadyChip": "社保配置就緒",
     "insuranceNotReadyChip": "社保配置缺 {count} 項",
     "insuranceIssuesTitle": "算薪前配置體檢",
-    "insuranceRoster": "已有 {count} 筆地區年度配置"
+    "insuranceRoster": "已有 {count} 筆地區年度配置",
+    "syncHint": "從飛書打卡記錄同步考勤資料；同步結果先進入暫存批次，確認後才會生效。",
+    "syncEnabled": "已開啟",
+    "syncDisabledBadge": "未開啟",
+    "syncScannedUsers": "掃描使用者數",
+    "syncAttempted": "嘗試同步次數",
+    "syncSyncedBatches": "成功同步批次數",
+    "syncSkippedNotImplemented": "未實作跳過數",
+    "syncFinishedAt": "完成時間",
+    "syncErrors": "錯誤明細（{count}）",
+    "syncLoading": "正在讀取同步狀態…",
+    "syncRunNow": "立即同步",
+    "syncRunning": "同步中…",
+    "syncRan": "同步完成，成功寫入 {syncedBatches} 個批次",
+    "syncDisabled": "同步開關未開啟，請先於系統設定啟用"
   },
   "financeAi": {
     "automationTitle": "自動化處理",

@@ -151,6 +151,9 @@ vi.mock('@/hooks/use-permission-mode-cycle', () => ({
   }),
 }))
 vi.mock('@/hooks/use-message-references', () => ({
+  canSendReferences: () => ({ canSend: true }),
+  CHAT_ATTACHMENT_MAX_FILES: 10,
+  CHAT_ATTACHMENT_MAX_SIZE_BYTES: 10 * 1024 * 1024,
   useMessageReferences: () => ({
     references: [],
     addFileReference: () => {},

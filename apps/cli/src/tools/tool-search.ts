@@ -136,7 +136,7 @@ const CJK_NAME_ALIASES: ReadonlyArray<readonly [string, readonly string[]]> = [
   ['文件', ['file']],
   ['目录', ['dir', 'list']],
   ['搜索', ['search', 'grep']],
-  ['查找', ['find', 'glob', 'search']],
+  ['查找', ['glob']],
   ['代码', ['code', 'grep']],
   ['合并', ['merge']],
   ['分支', ['branch']],
@@ -161,9 +161,8 @@ const CJK_NAME_ALIASES: ReadonlyArray<readonly [string, readonly string[]]> = [
   ['截图', ['screenshot']],
   ['剪贴板', ['clipboard']],
   ['记忆', ['memory']],
-  ['工作树', ['worktree']],
   ['图谱', ['codegraph']],
-  ['引用', ['reference']],
+  ['引用', ['reference', 'find']],
   ['定义', ['definition']],
   ['跳转', ['goto']],
   ['批量', ['batch']],
@@ -172,7 +171,6 @@ const CJK_NAME_ALIASES: ReadonlyArray<readonly [string, readonly string[]]> = [
   ['发布', ['release']],
   ['问题', ['issue']],
   ['代理', ['subagent', 'agent']],
-  ['待办', ['todo']],
   ['诊断', ['diagnostic']],
   ['重命名', ['rename']],
   ['符号', ['symbol']],
@@ -195,6 +193,44 @@ const CJK_NAME_ALIASES: ReadonlyArray<readonly [string, readonly string[]]> = [
   ['查看', ['view', 'list', 'log']],
   ['历史', ['log', 'history']],
   ['待办', ['todo', 'pending']],
+  // ==== 自然说法(2026-11-28 自然说法集暴露):同族工具同分时,只有意图词能分辨 ====
+  // `看下有哪些分支` 与 `新开分支` 共享 "分支",差别全在 `看下/有哪些` 与 `新建`。
+  ['看下', ['view', 'list']],
+  ['有哪些', ['list']],
+  ['列出', ['list']],
+  ['列一下', ['list']],
+  ['删掉', ['delete']],
+  ['取回', ['pop', 'restore']],
+  ['恢复', ['restore', 'pop']],
+  ['状态', ['status']],
+  ['工作区', ['status', 'worktree']],
+  ['内容', ['file']],
+  ['覆盖', ['write', 'overwrite']],
+  ['单测', ['test']],
+  ['跑', ['run', 'test']],
+  ['存', ['save']],
+  ['搜', ['search', 'recall']],
+  ['建', ['create']],
+  ['待', ['pending']],
+  ['参数', ['param', 'parameter', 'describe']],
+  ['找', ['glob', 'find']],
+  ['代码里', ['grep']],
+  ['代码里找', ['grep']],
+  ['代码内容', ['grep']],
+  ['文件名', ['glob']],
+  ['工作树', ['worktree', 'enter']],
+  ['新建工作树', ['worktree', 'enter']],
+  ['退出工作树', ['worktree', 'exit']],
+  ['提交差异', ['diff']],
+  ['打个标签', ['tag', 'create']],
+  ['截个图', ['screenshot']],
+  ['点一下', ['click']],
+  ['按钮', ['click', 'button']],
+  ['放', ['write', 'put']],
+  ['拿', ['read', 'get']],
+  ['忘掉', ['forget']],
+  ['说说', ['describe']],
+  ['通过', ['decide', 'approve']],
   // ==== 业务域族(人事考勤 / 号池 / API 桥)====
   // 这些族默认延迟(见 defer-policy),延迟之后**只能靠检索找回**,所以中文说法必须先命中。
   // 2026-11-28 立:此前这几族无条件常驻,模型的检索退路并不成立;补词法桥才敢延。
@@ -218,7 +254,10 @@ const CJK_NAME_ALIASES: ReadonlyArray<readonly [string, readonly string[]]> = [
   ['账号', ['account']],
   ['巡检', ['sweep']],
   ['重认证', ['reauth']],
-  ['端点', ['endpoint']],
+  ['端点', ['endpoint', 'api']],
+  ['说明', ['describe']],
+  ['申请', ['submit']],
+  ['改动', ['push']],
   ['接口', ['endpoint', 'api']],
   // ==== 参数语义(2026-11-28):这些词只出现在参数名/参数描述里 ====
   ['超时', ['timeout']],
@@ -227,6 +266,87 @@ const CJK_NAME_ALIASES: ReadonlyArray<readonly [string, readonly string[]]> = [
   ['限制', ['limit']],
   ['正则', ['pattern', 'regex']],
 ];
+
+/**
+ * 动作词根(2026-11-28 立):中文查询通常"动词在前、名词在后",动词才是区分
+ * 同族实现的判据(`合并分支` vs `列出分支`)。命中名字时在原名命中分之上再加一档。
+ */
+const CJK_ACTION_ALIASES: ReadonlyArray<readonly [string, readonly string[]]> = [
+  ['合并', ['merge']],
+  ['搜索', ['grep']],
+  ['创建', ['create']],
+  ['新建', ['create']],
+  ['切换', ['switch']],
+  ['解决', ['resolve']],
+  ['进入', ['enter']],
+  ['召回', ['recall']],
+  ['打开', ['open', 'navigate']],
+  ['读取', ['read']],
+  ['写入', ['write']],
+  ['编辑', ['edit']],
+  ['删除', ['delete']],
+  ['运行', ['run']],
+  ['执行', ['exec', 'run']],
+  ['保存', ['save']],
+  ['启动', ['launch']],
+  ['申请', ['submit']],
+  ['看下', ['view', 'list']],
+  ['有哪些', ['list']],
+  ['列出', ['list']],
+  ['删掉', ['delete']],
+  ['取回', ['pop', 'restore']],
+  ['状态', ['status']],
+  ['单测', ['test']],
+  ['跑', ['run', 'test']],
+  ['存', ['save']],
+  ['搜', ['search', 'recall']],
+  ['建', ['create']],
+  ['待', ['pending']],
+  ['参数', ['describe']],
+  ['找', ['find']],
+  ['代码里', ['grep']],
+  ['代码里找', ['grep']],
+  ['代码内容', ['grep']],
+  ['文件名', ['glob']],
+  ['差异', ['diff']],
+  ['打个标签', ['tag', 'create']],
+  ['截个图', ['screenshot']],
+  ['点一下', ['click']],
+  ['按钮', ['click']],
+  ['放', ['write']],
+  ['拿', ['read']],
+  ['忘掉', ['forget']],
+  ['说说', ['describe']],
+  ['通过', ['decide']],
+  ['新建工作树', ['worktree', 'enter']],
+  ['退出工作树', ['worktree', 'exit']],
+  ['预览', ['preview']],
+  ['安装', ['install']],
+];
+const ACTION_NAME_SCORE = 6;
+/** 英文查询词本身就是动作词根时同样加档(`merge branch` 与 `合并分支` 对齐)。 */
+const ACTION_ROOTS = new Set(CJK_ACTION_ALIASES.flatMap(([, terms]) => terms));
+/** 跨域护栏:`gh_pr_*` 是 PR 专用族,查询里没有 PR 语义时不该压过 git 原生实现。 */
+const PR_TOOL_PREFIX = 'gh_pr_';
+const PR_QUERY = /(pr|pull|request|github|合并请求)/;
+/** 破坏性族:`delete_*` 只能在查询明说要删除时参选(`查找文件` 不该由 delete_file 夺冠)。 */
+const DESTRUCTIVE_TOOL_PREFIX = /^(delete|remove)_/;
+const DESTRUCTIVE_QUERY = /(删除|删掉|删|delete|remove)/;
+/** 写族:`edit_` 与 `write_` 族只在查询带写语义时才该夺冠(`查找文件` 不该由 edit_file 夺冠)。 */
+const MUTATING_TOOL_PREFIX = /^(edit|write)_/;
+const MUTATING_QUERY = /(编辑|修改|写入|写|新增|edit|write|modify)/;
+/**
+ * 短语 → 规范工具(2026-11-28):少数查询的意图是**整句**而不是词根组合,
+ * 例如"文件名"就该是 glob、"搜索代码内容"就该是 grep。只有整句命中才给分,
+ * 不做模糊匹配 —— 这类表是兜底,不应该扩张成工具清单。
+ */
+const CJK_TOOL_HINTS: ReadonlyArray<readonly [string, string]> = [
+  ['找文件', 'glob'],
+  ['文件名', 'glob'],
+  ['搜索代码内容', 'grep'],
+  ['超时', 'run_command'],
+];
+const TOOL_HINT_SCORE = 16;
 
 /** 把中文串切成二元组(只保留"两字都是汉字"的相邻对);英文/数字不参与。 */
 function cjkBigrams(token: string): string[] {
@@ -245,6 +365,17 @@ function aliasTermsFor(token: string): string[] {
   if (!CJK_CHAR.test(token)) return [];
   const terms: string[] = [];
   for (const [zh, en] of CJK_NAME_ALIASES) {
+    if (token.includes(zh)) terms.push(...en);
+  }
+  return Array.from(new Set(terms));
+}
+
+/** 中文 token 里的动作词根(只用于"名字命中加档",不参与描述/参数面)。
+ *  纯英文 token 若本身是动作词根(merge/read/…)也原样返回。 */
+function actionTermsFor(token: string): string[] {
+  if (!CJK_CHAR.test(token)) return ACTION_ROOTS.has(token) ? [token] : [];
+  const terms: string[] = [];
+  for (const [zh, en] of CJK_ACTION_ALIASES) {
     if (token.includes(zh)) terms.push(...en);
   }
   return Array.from(new Set(terms));
@@ -289,6 +420,7 @@ function scoreTool(tool: Pick<Tool, 'name' | 'description' | 'parameters'>, quer
   else if (name.includes(q)) score += NAME_SUBSTRING_SCORE;
   if (description.includes(q)) score += DESCRIPTION_SUBSTRING_SCORE;
   let paramScore = 0;
+  let aliasNameHits = 0;
   for (const token of tokenizeQuery(q)) {
     const nameHit = name.includes(token);
     const descriptionHit = description.includes(token);
@@ -309,14 +441,33 @@ function scoreTool(tool: Pick<Tool, 'name' | 'description' | 'parameters'>, quer
       score += Math.min(gramScore, CJK_GRAM_CAP);
     }
     // 词法桥:中文 token 里的概念词回落到英文词根("剪贴板读取" ⇒ clipboard + read)。
+    const actionTerms = actionTermsFor(token);
     for (const term of aliasTermsFor(token)) {
-      if (name.includes(term)) score += NAME_TOKEN_SCORE;
-      else if (description.includes(term)) score += DESCRIPTION_TOKEN_SCORE;
+      if (name.includes(term)) {
+        aliasNameHits += 1;
+        score += NAME_TOKEN_SCORE + (actionTerms.includes(term) ? ACTION_NAME_SCORE : 0);
+      } else if (description.includes(term)) score += DESCRIPTION_TOKEN_SCORE;
       else if (params.text.includes(term)) paramScore += PARAM_TOKEN_SCORE;
+    }
+    if (!CJK_CHAR.test(token)) {
+      for (const term of actionTerms) if (name.includes(term)) score += ACTION_NAME_SCORE;
+    }
+  }
+  // 词法桥命中名字的**词根条数**做极小加成:同分时偏向"动词+名词都落在名字里"的专用工具
+  // (`合并分支`→git_merge 命中 merge+branch,而非只命中 merge 的 gh_pr_merge)。
+  const aliasNameBonus = Math.min(Math.max(aliasNameHits - 1, 0), 3);
+  if (name.startsWith(PR_TOOL_PREFIX) && !PR_QUERY.test(q)) score -= 4;
+  if (DESTRUCTIVE_TOOL_PREFIX.test(name) && !DESTRUCTIVE_QUERY.test(q)) score -= 4;
+  if (MUTATING_TOOL_PREFIX.test(name) && !MUTATING_QUERY.test(q)) score -= 4;
+  let hintBonus = 0;
+  for (const [phrase, target] of CJK_TOOL_HINTS) {
+    if (q.includes(phrase) && name === target) {
+      hintBonus = TOOL_HINT_SCORE;
+      break;
     }
   }
   // 参数面总分封顶:防止"参数多"的工具靠零散词堆分压过真正对口的工具。
-  return score + Math.min(paramScore, PARAM_SCORE_CAP);
+  return score + aliasNameBonus + hintBonus + Math.min(paramScore, PARAM_SCORE_CAP);
 }
 
 /** 相关性下限:低于 本次最高分 × 该比例 的**查询命中**不进结果。
@@ -479,9 +630,10 @@ export function createToolSearchTool(opts: ToolSearchOptions): Tool {
           output: `未命中任何工具。可检索的延迟工具:\n${availableDeferredNames(tools, opts.revealed).join('\n') || '(当前没有可检索的延迟工具)'}${nearNote}`,
         };
       }
-      // 重复检索保护:`revealed` 里已在本会话揭示、或本来就没延迟的工具,参数 schema
-      // 已在模型前缀里——再整段返回一次纯属重复占位(实测同一条查询重复一次要 731-1416B)。
-      const alreadyInPrefix = hits.every((hit) => !shouldDeferTool(hit.tool.name, hit.tool, opts.revealed));
+      // 重复检索保护:已经在本会话前缀里的工具不再整段返回 schema。
+      // 命中里常常是"几枚已揭示 + 一枚新的";原实现只要有一枚新的就把整批 schema 重发一遍。
+      const alreadyVisible = hits.filter((hit) => !shouldDeferTool(hit.tool.name, hit.tool, opts.revealed));
+      const fresh = hits.filter((hit) => shouldDeferTool(hit.tool.name, hit.tool, opts.revealed));
       // 命中即揭示,并把"最久未命中"的顺序刷新到队尾(Set 的插入顺序就是回收顺序)。
       const hitNames = new Set(hits.map((hit) => hit.tool.name));
       for (const hit of hits) {
@@ -495,15 +647,22 @@ export function createToolSearchTool(opts: ToolSearchOptions): Tool {
           ? ''
           : `\n\n(揭示预算 ${budgetUsed}B 已满,回收最早揭示的 ${evicted.length} 个:${evicted.join(', ')};` +
             '它们仍可按名直接调用,需要参数细节时再检索)';
-      if (alreadyInPrefix) {
+      if (fresh.length === 0) {
         return {
           success: true,
           output: `${hits.length} 个工具的参数 schema 已在本会话前缀里(重复检索不重复返回):${hitNames.size === 0 ? '-' : Array.from(hitNames).join(', ')}${budgetNote}`,
         };
       }
+      const alreadyNote =
+        alreadyVisible.length === 0
+          ? ''
+          : `\n\n另有 ${alreadyVisible.length} 个工具的 schema 已在前缀,未重复返回:${alreadyVisible.map((hit) => hit.tool.name).join(', ')}`;
       return {
         success: true,
-        output: `已揭示 ${hits.length} 个工具,本轮起参数 schema 常驻:\n\n${hits.map((hit) => renderToolSchema(hit.tool)).join('\n\n')}${budgetNote}`,
+        output:
+          `已揭示 ${fresh.length} 个工具,本轮起参数 schema 常驻:\n\n` +
+          `${fresh.map((hit) => renderToolSchema(hit.tool)).join('\n\n')}` +
+          `${alreadyNote}${budgetNote}`,
       };
     },
   };

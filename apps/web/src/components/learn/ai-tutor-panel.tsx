@@ -48,8 +48,8 @@ const MODES: {
   tone: string
 }[] = [
   { value: 'explain', labelKey: 'modeExplain', icon: Sparkles, tone: 'text-primary' },
-  { value: 'hint', labelKey: 'modeHint', icon: Lightbulb, tone: 'text-amber-600' },
-  { value: 'quiz', labelKey: 'modeQuiz', icon: HelpCircle, tone: 'text-emerald-600' },
+  { value: 'hint', labelKey: 'modeHint', icon: Lightbulb, tone: 'text-amber-600 dark:text-amber-500' },
+  { value: 'quiz', labelKey: 'modeQuiz', icon: HelpCircle, tone: 'text-emerald-600 dark:text-emerald-500' },
 ]
 
 const SUBJECT_CHIP =
@@ -249,7 +249,7 @@ export function AiTutorPanel({ chapterTitle, knowledgePoints }: AiTutorPanelProp
           {hint && (
             <div className="space-y-3">
               <div className="space-y-1">
-                <div className="text-label font-medium text-amber-600">{t('modeHint')}</div>
+                <div className="text-label font-medium text-amber-600 dark:text-amber-500">{t('modeHint')}</div>
                 <div className="whitespace-pre-wrap rounded-md bg-amber-500/5 p-3 text-body leading-relaxed">
                   {hint.hint}
                 </div>
@@ -270,7 +270,7 @@ export function AiTutorPanel({ chapterTitle, knowledgePoints }: AiTutorPanelProp
 
           {quiz && quiz.quizzes && quiz.quizzes.length > 0 && (
             <div className="space-y-3">
-              <div className="text-label font-medium text-emerald-600">
+              <div className="text-label font-medium text-emerald-600 dark:text-emerald-500">
                 {t('quizCount', { count: quiz.quizzes.length })}
               </div>
               {quiz.quizzes.map((item, i) => (
@@ -286,7 +286,7 @@ export function AiTutorPanel({ chapterTitle, knowledgePoints }: AiTutorPanelProp
                     </div>
                   )}
                   {item.answer && (
-                    <div className="text-label text-emerald-700">
+                    <div className="text-label text-emerald-700 dark:text-emerald-400">
                       {t('answerValue', { answer: item.answer })}
                     </div>
                   )}

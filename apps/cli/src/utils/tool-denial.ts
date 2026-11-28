@@ -25,7 +25,7 @@ import { digestToolArgsStructure } from '@ihui/shared/utils/tool-args-digest'
 import { auditLog } from '../audit.js'
 
 /** 是哪一道闸拒的(三态,判据 ①)。 */
-export type ToolDenialGate = 'permission-rule' | 'dangerous-gate' | 'lease-digest-drift'
+export type ToolDenialGate = 'permission-rule' | 'dangerous-gate' | 'lease-digest-drift' | 'code-mode'
 
 /** 是谁说的"不":静态规则 / 无确认出口(无头) / 真人当面拒绝 / 本会话无审批人。 */
 export type ToolDenialDecider =
@@ -43,6 +43,14 @@ export type ToolDenialDecider =
    * runAgent 的危险闸门没有 prompt 通道,见 `ToolContext.approverAvailable`)。
    */
   | 'no-approver'
+  /**
+   * 能力模式白名单拒绝(2026-11-28)。
+   *
+   * 与 `rule-deny` 的区别是"谁定的名单":rule-deny 是启动时的 --tools/黑名单,
+   * 本档是运行时 profile(read-only / no-shell / review)。出路也不同:改启动参数无效,
+   * 只能换模式;混成一档会把操作员带到错误的修法上。
+   */
+  | 'mode-deny'
 
 /**
  * 本次调用参数的可公开摘要:结构指纹(`args-sha256-v1-<64hex>`,由共享层唯一出口产出的
@@ -123,11 +131,18 @@ const GUIDANCE_NO_APPROVER =
   'authorization at launch (--allow-dangerous for the danger gate, --tools / --permission-lease for the rest). ' +
   'There is no environment-variable bypass.'
 
+const GUIDANCE_CODE_MODE =
+  'This tool is outside the active capability profile (read-only / no-shell / review). The profile is a runtime ' +
+  'boundary, not a per-call permission: it is decided at session assembly and cannot be relaxed by arguments, ' +
+  'environment variables, or a permission lease. Only way out: start the session with a profile that includes this ' +
+  'tool (or full mode) and retry there.'
+
 /** 出路文案的唯一映射(判据 ②)。每个 (gate, decider) 组合都点名至少一条真实出口。 */
 export function toolDenialGuidance(gate: ToolDenialGate, decider: ToolDenialDecider): string {
   if (decider === 'user-declined') return GUIDANCE_USER_DECLINED
   // 无审批人先于闸种类:同一个闸在"有人可问"与"无人可问"两种会话里,出路完全不同。
   if (decider === 'no-approver') return GUIDANCE_NO_APPROVER
+  if (decider === 'mode-deny') return GUIDANCE_CODE_MODE
   if (gate === 'permission-rule') return GUIDANCE_PERMISSION_RULE_DENY
   if (gate === 'lease-digest-drift') return GUIDANCE_LEASE_DRIFT
   return GUIDANCE_DANGEROUS_NO_CHANNEL

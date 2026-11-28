@@ -14,7 +14,7 @@
  * - 购买账本先以唯一键 `(buyer_user_id, skill_name)` 抢占，重复购买不再扣款；
  * - 余额不足抛 `InsufficientSkillFundsError`，整个事务回滚（不会留下半笔账）。
  */
-import { and, desc, eq, gte, ilike, lt, or, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, ilike, inArray, lt, or, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { db } from '../db/index.js'
 import { createCommissionFlow } from '../db/commission-queries.js'
@@ -24,6 +24,7 @@ import {
   tokenFlows,
   userMargins,
   users,
+  withdrawalFlows,
 } from '@ihui/database'
 import type {
   SkillEarningsResponse,
@@ -32,6 +33,8 @@ import type {
   SkillMarketSettlementResponse,
   SkillMarketSettlementRow,
   SkillMarketSettlementTotals,
+  SkillSellerAccountFlag,
+  SkillSellerAccountsResponse,
 } from '@ihui/shared/skills/market'
 
 const buyerUser = alias(users, 'skill_market_buyer')
@@ -509,6 +512,189 @@ export async function getSkillMarketSettlement(input?: {
   )
 
   return { summary, items, currency: 'CNY', period }
+}
+
+/**
+ * 管理员卖家账户对账：交易口径按账期从购买账本聚合，余额/佣金/提现是当前账户快照。
+ *
+ * 只读，不改任何账。`commissionGapCents` 是“有效技能佣金流水 - 有效作者分成”，
+ * 正常应为 0；非 0 时说明佣金冲正或历史账本对不上，运营需要人工核查。
+ */
+export async function getSkillMarketSellerAccounts(input?: {
+  month?: string
+}): Promise<SkillSellerAccountsResponse> {
+  const settlement = await getSkillMarketSettlement(input)
+  const zeroTotals = (): SkillMarketSettlementTotals => ({
+    paidCount: 0,
+    refundedCount: 0,
+    grossSalesCents: 0,
+    refundedGrossCents: 0,
+    netGmvCents: 0,
+    authorShareEarnedCents: 0,
+    authorShareActiveCents: 0,
+    authorShareOnRefundedCents: 0,
+    sellerClawbackCents: 0,
+    platformBorneCents: 0,
+    authorNetCents: 0,
+    platformShareEarnedCents: 0,
+    platformShareActiveCents: 0,
+    platformShareOnRefundedCents: 0,
+    platformNetCents: 0,
+    clawbackMissingCount: 0,
+  })
+
+  const bySeller = new Map<
+    string,
+    { sellerNickname: string | null; totals: SkillMarketSettlementTotals }
+  >()
+  for (const row of settlement.items) {
+    if (!row.sellerUserId) continue
+    let entry = bySeller.get(row.sellerUserId)
+    if (!entry) {
+      entry = { sellerNickname: row.sellerNickname, totals: zeroTotals() }
+      bySeller.set(row.sellerUserId, entry)
+    }
+    for (const key of Object.keys(entry.totals) as Array<keyof SkillMarketSettlementTotals>) {
+      entry.totals[key] += row[key]
+    }
+  }
+
+  const sellerIds = Array.from(bySeller.keys())
+  if (sellerIds.length === 0) {
+    return {
+      items: [],
+      summary: {
+        sellers: 0,
+        platformBorneCents: 0,
+        walletBalanceCents: 0,
+        withdrawableCents: 0,
+        mismatchCount: 0,
+      },
+      currency: 'CNY',
+      period: settlement.period,
+    }
+  }
+
+  const [marginRows, commissionRows, withdrawalRows] = await Promise.all([
+    db
+      .select({ userId: userMargins.userId, tokenQuantity: userMargins.tokenQuantity })
+      .from(userMargins)
+      .where(inArray(userMargins.userId, sellerIds)),
+    db
+      .select({
+        beneficiaryId: commissionFlows.beneficiaryId,
+        type: commissionFlows.type,
+        status: commissionFlows.status,
+        total: sql<string>`COALESCE(SUM(${commissionFlows.amount}), 0)::bigint`,
+      })
+      .from(commissionFlows)
+      .where(inArray(commissionFlows.beneficiaryId, sellerIds))
+      .groupBy(commissionFlows.beneficiaryId, commissionFlows.type, commissionFlows.status),
+    db
+      .select({
+        userId: withdrawalFlows.userId,
+        status: withdrawalFlows.status,
+        total: sql<string>`COALESCE(SUM(${withdrawalFlows.originalAmount}), 0)::bigint`,
+      })
+      .from(withdrawalFlows)
+      .where(inArray(withdrawalFlows.userId, sellerIds))
+      .groupBy(withdrawalFlows.userId, withdrawalFlows.status),
+  ])
+
+  const walletBySeller = new Map<string, number>()
+  for (const row of marginRows) walletBySeller.set(row.userId, row.tokenQuantity)
+
+  const commissionBySeller = new Map<
+    string,
+    { skillActive: number; skillInvalid: number; activeAll: number }
+  >()
+  for (const row of commissionRows) {
+    if (!row.beneficiaryId) continue
+    const current = commissionBySeller.get(row.beneficiaryId) ?? {
+      skillActive: 0,
+      skillInvalid: 0,
+      activeAll: 0,
+    }
+    const amount = settlementInt(row.total)
+    if (row.type === 3 && row.status === 1) current.skillActive += amount
+    if (row.type === 3 && row.status === 0) current.skillInvalid += amount
+    if (row.status === 1) current.activeAll += amount
+    commissionBySeller.set(row.beneficiaryId, current)
+  }
+
+  const withdrawalBySeller = new Map<
+    string,
+    { occupied: number; pending: number; completed: number }
+  >()
+  for (const row of withdrawalRows) {
+    if (!row.userId) continue
+    const current = withdrawalBySeller.get(row.userId) ?? { occupied: 0, pending: 0, completed: 0 }
+    const amount = settlementInt(row.total)
+    if (row.status === 0 || row.status === 1) current.pending += amount
+    if (row.status === 2) current.completed += amount
+    if (row.status === 0 || row.status === 1 || row.status === 2) current.occupied += amount
+    withdrawalBySeller.set(row.userId, current)
+  }
+
+  const items = sellerIds.map((sellerUserId) => {
+    const entry = bySeller.get(sellerUserId)!
+    const totals = entry.totals
+    const commission = commissionBySeller.get(sellerUserId) ?? {
+      skillActive: 0,
+      skillInvalid: 0,
+      activeAll: 0,
+    }
+    const withdrawal = withdrawalBySeller.get(sellerUserId) ?? {
+      occupied: 0,
+      pending: 0,
+      completed: 0,
+    }
+    const walletBalanceCents = walletBySeller.get(sellerUserId) ?? 0
+    const commissionGapCents = commission.skillActive - totals.authorShareActiveCents
+    const withdrawableCents = Math.max(0, commission.activeAll - withdrawal.occupied)
+    const flags: SkillSellerAccountFlag[] = []
+    if (totals.platformBorneCents > 0) flags.push('platform_borne')
+    if (totals.clawbackMissingCount > 0) flags.push('clawback_missing')
+    if (walletBalanceCents < 0) flags.push('negative_wallet')
+    if (commissionGapCents !== 0) flags.push('commission_mismatch')
+
+    return {
+      sellerUserId,
+      sellerNickname: entry.sellerNickname,
+      ...totals,
+      skillActiveCommissionCents: commission.skillActive,
+      skillInvalidCommissionCents: commission.skillInvalid,
+      activeCommissionCents: commission.activeAll,
+      walletBalanceCents,
+      withdrawalOccupiedCents: withdrawal.occupied,
+      pendingWithdrawalCents: withdrawal.pending,
+      completedWithdrawalCents: withdrawal.completed,
+      withdrawableCents,
+      commissionGapCents,
+      flags,
+    }
+  })
+
+  // 平台已承担越多越靠前；同额按成交额倒序，运营先处理最需要追偿/核查的卖家。
+  items.sort(
+    (a, b) =>
+      b.platformBorneCents - a.platformBorneCents ||
+      b.grossSalesCents - a.grossSalesCents ||
+      a.sellerUserId.localeCompare(b.sellerUserId),
+  )
+
+  return {
+    items,
+    summary: {
+      sellers: items.length,
+      platformBorneCents: items.reduce((sum, item) => sum + item.platformBorneCents, 0),
+      walletBalanceCents: items.reduce((sum, item) => sum + item.walletBalanceCents, 0),
+      withdrawableCents: items.reduce((sum, item) => sum + item.withdrawableCents, 0),
+      mismatchCount: items.filter((item) => item.commissionGapCents !== 0).length,
+    },
+    currency: 'CNY',
+    period: settlement.period,
+  }
 }
 
 export class SkillPurchaseStateError extends Error {

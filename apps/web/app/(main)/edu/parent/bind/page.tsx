@@ -51,9 +51,10 @@ const STATUS_KEYS: Record<string, string> = {
 }
 
 const STATUS_VARIANTS: Record<string, string> = {
-  pending: 'bg-amber-100 text-amber-700',
-  confirmed: 'bg-emerald-100 text-emerald-700',
-  rejected: 'bg-red-100 text-red-700',
+  // 2026-11-28:补 dark: 变体(parent/page.tsx 同款映射同批对齐)
+  pending: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
+  confirmed: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
+  rejected: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
 }
 
 export default function ParentBindPage() {

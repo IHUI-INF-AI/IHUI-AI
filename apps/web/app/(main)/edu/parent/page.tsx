@@ -161,9 +161,10 @@ const BINDING_STATUS_KEYS: Record<string, string> = {
 }
 
 const BINDING_STATUS_STYLES: Record<string, string> = {
-  pending: 'bg-amber-100 text-amber-700',
-  confirmed: 'bg-emerald-100 text-emerald-700',
-  rejected: 'bg-red-100 text-red-700',
+  // 2026-11-28:补 dark: 变体(暗色下 -100/-700 亮色块刺眼;对齐 procurement 页同款映射)
+  pending: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
+  confirmed: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
+  rejected: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
 }
 
 const WEEKDAY_KEYS = [
@@ -194,9 +195,9 @@ const STUDY_PLAN_STATUS_KEYS: Record<string, string> = {
 
 const STUDY_PLAN_STATUS_STYLES: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
-  active: 'bg-blue-100 text-blue-700',
-  completed: 'bg-emerald-100 text-emerald-700',
-  archived: 'bg-amber-100 text-amber-700',
+  active: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
+  completed: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
+  archived: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
 }
 
 const ATTENDANCE_STATUS_KEYS: Record<string, string> = {
@@ -208,11 +209,11 @@ const ATTENDANCE_STATUS_KEYS: Record<string, string> = {
 }
 
 const ATTENDANCE_STATUS_STYLES: Record<string, string> = {
-  present: 'bg-emerald-100 text-emerald-700',
-  late: 'bg-amber-100 text-amber-700',
-  early: 'bg-orange-100 text-orange-700',
-  absent: 'bg-red-100 text-red-700',
-  leave: 'bg-blue-100 text-blue-700',
+  present: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
+  late: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
+  early: 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300',
+  absent: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
+  leave: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
 }
 
 /* ─── i18n Helper ─── */

@@ -111,6 +111,9 @@
      2.0 的 field 档等于白加;且 8% 比卡片 default(10%)还虚,正是用户报的"输入框比卡片淡"。
      新代码仍应写 `border-stroke-field`,本档只作兼容兜底。 */
   --color-input: rgba(0, 0, 0, 0.14);
+  /* 聚焦环兼容档:旧 `ring-ring` / `outline-ring` 调用点仍按本变量取色。
+     2026-11-28 补:此前只有 input/border,ring 缺定义 ⇒ 聚焦环在部分浏览器透明。 */
+  --color-ring: rgba(0, 0, 0, 0.24);
 
   /* ===== AI 输入卡聚焦紫辉光(2026-11-23 用户定档) =====
    * 唯一效果源:近/远两层同色紫光,web / RN / 小程序只引用本组 token。
@@ -756,6 +759,8 @@ select:-webkit-autofill:focus {
      描边是引导用户视线聚焦的辅助线,亮一点反而让输入框"凸出"在卡片之上,
      避免用户找不到光标位置)。2026-11-15:改为 16% 白 alpha,随暗色表面自适应。 */
   --color-input: rgba(255, 255, 255, 0.16);
+  /* 聚焦环暗色档:亮色 24% 黑 → 暗色 28% 白,在 #242424 卡面上仍可见。 */
+  --color-ring: rgba(255, 255, 255, 0.28);
   /* 容器描边角色层暗色覆盖:与亮色同一顺序 subtle < default < field < strong,
      白 alpha 比黑 alpha 更柔和,避免"粉笔描边" */
   --color-stroke-subtle: rgba(255, 255, 255, 0.08);

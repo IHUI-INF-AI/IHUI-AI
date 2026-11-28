@@ -56,7 +56,8 @@ const ROLE_LABEL_KEYS: Record<string, string> = {
 const STATUS_BADGE: Record<AgentStatus, { labelKey: string; className: string }> = {
   running: {
     labelKey: 'filterRunning',
-    className: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
+    // 2026-11-28:运行中=amber(非终态,不用成功绿);emerald 留给终态成功,与全站约定对齐
+    className: 'bg-amber-500/10 text-amber-600 dark:text-amber-500',
   },
   paused: {
     labelKey: 'filterPaused',

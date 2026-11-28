@@ -81,6 +81,7 @@ from app.services.publish.metrics_collector import (
 from app.services.publish.post_publish_verifier import verify_published
 from app.services.publish.preflight import run_preflight
 from app.services.publish.scheduler import publish_scheduler
+from app.services.publish.top_content import group_top_content_rows
 from app.tools.pipeline_tools import prepare_publish_draft as run_prepare_publish_draft
 
 logger = get_logger(__name__)
@@ -1870,7 +1871,8 @@ async def get_top_content(
     """按最新互动快照排出周期内阅读/播放最高的内容。
 
     原先前端靠 /monitor/overview 逐篇取指标,50 行会触发 N+1 查询并超时。
-    这里用一条 SQL 取每个 task_id+platform 的最新快照,按用户过滤后排序。
+    这里用一条 SQL 取每个 task_id+platform 的最新快照,再按“归一标题 + 发布日”
+    聚成内容级条目,同一篇内容跨平台只占一行,同时保留平台明细。
     """
     user_id = _get_user_id(request)
     conn = await _get_conn()
@@ -1899,28 +1901,14 @@ async def get_top_content(
             ) h ON true
             WHERE l.collected_at >= NOW() - make_interval(days => $2)
             ORDER BY l.views DESC, l.likes DESC, t.created_at DESC
-            LIMIT $3
+            LIMIT 200
             """,
-            user_id, days, limit,
+            user_id, days,
         )
-        items = [
-            {
-                "taskId": r["task_id"],
-                "title": r["title"] or "",
-                "platform": r["platform"],
-                "views": int(r["views"] or 0),
-                "likes": int(r["likes"] or 0),
-                "comments": int(r["comments"] or 0),
-                "shares": int(r["shares"] or 0),
-                "publishedAt": (
-                    (r["finished_at"] or r["created_at"]).isoformat()
-                    if (r["finished_at"] or r["created_at"])
-                    else None
-                ),
-                "publishedUrl": r["published_url"],
-            }
-            for r in rows
-        ]
+        items = group_top_content_rows(
+            (dict(r) for r in rows),
+            limit=limit,
+        )
         return _wrap_ok({"days": days, "items": items})
     finally:
         await conn.close()

@@ -112,8 +112,8 @@ describe('admin 路由的 TagsView 标题(2026-10-19 回归)', () => {
   })
 
   it('④ 抽样断言:关键 admin 路由显示中文而非英文', () => {
-    expect(navOf('zh-CN')[resolvePathLabelSpec('/admin/users')!.key]).toBe('用户管理')
-    expect(navOf('zh-CN')[resolvePathLabelSpec('/admin/exam-marking')!.key]).toBe('试卷批阅')
+    expect(navOf('zh-CN')[resolvePathLabelSpec('/admin/users')!.key]).toBe('用户')
+    expect(navOf('zh-CN')[resolvePathLabelSpec('/admin/exam-marking')!.key]).toBe('阅卷')
     expect(navOf('zh-CN')[resolvePathLabelSpec('/admin/system/login-logs')!.key]).toBe('系统登录日志')
   })
 })

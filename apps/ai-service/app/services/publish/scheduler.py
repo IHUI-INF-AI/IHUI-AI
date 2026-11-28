@@ -195,6 +195,14 @@ class PublishScheduler:
         self._last_due_count = 0
         # 指标回收失败冷却:避免同一个失败任务每轮都占住 LIMIT 队首,饿死后面的任务。
         self._metrics_failed_until: dict[tuple[str, str], datetime] = {}
+        # 自动回收心跳:让 /publish/stats 能证明后台循环真的跑过,而不是只看进程活着。
+        self._metrics_last_at: datetime | None = None
+        self._metrics_next_at: datetime | None = None
+        self._metrics_last_scanned = 0
+        self._metrics_last_attempted = 0
+        self._metrics_last_collected = 0
+        self._metrics_last_failed = 0
+        self._metrics_last_error: str | None = None
         # 持有 spawn 出的 task 引用,避免 CPython GC 回收未完成的 task
         self._pending_tasks: set[asyncio.Task[None]] = set()
 
@@ -312,6 +320,16 @@ class PublishScheduler:
             "pollIntervalSec": _POLL_INTERVAL_SEC,
             "dueCount": self._last_due_count,
             "runningCount": len(self._running),
+            "metrics": {
+                "lastRunAt": self._metrics_last_at.isoformat() if self._metrics_last_at else None,
+                "nextRunAt": self._metrics_next_at.isoformat() if self._metrics_next_at else None,
+                "scanned": self._metrics_last_scanned,
+                "attempted": self._metrics_last_attempted,
+                "collected": self._metrics_last_collected,
+                "failed": self._metrics_last_failed,
+                "lastError": self._metrics_last_error,
+                "intervalSec": _METRICS_LOOP_INTERVAL_SEC,
+            },
         }
 
     # ===== DB 连接 =====
@@ -451,17 +469,32 @@ class PublishScheduler:
                     "[publish.metrics.auto] round failed: %s: %s",
                     type(e).__name__, e,
                 )
+                self._metrics_last_error = f"{type(e).__name__}: {e}"
+            finally:
+                self._metrics_next_at = datetime.now(UTC) + timedelta(
+                    seconds=_METRICS_LOOP_INTERVAL_SEC
+                )
             await asyncio.sleep(_METRICS_LOOP_INTERVAL_SEC)
 
     async def _metrics_once(self) -> None:
         """补采一批最近成功、但 6 小时内没有快照的内容。
 
         只挑 collector 明确支持的平台;每轮 3 篇,避免同时拉起多个浏览器。
-        采集失败不写入 0 快照,下一轮还会重试,不会把失败“洗白”。
+        候选顺序:未采过的优先(其中新发布优先),已采过的按上次采集时间
+        从旧到新,避免新内容持续插队把老内容饿死。
+        采集失败不写入 0 快照,该 task+platform 进入 60 分钟冷却后再重试,
+        避免失败任务每轮占住队首。
         """
         await _ensure_metrics_table()
+        self._metrics_last_at = datetime.now(UTC)
+        self._metrics_last_scanned = 0
+        self._metrics_last_attempted = 0
+        self._metrics_last_collected = 0
+        self._metrics_last_failed = 0
+        self._metrics_last_error = None
         conn = await self._get_conn()
         if conn is None:
+            self._metrics_last_error = "db unavailable"
             return
         try:
             rows = await conn.fetch(
@@ -470,17 +503,25 @@ class PublishScheduler:
                        t.user_id, t.targets
                 FROM publish_history h
                 JOIN publish_tasks t ON t.task_id = h.task_id
+                LEFT JOIN LATERAL (
+                  SELECT MAX(m.collected_at) AS last_collected_at
+                  FROM publish_metrics m
+                  WHERE m.task_id = h.task_id
+                    AND m.platform = h.platform
+                ) pm ON true
                 WHERE h.success = true
                   AND h.platform = ANY($1::text[])
                   AND h.platform_content_id IS NOT NULL
                   AND h.created_at >= NOW() - ($3 * INTERVAL '1 day')
-                  AND NOT EXISTS (
-                    SELECT 1 FROM publish_metrics m
-                    WHERE m.task_id = h.task_id
-                      AND m.platform = h.platform
-                      AND m.collected_at > NOW() - ($4 * INTERVAL '1 hour')
+                  AND (
+                    pm.last_collected_at IS NULL
+                    OR pm.last_collected_at <= NOW() - ($4 * INTERVAL '1 hour')
                   )
-                ORDER BY h.created_at DESC
+                ORDER BY
+                  (pm.last_collected_at IS NULL) DESC,
+                  CASE WHEN pm.last_collected_at IS NULL THEN h.created_at END DESC,
+                  pm.last_collected_at ASC,
+                  h.created_at ASC
                 LIMIT $2
                 """,
                 list(_METRICS_PLATFORMS),
@@ -560,6 +601,10 @@ class PublishScheduler:
             self._metrics_failed_until.pop(key, None)
             collected += 1
         duration_ms = int((datetime.now(UTC) - started_at).total_seconds() * 1000)
+        self._metrics_last_scanned = len(rows)
+        self._metrics_last_attempted = attempted
+        self._metrics_last_collected = collected
+        self._metrics_last_failed = failed
         if rows:
             logger.info(
                 "[publish.metrics.auto] scanned=%d attempted=%d collected=%d failed=%d duration_ms=%d",

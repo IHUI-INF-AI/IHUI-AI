@@ -1,5 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 
 /**
  * tool_search 响应经济学 —— 重复检索不重复返回 schema;空结果给近名落点。
@@ -37,17 +39,31 @@ function setup() {
 }
 
 describe('tool_search 响应经济学', () => {
-  it('同一查询重复检索:第二次不再整段返回 schema,体量降到 1/5 以下', async () => {
+  it('同一查询重复检索:第二次不再整段返回 schema,体量降到 1/3 以下', async () => {
     const { search, revealed } = setup()
     const first = await search.execute({ queries: ['合并分支'] }, CTX)
     const repeat = await search.execute({ queries: ['合并分支'] }, CTX)
     const firstBytes = String(first.output).length
     const repeatBytes = String(repeat.output).length
     console.log(`[tool-search] repeat ${firstBytes}B -> ${repeatBytes}B, revealed=${revealed.size}`)
-    expect(firstBytes).toBeGreaterThan(700)
-    expect(repeatBytes).toBeLessThan(firstBytes / 5)
+    // 首次只回"尚未在前缀"的 schema(危险/常驻工具本来就在前缀,不再重发),基数比旧版小。
+    expect(firstBytes).toBeGreaterThan(350)
+    expect(repeatBytes).toBeLessThan(firstBytes / 3)
     expect(String(repeat.output)).toContain('已在本会话前缀里')
     expect(String(repeat.output)).not.toContain('### ')
+  })
+
+  it('部分已揭示:只回新增工具的 schema,已在前缀的不再整段重发', async () => {
+    const { search, revealed } = setup()
+    await search.execute({ queries: ['合并分支'] }, CTX)
+    const second = await search.execute({ queries: ['合并分支', '列出分支'] }, CTX)
+    const out = String(second.output)
+    console.log(`[tool-search] partial ${out.length}B, revealed=${revealed.size}`)
+    // git_merge/git_branch_list 等已在前缀;这次只应补 gh_issue_list 的 schema。
+    expect(out).toContain('### gh_issue_list')
+    expect(out).not.toContain('### git_merge')
+    expect(out).not.toContain('### git_branch_list')
+    expect(out).toContain('已在前缀')
   })
 
   it('常驻工具本来就在前缀:查它不必再回 schema', async () => {
@@ -73,3 +89,4 @@ describe('tool_search 响应经济学', () => {
     expect(String(r.output)).toContain('read_file')
   })
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

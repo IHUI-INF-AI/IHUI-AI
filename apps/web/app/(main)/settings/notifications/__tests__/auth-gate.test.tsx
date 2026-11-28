@@ -34,8 +34,14 @@ vi.mock('@/lib/api', () => ({
   fetchApi: fetchApi,
 }))
 
+// 翻译器与 setter 必须是稳定引用:页面 effect 依赖它们,每次渲染换新函数会
+// 在门开后的重渲染里再触发一次补拉,误报「拉了两次」。
+const stable = vi.hoisted(() => ({
+  t: (key: string) => key,
+  setSoundEnabled: vi.fn(),
+}))
 vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string) => key,
+  useTranslations: () => stable.t,
 }))
 
 // 只替外壳:AuthGatePrompt 必须真渲染传入文案,否则测不出"该页把哪一态当成了未登录"
@@ -49,7 +55,7 @@ vi.mock('@/components/layout', () => ({
 }))
 
 vi.mock('@/hooks/use-notification', () => ({
-  useNotification: () => ({ soundEnabled: false, setSoundEnabled: vi.fn() }),
+  useNotification: () => ({ soundEnabled: false, setSoundEnabled: stable.setSoundEnabled }),
 }))
 
 vi.mock('@ihui/ui-react', () => ({
@@ -60,13 +66,20 @@ vi.mock('@ihui/ui-react', () => ({
   Switch: () => <div />,
 }))
 
-vi.mock('lucide-react', () => ({
-  Mail: () => <svg />,
-  MessageSquare: () => <svg />,
-  Bell: () => <svg />,
-  Volume2: () => <svg />,
-  Loader2: () => <svg />,
-}))
+vi.mock('lucide-react', () => {
+  const Icon = () => <svg />
+  return {
+    Mail: Icon,
+    MessageSquare: Icon,
+    Bell: Icon,
+    Volume2: Icon,
+    Loader2: Icon,
+    Info: Icon,
+    CheckCircle: Icon,
+    AlertTriangle: Icon,
+    XCircle: Icon,
+  }
+})
 
 import NotificationsPage from '../page'
 
@@ -105,14 +118,14 @@ describe('通知设置页 · 登录态门三态', () => {
     expect(fetchApi).not.toHaveBeenCalled()
   })
 
-  it('门开(allow 由假翻真)后自动补拉一次', async () => {
+  it('门开(allow 由假翻真)后自动补拉:页面偏好与铃声偏好各一次', async () => {
     authGate.state = { ready: false, allow: false }
     const { rerender } = render(<NotificationsPage />)
     expect(fetchApi).not.toHaveBeenCalled()
 
     authGate.state = { ready: true, allow: true }
     rerender(<NotificationsPage />)
-    await waitFor(() => expect(fetchApi).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(fetchApi).toHaveBeenCalledTimes(2))
     expect(fetchApi).toHaveBeenCalledWith('/settings/notifications')
   })
 })

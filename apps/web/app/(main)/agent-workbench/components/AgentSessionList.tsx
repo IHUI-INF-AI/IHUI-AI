@@ -36,9 +36,13 @@ interface Props {
 const SESSION_STATUS: Record<Session['status'], { label: string; className: string }> = {
   active: {
     label: '进行中',
+    // 2026-11-28:进行中=amber、已完成=emerald,与 background-agents-panel/agent-task-center-view 全站约定对齐
+    className: 'bg-amber-500/10 text-amber-600 dark:text-amber-500',
+  },
+  completed: {
+    label: '已完成',
     className: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
   },
-  completed: { label: '已完成', className: 'bg-muted text-muted-foreground' },
   failed: { label: '失败', className: 'bg-destructive/10 text-destructive' },
   aborted: { label: '已中断', className: 'bg-amber-500/10 text-amber-600 dark:text-amber-500' },
 }

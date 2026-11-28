@@ -404,14 +404,17 @@ describe('票 A:单源面 —— 在 HEAD 已成立的那几条判据(精确数)
   it('闸名与归因串各归其位:每态出现次数必须等于其语义档位数 ⇒ 拒绝路径不能各自新造一态', () => {
     // G-424 钩子改写后的重判拒绝与首过规则拒绝同形(注释原话"gate/decider 与首过同形"),
     // 复用同一 buildToolDenial 形态 ⇒ 'permission-rule'/'rule-deny' 各 +1 是复用而非新造;
+    // 2026-11-28 新增能力模式拒绝:新档 'code-mode'/'mode-deny' 各 1 处,不是把旧档混用;
     // 其余四态仍各只有一份(新拒绝路径没有引入新档位)。
     for (const [lit, want] of [
       ["'permission-rule'", 2],
       ["'dangerous-gate'", 1],
       ["'lease-digest-drift'", 1],
+      ["'code-mode'", 1],
       ["'rule-deny'", 2],
       ["'no-confirmation-channel'", 1],
       ["'user-declined'", 1],
+      ["'mode-deny'", 1],
     ] as const) {
       expect(countOccurrences(TOOLS_CODE, lit)).toBe(want)
     }
@@ -420,11 +423,11 @@ describe('票 A:单源面 —— 在 HEAD 已成立的那几条判据(精确数)
     // G-424 钩子改写重判路径的规则拒绝复用同一句 ruleMsg(与首过逐字同形),故 +1
     expect(countOccurrences(TOOLS_CODE, '被权限规则拒绝')).toBe(2)
     expect(countOccurrences(TOOLS_CODE, '摘要漂移')).toBe(1)
-    // 审计出口三处调用:规则闸 + 钩子改写重判规则闸 + 确认闸,覆盖全部拒绝路径
-    expect(countOccurrences(TOOLS_CODE, 'auditToolDenial(')).toBe(3)
+    // 审计出口四处调用:规则闸 + 钩子改写重判规则闸 + 确认闸 + 能力模式闸
+    expect(countOccurrences(TOOLS_CODE, 'auditToolDenial(')).toBe(4)
   })
 
-  it('出路文案只有一份映射:toolDenialGuidance 定义 1/合计 2、后缀格式串 1、四条 GUIDANCE_* 各 2(声明 + 使用)', () => {
+  it('出路文案只有一份映射:toolDenialGuidance 定义 1/合计 2、后缀格式串 1、五条 GUIDANCE_* 各 2(声明 + 使用)', () => {
     expect(countOccurrences(DENIAL_CODE, 'export function toolDenialGuidance(')).toBe(1)
     expect(countOccurrences(DENIAL_CODE, 'toolDenialGuidance(')).toBe(2)
     expect(countOccurrences(DENIAL_CODE, '[ihui-denial gate=')).toBe(1)
@@ -433,6 +436,7 @@ describe('票 A:单源面 —— 在 HEAD 已成立的那几条判据(精确数)
       'GUIDANCE_LEASE_DRIFT',
       'GUIDANCE_DANGEROUS_NO_CHANNEL',
       'GUIDANCE_USER_DECLINED',
+      'GUIDANCE_CODE_MODE',
     ]) {
       expect(countOccurrences(DENIAL_CODE, name)).toBe(2)
     }

@@ -100,19 +100,19 @@ export const CertificateTemplate = React.forwardRef<HTMLDivElement, CertificateT
             'relative w-full max-w-3xl overflow-hidden rounded-lg bg-card text-card-foreground shadow-elevation-md print:shadow-none',
             'aspect-[4/3]',
           )}
-          style={{ borderColor: 'var(--color-border)' }}
         >
-          {/* 外框(AGENTS.md §4 允许 border,禁止单边) */}
+          {/* 外框(AGENTS.md §4 允许 border,禁止单边);描边取 stroke-inverse 角色
+              (亮 20% 黑/暗 30% 白,与原手写 foreground/20 dark:/30 值等值),2026-11-28 */}
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0 rounded-lg border-2 border-foreground/20 dark:border-foreground/30"
+            className="pointer-events-none absolute inset-0 rounded-lg border-2 border-stroke-inverse"
             style={{ borderWidth: ringWidth }}
           />
-          {/* 内框(古典版双框) */}
+          {/* 内框(古典版双框);stroke-strong=16% 在 alpha 阶梯内,取代自创 /15 */}
           {isClassical && (
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-3 rounded-md border border-foreground/15"
+              className="pointer-events-none absolute inset-3 rounded-md border border-stroke-strong"
             />
           )}
 

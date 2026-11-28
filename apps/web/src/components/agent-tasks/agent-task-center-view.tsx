@@ -38,6 +38,7 @@ import {
 } from 'lucide-react'
 
 import { Badge, Button } from '@ihui/ui-react'
+import { Tooltip } from '@/components/feedback'
 import { LocalFolderPicker } from '@/components/workspace/local-folder-picker'
 import { cn } from '@/lib/utils'
 import { useAiPanelStore } from '@/stores/ai-panel'
@@ -205,8 +206,8 @@ export function TaskRow({
       data-testid={`agent-task-row-${task.taskId}`}
       className={cn(
         'group w-full rounded-xl border bg-card p-4 text-left transition-colors',
-        'hover:border-primary/30 hover:bg-accent/30',
-        selected ? 'border-primary/40 ring-1 ring-primary/20' : 'border-border',
+        'hover:border-stroke-strong hover:bg-accent/30',
+        selected ? 'border-stroke-selected ring-1 ring-stroke-selected' : 'border-border',
       )}
     >
       <div className="flex items-start gap-3">
@@ -267,9 +268,10 @@ export function WorkspaceCard({ compact = false }: { compact?: boolean }) {
               </p>
               <p
                 className="truncate font-mono text-[11px] text-muted-foreground"
-                title={workspace.path}
               >
-                {workspace.path}
+                <Tooltip content={workspace.path}>
+                  <span className="block w-full truncate">{workspace.path}</span>
+                </Tooltip>
               </p>
             </>
           ) : (
@@ -473,8 +475,10 @@ export function TaskDetail({
         <div className="mt-4 grid grid-cols-2 gap-3 rounded-lg bg-muted/30 p-3 text-[11px]">
           <div className="min-w-0">
             <p className="text-muted-foreground">{t('detailWorkspace')}</p>
-            <p className="mt-0.5 truncate font-medium" title={task.workspacePath}>
-              {workplace || t('workspaceUnknown')}
+            <p className="mt-0.5 truncate font-medium">
+              <Tooltip content={task.workspacePath}>
+                <span className="block w-full truncate">{workplace || t('workspaceUnknown')}</span>
+              </Tooltip>
             </p>
           </div>
           <div className="min-w-0">
@@ -645,7 +649,7 @@ export function EmptyState({ mode, onNew }: { mode: Mode; onNew: () => void }) {
   const isCurrent = mode === 'current'
   return (
     <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/15 px-6 py-16 text-center">
-      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-background text-muted-foreground shadow-sm">
+      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-background text-muted-foreground shadow-elevation-sm">
         <ListChecks className="h-5 w-5" />
       </span>
       <h2 className="mt-4 text-body font-semibold">

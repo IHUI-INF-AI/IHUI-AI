@@ -117,46 +117,54 @@ interface Trace {
 // 颜色 / 样式映射
 // ────────────────────────────────────────────────────────────────────────────
 
+// 2026-11-28:字色补亮色 -600 档(面板容器 bg-background/80 随主题变亮,原深色主题 -400 字色
+// 在浅色模式下 critical 警告等近不可读),dark: 保留 -400
 const PILLAR_STYLE: Record<string, string> = {
-  rules: 'text-blue-400 bg-blue-500/10 border-blue-500/30',
-  hook: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
-  spec: 'text-violet-400 bg-violet-500/10 border-violet-500/30',
-  context: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/30',
-  subagent: 'text-orange-400 bg-orange-500/10 border-orange-500/30',
-  terminal: 'text-pink-400 bg-pink-500/10 border-pink-500/30',
-  budget: 'text-red-400 bg-red-500/10 border-red-500/30',
+  rules: 'text-blue-600 dark:text-blue-400 bg-blue-500/10 border-blue-500/30',
+  hook: 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
+  spec: 'text-violet-600 dark:text-violet-400 bg-violet-500/10 border-violet-500/30',
+  context: 'text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 border-cyan-500/30',
+  subagent: 'text-orange-600 dark:text-orange-400 bg-orange-500/10 border-orange-500/30',
+  terminal: 'text-pink-600 dark:text-pink-400 bg-pink-500/10 border-pink-500/30',
+  budget: 'text-red-600 dark:text-red-400 bg-red-500/10 border-red-500/30',
 }
 
 const PILLAR_ORDER = ['rules', 'hook', 'spec', 'context', 'subagent', 'terminal', 'budget']
 
+const PILLAR_FALLBACK = 'text-zinc-600 dark:text-zinc-400 bg-zinc-500/10 border-zinc-500/30'
+
 function pillarStyle(pillar?: string): string {
-  if (!pillar) return 'text-zinc-400 bg-zinc-500/10 border-zinc-500/30'
+  if (!pillar) return PILLAR_FALLBACK
   const key = pillar.toLowerCase()
-  return PILLAR_STYLE[key] ?? 'text-zinc-400 bg-zinc-500/10 border-zinc-500/30'
+  return PILLAR_STYLE[key] ?? PILLAR_FALLBACK
 }
 
 // 事件类型颜色由前缀(第一个 . 之前)决定
 function eventTypeStyle(eventType?: string): string {
-  if (!eventType) return 'text-zinc-400 bg-zinc-500/10 border-zinc-500/30'
+  if (!eventType) return PILLAR_FALLBACK
   const prefix = (eventType.split('.')[0] ?? '').toLowerCase()
-  return PILLAR_STYLE[prefix] ?? 'text-zinc-400 bg-zinc-500/10 border-zinc-500/30'
+  return PILLAR_STYLE[prefix] ?? PILLAR_FALLBACK
 }
 
 const SEVERITY_STYLE: Record<Severity, { dot: string; text: string; icon: React.ReactNode }> = {
-  info: { dot: 'bg-zinc-400', text: 'text-zinc-400', icon: null },
+  info: { dot: 'bg-zinc-400', text: 'text-zinc-600 dark:text-zinc-400', icon: null },
   warning: {
     dot: 'bg-amber-400',
-    text: 'text-amber-400',
+    text: 'text-amber-600 dark:text-amber-400',
     icon: <AlertTriangle className="h-3 w-3" />,
   },
-  critical: { dot: 'bg-red-500', text: 'text-red-400', icon: <AlertCircle className="h-3 w-3" /> },
+  critical: {
+    dot: 'bg-red-500',
+    text: 'text-red-600 dark:text-red-400',
+    icon: <AlertCircle className="h-3 w-3" />,
+  },
 }
 
 const HEALTH_STYLE: Record<HealthStatus, { dot: string; text: string }> = {
-  healthy: { dot: 'bg-emerald-500', text: 'text-emerald-400' },
-  degraded: { dot: 'bg-amber-400', text: 'text-amber-400' },
-  unhealthy: { dot: 'bg-red-500', text: 'text-red-400' },
-  unknown: { dot: 'bg-zinc-500', text: 'text-zinc-400' },
+  healthy: { dot: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400' },
+  degraded: { dot: 'bg-amber-400', text: 'text-amber-600 dark:text-amber-400' },
+  unhealthy: { dot: 'bg-red-500', text: 'text-red-600 dark:text-red-400' },
+  unknown: { dot: 'bg-zinc-500', text: 'text-zinc-600 dark:text-zinc-400' },
 }
 
 /** i18n 静态映射表 — 用于消除 `t(\`telemetry.${var}\`)` 动态拼接 */

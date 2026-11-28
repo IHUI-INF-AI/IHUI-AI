@@ -12,10 +12,10 @@
  * 本用例做两件事:
  *   1. 钉住一批真实口吻的 golden 查询(中英混合),要求期望工具出现在 top5 —— top5 是
  *      `tool_search` 的默认返回条数,所以这就是"模型实际能不能看到"的判据;
- *   2. 打印 hit@1 / hit@5 读数,供人看质量趋势(hit@1 不钉死:排序优化会动它)。
+ *   2. 打印 hit@1 / hit@5 读数,并按 hit@1 设棘轮(排序优化只允许往上走)。
  *
  * 口径边界:这是**纯检索算法**的离线读数,不测模型会不会想到调 `tool_search`(那要真模型)。
- * 查询集不按当前实现调参:写的是"一个用户会怎么问",实现按这个目标改,而不是反过来。
+ * 查询集先钉死再改实现:新增只补真实口吻的说法,不因某条结果改查询或改期望。
  */
 import { describe, expect, it } from 'vitest'
 
@@ -168,15 +168,15 @@ describe('工具检索质量(中文查询命中率)', () => {
     expect(misses).toEqual([])
   })
 
-  it('hit@1 棘轮:动作词别名上线后不得回退(当前 41/49)', () => {
+  it('hit@1 棘轮:动作词别名 + 短语兜底上线后不得回退(当前 49/49)', () => {
     const tools = (() => {
       registerTools(FAMILIES.flat())
       return listTools()
     })()
     const hitAt1 = CASES.filter(([query, expected]) => searchTools(tools, [query], [], 5)[0]?.tool.name === expected).length
-    // 2026-11-28:补 `解决/进入/创建/打开/召回…` 动作词别名,36 → 41。留一例余量防抖动,
-    // 但不允许退回 36 以下 —— 那是这条链路的起点,退回去说明别名被谁删了。
-    expect(hitAt1).toBeGreaterThanOrEqual(40)
+    // 2026-11-28:补 `解决/进入/创建/打开/召回…` 动作词,36 → 41;补自然说法与短语兜底,41 → 49。
+    // 48/49 是上一档,退回去说明别名/兜底被谁删了。
+    expect(hitAt1).toBeGreaterThanOrEqual(48)
   })
 
   it('中文整串不连续时也要命中(此前"合并分支"整条落空的回归点)', () => {

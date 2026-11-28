@@ -8062,7 +8062,8 @@
           },
           "outcome": {
             "deferred": "メッセージは未送信です。キューに残っています",
-            "failed": "メッセージ送信に失敗しました。再試行してください"
+            "failed": "メッセージ送信に失敗しました。再試行してください",
+            "sent": "メッセージを送信しました"
           }
         }
       },
@@ -8128,7 +8129,7 @@
           "hour": "時間",
           "minute": "分"
         },
-        "degradeHint": "無料プランは引き続き利用できます。無料モデルに切り替えて続行でき、チャージは不要です",
+        "degradeHint": "無料プランは引き続き利用できます。<link>/models/usage</link>で利用状況を確認し、無料モデルに切り替えて続行できます",
         "ariaLabel": "クォータの種別と対処の提案"
       },
       "moveToWorktree": {
@@ -9871,18 +9872,19 @@
       "noIntegration": "統合なし",
       "running": "実行中",
       "exited": "終了",
-      "links": "リンク"
+      "links": "リンク",
+      "title": "ターミナル"
     },
     "headerActions": {
-      "overflowMenu": "その他のオプション",
+      "overflowMenu": "パネルメニュー",
       "groupPanel": "パネル",
       "groupTools": "ツール",
       "groupSession": "セッション",
-      "panelGroupButtons": "パネルグループのボタン",
+      "panelGroupButtons": "パネルアクションボタン",
       "enterWorkspaceFullscreen": "ワークスペースを全画面表示",
-      "exitWorkspaceFullscreen": "ワークスペース全画面を終了",
+      "exitWorkspaceFullscreen": "ワークスペースの全画面を終了",
       "createDraftPullRequest": "Draft PR を作成",
-      "createDraftPullRequestOk": "Draft PR が作成されました",
+      "createDraftPullRequestOk": "Draft PR を作成しました",
       "createDraftPullRequestFailed": "Draft PR の作成に失敗しました"
     },
     "pictureInPicture": {
@@ -11545,10 +11547,12 @@
       "title": "このターンの変更",
       "revert": "このターンに戻す",
       "noCheckpoints": "チェックポイントなし",
-      "revertConfirm": "この AI 回復より前の会話とファイルに復元します。{count} 件のファイル変更が取り消されます。この操作は元に戻せません。",
+      "revertConfirm": "この AI 返信より前の会話とファイルに復元します。{count} 件のファイル変更が取り消されます。この操作は元に戻せません。タスク記録は削除されません。",
       "changedFile": "ファイルを変更",
       "createdFile": "ファイルを作成",
-      "deletedFile": "ファイルを削除"
+      "deletedFile": "ファイルを削除",
+      "expiredNote": "チェックポイントは期限切れになり、{hours} 時間の保持後にディスクから削除されました。変更リストは残っていますが、ここからは元に戻せません。",
+      "revertConfirmWithTurns": "この AI 返信より前の会話とファイルに復元します。{count} 件のファイル変更と {turns} ターンの変更が取り消されます。この操作は元に戻せません。タスク記録は削除されません。"
     },
     "addContextHint": "コンテキストファイルや参照を追加",
     "addContextReference": "コンテキストとして",
@@ -12703,16 +12707,22 @@
     "aiDisclaimer": "AI生成の内容です。重要な情報はご確認ください",
     "selectionActions": {
       "ariaLabel": "選択テキストの操作",
-      "addAsAttachment": "添付ファイルとして追加",
-      "attachmentName": "選択されたテキスト",
-      "attachmentLimitReached": "添付ファイルが上限の{limit}個に達しました。1件削除してから選択テキストを追加してください"
+      "addAsAttachment": "添付として追加",
+      "attachmentName": "選択したテキスト",
+      "attachmentLimitReached": "添付が {limit} 個に達しました。先に 1 つ削除してから選択テキストを追加してください。"
     },
     "analysisOpen": "シナリオ分析を表示",
     "secretMaskShow": "認証情報を表示",
     "secretMaskHide": "認証情報を隠す",
     "resizeComposerHint": "ドラッグで入力欄の高さを調整",
     "predictiveEditSetting": "予測型編集",
-    "predictiveEditSettingDesc": "コンテキストに基づいて編集をインテリジェントに提案"
+    "predictiveEditSettingDesc": "コンテキストに基づいて編集をインテリジェントに提案",
+    "reviewTargetBranch": "ブランチ指定",
+    "reviewTargetBranchLabel": "ブランチ名",
+    "reviewTargetBranchPlaceholder": "ブランチ名を入力",
+    "reviewTargetCommit": "コミット指定",
+    "reviewTargetCommitLabel": "コミット SHA",
+    "reviewTargetCommitPlaceholder": "コミット SHA を入力"
   },
   "chatHistory": {
     "selectModeAriaLabel": "タスクの複数選択モードを切り替え",
@@ -20694,7 +20704,14 @@
     "hrMyTraining": "自分の研修",
     "hrMyExpense": "自分の経費",
     "financeGroup": "財務部",
-    "market": "AIアプリストア"
+    "market": "AIアプリストア",
+    "start": "開始",
+    "tasks": "タスク",
+    "assets": "アセット",
+    "messagesShort": "メッセージ",
+    "mine": "マイ",
+    "allFeatures": "すべての機能",
+    "unknown": "不明"
   },
   "news": {
     "allCategories": "All categories",
@@ -30545,7 +30562,21 @@
     "approvalOpen": "表示",
     "approvalNone": "承認インスタンスなし(多段階ルール未一致、単段階で処理)",
     "approvalStep": "第 {current}/{total} 段階",
-    "approvalReason": "差し戻し理由"
+    "approvalReason": "差し戻し理由",
+    "syncHint": "Feishu の打刻記録から勤怠データを同期します。結果は一時バッチに入り、確認後に反映されます。",
+    "syncEnabled": "有効",
+    "syncDisabledBadge": "無効",
+    "syncScannedUsers": "スキャン対象ユーザー数",
+    "syncAttempted": "同期試行回数",
+    "syncSyncedBatches": "同期成功バッチ数",
+    "syncSkippedNotImplemented": "未実装スキップ数",
+    "syncFinishedAt": "完了時刻",
+    "syncErrors": "エラー詳細（{count}）",
+    "syncLoading": "同期状態を読み込み中…",
+    "syncRunNow": "今すぐ同期",
+    "syncRunning": "同期中…",
+    "syncRan": "同期完了：{syncedBatches} バッチを書き込みました",
+    "syncDisabled": "同期が無効です。先にシステム設定で有効にしてください。"
   },
   "financeAi": {
     "automationTitle": "自動化",

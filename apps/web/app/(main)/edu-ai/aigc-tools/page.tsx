@@ -82,12 +82,12 @@ const CATEGORIES: Array<{ value: string; labelKey: string }> = [
 
 const CATEGORY_STYLE: Record<string, string> = {
   text: 'bg-sky-500/10 text-sky-600',
-  image: 'bg-violet-500/10 text-violet-600',
-  video: 'bg-rose-500/10 text-rose-600',
-  audio: 'bg-amber-500/10 text-amber-600',
-  code: 'bg-emerald-500/10 text-emerald-600',
-  '3d': 'bg-indigo-500/10 text-indigo-600',
-  agent: 'bg-fuchsia-500/10 text-fuchsia-600',
+  image: 'bg-violet-500/10 text-violet-600 dark:text-violet-500',
+  video: 'bg-rose-500/10 text-rose-600 dark:text-rose-500',
+  audio: 'bg-amber-500/10 text-amber-600 dark:text-amber-500',
+  code: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
+  '3d': 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-500',
+  agent: 'bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-500',
 }
 
 const CATEGORY_KEY: Record<string, string> = {
@@ -289,7 +289,7 @@ export default function EduAiAigcToolsPage() {
                 <div className="mt-auto flex items-center justify-between gap-2 pt-1">
                   <div className="flex flex-wrap items-center gap-1.5">
                     {isFreeTool(tool) && (
-                      <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-label text-emerald-600">
+                      <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-label text-emerald-600 dark:text-emerald-500">
                         {t('free')}
                       </span>
                     )}
@@ -418,7 +418,9 @@ export default function EduAiAigcToolsPage() {
                 <div className="space-y-1 text-muted-foreground">
                   {detail.pricingModel && <p>{detail.pricingModel}</p>}
                   {detail.pricingDetail && <p>{detail.pricingDetail}</p>}
-                  {detail.freeTier && <p className="text-emerald-600">{detail.freeTier}</p>}
+                  {detail.freeTier && (
+                    <p className="text-emerald-600 dark:text-emerald-500">{detail.freeTier}</p>
+                  )}
                 </div>
               </div>
 
@@ -427,7 +429,7 @@ export default function EduAiAigcToolsPage() {
                   title={t('pros')}
                   items={detail.pros}
                   marker="+"
-                  markerClass="text-emerald-600"
+                  markerClass="text-emerald-600 dark:text-emerald-500"
                 />
               ) : null}
               {detail.cons?.length ? (
