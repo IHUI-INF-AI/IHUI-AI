@@ -8,12 +8,12 @@
 // 改路由请改 RootNavigator.tsx 后重新生成。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
-// sourceCommit: 8c23b12a96900c7b548886a7a5dc8d7e1e906c96
-// inputsSha256: b4de3d6b8c1afac3cd5e29f8720d7a40e5cd628edf39b3b75d439a29c6d0890d
-// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 7fb5ee41ec0dbe7c6257ec8c1eef25bc8a2a33102f3f85d3148d19d944b7630b
+// sourceCommit: 16af5d26044ef8b1a24f9bf963ebdc0d8680b4e9
+// inputsSha256: c8ec09d5a302c955f1f2c7042774863e49ca999d67dc234b61de4849c0112ff5
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 03af851d7dd0091ea153056d8ced26588f92f0fd9bc36087ce02bd14b33663d1
 // input: apps/mobile-rn/src/navigation/linking.ts d003573a24de25dea1e7fc9abe5deb78223e68486d626712ebc1ce1721531cd7
 // skipped: unauthedBranchScreens=8(未登录分支 Screen 不入白名单,桥接挂载时不存在)
-// generatedAt: 2026-11-27T10:25:09.235Z
+// generatedAt: 2026-11-28T07:51:48.827Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航 Screen 条目:name 是 react-navigation 的 screen name(不是 URL 路径) */
@@ -28,7 +28,7 @@ export interface RnUiRouteEntry {
   requiredParams: string[]
 }
 
-/** 全量白名单:前 348 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
+/** 全量白名单:前 349 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
 export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Main', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Login', tab: false, requiresParams: false, requiredParams: [] },
@@ -250,6 +250,7 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'AgentDetail', tab: false, requiresParams: true, requiredParams: ['id'] },
   { name: 'AgentChat', tab: false, requiresParams: true, requiredParams: ['agentId', 'name'] },
   { name: 'AgentMarket', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'Community', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'AgentCreate', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'AgentEdit', tab: false, requiresParams: true, requiredParams: ['id'] },
   { name: 'ArticleDetail', tab: false, requiresParams: true, requiredParams: ['id'] },
@@ -288,8 +289,8 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'AigcCover', tab: false, requiresParams: true, requiredParams: ['id', 'title'] },
   { name: 'AigcPublish', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Learn', tab: false, requiresParams: false, requiredParams: [] },
-  { name: 'News', tab: false, requiresParams: false, requiredParams: [] },
-  { name: 'Plaza', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'Course', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'Live', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'CoursePlanet', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'LearnDevelop', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'StudyIndex', tab: false, requiresParams: false, requiredParams: [] },
@@ -398,10 +399,10 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Automations', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Dashboard', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'HrAttendance', tab: false, requiresParams: false, requiredParams: [] },
-  { name: 'HomeMain', tab: true, requiresParams: false, requiredParams: [] },
-  { name: 'CourseMain', tab: true, requiresParams: false, requiredParams: [] },
   { name: 'AiMain', tab: true, requiresParams: false, requiredParams: [] },
-  { name: 'LiveMain', tab: true, requiresParams: false, requiredParams: [] },
+  { name: 'PlazaMain', tab: true, requiresParams: false, requiredParams: [] },
+  { name: 'HomeMain', tab: true, requiresParams: false, requiredParams: [] },
+  { name: 'NewsMain', tab: true, requiresParams: false, requiredParams: [] },
   { name: 'ProfileMain', tab: true, requiresParams: false, requiredParams: [] },
 ]
 
