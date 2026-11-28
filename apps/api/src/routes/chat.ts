@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { randomUUID } from 'node:crypto'
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { sql, and, eq, inArray } from 'drizzle-orm'
@@ -31,7 +32,7 @@ import {
 } from './conversation-miniapp-backflow.js'
 import { dedupeIds, batchWriteOutcome } from '../utils/batch-outcome.js'
 // 批量操作的"哪些 id 根本没被写"对账需要直接按 (userId, ids) 查一次归属(见 POST /conversations/batch)
-import { chatConversations } from '@ihui/database'
+import { chatConversations, cozeChatHistory } from '@ihui/database'
 import {
   createConversationGroup,
   deleteConversationGroup,
@@ -114,6 +115,13 @@ import {
 // 会话日志 ZIP 导出(2026-11-14):store 模式零依赖容器,条目名/CRC/中央目录由单测钉死
 import { buildZipStore } from '../lib/chat/zip-store.js'
 import { resolveDefaultChatModel } from '../utils/retired-providers.js'
+import { findAgentByAgentId, findAgentByBotId } from '../db/agents-queries.js'
+import {
+  DEFAULT_MAX_COMPLETION_TOKENS,
+  reserveLlmPoints,
+  settleLlmPointsUsage,
+} from '../services/ai-points-billing.js'
+import { estimateTokens } from '../services/context-manager-service.js'
 import { generateSemanticSummary, getCachedSemanticSummary } from '../utils/semantic-summary.js'
 import {
   generateConversationTitle,
@@ -128,7 +136,7 @@ import {
   findMessageArchive,
   persistMessageArchive,
 } from '../utils/conversation-archive.js'
-import { aiServiceFetch } from '../utils/ai-service-fetch.js'
+import { aiServiceFetch, aiServiceFetchStream } from '../utils/ai-service-fetch.js'
 import {
   ensureLlmPointsBalance,
   readMaxCompletionTokens,
@@ -164,6 +172,9 @@ function truncateUpstreamLogBody(text: string): string {
 // Coze conversation_id 自动管理（迁移自 coze_zhs_py/api/chat.py）
 // =============================================================================
 
+// 2026-11-28 完全弃用 Coze 后，/coze/stream 的本地会话历史（进程内，按 user+bot 分槽）。
+const cozeHttpHistories = new Map<string, Array<{ role: 'user' | 'assistant'; content: string }>>()
+
 const cozeStreamSchema = z.object({
   botId: z.string().min(1),
   userId: z.string().min(1),
@@ -171,45 +182,6 @@ const cozeStreamSchema = z.object({
   conversationId: z.string().optional().default(''),
 })
 import { buildResponseSchema, paginationQuerySchema } from '../utils/api-schemas.js'
-
-async function getCozeConversationId(uuid: string, botId: string): Promise<string> {
-  const rows = await db.execute(
-    sql`SELECT conversation_id FROM coze_chat_history WHERE uuid = ${uuid} AND bot_id = ${botId} ORDER BY created_at DESC LIMIT 1`,
-  )
-  const row = rows[0] as { conversation_id?: string } | undefined
-  return row?.conversation_id ?? ''
-}
-
-async function saveCozeConversationId(
-  uuid: string,
-  botId: string,
-  conversationId: string,
-): Promise<void> {
-  await db.execute(sql`
-    INSERT INTO coze_chat_history (uuid, bot_id, conversation_id, created_at)
-    VALUES (${uuid}, ${botId}, ${conversationId}, now())
-    ON CONFLICT DO NOTHING
-  `)
-}
-
-function extractConversationId(data: unknown): string | null {
-  if (data === null || data === undefined) return null
-  if (typeof data === 'object') {
-    const obj = data as Record<string, unknown>
-    if (typeof obj.conversation_id === 'string' && obj.conversation_id) return obj.conversation_id
-    for (const value of Object.values(obj)) {
-      const found = extractConversationId(value)
-      if (found) return found
-    }
-  }
-  if (Array.isArray(data)) {
-    for (const item of data) {
-      const found = extractConversationId(item)
-      if (found) return found
-    }
-  }
-  return null
-}
 
 // =============================================================================
 // Zod schemas
@@ -2578,10 +2550,27 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     if (targetUserId !== request.userId)
       return reply.status(403).send(error(403, '无权操作其他用户的会话'))
 
-    const cozeKey = process.env.COZE_API_KEY
-    if (!cozeKey) return reply.status(503).send(error(503, 'Coze 服务未配置'))
+    // 2026-11-28 完全弃用 Coze：本历史代理端点改为本地 LLM 执行（SSE 帧与 /ws/coze/chat 同构），
+    // 不再要求 COZE_API_KEY、不再访问 api.coze.cn；botId 既可传 Coze bot_id，也可传本地 agentId。
+    const agent = (await findAgentByBotId(botId)) ?? (await findAgentByAgentId(botId))
+    if (!agent) return reply.status(404).send(error(404, '智能体不存在或未上线'))
 
-    const existingConvId = conversationId || (await getCozeConversationId(targetUserId, botId))
+    const basePrompt = String(agent.agentPrompt ?? '').trim()
+    const botName = String(agent.name ?? '').trim()
+    const systemPrompt = botName
+      ? `${basePrompt ? `${basePrompt}\n\n` : ''}你的名字是「${botName}」。回答时始终以「${botName}」的身份和口吻，不要自称其他 AI 产品或模型名。`
+      : basePrompt
+    const localModel = String(agent.agentModel ?? '').trim() || resolveDefaultChatModel()
+
+    // 旧版会话 id 记录辅助函数依赖已不存在的 uuid 列（本路由此前必然 500），本地化后
+    // 改为只认客户端传入的 conversation_id，缺省即新开本地会话。
+    const localConvId = conversationId || `local_${randomUUID()}`
+    const histKey = `${targetUserId}:${botId}`
+    const hist = cozeHttpHistories.get(histKey) ?? []
+    const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = []
+    if (systemPrompt) messages.push({ role: 'system', content: systemPrompt })
+    for (const h of hist.slice(-12)) messages.push(h)
+    messages.push({ role: 'user', content: query })
 
     // P1 修复:补齐 SSE 连接清理 — hijack + AbortController + close 监听 + 超时兜底
     reply.hijack()
@@ -2598,25 +2587,46 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     // 5 分钟兜底超时,防止上游挂住导致连接泄漏
     const timeoutGuard = setTimeout(() => controller.abort(), 5 * 60 * 1000)
 
-    let newConversationId: string | null = null
+    // 本地计费与 /ws/coze/chat 同口径：预扣 → 结算，失败释放
+    const billingReference = `chat-coze:${targetUserId}:${randomUUID()}`
+    const billing = await reserveLlmPoints({
+      userId: targetUserId,
+      modelId: localModel,
+      promptTokens: Math.max(1, estimateTokens(messages.map((m) => m.content).join('\n'))),
+      maxCompletionTokens: DEFAULT_MAX_COMPLETION_TOKENS,
+      source: 'llm_chat',
+      referenceId: billingReference,
+    }).catch(() => null)
+    if (!billing?.ok) {
+      reply.raw.write(
+        `data: ${JSON.stringify({ error: billing?.message ?? '积分服务暂不可用,请稍后重试' })}\n\n`,
+      )
+      reply.raw.end()
+      return
+    }
+
+    let fullAnswer = ''
+    let usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | null =
+      null
     try {
-      const resp = await fetch('https://api.coze.cn/v1/chat', {
+      // 传 null 让 aiServiceFetchStream 注入内部系统票据：本路由的鉴权主体是普通用户，
+      // 若透传用户 JWT，ai-service 会按"该模型仅系统管理员可用"拒绝 403（WS 链路同样走系统票据）。
+      const resp = await aiServiceFetchStream(null, '/api/llm/complete/stream', {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${cozeKey}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          bot_id: botId,
-          user_id: targetUserId,
-          query,
-          conversation_id: existingConvId,
-          stream: true,
+          messages,
+          model: localModel,
+          system_prompt: systemPrompt || undefined,
+          metadata: { userId: targetUserId, provider: 'local' },
         }),
         signal: controller.signal,
       })
       if (!resp.ok || !resp.body) {
-        reply.raw.write(`data: ${JSON.stringify({ error: `Coze API ${resp.status}` })}\n\n`)
+        const errText = await resp.text().catch(() => '')
+        reply.raw.write(
+          `data: ${JSON.stringify({ error: `本地模型服务 ${resp.status}: ${errText.slice(0, 120)}` })}\n\n`,
+        )
         return
       }
       const reader = resp.body.getReader()
@@ -2629,33 +2639,82 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
         const lines = buffer.split('\n')
         buffer = lines.pop() ?? ''
         for (const line of lines) {
-          if (!line.startsWith('data:')) continue
-          const jsonStr = line.slice(5).trim()
+          const s = line.endsWith('\r') ? line.slice(0, -1) : line
+          if (!s.startsWith('data:')) continue
+          const jsonStr = s.slice(5).trim()
           if (!jsonStr) continue
+          let ev: Record<string, unknown>
           try {
-            const evt = JSON.parse(jsonStr) as unknown
-            const extracted = extractConversationId(evt)
-            if (extracted && extracted !== newConversationId) {
-              newConversationId = extracted
-              if (extracted !== existingConvId) {
-                await saveCozeConversationId(targetUserId, botId, extracted).catch(() => {})
-              }
-            }
-            reply.raw.write(`data: ${jsonStr}\n\n`)
+            ev = JSON.parse(jsonStr) as Record<string, unknown>
           } catch {
-            reply.raw.write(`data: ${jsonStr}\n\n`)
+            continue
+          }
+          if (ev.type === 'chunk' && typeof ev.content === 'string' && ev.content) {
+            fullAnswer += ev.content
+            reply.raw.write(
+              `data: ${JSON.stringify({
+                event: 'conversation.message.delta',
+                data: {
+                  id: `local_${Date.now()}`,
+                  conversation_id: localConvId,
+                  bot_id: botId,
+                  role: 'assistant',
+                  type: 'answer',
+                  content: ev.content,
+                  content_type: 'text',
+                },
+              })}\n\n`,
+            )
+          } else if (ev.type === 'done') {
+            if (typeof ev.usage === 'object' && ev.usage !== null) {
+              usage = ev.usage as typeof usage
+            }
+          } else if (ev.type === 'error') {
+            reply.raw.write(
+              `data: ${JSON.stringify({ event: 'conversation.chat.failed', message: String(ev.message ?? '本地模型服务异常') })}\n\n`,
+            )
+            return
           }
         }
       }
-      if (newConversationId) {
-        await saveCozeConversationId(targetUserId, botId, newConversationId).catch(() => {})
+      // 会话 id 随本轮 SSE 帧回传，前端下次原样带回即可
+      hist.push({ role: 'user', content: query })
+      if (fullAnswer) hist.push({ role: 'assistant', content: fullAnswer })
+      cozeHttpHistories.set(histKey, hist.slice(-24))
+      // 与 /ws/coze/chat 同表落库，失败忽略
+      try {
+        await db.insert(cozeChatHistory).values([
+          { botId, conversationId: localConvId, role: 'user', content: query },
+          { botId, conversationId: localConvId, role: 'assistant', content: fullAnswer || '(empty)' },
+        ])
+      } catch {
+        /* 历史落库失败不影响本轮输出 */
       }
+      await settleLlmPointsUsage({
+        userId: targetUserId,
+        modelId: localModel,
+        promptTokens:
+          Number(usage?.prompt_tokens ?? 0) || Math.max(1, estimateTokens(messages.map((m) => m.content).join('\n'))),
+        completionTokens: Number(usage?.completion_tokens ?? 0) || Math.max(1, estimateTokens(fullAnswer)),
+        source: 'llm_chat',
+        description: `HTTP coze-local ${localModel}`,
+        referenceId: billingReference,
+        holdReferenceId: billingReference,
+      }).catch(() => undefined)
+      reply.raw.write(
+        `data: ${JSON.stringify({ event: 'conversation.chat.completed', data: { conversation_id: localConvId, bot_id: botId } })}\n\n`,
+      )
     } catch (e) {
+      await releasePointsHold({
+        userId: targetUserId,
+        source: 'llm_chat',
+        referenceId: billingReference,
+      }).catch(() => undefined)
       // 客户端断开导致的 AbortError 不写错误帧
       if (!(e instanceof Error && e.name === 'AbortError')) {
         // 2026-10-31 安全强化第 13 批:错误帧固定文案 —— fetch/上游错误原文可能带
         // 内网主机与上游响应片段,响应面不回传,细节进日志
-        request.log.error({ err: e }, '[coze-proxy] 流式转发失败')
+        request.log.error({ err: e }, '[coze-local] 流式执行失败')
         reply.raw.write(`data: ${JSON.stringify({ error: '流式生成失败,请稍后重试' })}\n\n`)
       }
     } finally {
