@@ -202,7 +202,11 @@ export function BankCardScreen({
           >
             <View style={[styles.toggleBox, formDefault ? styles.toggleBoxOn : null]}>
               {formDefault ? (
-                <Check size={rnType.badge.size} color={tk.brand.ctaForeground} strokeWidth={3} />
+                <Check
+                  size={rnType.badge.size}
+                  color={styles.toggleBoxOnText.color}
+                  strokeWidth={3}
+                />
               ) : null}
             </View>
             <Text style={styles.toggleLabel}>{t('bankCard.formDefault')}</Text>
@@ -398,6 +402,8 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
     },
     toggleBoxOn: { borderColor: tk.brand.cta, backgroundColor: tk.brand.cta },
+    // R3 配对成文:toggleBoxOn 的前景档(Check 图标 color 从此条目取值)
+    toggleBoxOnText: { color: tk.brand.ctaForeground },
     toggleLabel: { fontSize: rnType.body.size, color: tk.text.primary },
     formError: { fontSize: rnType.body.size, color: tk.danger.deepText },
     formActions: {
