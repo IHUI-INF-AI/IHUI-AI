@@ -150,7 +150,10 @@ export function AiRevisionPanel({
   const [result, setResult] = React.useState<RevisionApiResult | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [accepted, setAccepted] = React.useState<Set<number>>(new Set())
-  const [viewMode, setViewMode] = React.useState<'split' | 'unified'>('split')
+  // 窄屏(手机/分屏一半)双栏会横向溢出:默认落单栏,桌面仍双栏对照。
+  const [viewMode, setViewMode] = React.useState<'split' | 'unified'>(() =>
+    typeof window !== 'undefined' && window.innerWidth < 768 ? 'unified' : 'split',
+  )
   const [exporting, setExporting] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
   const [copied, setCopied] = React.useState(false)

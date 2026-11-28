@@ -128,6 +128,24 @@ describe('AiRevisionPanel', () => {
     expect(await sent.text()).not.toContain('合同正文')
   })
 
+  it('窄屏默认单栏视图,不让双栏 42rem 在手机上横向溢出', async () => {
+    const originalWidth = window.innerWidth
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 420 })
+    try {
+      render(<AiRevisionPanel file={fileOf('合同.txt')} name="合同.txt" />)
+      fireEvent.click(screen.getByText('reviseRun'))
+      await expectBodyContains('第一条 甲方应在五个工作日内付款。')
+      expect(
+        screen.getByText('reviseViewUnified').closest('button')?.getAttribute('aria-pressed'),
+      ).toBe('true')
+      expect(
+        screen.getByText('reviseViewSplit').closest('button')?.getAttribute('aria-pressed'),
+      ).toBe('false')
+    } finally {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: originalWidth })
+    }
+  })
+
   it('项目文件可一键保存回文档中心:按项目上传修订稿,不改动原文件', async () => {
     render(<AiRevisionPanel file={fileOf('合同.txt')} name="合同.txt" projectId="p-1" />)
     fireEvent.click(screen.getByText('reviseRun'))
