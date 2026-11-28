@@ -126,6 +126,29 @@ export interface AiWorldLeaderboardCrossRow {
   or: AiWorldLeaderboardCrossSource | null
 }
 
+/** 全源平均总榜里某一家榜单的坐标。 */
+export interface AiWorldLeaderboardOverallSource {
+  rank: number
+  total: number
+  /** 该榜内百分位，0-100；第一名为 100，末位为 0。 */
+  percentile: number
+}
+
+/** 全源平均总榜行：同一模型家族在九家官方榜内的名次百分位均值。 */
+export interface AiWorldLeaderboardOverallRow {
+  rank: number
+  key: string
+  model: string
+  vendor: string
+  cn: boolean
+  openWeights: boolean
+  /** 命中的官方榜数（0-9）。 */
+  coverage: number
+  /** 九家榜内百分位的等权平均值，0-100。 */
+  averagePercentile: number
+  sources: Partial<Record<AiWorldLeaderboardSourceId, AiWorldLeaderboardOverallSource>>
+}
+
 /** Artificial Analysis 单项评测分数。percent 为 0-100，raw 为官方原始分（如 Elo）。 */
 export interface AiWorldLeaderboardAaBenchmark {
   key: string
@@ -238,6 +261,8 @@ export interface AiWorldAuthoritativeLeaderboard {
   sources: AiWorldLeaderboardSource[]
   methodology: string
   cross: AiWorldLeaderboardCrossRow[]
+  /** 九家官方榜全源百分位平均总榜；覆盖榜数优先，再按平均百分位排序。 */
+  overallAll: AiWorldLeaderboardOverallRow[]
   aa: AiWorldLeaderboardAaRow[]
   lmarena: {
     overall: AiWorldLeaderboardLmRow[]
