@@ -329,17 +329,19 @@ n/a 唯一一条是 B3-10（硬件专用键盘钩子），取证文档自己写�
 
 - golden 41/41：轮次 / token 全 0 —— 属口径正常（该档不跑模型），只证明链路与评分自洽。
 - stub 2 任务：轮次 p50 2、token 107 / 任务、工具调用 1 次 / 任务、失败分类 `checks_failed` 2 —— 证明非零路径能出读数。
-- **loop_v2 全量 41 任务：0/41，但这不是能力读数 —— 是上游不可用**。读数本身是可信的：轮次 p50 1 / p90 7 / p99 9.6、耗时 p50 3.9s / p90 67.5s、token p50 50、零工具调用 25/41、失败分类 `execution_error` 25 / `iteration_exhausted` 1 / `checks_failed` 15。`execution_error` 那 25 条的日志口径一致：`cloudflare_workers_ai` 返回 429（`@cf/zai-org/glm-4.7-flash`，LiteLLM 重试 2 次仍失败）。
+- **loop_v2 全量 41 任务：0/41，但这不是能力读数 —— 是上游不可用**。读数本身是可信的：轮次 p50 1 / p90 7 / p99 9.6、耗时 p50 3.9s / p90 67.5s、token p50 50、零工具调用 25/41、失败分类 `execution_error` 25 / `iteration_exhausted` 1 / `checks_failed` 15。`execution_error` 那 25 条的日志口径一致：评测模型 **GLM-4.7-Flash** 的调用返回 429 限流（重试 2 次仍失败）。
 
-**三家 provider 逐一探过（2026-11-28，全部挡住）**：
+**三个候选模型逐一探过（2026-11-28，全部被上游挡住）**：
 
-| provider | 探针结果 | 结论 |
+| 评测模型 | 探针结果 | 结论 |
 |---|---|---|
-| `cloudflare_workers_ai` | HTTP 429 RateLimitError，重试 2 次仍失败 | 限流，不可用于批量评测 |
-| `openrouter` | HTTP 402 `Insufficient credits`（`openrouter/deepseek/deepseek-chat`） | 账号无余额 |
-| `stepfun` | 指定 `LITELLM_MODEL=stepfun/step-router-v1` 后仍落回 cloudflare 并 429 | 该 key 在上游未被接受，自动路由降级到下一家 |
+| GLM-4.7-Flash | HTTP 429 限流，重试 2 次仍失败 | 不可用于批量评测 |
+| DeepSeek Chat | HTTP 402 额度不足 | 账号无余额 |
+| Step-Router V1 | 指定后仍被自动路由降级到备用模型并 429 | 该模型在当前账号下未获受理 |
 
 所以真模型读数这件事**不是"没做"，是"做不了"**：代码路径、报告口径、失败分类都已就位，唯一缺的是一个可用配额。这也是为什么上面坚持把 0/41 标成"环境受限"而不是"能力 0" —— 把 429 读成模型不行，和把 `unknown` 读成通过是同一种错。
+
+**对外口径（2026-11-28 定）**：读数、榜单、周报只写**模型官方名**（GLM-4.7-Flash / DeepSeek Chat / Step-Router V1 这类），**不写接入平台、网关、代理名**。接入链路属于内部部署细节，写进对外读数等于把反代结构暴露给读者；读者只需要知道"哪个模型、什么结果"。
 
 **两条口径边界（写死在代码里）**：
 

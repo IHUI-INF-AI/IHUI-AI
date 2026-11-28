@@ -365,7 +365,7 @@ export function AiDocumentPanel({ file, name, className, autoRun = true, onClose
     >
       <header className="flex items-start justify-between gap-2 border-b border-violet-200/60 px-3 py-2.5 dark:border-violet-900/50">
         <div className="flex min-w-0 items-start gap-2">
-          <span className="mt-0.5 rounded-lg bg-violet-600 p-1.5 text-white shadow-sm">
+          <span className="mt-0.5 rounded-lg bg-violet-600 p-1.5 text-white shadow-elevation-sm">
             <Sparkles className="h-3.5 w-3.5" />
           </span>
           <div className="min-w-0">
@@ -385,7 +385,7 @@ export function AiDocumentPanel({ file, name, className, autoRun = true, onClose
         ) : null}
       </header>
 
-      <div className="flex flex-wrap gap-1.5 border-b border-border/60 px-3 py-2">
+      <div className="flex flex-wrap gap-1.5 border-b border-stroke-default px-3 py-2">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -430,7 +430,7 @@ export function AiDocumentPanel({ file, name, className, autoRun = true, onClose
 
         {answer?.answer ? (
           <>
-            <div className="rounded-xl border bg-background/80 p-3 shadow-sm">
+            <div className="rounded-xl border bg-background/80 p-3 shadow-elevation-sm">
               <MarkdownBody
                 content={answer.answer}
                 className="prose-sm max-w-none text-xs leading-relaxed [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
@@ -468,7 +468,7 @@ export function AiDocumentPanel({ file, name, className, autoRun = true, onClose
       </div>
 
       <form
-        className="border-t border-border/60 p-2.5"
+        className="border-t border-stroke-default p-2.5"
         onSubmit={(event) => {
           event.preventDefault()
           if (!question.trim() || loading) return

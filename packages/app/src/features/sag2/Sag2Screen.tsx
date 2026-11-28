@@ -159,7 +159,11 @@ function SearchPanel({
       {/* 模式切换:快速 = 离线 BM25;深度 = 多跳 + 引用锚点 */}
       <View style={styles.modeRow}>
         <Pressable
-          style={[styles.modeBtn, mode === 'quick' && styles.modeBtnActive]}
+          style={({ pressed }) => [
+            styles.modeBtn,
+            mode === 'quick' && styles.modeBtnActive,
+            pressed && styles.modeBtnPressed,
+          ]}
           onPress={() => onModeChange('quick')}
         >
           <Text style={[styles.modeText, mode === 'quick' && styles.modeTextActive]}>
@@ -167,7 +171,11 @@ function SearchPanel({
           </Text>
         </Pressable>
         <Pressable
-          style={[styles.modeBtn, mode === 'deep' && styles.modeBtnActive]}
+          style={({ pressed }) => [
+            styles.modeBtn,
+            mode === 'deep' && styles.modeBtnActive,
+            pressed && styles.modeBtnPressed,
+          ]}
           onPress={() => onModeChange('deep')}
         >
           <Text style={[styles.modeText, mode === 'deep' && styles.modeTextActive]}>
@@ -185,7 +193,11 @@ function SearchPanel({
         placeholderTextColor={styles.meta.color}
         multiline
       />
-      <Pressable style={styles.primaryBtn} onPress={onSearch} disabled={loading}>
+      <Pressable
+        style={({ pressed }) => [styles.primaryBtn, pressed && styles.primaryBtnPressed]}
+        onPress={onSearch}
+        disabled={loading}
+      >
         <Text style={styles.primaryBtnText}>
           {loading ? t('sag2Lexical.loading') : t(mode === 'quick' ? 'quick' : 'deep')}
         </Text>
@@ -222,7 +234,10 @@ function SearchPanel({
       {/* 融合:只在深度结果非空时可触发 */}
       {mode === 'deep' && deepRows.length > 0 ? (
         <View style={styles.fuseBlock}>
-          <Pressable style={styles.fuseBtn} onPress={onFuse}>
+          <Pressable
+            style={({ pressed }) => [styles.fuseBtn, pressed && styles.fuseBtnPressed]}
+            onPress={onFuse}
+          >
             <Text style={styles.fuseBtnText}>{t('sag2Lexical.fuse')}</Text>
           </Pressable>
           {fused ? (
@@ -436,6 +451,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.brandAccent.deep,
       backgroundColor: tk.surface.muted,
     } as ViewStyle,
+    modeBtnPressed: { opacity: 0.7 } as ViewStyle,
     modeText: { fontSize: rnType.body.size, color: tk.text.secondary } as TextStyle,
     modeTextActive: { color: tk.brandAccent.deep, fontWeight: '600' } as TextStyle,
     input: {
@@ -461,6 +477,7 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '600',
       fontSize: rnType.body.size,
     } as TextStyle,
+    primaryBtnPressed: { opacity: 0.85 } as ViewStyle,
     modelCalls: { fontSize: rnType.caption.size, color: tk.text.secondary } as TextStyle,
     judgeOff: {
       backgroundColor: tk.surface.muted,
@@ -501,6 +518,7 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.caption.size,
       fontWeight: '600',
     } as TextStyle,
+    fuseBtnPressed: { opacity: 0.7 } as ViewStyle,
     fuseResult: { gap: rnSpacing.xs } as ViewStyle,
     fuseRow: { fontSize: rnType.caption.size, color: tk.text.secondary } as TextStyle,
 

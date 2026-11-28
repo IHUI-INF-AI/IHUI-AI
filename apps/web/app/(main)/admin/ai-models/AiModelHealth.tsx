@@ -31,7 +31,7 @@ export function AiModelHealth({ governance }: { governance: AiModelGovernance })
   const actionable = issues.filter((issue) => issue.severity !== 'info')
 
   return (
-    <Card className="border-border/80">
+    <Card className="border-stroke-default">
       <CardHeader className="px-4 pb-2 pt-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="flex items-center gap-2 text-title">

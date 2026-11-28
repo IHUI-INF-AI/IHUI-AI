@@ -508,7 +508,7 @@ export function PDFViewer({
                     data-annotation-status={pin.status}
                     data-annotation-focused={focusedAnnotationId === pin.id ? 'true' : undefined}
                     className={cn(
-                      'pointer-events-auto flex h-7 min-w-7 items-center justify-center gap-1 rounded-full px-1.5 text-[10px] font-semibold text-white shadow-md ring-2 ring-white/80 transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500',
+                      'pointer-events-auto flex h-7 min-w-7 items-center justify-center gap-1 rounded-full px-1.5 text-[10px] font-semibold text-white shadow-elevation-md ring-2 ring-white/80 transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500',
                       pin.status === 'resolved' ? 'bg-emerald-600' : 'bg-violet-600',
                       focusedAnnotationId === pin.id && 'ring-4 ring-violet-300',
                     )}

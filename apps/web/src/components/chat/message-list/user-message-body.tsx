@@ -95,7 +95,7 @@ export function UserMessageBody({ content, testId, secretMaskLabels }: UserMessa
           onClick={() => setSecretsRevealed((value) => !value)}
           className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-label leading-none text-muted-foreground hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
         >
-          {secretsRevealed ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+          {secretsRevealed ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
           <span>{secretsRevealed ? secretMaskLabels.hide : secretMaskLabels.show}</span>
         </button>
       ) : null}
@@ -110,7 +110,9 @@ export function UserMessageBody({ content, testId, secretMaskLabels }: UserMessa
         >
           <div className="mb-0.5 text-label font-medium">{parts.quote.label}</div>
           {parts.quote.lines.map((l, i) => (
-            <div key={`q-${i}`}>{l.length > 0 ? (reveal ? l : (maskedQuoteLines[i] ?? l)) : ' '}</div>
+            <div key={`q-${i}`}>
+              {l.length > 0 ? (reveal ? l : (maskedQuoteLines[i] ?? l)) : ' '}
+            </div>
           ))}
         </blockquote>
       ) : null}

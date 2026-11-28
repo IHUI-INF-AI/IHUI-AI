@@ -126,7 +126,10 @@ export function LearnDevelopScreen({
                 {courses.map((course) => (
                   <Pressable
                     key={course.id}
-                    style={styles.courseCard}
+                    style={({ pressed }) => [
+                      styles.courseCard,
+                      pressed && styles.courseCardPressed,
+                    ]}
                     onPress={() => onCoursePress?.(course.id)}
                     accessibilityRole="button"
                     accessibilityLabel={course.title}
@@ -284,6 +287,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: 'transparent',
       backgroundColor: tk.surface.card,
     } as ViewStyle,
+    courseCardPressed: { opacity: 0.85 } as ViewStyle,
     courseCover: {
       width: 110,
       height: 110,

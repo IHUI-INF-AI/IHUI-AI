@@ -89,7 +89,8 @@ export function SchedulerBanner({ scheduler, overdue = 0, nextScheduledAt }: Pro
         <span className="font-medium">自动发布调度心跳异常</span>
         <span>
           最后巡检 {fmtTime(scheduler.lastPollAt)}
-          {scheduler.lastPollOk === false ? '，最近一轮数据库不可用' : ''}。排期任务可能不会自动执行。
+          {scheduler.lastPollOk === false ? '，最近一轮数据库不可用' : ''}
+          。排期任务可能不会自动执行。
         </span>
       </div>
     )
@@ -107,7 +108,7 @@ export function SchedulerBanner({ scheduler, overdue = 0, nextScheduledAt }: Pro
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border bg-muted/30 px-3 py-2 text-label text-muted-foreground">
       <span className="inline-flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
-        <span className="h-1.5 w-1.5 rounded-sm bg-emerald-500" aria-hidden />
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
         自动发布调度正常
       </span>
       <span>上次巡检 {fmtTime(scheduler.lastPollAt)}</span>

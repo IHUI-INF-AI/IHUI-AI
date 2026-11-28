@@ -150,7 +150,7 @@ export function WindowsFirstRunGuide({ t }: { t: (key: string) => string }) {
               {steps.map((step, index) => (
                 <li
                   key={step.title}
-                  className="flex gap-2.5 rounded-lg border border-border/70 bg-background/60 p-2.5"
+                  className="flex gap-2.5 rounded-lg border border-stroke-default bg-background/60 p-2.5"
                 >
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-500/15 text-[11px] font-semibold text-sky-700 dark:bg-sky-400/15 dark:text-sky-300">
                     {index + 1}
@@ -189,7 +189,7 @@ export function WindowsFirstRunGuide({ t }: { t: (key: string) => string }) {
             </ul>
           </div>
 
-          <details className="group mt-3 rounded-lg border border-border/70 bg-background/60 p-3">
+          <details className="group mt-3 rounded-lg border border-stroke-default bg-background/60 p-3">
             <summary className="flex cursor-pointer list-none items-center gap-2 text-body font-medium text-foreground [&::-webkit-details-marker]:hidden">
               <Info className="h-4 w-4 text-sky-600 dark:text-sky-400" aria-hidden="true" />
               {t('downloadWinWhyTitle')}
