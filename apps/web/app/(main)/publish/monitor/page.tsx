@@ -20,7 +20,6 @@ import { useToast } from '@/hooks/use-toast'
 import { BackButton } from '@/components/common'
 import { Button, StatCard, StatGrid } from '@ihui/ui-react'
 import { MonitorCard, type MonitorItem } from './MonitorCard'
-import { AcceptancePanel } from './AcceptancePanel'
 
 export default function MonitorPage() {
   const t = useTranslations('publishMonitor')
@@ -105,8 +104,6 @@ export default function MonitorPage() {
           {loading ? t('refreshing') : t('refresh')}
         </Button>
       </div>
-
-      <AcceptancePanel />
 
       {loading ? (
         <div className="flex items-center justify-center py-8">
