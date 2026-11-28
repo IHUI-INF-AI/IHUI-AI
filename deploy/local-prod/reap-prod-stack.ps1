@@ -306,12 +306,17 @@ foreach ($o in @($nonProdOwners)) {
 foreach ($p in $all) {
   if (-not ($p.CommandLine -and $p.CommandLine -like '*-m uvicorn*')) { continue }
   if ($protected.Contains([int]$p.ProcessId)) { continue }
-  if ($live.ContainsKey([int]$p.ParentProcessId)) { continue }
-  if (($now - $p.CreationDate).TotalSeconds -lt 1800) { continue }
   if (@($listen | Where-Object { [int]$_.OwningProcess -eq [int]$p.ProcessId }).Count -gt 0) { continue }
   if (@($all | Where-Object { $_.ParentProcessId -eq $p.ProcessId }).Count -gt 0) { continue }
   if (@(Get-NetTCPConnection -OwningProcess $p.ProcessId -State Established -ErrorAction SilentlyContinue).Count -gt 0) { continue }
-  Note ('REAP 僵尸服务 {0} pid={1}（uvicorn 未占端口、父已死，已 {2:N0}s）' -f $p.Name, $p.ProcessId, ($now - $p.CreationDate).TotalSeconds)
+  $ageSec = ($now - $p.CreationDate).TotalSeconds
+  # pythonw 没有有效的 stderr，uvicorn 绑端口失败（端口被契约实例占了）时异常无处可写，
+  # 进程会被静默挂住：既不监听也不退出，父进程还活着就一直挂着。所以父活也不能一律豁免 ——
+  # 十分钟还没占住端口，说明它永远起不来了；父已死的仍按三十分钟的宽限走。
+  if ($live.ContainsKey([int]$p.ParentProcessId)) {
+    if ($ageSec -lt 600) { continue }
+  } elseif ($ageSec -lt 1800) { continue }
+  Note ('REAP 僵尸服务 {0} pid={1}（uvicorn 未占端口、已 {2:N0}s）' -f $p.Name, $p.ProcessId, $ageSec)
   if (-not $script:Dry) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue }
 }
 
