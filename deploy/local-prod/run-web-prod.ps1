@@ -6,6 +6,20 @@
 # 要求 apps/web/.next 已由 scripts/build-next-prod.ps1 完成生产构建。
 $ErrorActionPreference = 'Stop'
 
+# 自隐藏兜底：不管调用方用什么方式拉起（Start-Process 只要带 -RedirectStandard* 就会强制新建
+# 可见控制台、-WindowStyle Hidden 被忽略），第一个动作就把自己的控制台窗口藏起来，
+# 桌面上不再留下 pwsh 黑框。GetConsoleWindow 为 0 表示本就没有控制台（CreateNoWindow），直接跳过。
+try {
+  if (-not ('IHUI.ConsoleHide' -as [type])) {
+    Add-Type -Namespace IHUI -Name ConsoleHide -MemberDefinition @'
+[DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
+[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+'@
+  }
+  $h = [IHUI.ConsoleHide]::GetConsoleWindow()
+  if ($h -ne [IntPtr]::Zero) { [void][IHUI.ConsoleHide]::ShowWindow($h, 0) }
+} catch { }
+
 $Root = 'C:\IHUI-AI'
 $Node = 'C:\Users\Administrator\.workbuddy\binaries\node\versions\22.22.2-6\node.exe'
 if (-not (Test-Path -LiteralPath $Node)) {

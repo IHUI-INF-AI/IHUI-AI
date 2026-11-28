@@ -4,6 +4,20 @@
 
 # 生产栈自愈：8801 Web / 8802 API 掉线时拉起；由计划任务开机与每 5 分钟调用。
 $ErrorActionPreference = 'Continue'
+
+# 自隐藏兜底：计划任务或任何调用方把本脚本以可见方式拉起时，先把自己的控制台窗口藏掉，
+# 避免每 5 分钟在桌面上闪一个 pwsh 黑框。GetConsoleWindow 为 0 表示本就无控制台，直接跳过。
+try {
+  if (-not ('IHUI.ConsoleHide' -as [type])) {
+    Add-Type -Namespace IHUI -Name ConsoleHide -MemberDefinition @'
+[DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
+[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+'@
+  }
+  $h = [IHUI.ConsoleHide]::GetConsoleWindow()
+  if ($h -ne [IntPtr]::Zero) { [void][IHUI.ConsoleHide]::ShowWindow($h, 0) }
+} catch { }
+
 $Root = 'C:\IHUI-AI'
 $Pwsh = 'C:\Program Files\PowerShell\7\pwsh.exe'
 $LogDir = Join-Path $Root 'logs'
@@ -33,27 +47,46 @@ try {
       Sort-Object LastWriteTime -Descending | Select-Object -Skip 20 | Remove-Item -Force
   }
 
+  # 无窗口启动：Start-Process 的 -WindowStyle Hidden 一旦与 -RedirectStandardOutput/-Error 同时使用，
+  # Windows 会强制为子进程新建可见控制台（WindowStyle 被忽略），watchdog 每拉一次就弹一个 pwsh 黑框。
+  # 统一改为 cmd.exe + CreateNoWindow + 文件重定向：控制台从根上不创建（也不会闪一下），
+  # 重定向句柄由 cmd 持有，本脚本退出后日志仍持续写入。用 >> 追加，不截断现场。
+  $ComSpec = if ($env:ComSpec) { $env:ComSpec } else { 'C:\Windows\System32\cmd.exe' }
+  function Start-HiddenLauncher([string]$ScriptPath, [string]$OutLog, [string]$ErrLog) {
+    $psi = [System.Diagnostics.ProcessStartInfo]::new()
+    $psi.FileName = $ComSpec
+    $psi.Arguments = '/d /c ""{0}" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "{1}" 1>>"{2}" 2>>"{3}""' -f $Pwsh, $ScriptPath, $OutLog, $ErrLog
+    $psi.WorkingDirectory = $Root
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    [void][System.Diagnostics.Process]::Start($psi)
+  }
+
   if (-not (Test-Port 8802)) {
     $apiOut = Join-Path $LogDir 'api-prod.out.log'
     $apiErr = Join-Path $LogDir 'api-prod.err.log'
     Rotate-LogPair 'api'
-    Start-Process -FilePath $Pwsh -ArgumentList @(
-      '-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass',
-      '-File', (Join-Path $Root 'deploy\local-prod\run-api-prod.ps1')
-    ) -WorkingDirectory $Root -RedirectStandardOutput $apiOut -RedirectStandardError $apiErr -WindowStyle Hidden | Out-Null
+    Start-HiddenLauncher (Join-Path $Root 'deploy\local-prod\run-api-prod.ps1') $apiOut $apiErr
     Add-Content -Path (Join-Path $LogDir 'prod-stack.log') -Value ("{0:o} start api (8802)" -f (Get-Date))
   } else {
     Add-Content -Path (Join-Path $LogDir 'prod-stack.log') -Value ("{0:o} api ok (8802)" -f (Get-Date))
   }
 
-  if (-not (Test-Port 8801)) {
+  # 构建 / dev 会话持锁时不要抢 8801：那会和生产 web 双绑同一个端口，
+  # 表现就是 8801 反复「掉线—拉起」，进程和日志越堆越多。等锁释放再交回自愈。
+  $deployLock = Join-Path $Root '.deploy.lock\meta.json'
+  $lockMode = ''
+  if (Test-Path -LiteralPath $deployLock) {
+    try { $lockMode = (Get-Content -LiteralPath $deployLock -Raw | ConvertFrom-Json).mode } catch { $lockMode = 'unknown' }
+  }
+
+  if ($lockMode) {
+    Add-Content -Path (Join-Path $LogDir 'prod-stack.log') -Value ("{0:o} web skipped: deploy lock held ({1})" -f (Get-Date), $lockMode)
+  } elseif (-not (Test-Port 8801)) {
     $webOut = Join-Path $LogDir 'web-prod.out.log'
     $webErr = Join-Path $LogDir 'web-prod.err.log'
     Rotate-LogPair 'web'
-    Start-Process -FilePath $Pwsh -ArgumentList @(
-      '-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass',
-      '-File', (Join-Path $Root 'deploy\local-prod\run-web-prod.ps1')
-    ) -WorkingDirectory $Root -RedirectStandardOutput $webOut -RedirectStandardError $webErr -WindowStyle Hidden | Out-Null
+    Start-HiddenLauncher (Join-Path $Root 'deploy\local-prod\run-web-prod.ps1') $webOut $webErr
     Add-Content -Path (Join-Path $LogDir 'prod-stack.log') -Value ("{0:o} start web (8801)" -f (Get-Date))
   } else {
     Add-Content -Path (Join-Path $LogDir 'prod-stack.log') -Value ("{0:o} web ok (8801)" -f (Get-Date))
@@ -79,4 +112,10 @@ try {
   $mutex.ReleaseMutex()
   $mutex.Dispose()
 }
+
+# 收尾回收：把用完不走的遗留收掉（可见控制台窗口 / 孤儿进程 / 过期临时日志 /
+# 值守脚本重复实例）。放在 mutex 之外，失败也不影响自愈主流程。
+try {
+  & $Pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $Root 'deploy\local-prod\reap-prod-stack.ps1') *> $null
+} catch { }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
