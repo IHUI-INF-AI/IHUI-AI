@@ -151,6 +151,7 @@ async def test_pg_receipt_write_applies_with_rev_cas(monkeypatch):
     payload = _payload()
     conn = _ReceiptConn(_pg_row(payload), update_rowcount=1)
     mgr = _manager(db_url="postgresql://fake")
+    mgr._pg_thread_mode = False  # 验证 async pool 分支
     mgr._pool = _Pool(conn)
     # 内存副本也必须存在,写入成功后同步
     cp = AgentLoopCheckpoint.from_dict(payload)

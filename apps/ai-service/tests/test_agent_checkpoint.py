@@ -905,6 +905,7 @@ async def test_pg_save_checkpoint_upserts(monkeypatch):
     """D26:save_checkpoint 同步 UPSERT 到 PG(payload JSON + timestamptz 参数)。"""
     monkeypatch.setattr(agent_checkpoint_module, "_PSYCOPG_AVAILABLE", True)
     mgr = _make_manager(db_url="postgresql://fake")
+    mgr._pg_thread_mode = False  # 本用例验证 async pool 分支;Windows 同步分支另测
     conn = _FakeConn()
     mgr._pool = _FakePool(conn)
     mgr._table_ready = True  # 跳过建表(独立用例覆盖)
@@ -965,6 +966,7 @@ async def test_pg_load_fallback_backfills_memory(monkeypatch):
     monkeypatch.setattr(agent_checkpoint_module, "_PSYCOPG_AVAILABLE", True)
     payload = _pg_payload()
     mgr = _make_manager(db_url="postgresql://fake")
+    mgr._pg_thread_mode = False  # 验证 async pool 分支
     conn = _FakeConn(rows=[_pg_row_from_payload(payload)])
     mgr._pool = _FakePool(conn)
     mgr._table_ready = True
@@ -1009,6 +1011,7 @@ async def test_pg_load_latest_by_session(monkeypatch):
     monkeypatch.setattr(agent_checkpoint_module, "_PSYCOPG_AVAILABLE", True)
     payload = _pg_payload()
     mgr = _make_manager(db_url="postgresql://fake")
+    mgr._pg_thread_mode = False  # 验证 async pool 分支
     conn = _FakeConn(rows=[_pg_row_from_payload(payload)])
     mgr._pool = _FakePool(conn)
     mgr._table_ready = True
@@ -1027,6 +1030,7 @@ async def test_pg_delete_executes(monkeypatch):
     """delete_checkpoint 同步删除 PG 行(尽力,失败不阻塞)。"""
     monkeypatch.setattr(agent_checkpoint_module, "_PSYCOPG_AVAILABLE", True)
     mgr = _make_manager(db_url="postgresql://fake")
+    mgr._pg_thread_mode = False  # 验证 async pool 分支
     conn = _FakeConn()
     mgr._pool = _FakePool(conn)
     mgr._table_ready = True
@@ -1042,6 +1046,7 @@ async def test_pg_cleanup_expired_executes(monkeypatch):
     """cleanup_expired 同步清理 PG 过期行(expires_at <= now)。"""
     monkeypatch.setattr(agent_checkpoint_module, "_PSYCOPG_AVAILABLE", True)
     mgr = _make_manager(db_url="postgresql://fake")
+    mgr._pg_thread_mode = False  # 验证 async pool 分支
     conn = _FakeConn()
     mgr._pool = _FakePool(conn)
     mgr._table_ready = True
