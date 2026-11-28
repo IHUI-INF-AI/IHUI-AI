@@ -23,6 +23,7 @@
 | `3ea5d78e` | 总管默认对话模型走统一解析入口 |
 | `8da8b516` | 跨实例 steer/早停/默认模型/多模式边界记录 |
 | `84e58981` | PG async 分支用例固定 event loop 形态 |
+| `bcdf906c` | 显式 run pause/resume/talk/stop HTTP 控制面 + Next 同源 rewrite |
 
 ## 真实运行证据
 
@@ -92,6 +93,35 @@ probe `e41afe2b8e734080957dcb3ae041fc44`：
 `96988744-aa8b-49b8-83ab-8b8ebb39b016`，coder 返回 `succeeded / output=READY / 1 轮`；
 master 第 2 轮把 runId 带回。真库 `agent_runs` 终态 `succeeded`，事件 seq 1–2。
 
+### 显式运行控制 HTTP 面
+
+`bcdf906c` 把确定性控制动作从“只有 LLM 会调工具”提升为显式同源 API：
+
+- `POST /api/v1/ai/master/runs/{runId}/pause`
+- `POST /api/v1/ai/master/runs/{runId}/resume`
+- `POST /api/v1/ai/master/runs/{runId}/talk`，body `{"message":"..."}`
+- `POST /api/v1/ai/master/runs/{runId}/stop`
+
+四个端点都复用全局 `agent_ops_tool`，不新增第二套执行语义；身份只从请求 JWT/cookie
+取，body 不能自报 `user_id`。Next 侧加 `/api/master/runs/:path*` rewrite，浏览器同源
+带 `auth_token` cookie 直达 AI 服务。
+
+真实 HTTP 链路（不是 TestClient mock）：
+
+- master chat 发“用 agent_ops 派发 coder 执行短任务，只输出 READY”，使用
+  `openrouter/nvidia/nemotron-3-ultra-550b-a55b:free` 避开 agnes 免费额度 429；
+- 建 run `85ccf6f4-06f0-4c0c-863b-8cf8e35056ee`，`POST /pause` 返回
+  `outcome=paused / checkpointId=ddcb6f63e04c40f38f4b16eed86bccb2 / runStatus=paused`；
+- 真库状态 `paused` 后 `POST /resume` 返回 `outcome=resumed / result.status=completed /
+  runStatus=succeeded / output=READY / iterations=2 / durationMs=1266`；
+- 真库终态 `succeeded`，事件 seq 1–4；同一 master 请求最后带回 runId 与 final_response。
+
+同一端点的错误映射也实测：对已完成 run 调 `/pause` 返回 `409 /
+AGENT_RUN_ALREADY_TERMINAL`；对已 canceled run 调 `/stop` 返回
+`outcome=already_terminal / runStatus=canceled`。长任务在轮次边界前暂停会返回
+`outcome=pause_requested / runStatus=running`，调用方必须继续轮询账本；客户端提前断开
+HTTP 连接会让服务端取消正在执行的派发 run，这是长请求的既有语义，不是控制面伪造。
+
 ### UI
 
 `/master` 页面用真实 Edge + 测试库 admin 登录态验收：11 个注册表定义、`coder` 运行统计可见；
@@ -101,7 +131,7 @@ master 第 2 轮把 runId 带回。真库 `agent_runs` 终态 `succeeded`，事�
 
 ## 测试门禁
 
-- 聚焦 Python 回归：`179 passed`（master 全套 + orchestrator + checkpoint + cancel bus）。
+- 聚焦 Python 回归：`182 passed`（master 全套 + orchestrator + checkpoint + cancel bus，含新增 `test_master_runs.py` 3 项）。
 - 既有 pause/runtime 回归：`147 passed`（`test_pause_resume_65` + `test_durable_resume_84` + runtime + runtime_router）。
 - 跨进程崩溃/回执恢复：`test_agent_crossprocess_resume.py` `10 passed`（子进程 stdin 置 DEVNULL，修掉 Windows 下 pytest 采集句柄失效）。
 - `test_llm_gateway.py`：`122 passed`。
@@ -122,6 +152,7 @@ master 第 2 轮把 runId 带回。真库 `agent_runs` 终态 `succeeded`，事�
 
 ```powershell
 $env:PYTHONPATH="D:\IHUI-Work\ma-api\apps\ai-service"
+$env:CORS_ORIGIN="http://localhost:8801"
 C:\IHUI-AI\apps\ai-service\.venv\Scripts\python.exe -m pytest `
   D:\IHUI-Work\ma-api\apps\ai-service\tests\test_master_*.py `
   D:\IHUI-Work\ma-api\apps\ai-service\tests\test_agent_orchestrator.py `
