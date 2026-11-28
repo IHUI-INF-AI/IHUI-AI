@@ -328,5 +328,95 @@ describe('设备管理页', () => {
       expect(api.decideDeviceTaskApproval).toHaveBeenCalledWith('task-2', 'approved'),
     )
   })
+
+  it('G4 改动审查:逐文件勾选后只提交收下的路径', async () => {
+    const now = new Date().toISOString()
+    const diffPayload = {
+      baseRef: 'abc123',
+      files: [
+        {
+          path: 'src/a.ts',
+          status: 'modified' as const,
+          additions: 3,
+          deletions: 1,
+          patch: '@@ -1 +1 @@',
+          revertable: true,
+        },
+        {
+          path: 'new.md',
+          status: 'added' as const,
+          additions: 2,
+          deletions: 0,
+          revertable: true,
+        },
+      ],
+      additions: 5,
+      deletions: 1,
+      truncated: false,
+      capturedAt: now,
+    }
+    api.getDeviceTaskApproval.mockResolvedValue(
+      ok({
+        request: {
+          kind: 'diff' as const,
+          messageId: 'msg-3',
+          preview: '改动 2 个文件',
+          requestedAt: now,
+          diff: diffPayload,
+        },
+        decision: null,
+        plan: null,
+      }),
+    )
+    api.getDeviceTasks.mockResolvedValue(
+      ok([
+        {
+          id: 'task-3',
+          sessionId: 'conv-1',
+          targetDeviceId: 'dev-1',
+          status: 'running',
+          claimedAt: now,
+          finishedAt: null,
+          error: null,
+          resultSummary: null,
+          createdAt: now,
+          createdBy: 'u-1',
+          payload: { prompt: '改登录', mode: 'execute', reviewDiff: true },
+          messageId: 'msg-3',
+          progress: {
+            stage: 'awaiting_approval',
+            percent: 90,
+            lastEvent: '等待你审阅改动',
+            updatedAt: now,
+          },
+          leaseExpiresAt: null,
+          cancelRequestedAt: null,
+          attempt: 1,
+          agentSessionId: null,
+          startedAt: now,
+          // 列表里的 approvalRequest 故意留空(广播只带状态/进度):验证页面现取 GET
+          approvalRequest: null,
+          approvalDecision: null,
+        },
+      ]),
+    )
+    api.decideDeviceTaskApproval.mockResolvedValue(ok({ decision: 'approved', status: 'running' }))
+
+    render(<DevicesPage />)
+    await screen.findByTestId('device-row-dev-1')
+    fireEvent.change(screen.getByTestId('tasks-device-select'), { target: { value: 'dev-1' } })
+
+    fireEvent.click(await screen.findByTestId('task-approve-task-3'))
+    const panel = await screen.findByTestId('approval-panel')
+    expect(panel.textContent ?? '').toContain('src/a.ts')
+    expect(api.getDeviceTaskApproval).toHaveBeenCalledWith('task-3')
+
+    // 取消勾选 new.md,只收下 src/a.ts
+    fireEvent.click(screen.getByTestId('diff-keep-new.md'))
+    fireEvent.click(screen.getByTestId('approval-accept'))
+    await waitFor(() =>
+      expect(api.decideDeviceTaskApproval).toHaveBeenCalledWith('task-3', 'approved', ['src/a.ts']),
+    )
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

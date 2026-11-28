@@ -52,6 +52,7 @@ import {
   type DeviceTaskRow,
   type UserBroadcastConfig,
 } from '@ihui/api-client'
+import type { DeviceTaskDiffSummary, DeviceDiffFileStatus } from '@ihui/types'
 
 import { resolveWsApiBaseUrl } from '@/lib/api-base-url'
 import { useAuthStore } from '@/stores/auth'
@@ -90,6 +91,13 @@ const TASK_STATUS_KEY: Record<TaskStatus, string> = {
   completed: 'devices.taskStatus_completed',
   failed: 'devices.taskStatus_failed',
   expired: 'devices.taskStatus_expired',
+}
+
+/** diff 文件状态 → i18n 字面量键(与 RN/小程序同三档,禁模板拼接) */
+const DIFF_STATUS_KEY: Record<DeviceDiffFileStatus, string> = {
+  modified: 'devices.diffStatus_modified',
+  added: 'devices.diffStatus_added',
+  deleted: 'devices.diffStatus_deleted',
 }
 
 /**
@@ -207,6 +215,8 @@ export default function DevicesPage() {
   const [delegateSessionId, setDelegateSessionId] = React.useState('')
   const [delegateDeviceId, setDelegateDeviceId] = React.useState('')
   const [delegatePrompt, setDelegatePrompt] = React.useState('')
+  /** 改动先审:执行完先抓 diff 推到手机/网页,逐文件裁决后才收尾 */
+  const [reviewDiff, setReviewDiff] = React.useState(false)
   const [delegateSubmitting, setDelegateSubmitting] = React.useState(false)
   const [delegateResult, setDelegateResult] = React.useState<{ ok: boolean; msg: string } | null>(
     null,
@@ -232,7 +242,11 @@ export default function DevicesPage() {
       const res = await delegateSession(
         delegateSessionId,
         delegateDeviceId,
-        delegatePrompt.trim() ? { prompt: delegatePrompt.trim(), mode: 'execute' } : undefined,
+        delegatePrompt.trim()
+          ? { prompt: delegatePrompt.trim(), mode: 'execute', reviewDiff }
+          : reviewDiff
+            ? { mode: 'execute', reviewDiff }
+            : undefined,
       )
       if (res.success) {
         // success 分支 data 必为 {task_id,status}(收窄后可在 else 分支读 errorCode/status)
@@ -252,7 +266,7 @@ export default function DevicesPage() {
     } finally {
       setDelegateSubmitting(false)
     }
-  }, [delegateSessionId, delegateDeviceId, delegatePrompt, t])
+  }, [delegateSessionId, delegateDeviceId, delegatePrompt, reviewDiff, t])
 
   // ---------- 任务列表 ----------
   const [tasksDeviceId, setTasksDeviceId] = React.useState('')
@@ -313,32 +327,61 @@ export default function DevicesPage() {
     [loadTasks, t, tasksDeviceId],
   )
 
-  // ---------- plan 档审批(G3):看计划正文,批了执行端才继续 ----------
+  // ---------- 审批(G3 plan 档 / G4 diff 档):批了执行端才继续 ----------
   const [approvalPanel, setApprovalPanel] = React.useState<{
     taskId: string
     plan: string | null
     preview: string | null
+    /** diff 档:逐文件清单;plan 档为 null */
+    diff: DeviceTaskDiffSummary | null
+    /** diff 档:勾选保留的路径(默认全勾) */
+    selected: Record<string, boolean>
   } | null>(null)
   const [approvalBusy, setApprovalBusy] = React.useState(false)
+  /** 展开看 patch 的文件路径 */
+  const [approvalExpanded, setApprovalExpanded] = React.useState<string | null>(null)
 
   const openApproval = React.useCallback(
     async (task: DeviceTaskRow) => {
       setTasksError('')
       setApprovalBusy(true)
+      setApprovalExpanded(null)
       try {
+        // 任务行的 approvalRequest 可能是列表加载时的旧值(广播只带状态/进度),
+        // 审批内容一律以这里现取的为准;取不到才退回行内旧值。
         const res = await getDeviceTaskApproval(task.id)
+        const req = (res.success ? (res.data?.request ?? null) : null) ?? task.approvalRequest
+        const diff = req?.kind === 'diff' && req.diff ? req.diff : null
+        if (diff) {
+          setApprovalPanel({
+            taskId: task.id,
+            plan: null,
+            preview: req?.preview ?? null,
+            diff,
+            selected: Object.fromEntries(diff.files.map((f) => [f.path, true])),
+          })
+          return
+        }
         setApprovalPanel({
           taskId: task.id,
           plan: res.success ? (res.data?.plan ?? null) : null,
-          preview: task.approvalRequest?.preview ?? null,
+          preview: req?.preview ?? null,
+          diff: null,
+          selected: {},
         })
         if (!res.success) setTasksError(res.error || t('devices.tasksLoadFailed'))
       } catch {
-        // 正文取不到也要能批:退回摘要,不让人卡在"看不到就不敢批"
+        // 取不到正文也要能批:退回摘要,不让人卡在"看不到就不敢批"
+        const diff =
+          task.approvalRequest?.kind === 'diff' && task.approvalRequest.diff
+            ? task.approvalRequest.diff
+            : null
         setApprovalPanel({
           taskId: task.id,
           plan: null,
           preview: task.approvalRequest?.preview ?? null,
+          diff,
+          selected: diff ? Object.fromEntries(diff.files.map((f) => [f.path, true])) : {},
         })
       } finally {
         setApprovalBusy(false)
@@ -348,13 +391,17 @@ export default function DevicesPage() {
   )
 
   const runDecide = React.useCallback(
-    async (taskId: string, decision: 'approved' | 'rejected') => {
+    async (taskId: string, decision: 'approved' | 'rejected', acceptedPaths?: string[]) => {
       setApprovalBusy(true)
       setTasksError('')
       try {
-        const res = await decideDeviceTaskApproval(taskId, decision)
+        const res =
+          acceptedPaths === undefined
+            ? await decideDeviceTaskApproval(taskId, decision)
+            : await decideDeviceTaskApproval(taskId, decision, acceptedPaths)
         if (!res.success) setTasksError(res.error || t('devices.tasksLoadFailed'))
         setApprovalPanel(null)
+        setApprovalExpanded(null)
         await loadTasks(tasksDeviceId)
       } catch {
         setTasksError(t('devices.tasksLoadFailed'))
@@ -692,6 +739,24 @@ export default function DevicesPage() {
               onChange={(e) => setDelegatePrompt(e.target.value)}
             />
           </label>
+          <label
+            htmlFor="delegate-review-diff"
+            aria-label={t('devices.reviewDiffToggle')}
+            className="flex items-start gap-2 text-label"
+          >
+            <input
+              id="delegate-review-diff"
+              data-testid="delegate-review-diff"
+              type="checkbox"
+              className="mt-0.5"
+              checked={reviewDiff}
+              onChange={(e) => setReviewDiff(e.target.checked)}
+            />
+            <span>
+              <span className="block text-foreground">{t('devices.reviewDiffToggle')}</span>
+              <span className="block text-muted-foreground">{t('devices.reviewDiffHint')}</span>
+            </span>
+          </label>
           <Button
             data-testid="delegate-submit"
             disabled={!delegateSessionId || !delegateDeviceId || delegateSubmitting}
@@ -844,34 +909,134 @@ export default function DevicesPage() {
             >
               <div className="flex items-center justify-between gap-2">
                 <p className="text-label font-medium text-foreground">
-                  {t('devices.approvalTitle')}
+                  {approvalPanel.diff ? t('devices.diffTitle') : t('devices.approvalTitle')}
                 </p>
                 <Button variant="ghost" size="sm" onClick={() => setApprovalPanel(null)}>
                   {t('devices.approvalClose')}
                 </Button>
               </div>
-              <pre className="max-h-[320px] overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/40 p-2 text-label text-muted-foreground">
-                {approvalPanel.plan ?? approvalPanel.preview ?? '—'}
-              </pre>
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  data-testid="approval-approve"
-                  disabled={approvalBusy}
-                  onClick={() => void runDecide(approvalPanel.taskId, 'approved')}
-                >
-                  {t('devices.approvalApprove')}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  data-testid="approval-reject"
-                  disabled={approvalBusy}
-                  onClick={() => void runDecide(approvalPanel.taskId, 'rejected')}
-                >
-                  {t('devices.approvalReject')}
-                </Button>
-              </div>
+              {approvalPanel.diff ? (
+                <>
+                  <p className="text-label text-muted-foreground">{t('devices.diffHint')}</p>
+                  {approvalPanel.diff.files.length ? (
+                    <div className="max-h-[360px] space-y-1.5 overflow-auto">
+                      {approvalPanel.diff.files.map((f) => (
+                        <div
+                          key={f.path}
+                          className="rounded-md border border-stroke-subtle p-2"
+                          data-testid={`diff-file-${f.path}`}
+                        >
+                          <div className="flex items-start gap-2">
+                            <input
+                              type="checkbox"
+                              data-testid={`diff-keep-${f.path}`}
+                              className="mt-0.5"
+                              checked={approvalPanel.selected[f.path] ?? true}
+                              onChange={(e) =>
+                                setApprovalPanel((p) =>
+                                  p
+                                    ? {
+                                        ...p,
+                                        selected: { ...p.selected, [f.path]: e.target.checked },
+                                      }
+                                    : p,
+                                )
+                              }
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate font-mono text-label text-foreground">
+                                {f.path}
+                              </div>
+                              <div className="text-label text-muted-foreground">
+                                {t(DIFF_STATUS_KEY[f.status])} +{f.additions} −{f.deletions}
+                                {f.revertable ? '' : ` · ${t('devices.diffNotRevertable')}`}
+                              </div>
+                            </div>
+                            {f.patch ? (
+                              <button
+                                type="button"
+                                className="shrink-0 text-label text-primary"
+                                onClick={() =>
+                                  setApprovalExpanded(approvalExpanded === f.path ? null : f.path)
+                                }
+                              >
+                                {approvalExpanded === f.path
+                                  ? t('devices.diffHidePatch')
+                                  : t('devices.diffShowPatch')}
+                              </button>
+                            ) : null}
+                          </div>
+                          {approvalExpanded === f.path && f.patch ? (
+                            <pre className="mt-2 max-h-[240px] overflow-auto whitespace-pre rounded bg-muted/40 p-2 text-label text-muted-foreground">
+                              {f.patch}
+                              {f.truncated ? '\n…' : ''}
+                            </pre>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-label text-muted-foreground">—</p>
+                  )}
+                  {approvalPanel.diff.truncated ? (
+                    <p className="text-label text-amber-600">{t('devices.diffTruncated')}</p>
+                  ) : null}
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      data-testid="approval-accept"
+                      disabled={approvalBusy}
+                      onClick={() =>
+                        void runDecide(
+                          approvalPanel.taskId,
+                          'approved',
+                          Object.entries(approvalPanel.selected)
+                            .filter(([, keep]) => keep)
+                            .map(([path]) => path),
+                        )
+                      }
+                    >
+                      {t('devices.diffAcceptSelected', {
+                        count: Object.values(approvalPanel.selected).filter(Boolean).length,
+                      })}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      data-testid="approval-reject"
+                      disabled={approvalBusy}
+                      onClick={() => void runDecide(approvalPanel.taskId, 'rejected')}
+                    >
+                      {t('devices.diffRejectAll')}
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <pre className="max-h-[320px] overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/40 p-2 text-label text-muted-foreground">
+                    {approvalPanel.plan ?? approvalPanel.preview ?? '—'}
+                  </pre>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      data-testid="approval-approve"
+                      disabled={approvalBusy}
+                      onClick={() => void runDecide(approvalPanel.taskId, 'approved')}
+                    >
+                      {t('devices.approvalApprove')}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      data-testid="approval-reject"
+                      disabled={approvalBusy}
+                      onClick={() => void runDecide(approvalPanel.taskId, 'rejected')}
+                    >
+                      {t('devices.approvalReject')}
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           ) : null}
         </CardContent>

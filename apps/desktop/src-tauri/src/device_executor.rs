@@ -25,10 +25,13 @@ use tauri::{AppHandle, Manager, Wry};
 /// Windows 计划任务名（与 CLI `ihui device install` 同名；本模块读的正是那份注册）
 pub const DEVICE_EXECUTOR_TASK: &str = "IHUI-Device-Executor";
 
+/// macOS launchd LaunchAgent 标签（登录取入的是同一个 `ihui device start`）
+const DEVICE_EXECUTOR_AGENT: &str = "top.aizhs.ihui.device-executor";
+
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DeviceExecutorStatus {
-    /// 当前平台是否支持托管（目前只有 Windows 桌面端）
+    /// 当前平台是否支持托管（Windows 计划任务 / macOS LaunchAgent）
     pub supported: bool,
     /// 本机是否已用配对码接入（有合法 device.json）
     pub paired: bool,
@@ -105,7 +108,20 @@ fn pid_alive(pid: u32) -> bool {
     }
 }
 
-#[cfg(not(windows))]
+#[cfg(target_os = "macos")]
+fn pid_alive(pid: u32) -> bool {
+    // macOS 没有 /proc:用 `kill -0`(只探测存在/权限,不发信号)。
+    hidden_command("kill")
+        .args(["-0", &pid.to_string()])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
+
+#[cfg(all(not(windows), not(target_os = "macos")))]
 fn pid_alive(pid: u32) -> bool {
     std::path::Path::new(&format!("/proc/{pid}")).exists()
 }
@@ -126,17 +142,98 @@ fn hidden_command(program: &str) -> Command {
 }
 
 fn task_registered() -> bool {
-    if !cfg!(windows) {
-        return false;
+    if cfg!(windows) {
+        return hidden_command("schtasks")
+            .args(["/query", "/tn", DEVICE_EXECUTOR_TASK])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false);
     }
-    hidden_command("schtasks")
-        .args(["/query", "/tn", DEVICE_EXECUTOR_TASK])
+    if cfg!(target_os = "macos") {
+        return launch_agent_plist().map(|p| p.is_file()).unwrap_or(false);
+    }
+    false
+}
+
+/// macOS:LaunchAgent plist 位置（~/Library/LaunchAgents/…）。没有 HOME 就不做托管。
+fn launch_agent_plist() -> Option<PathBuf> {
+    let home = std::env::var_os("HOME")?;
+    Some(
+        PathBuf::from(home)
+            .join("Library")
+            .join("LaunchAgents")
+            .join(format!("{}.plist", DEVICE_EXECUTOR_AGENT)),
+    )
+}
+
+fn xml_escape(raw: &str) -> String {
+    raw.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+}
+
+/// macOS:把「开机/登录即拉起 `ihui device start`」写成 LaunchAgent。
+/// 只写固定标签的 plist，不接受渲染端传路径；KeepAlive 让崩溃后由 launchd 拉起。
+fn write_launch_agent(ihui: &IhuiCmd, log: &std::path::Path) -> Result<PathBuf, String> {
+    let plist = launch_agent_plist().ok_or_else(|| "定位 LaunchAgents 目录失败(HOME 缺失)".to_string())?;
+    if let Some(dir) = plist.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| format!("创建 LaunchAgents 目录失败: {e}"))?;
+    }
+    let home = std::env::var("HOME").unwrap_or_default();
+    let mut args = String::new();
+    args.push_str(&format!("<string>{}</string>", xml_escape(&ihui.program)));
+    for a in &ihui.pre_args {
+        args.push_str(&format!("<string>{}</string>", xml_escape(a)));
+    }
+    args.push_str("<string>device</string><string>start</string>");
+    let body = format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>{label}</string>
+  <key>ProgramArguments</key><array>{args}</array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>WorkingDirectory</key><string>{cwd}</string>
+  <key>StandardOutPath</key><string>{log}</string>
+  <key>StandardErrorPath</key><string>{log}</string>
+</dict>
+</plist>
+"#,
+        label = DEVICE_EXECUTOR_AGENT,
+        cwd = xml_escape(&home),
+        log = xml_escape(log.to_str().unwrap_or("")),
+    );
+    std::fs::write(&plist, body).map_err(|e| format!("写 LaunchAgent 失败: {e}"))?;
+    Ok(plist)
+}
+
+fn macos_uid() -> Result<String, String> {
+    let out = hidden_command("id")
+        .arg("-u")
+        .output()
+        .map_err(|e| format!("读取当前用户 uid 失败: {e}"))?;
+    if !out.status.success() {
+        return Err("读取当前用户 uid 失败(id -u 非零退出)".into());
+    }
+    let uid = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    if uid.is_empty() {
+        return Err("读取当前用户 uid 失败(输出为空)".into());
+    }
+    Ok(uid)
+}
+
+fn launchctl(args: &[&str]) -> Result<std::process::Output, String> {
+    hidden_command("launchctl")
+        .args(args)
         .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
+        .output()
+        .map_err(|e| format!("调用 launchctl 失败: {e}"))
 }
 
 pub fn read_status() -> DeviceExecutorStatus {
@@ -145,7 +242,7 @@ pub fn read_status() -> DeviceExecutorStatus {
     let pid = read_trimmed(pid_path()).and_then(|raw| raw.parse::<u32>().ok());
     let alive_pid = pid.filter(|v| *v > 0 && pid_alive(*v));
     DeviceExecutorStatus {
-        supported: cfg!(windows),
+        supported: cfg!(windows) || cfg!(target_os = "macos"),
         paired: device_name.is_some(),
         device_name,
         running: alive_pid.is_some(),
@@ -247,9 +344,17 @@ fn find_ihui(app: Option<&AppHandle>) -> Option<IhuiCmd> {
 }
 
 pub fn start_executor(app: &AppHandle) -> Result<DeviceExecutorStatus, String> {
-    if !cfg!(windows) {
-        return Err("当前平台暂不支持：执行器托管只在 Windows 桌面端提供".into());
+    if cfg!(windows) {
+        return start_executor_windows(app);
     }
+    if cfg!(target_os = "macos") {
+        return start_executor_macos(app);
+    }
+    Err("当前平台暂不支持：执行器托管只在 Windows / macOS 桌面端提供".into())
+}
+
+/// Windows:优先复用已注册的计划任务（登录自启同一条），没有才现场拉起一次。
+fn start_executor_windows(app: &AppHandle) -> Result<DeviceExecutorStatus, String> {
     let status = read_status();
     if !status.paired {
         return Err(
@@ -305,10 +410,62 @@ pub fn start_executor(app: &AppHandle) -> Result<DeviceExecutorStatus, String> {
     Err("执行器已拉起但 4.5 秒内没有写出运行标记：看 ~/.ihui/device.log 末尾".into())
 }
 
-pub fn stop_executor() -> Result<DeviceExecutorStatus, String> {
-    if !cfg!(windows) {
-        return Err("当前平台暂不支持：执行器托管只在 Windows 桌面端提供".into());
+/// macOS:写 LaunchAgent(登录自启 + KeepAlive),再 kickstart 立即拉起。
+fn start_executor_macos(app: &AppHandle) -> Result<DeviceExecutorStatus, String> {
+    let status = read_status();
+    if !status.paired {
+        return Err(
+            "这台电脑还没接入：先在手机/网页「设置-设备」签发配对码，再在终端执行 ihui device pair <8位码>"
+                .into(),
+        );
     }
+    if status.running {
+        return Ok(status);
+    }
+    let ihui = find_ihui(Some(app)).ok_or_else(|| {
+        "没找到 ihui：安装包内置 CLI 需要宿主 Node(PATH 里没有 node)。装上 Node 后重试，\
+         或在命令行 npm i -g ihui-cli 用全局版兜底"
+            .to_string()
+    })?;
+    let log = log_path().ok_or_else(|| "定位日志目录失败".to_string())?;
+    if let Some(dir) = log.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    let plist = write_launch_agent(&ihui, &log)?;
+    let uid = macos_uid()?;
+    let domain = format!("gui/{uid}");
+    let label = format!("{domain}/{}", DEVICE_EXECUTOR_AGENT);
+    let plist_str = plist
+        .to_str()
+        .ok_or_else(|| "LaunchAgent 路径含非 UTF-8 字符".to_string())?;
+    // 已 bootstrap 过会报 "service already loaded"：不算失败,后面 kickstart 才是真拉起。
+    let _ = launchctl(&["bootstrap", domain.as_str(), plist_str]);
+    let out = launchctl(&["kickstart", "-k", label.as_str()])?;
+    if !out.status.success() {
+        let msg = String::from_utf8_lossy(&out.stderr).trim().to_string();
+        return Err(format!("launchctl kickstart 失败: {msg}"));
+    }
+    for _ in 0..30 {
+        std::thread::sleep(std::time::Duration::from_millis(150));
+        let s = read_status();
+        if s.running {
+            return Ok(s);
+        }
+    }
+    Err("执行器已拉起但 4.5 秒内没有写出运行标记：看 ~/.ihui/device.log 末尾".into())
+}
+
+pub fn stop_executor() -> Result<DeviceExecutorStatus, String> {
+    if cfg!(windows) {
+        return stop_executor_windows();
+    }
+    if cfg!(target_os = "macos") {
+        return stop_executor_macos();
+    }
+    Err("当前平台暂不支持：执行器托管只在 Windows / macOS 桌面端提供".into())
+}
+
+fn stop_executor_windows() -> Result<DeviceExecutorStatus, String> {
     let status = read_status();
     if status.task_registered {
         let _ = hidden_command("schtasks")
@@ -324,6 +481,29 @@ pub fn stop_executor() -> Result<DeviceExecutorStatus, String> {
             .status();
     }
     // pid 文件本该由 CLI 退出时清理；这里兜底删掉，避免"停止后仍显示运行中"。
+    if let Some(p) = pid_path() {
+        if p.exists() {
+            let _ = std::fs::remove_file(p);
+        }
+    }
+    Ok(read_status())
+}
+
+/// macOS:bootout 摘掉 launchd 托管(plist 保留,下次登录仍会自启,与 Windows 计划任务语义一致),
+/// 再按 pid 兜底确保进程真停 —— launchd 偶发不回收时不留"停不掉的勾选态"。
+fn stop_executor_macos() -> Result<DeviceExecutorStatus, String> {
+    let status = read_status();
+    if let Ok(uid) = macos_uid() {
+        let label = format!("gui/{uid}/{}", DEVICE_EXECUTOR_AGENT);
+        let _ = launchctl(&["bootout", label.as_str()]);
+    }
+    if let Some(pid) = status.pid {
+        let _ = hidden_command("kill")
+            .args(["-TERM", &pid.to_string()])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .status();
+    }
     if let Some(p) = pid_path() {
         if p.exists() {
             let _ = std::fs::remove_file(p);
