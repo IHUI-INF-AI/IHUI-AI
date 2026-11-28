@@ -544,14 +544,14 @@ function applyUnifiedDiff(original: string, patch: string): string | null {
  * G-17 运营内容工具的**执行器清单**(与 chat/ops-content-intent.ts 的读/写两族一致)。
  * 两处名单由 ops-content-intent 单测强制对齐;这里只做稳定导出,避免消费方各抄一份。
  */
-export const ADMIN_CONTENT_TOOL_NAMES = [
+export const ADMIN_CONTENT_TOOL_NAMES: readonly string[] = [
   'announce_list',
   'announce_create',
   'announce_update',
   'carousel_list',
   'carousel_create',
   'carousel_update',
-] as const
+]
 
 /** 运营内容工具的执行结果(端侧执行器注入形态)。 */
 export interface AdminContentOpOutcome {
@@ -568,4 +568,56 @@ export interface AdminContentOps {
   listCarousels(query?: Record<string, unknown>): Promise<AdminContentOpOutcome>
   createCarousel(body: Record<string, unknown>): Promise<AdminContentOpOutcome>
   updateCarousel(id: string, body: Record<string, unknown>): Promise<AdminContentOpOutcome>
+}
+
+/**
+ * 执行 G-17 运营内容工具。共享层只负责分发与参数拆包，真正的 admin API
+ * 调用由注入的 `AdminContentOps` 完成，避免在 web 端复制第二份实现。
+ */
+export async function executeAdminContentTool(
+  toolName: string,
+  args: Record<string, unknown>,
+  ops: AdminContentOps,
+): Promise<ToolExecutionResult> {
+  try {
+    let outcome: AdminContentOpOutcome
+    switch (toolName) {
+      case 'announce_list':
+        outcome = await ops.listAnnouncements(args)
+        break
+      case 'announce_create':
+        outcome = await ops.createAnnouncement(args)
+        break
+      case 'announce_update': {
+        const { id, ...body } = args
+        if (typeof id !== 'string' || !id) {
+          return { result: null, error: 'announce_update: id 参数缺失' }
+        }
+        outcome = await ops.updateAnnouncement(id, body)
+        break
+      }
+      case 'carousel_list':
+        outcome = await ops.listCarousels(args)
+        break
+      case 'carousel_create':
+        outcome = await ops.createCarousel(args)
+        break
+      case 'carousel_update': {
+        const { id, ...body } = args
+        if (typeof id !== 'string' || !id) {
+          return { result: null, error: 'carousel_update: id 参数缺失' }
+        }
+        outcome = await ops.updateCarousel(id, body)
+        break
+      }
+      default:
+        return { result: null, error: `浏览器端不支持工具: ${toolName}` }
+    }
+    return {
+      result: outcome.ok ? JSON.stringify(outcome.data ?? null) : null,
+      error: outcome.ok ? null : (outcome.message ?? `${toolName}: 执行失败`),
+    }
+  } catch (err) {
+    return { result: null, error: (err as Error).message }
+  }
 }
