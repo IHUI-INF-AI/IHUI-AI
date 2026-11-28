@@ -15,6 +15,53 @@ from app.services.run_ledger import RunLedgerClient, RunOutbox
 
 
 @pytest.mark.asyncio
+async def test_max_event_seq_pages_through_run_logs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("JWT_SECRET", "x" * 32)
+    calls: list[int | None] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        after = body.get("afterSeq")
+        calls.append(after)
+        if after is None:
+            return httpx.Response(
+                200,
+                json={
+                    "code": 0,
+                    "data": {
+                        "action": "run_logs",
+                        "result": {
+                            "items": [{"seq": 1}, {"seq": 100}],
+                            "nextSeq": 100,
+                        },
+                    },
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "code": 0,
+                "data": {
+                    "action": "run_logs",
+                    "result": {"items": [{"seq": 101}], "nextSeq": None},
+                },
+            },
+        )
+
+    client = RunLedgerClient(
+        user_id="user-1",
+        base_url="http://test",
+        outbox_root=tmp_path,
+        transport=httpx.MockTransport(handler),
+    )
+
+    assert await client.max_event_seq("run-paged") == 101
+    assert calls == [None, 100]
+
+
+@pytest.mark.asyncio
 async def test_session_append_flushes_outbox_and_clears_file(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

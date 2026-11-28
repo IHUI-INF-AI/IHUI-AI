@@ -212,23 +212,45 @@ class RunLedgerClient:
         return data
 
     async def max_event_seq(self, run_id: str) -> int:
-        """读该 run 已落库的最大事件 seq；续跑从 max+1 起算，避免撞号后空转。"""
+        """读该 run 已落库的最大事件 seq；续跑从 max+1 起算，避免撞号后空转。
+
+        API 的 run_logs 默认只回一页（limit 上限 100），长 run 事件超过一页时
+        只看首页会把 max 取成中间页的 seq；这里按 afterSeq 翻页，翻到没有下一页为止。
+        """
+        max_seq = 0
+        after_seq: int | None = None
         try:
-            data = await self._request(
-                "POST",
-                "/api/internal/agent-registry/ops",
-                json={"action": "run_logs", "runId": run_id, "limit": 100},
-            )
-        except Exception:  # noqa: BLE001 - 查不到就按 0，让 append 的撞号顺延兜底
-            return 0
-        items = data.get("items") if isinstance(data, dict) else None
-        if not isinstance(items, list) and isinstance(data, dict):
-            result = data.get("result")
-            items = result.get("items") if isinstance(result, dict) else None
-        if not isinstance(items, list):
-            return 0
-        seqs = [int(item.get("seq") or 0) for item in items if isinstance(item, dict)]
-        return max(seqs, default=0)
+            for _ in range(50):
+                payload: dict[str, Any] = {
+                    "action": "run_logs",
+                    "runId": run_id,
+                    "limit": 100,
+                }
+                if after_seq is not None:
+                    payload["afterSeq"] = after_seq
+                data = await self._request(
+                    "POST", "/api/internal/agent-registry/ops", json=payload
+                )
+                result = data.get("result") if isinstance(data, dict) else None
+                container = result if isinstance(result, dict) else data
+                items = container.get("items") if isinstance(container, dict) else None
+                if not isinstance(items, list) or not items:
+                    break
+                seqs = [
+                    int(item.get("seq") or 0)
+                    for item in items
+                    if isinstance(item, dict)
+                ]
+                max_seq = max(max_seq, *seqs)
+                next_seq = (
+                    container.get("nextSeq") if isinstance(container, dict) else None
+                )
+                if not isinstance(next_seq, int) or next_seq <= (after_seq or 0):
+                    break
+                after_seq = next_seq
+        except Exception:  # noqa: BLE001 - 查不到就按已经读到的值，让 append 的撞号顺延兜底
+            return max_seq
+        return max_seq
 
     async def append_event(
         self,

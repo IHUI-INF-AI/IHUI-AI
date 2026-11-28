@@ -887,6 +887,17 @@ class AgentOpsTool:
                 "暂停 checkpoint 缺少 definition_id / agent_name，无法续跑",
                 details={"runId": run_id},
             )
+        session_id = str(
+            metadata.get("session_id")
+            or (run.get("sessionId") if isinstance(run, dict) else "")
+            or ""
+        ).strip()
+        if not session_id:
+            raise OpsToolError(
+                "AGENT_RESUME_CONTEXT_MISSING",
+                "暂停 checkpoint 缺少 session_id，无法重建控制面载体",
+                details={"runId": run_id},
+            )
         client = AgentRegistryClient(
             user_id=user_id, base_url=self._base_url, transport=self._transport
         )
@@ -903,11 +914,32 @@ class AgentOpsTool:
             checkpoint_manager=get_agent_checkpoint_manager(),
             definition_id=definition.id,
         )
+        from ..agent_run_control import RunRegistration, detach_run, register_run
+
+        registration = await register_run(
+            session_id,
+            owner_user_id=user_id,
+            loop=orchestrator,
+            max_turns=definition.max_iterations,
+        )
+        if registration != RunRegistration.REGISTERED:
+            raise OpsToolError(
+                "AGENT_SESSION_BUSY",
+                "该会话已有未终态 run，拒绝覆盖续跑控制面载体",
+                details={
+                    "runId": run_id,
+                    "sessionId": session_id,
+                    "registration": registration.value,
+                },
+            )
         register_run_control(run_id, orchestrator)
         try:
             result = await orchestrator.resume(checkpoint, run_id=run_id)
         finally:
             unregister_run_control(run_id, orchestrator)
+            # 续跑结束后把控制面记录交还给 detach_run：若本轮再次暂停则保留
+            # paused 记录，若已结束则删除，不能留下一个挂着 orchestrator 的 running 记录。
+            await detach_run(session_id, owner_user_id=user_id)
         return {
             "status": result.status,
             "runStatus": to_run_registry_status(result.status),

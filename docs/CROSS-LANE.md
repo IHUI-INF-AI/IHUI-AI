@@ -241,6 +241,14 @@
   DB 终态 `succeeded`。同轮修复两个 Windows/账本坑：psycopg async 不能在 ProactorEventLoop 上跑，
   checkpoint 持久层在 Windows 自动降级为线程内同步连接（真库写读已验）；同一 run 续跑的事件 seq
   从 1 重算会撞号，`run_logs` 读最大 seq 后从 max+1 起算，重复时仍顺延自愈。
+- 已落（2026-11-28）: 续跑后的二次暂停真跑通过。`run_resume` 的自定义 runner 现在重新
+  `register_run(session_id, loop=orchestrator, max_turns=definition.max_iterations)`，
+  续跑期间 `pause_session` 能找到真实 loop，不再只剩一个 run_id 映射。实测 run
+  `7f6b1b67-1910-41de-bfde-2c6de871593a`：第一次暂停 iteration 1/2，续跑中再次暂停
+  iteration 3/4，再续跑完成；DB 终态 `succeeded`，事件
+  `running → step ×2 → paused → running → step ×2 → paused → running → step → succeeded`，
+  四份 checkpoint 的 eager/boundary 与 owner 均正确。`max_event_seq` 同步改为按
+  `afterSeq` 翻页，避免长 run 只读首页时停在中间 seq。
 - 没落: `master_memory` 的 agent 作用域仍明确拒绝（`agent_memory.py` 只是进程内缓存，不是长期 DB 权威）；
   `run_stop` 只到“轮次边界”粒度，工具批中途不硬砍；`run_pause` / `run_resume` 只支持 `mode=single`，
   multi 模式显式返回 `AGENT_RUN_PAUSE_UNSUPPORTED`；`run_talk` 跨实例仍只有 `wake_session` 回退，
