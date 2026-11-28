@@ -1,0 +1,230 @@
+{
+  "generatedAt": "2026-11-28T00:20:11.243Z",
+  "entries": [
+    {
+      "benchmark": "HumanEval-164",
+      "model": "workbuddy/hy4flash",
+      "total": 164,
+      "passed": 153,
+      "passRate": 0.9329268292682927,
+      "generatedAt": "2026-11-27T18:39:42.332Z",
+      "source": "humaneval-hy4flash-164.json"
+    },
+    {
+      "benchmark": "HumanEval-50",
+      "model": "trae/kimi-k3",
+      "total": 50,
+      "passed": 50,
+      "passRate": 1,
+      "generatedAt": "2026-11-27T20:19:05.878Z",
+      "source": "humaneval-trae-kimi-k3-50.json"
+    },
+    {
+      "benchmark": "HumanEval-50",
+      "model": "trae/qwen3.8-max",
+      "total": 50,
+      "passed": 50,
+      "passRate": 1,
+      "generatedAt": "2026-11-27T20:24:53.161Z",
+      "source": "humaneval-trae-qwen38-max-50.json"
+    },
+    {
+      "benchmark": "HumanEval-50",
+      "model": "workbuddy/glm-5.4",
+      "total": 50,
+      "passed": 50,
+      "passRate": 1,
+      "generatedAt": "2026-11-27T18:51:19.616Z",
+      "source": "humaneval-glm-5.4-50.json"
+    },
+    {
+      "benchmark": "HumanEval-50",
+      "model": "workbuddy/kimi-k3.1-pro",
+      "total": 50,
+      "passed": 50,
+      "passRate": 1,
+      "generatedAt": "2026-11-27T18:47:27.847Z",
+      "source": "humaneval-kimi-k3.1-pro-50.json"
+    },
+    {
+      "benchmark": "HumanEval-50",
+      "model": "trae/Doubao-Seed-2.1-Turbo",
+      "total": 50,
+      "passed": 49,
+      "passRate": 0.98,
+      "generatedAt": "2026-11-27T20:03:22.156Z",
+      "source": "humaneval-trae-doubao-turbo-50.json"
+    },
+    {
+      "benchmark": "HumanEval-50",
+      "model": "trae/minimax-m3.1-flash",
+      "total": 50,
+      "passed": 49,
+      "passRate": 0.98,
+      "generatedAt": "2026-11-27T20:19:35.108Z",
+      "source": "humaneval-trae-minimax-m31-flash-50.json"
+    },
+    {
+      "benchmark": "HumanEval-50",
+      "model": "trae/step-5-preview",
+      "total": 50,
+      "passed": 49,
+      "passRate": 0.98,
+      "generatedAt": "2026-11-27T20:19:58.491Z",
+      "source": "humaneval-trae-step-5-preview-50.json"
+    },
+    {
+      "benchmark": "HumanEval-50",
+      "model": "workbuddy/minimax-m3.1-flash",
+      "total": 50,
+      "passed": 48,
+      "passRate": 0.96,
+      "generatedAt": "2026-11-27T19:03:26.325Z",
+      "source": "humaneval-minimax-m3.1-flash-50.json"
+    },
+    {
+      "benchmark": "HumanEval-50",
+      "model": "workbuddy/hy4flash",
+      "total": 50,
+      "passed": 47,
+      "passRate": 0.94,
+      "generatedAt": "2026-11-27T18:14:00.487Z",
+      "source": "humaneval-hy4flash-50.json"
+    },
+    {
+      "benchmark": "HumanEval-50",
+      "model": "trae/DeepSeek-V4-Pro-Official",
+      "total": 50,
+      "passed": 46,
+      "passRate": 0.92,
+      "generatedAt": "2026-11-27T20:20:00.808Z",
+      "source": "humaneval-trae-deepseek-v4-pro-50.json"
+    },
+    {
+      "benchmark": "HumanEval-50",
+      "model": "workbuddy/deepseek-v4-pro",
+      "total": 50,
+      "passed": 46,
+      "passRate": 0.92,
+      "generatedAt": "2026-11-27T18:54:00.669Z",
+      "source": "humaneval-deepseek-v4-pro-50.json"
+    },
+    {
+      "benchmark": "IHUI-8",
+      "model": "Doubao-Seed-2.1-Turbo",
+      "total": 8,
+      "passed": 8,
+      "passRate": 1,
+      "generatedAt": "2026-11-27T16:41:43.909Z",
+      "source": "doubao-seed-2.1-turbo.json"
+    },
+    {
+      "benchmark": "IHUI-8",
+      "model": "workbuddy/deepseek-v4-pro",
+      "total": 8,
+      "passed": 8,
+      "passRate": 1,
+      "generatedAt": "2026-11-27T18:03:37.342Z",
+      "source": "workbuddy-deepseek-v4-pro.json"
+    },
+    {
+      "benchmark": "IHUI-8",
+      "model": "workbuddy/deepseek-v4.1-flash",
+      "total": 8,
+      "passed": 8,
+      "passRate": 1,
+      "generatedAt": "2026-11-27T17:15:10.854Z",
+      "source": "workbuddy-deepseek-v4.1-flash.json"
+    },
+    {
+      "benchmark": "IHUI-8",
+      "model": "workbuddy/hy4flash",
+      "total": 8,
+      "passed": 8,
+      "passRate": 1,
+      "generatedAt": "2026-11-27T17:43:23.095Z",
+      "source": "workbuddy-hy4flash.json"
+    },
+    {
+      "benchmark": "IHUI-8",
+      "model": "workbuddy/hy4flash-free",
+      "total": 8,
+      "passed": 8,
+      "passRate": 1,
+      "generatedAt": "2026-11-27T17:45:55.789Z",
+      "source": "workbuddy-hy4flash-free.json"
+    },
+    {
+      "benchmark": "IHUI-8",
+      "model": "workbuddy/kimi-k3.1-pro",
+      "total": 8,
+      "passed": 8,
+      "passRate": 1,
+      "generatedAt": "2026-11-27T18:02:51.540Z",
+      "source": "workbuddy-kimi-k3.1-pro.json"
+    },
+    {
+      "benchmark": "IHUI-8",
+      "model": "workbuddy/minimax-m3.1-flash",
+      "total": 8,
+      "passed": 8,
+      "passRate": 1,
+      "generatedAt": "2026-11-27T18:06:38.524Z",
+      "source": "workbuddy-minimax-m3.1-flash.json"
+    },
+    {
+      "benchmark": "IHUI-8",
+      "model": "DeepSeek-V4-Pro-Official",
+      "total": 8,
+      "passed": 7,
+      "passRate": 0.875,
+      "generatedAt": "2026-11-27T16:49:43.460Z",
+      "source": "deepseek-v4-pro-official.json"
+    },
+    {
+      "benchmark": "IHUI-8",
+      "model": "workbuddy/glm-5.4",
+      "total": 8,
+      "passed": 7,
+      "passRate": 0.875,
+      "generatedAt": "2026-11-27T18:01:28.603Z",
+      "source": "workbuddy-glm-5.4.json"
+    },
+    {
+      "benchmark": "IHUI-8",
+      "model": "Doubao-Seed-2.1-Pro",
+      "total": 8,
+      "passed": 6,
+      "passRate": 0.75,
+      "generatedAt": "2026-11-27T16:45:56.779Z",
+      "source": "doubao-seed-2.1-pro.json"
+    },
+    {
+      "benchmark": "IHUI-8",
+      "model": "workbuddy/step-5-preview",
+      "total": 8,
+      "passed": 6,
+      "passRate": 0.75,
+      "generatedAt": "2026-11-27T18:05:42.027Z",
+      "source": "workbuddy-step-5-preview.json"
+    },
+    {
+      "benchmark": "IHUI-8",
+      "model": "deepseek-v4.1-flash",
+      "total": 8,
+      "passed": 0,
+      "passRate": 0,
+      "generatedAt": "2026-11-27T16:50:54.440Z",
+      "source": "deepseek-v4.1-flash.json"
+    },
+    {
+      "benchmark": "IHUI-8",
+      "model": "qoder/qmodel_38max",
+      "total": 8,
+      "passed": 0,
+      "passRate": 0,
+      "generatedAt": "2026-11-27T17:33:21.808Z",
+      "source": "qoder-qmodel-38max.json"
+    }
+  ]
+}
