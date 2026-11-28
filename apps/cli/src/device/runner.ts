@@ -29,6 +29,7 @@ import {
   type DeviceTaskRow,
 } from '@ihui/api-client'
 import type { DeviceTaskExecutionPayload, DeviceTaskProgress } from '@ihui/types'
+import { createDeviceExecutionTracker } from '@ihui/shared/chat'
 import { AgentCore } from '../server/agent-core.js'
 import type { PermissionMode } from '../tools/permissions.js'
 import { deviceLogPath, resolveWorkspacePath } from './credential.js'
@@ -95,52 +96,91 @@ function oneLine(text: string, max = 120): string {
   return flat.length > max ? `${flat.slice(0, max)}…` : flat
 }
 
-function summarizeArgs(args: Record<string, unknown>): string {
-  const json = JSON.stringify(args)
-  return oneLine(json === '{}' ? '' : json, 160)
-}
-
 /**
- * 把 Agent 事件摊平成会话正文 + 进度。
- * 工具调用/结果用「· / ↳」两行式:不引 emoji(UI 图标纪律),也不需要端侧认识新结构;
- * 它读起来就是一段正常的执行记录,markdown 渲染不会破形。
+ * 把 Agent 事件摊平成会话正文 + 执行面。
+ *
+ * 对标 TRAE 的跨端任务视图:手机/网页/桌面看到的是与云端会话同构的工具卡、终端卡,
+ * 而不是「· read_file {...}」这样的纯文本日志。正文只放模型的自然语言输出;
+ * 工具活动走结构化执行面(CLI 折叠 → API 落 metadata + 广播 → 三端卡片渲染)。
  */
 function createStreamer(deviceToken: string, taskId: string, log: (line: string) => void) {
   let full = ''
   let sent = 0
   let flushing = false
+  let pending = false
   let lastFlushAt = 0
   let progress = progressOf('thinking', 5)
+  const execution = createDeviceExecutionTracker()
+  let activityVersion = 0
+  let sentActivityVersion = 0
+
+  const executionPayload = (): {
+    toolCalls?: ReturnType<typeof execution.snapshot>['toolCalls']
+    terminalTasks?: ReturnType<typeof execution.snapshot>['terminalTasks']
+  } => {
+    if (activityVersion === sentActivityVersion) return {}
+    const snap = execution.snapshot()
+    return {
+      ...(snap.toolCalls.length > 0 ? { toolCalls: snap.toolCalls } : {}),
+      ...(snap.terminalTasks.length > 0 ? { terminalTasks: snap.terminalTasks } : {}),
+    }
+  }
 
   async function push(force: boolean): Promise<void> {
-    if (flushing) return
+    if (flushing) {
+      pending = true
+      return
+    }
     const chunk = full.slice(sent)
-    if (!chunk) return
-    if (!force && chunk.length < 200 && Date.now() - lastFlushAt < 800) return
+    const needsActivity = activityVersion !== sentActivityVersion
+    if (!chunk && !needsActivity) return
+    if (!force && chunk.length < 200 && !needsActivity && Date.now() - lastFlushAt < 800) return
     flushing = true
+    const versionAtSend = activityVersion
     try {
-      const res = await deviceTaskStream(deviceToken, taskId, {
-        kind: 'delta',
-        textDelta: chunk,
-        progress,
-      })
-      if (res.success) {
-        sent = full.length
+      if (chunk) {
+        const res = await deviceTaskStream(deviceToken, taskId, {
+          kind: 'delta',
+          textDelta: chunk,
+          progress,
+          ...executionPayload(),
+        })
+        if (res.success) {
+          sent = full.length
+          sentActivityVersion = versionAtSend
+        } else {
+          // delta 失败(网络/状态冲突)→ 用全量快照重发:宁可重复一段,也不留半截
+          const snap = await deviceTaskStream(deviceToken, taskId, {
+            kind: 'snapshot',
+            content: full,
+            progress,
+            ...executionPayload(),
+          })
+          if (snap.success) {
+            sent = full.length
+            sentActivityVersion = versionAtSend
+          } else log(`stream 上报失败:${res.error ?? snap.error ?? '未知错误'}`)
+        }
       } else {
-        // delta 失败(网络/状态冲突)→ 用全量快照重发:宁可重复一段,也不留半截
-        const snap = await deviceTaskStream(deviceToken, taskId, {
+        // 没有新正文、只有执行面变化:发快照,避免工具卡停在 running 直到下段文字
+        const res = await deviceTaskStream(deviceToken, taskId, {
           kind: 'snapshot',
           content: full,
           progress,
+          ...executionPayload(),
         })
-        if (snap.success) sent = full.length
-        else log(`stream 上报失败:${res.error ?? snap.error ?? '未知错误'}`)
+        if (res.success) sentActivityVersion = versionAtSend
+        else log(`stream 上报失败:${res.error ?? '未知错误'}`)
       }
       lastFlushAt = Date.now()
     } catch (e) {
       log(`stream 异常:${e instanceof Error ? e.message : String(e)}`)
     } finally {
       flushing = false
+      if (pending) {
+        pending = false
+        void push(true)
+      }
     }
   }
 
@@ -163,13 +203,15 @@ function createStreamer(deviceToken: string, taskId: string, log: (line: string)
         return
       }
       if (evt.type === 'tool_call' && typeof evt.name === 'string') {
-        full += `\n\n· ${evt.name} ${summarizeArgs(evt.args ?? {})}\n`
+        execution.onToolCall(evt.name, evt.args ?? {})
+        activityVersion += 1
         progress = progressOf('tool', 35, { lastEvent: evt.name })
         void push(true)
         return
       }
       if (evt.type === 'tool_result' && typeof evt.name === 'string') {
-        full += ` ↳ ${evt.success ? '完成' : '失败'}${evt.output ? ` ${oneLine(evt.output)}` : ''}\n`
+        execution.onToolResult(evt.name, evt.success === true, evt.output)
+        activityVersion += 1
         progress = progressOf('streaming', 60)
         void push(true)
         return
