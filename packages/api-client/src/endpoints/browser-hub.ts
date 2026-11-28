@@ -339,8 +339,13 @@ export function setBrowserWsToken(token: string): void {
 }
 
 export function buildBrowserWsUrl(sessionId: string): string {
-  const base =
-    typeof window === 'undefined'
+  // 生产 web 与 API 不同源时(例:www.aizhs.top 的 EdgeOne 边缘不转发
+  // /api/browser/ws,实测 404,而 api.aizhs.top 可正常升级),用显式 origin
+  // 指向真正承载 WS 的 ai-service;未配置时保持原同源行为,不影响 dev/自建。
+  const configuredOrigin = process.env.NEXT_PUBLIC_BROWSER_WS_ORIGIN?.trim().replace(/\/+$/, '')
+  const base = configuredOrigin
+    ? `${configuredOrigin}/api/browser/ws/${sessionId}`
+    : typeof window === 'undefined'
       ? `ws://localhost:8803/api/browser/ws/${sessionId}` // SSR 防护:占位,实际不应在 SSR 调用
       : process.env.NODE_ENV !== 'production'
         ? `ws://localhost:8803/api/browser/ws/${sessionId}`
