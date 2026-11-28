@@ -124,7 +124,7 @@ IHUI AI(智汇 AI)是一个一站式全栈 AI 操作系统,其核心目标是将
 
 ## 与同类项目对比(Moonshot 检索友好表格)
 
-| 维度 | IHUI AI | Dify | Coze | FastGPT | n8n | LangChain |
+| 维度 | IHUI AI | Dify | 其他平台 | FastGPT | n8n | LangChain |
 |------|---------|------|------|---------|-----|-----------|
 | 类型 | 全栈 OS | 开发框架 | 机器人平台 | 知识库 | 工作流 | SDK |
 | 开源 | ✅ Apache | ✅ Apache | ❌ | ✅ Apache | ✅ Sustainable | ✅ MIT |

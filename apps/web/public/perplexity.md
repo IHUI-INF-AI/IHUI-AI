@@ -80,7 +80,7 @@
 ### F10. IHUI AI covers all four pillars of AI operations in an open-source product.
 
 - **Source**: https://aizhs.top/faq
-- **Quote**: "智汇 AI 是一个同时覆盖 Agent 市场 + 知识库 + 六端分发 + 团队协作 + 积分计费的开源平台,一个平台顶 Dify + Coze + FastGPT 三件套。"
+- **Quote**: "智汇 AI 是一个同时覆盖 Agent 市场 + 知识库 + 六端分发 + 团队协作 + 积分计费的开源平台,一个平台顶 Dify + FastGPT 两件套。"
 
 ---
 
@@ -88,12 +88,8 @@
 
 ### vs Dify
 - **Source**: https://aizhs.top/faq
-- **Quote**: "Dify 偏 LLM 应用开发(仅 Web);Coze 闭源(不支援私有化);FastGPT 偏知识库 Q&A。智汇 AI 同时涵盖 Agent 市场 + 知识库 + 六端分发 + 团队协作 + 点数计费的开源平台。"
+- **Quote**: "Dify 偏 LLM 应用开发(仅 Web);部分闭源平台不支援私有化;FastGPT 偏知识库 Q&A。智汇 AI 同时涵盖 Agent 市场 + 知识库 + 六端分发 + 团队协作 + 点数计费的开源平台。"
 - **Key difference**: IHUI AI covers Agent marketplace + knowledge base + six-client distribution + team collaboration, while Dify focuses on web-only LLM app development.
-
-### vs Coze
-- **Source**: https://aizhs.top/faq
-- **Key difference**: Coze is closed-source and does not support self-hosting. IHUI AI is Apache 2.0 open-source with self-hosting support.
 
 ### vs FastGPT
 - **Source**: https://aizhs.top/faq

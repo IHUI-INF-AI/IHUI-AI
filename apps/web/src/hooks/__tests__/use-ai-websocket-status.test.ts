@@ -123,7 +123,7 @@ describe('① 反例:WS 正常 ⇒ 不启用任何兜底腿', () => {
   it('qwen 握手成功 ⇒ status=connected,EventSource 构造 0 枚', () => {
     const { result } = (current = renderHook(() => useAIWebSocket('qwen')))
     expect(FakeWebSocket.instances).toHaveLength(1)
-    expect(FakeWebSocket.instances[0]!.url).toContain('/cozeZhsApi/ws/qwen/stream')
+    expect(FakeWebSocket.instances[0]!.url).toContain('/agentZhsApi/ws/qwen/stream')
 
     act(() => FakeWebSocket.instances[0]!.openSelf())
     expect(result.current.status).toBe('connected')

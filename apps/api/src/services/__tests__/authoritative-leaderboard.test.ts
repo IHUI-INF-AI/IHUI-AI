@@ -182,9 +182,10 @@ describe('buildAuthoritativeLeaderboard', () => {
     expect(payload.sources.find((source) => source.id === 'aa')?.boardSize).toBe(30)
     expect(payload.sources.find((source) => source.id === 'openrouter')?.boardSize).toBe(30)
     expect(payload.refresh.schedule).toMatch(/^\d/)
-    expect(payload.schemaVersion).toBe(3)
+    expect(payload.schemaVersion).toBe(4)
     expect(payload.overallAll).toHaveLength(30)
     expect(payload.overallAll[0]?.coverage).toBe(3)
+    expect(payload.overallAll[0]?.tier).toBe('main')
     expect(payload.overallAll[0]?.averagePercentile).toBe(100)
 
     // AA 全量字段必须真的接到契约里，不能只接一个 intelligenceIndex。

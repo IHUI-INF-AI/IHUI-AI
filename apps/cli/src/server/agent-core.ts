@@ -12,6 +12,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { setBaseUrl, type ToolDeltaEvent } from '@ihui/api-client';
+import type { PlanStep } from '@ihui/types';
 import { registerCliTokenProvider } from '../lib/auth-refresh.js';
 import type { ToolResultDisplaySource } from '@ihui/types';
 import {
@@ -49,6 +50,8 @@ export interface AgentCoreOptions {
 
 export type AgentEvent =
   | { type: 'token'; text: string }
+  | { type: 'reasoning'; text: string }
+  | { type: 'plan_update'; plan: PlanStep[] }
   | { type: 'tool_call'; name: string; args: Record<string, unknown> }
   | {
       type: 'tool_result';
@@ -105,6 +108,11 @@ export interface SendMessageResult {
   stopReason: AgentStopReason;
   iterations: number;
   usage: TokenUsage;
+  /**
+   * 本回合最终助手正文。流式 onDelta 有时不吐帧(上游按非流式回包/只有 reasoning),
+   * 消费方(设备执行器)必须能在收尾时补上这段,否则会话里只剩一个空气泡。
+   */
+  assistantText: string;
 }
 
 interface CoreSessionState {
@@ -269,6 +277,18 @@ export class AgentCore {
         onDelta: async (delta) => {
           await onEvent({ type: 'token', text: delta });
         },
+        onReasoning: async (delta) => {
+          await onEvent({ type: 'reasoning', text: delta });
+        },
+        onPlanUpdate: async (event) => {
+          await onEvent({
+            type: 'plan_update',
+            plan: event.plan.map((step, index) => ({
+              ...step,
+              id: step.id ?? `plan-${index + 1}`,
+            })),
+          });
+        },
         onToolCall: async (name, args) => {
           d113Bridge.noteToolCall(name);
           await onEvent({ type: 'tool_call', name, args });
@@ -338,6 +358,7 @@ export class AgentCore {
         stopReason: result.stopReason,
         iterations: result.iterations,
         usage: result.usage,
+        assistantText: result.assistantText ?? '',
       };
   }
 

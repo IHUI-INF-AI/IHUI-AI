@@ -3256,12 +3256,12 @@
       "bypassSkipApproval": "已跳过审批",
       "mcpRequiresApproval": "MCP 标注要求确认",
       "taintEgressGate": "会话污点:出网需确认",
-      "itcpContractRequiresApproval": "契约要求人工审批",
       "policyRequiresApproval": "策略要求审批",
       "approvalPolicyDeny": "策略拒绝执行",
       "policySkipsApproval": "策略免审批",
       "guardianReviewSuggested": "复核建议改用更安全路径",
-      "guardianReviewAlternativeApplied": "已改用复核建议的路径"
+      "guardianReviewAlternativeApplied": "已改用复核建议的路径",
+      "itcpContractRequiresApproval": "契约要求人工审批"
     },
     "perm": {
       "allow": "已放行",

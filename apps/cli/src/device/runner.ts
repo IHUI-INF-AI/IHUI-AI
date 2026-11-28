@@ -29,7 +29,7 @@ import {
   setDeviceClientFingerprint,
   type DeviceTaskRow,
 } from '@ihui/api-client'
-import type { DeviceTaskExecutionPayload, DeviceTaskProgress } from '@ihui/types'
+import type { DeviceTaskExecutionPayload, DeviceTaskProgress, PlanStep } from '@ihui/types'
 import { createDeviceExecutionTracker } from '@ihui/shared/chat'
 import { AgentCore } from '../server/agent-core.js'
 import type { PermissionMode } from '../tools/permissions.js'
@@ -107,6 +107,11 @@ function oneLine(text: string, max = 120): string {
 function createStreamer(deviceToken: string, taskId: string, log: (line: string) => void) {
   let full = ''
   let sent = 0
+  let reasoning = ''
+  let sentReasoningChars = 0
+  let planSteps: PlanStep[] = []
+  let planVersion = 0
+  let sentPlanVersion = 0
   let flushing = false
   let pending = false
   let lastFlushAt = 0
@@ -116,12 +121,24 @@ function createStreamer(deviceToken: string, taskId: string, log: (line: string)
   let sentActivityVersion = 0
 
   const executionPayload = (): {
+    reasoning?: string
+    planSteps?: PlanStep[]
     toolCalls?: ReturnType<typeof execution.snapshot>['toolCalls']
     terminalTasks?: ReturnType<typeof execution.snapshot>['terminalTasks']
   } => {
-    if (activityVersion === sentActivityVersion) return {}
+    const needsReasoning = reasoning.length > 0 && reasoning.length !== sentReasoningChars
+    const needsPlan = planVersion !== sentPlanVersion
+    if (
+      activityVersion === sentActivityVersion &&
+      !needsReasoning &&
+      !needsPlan
+    ) {
+      return {}
+    }
     const snap = execution.snapshot()
     return {
+      ...(needsReasoning ? { reasoning } : {}),
+      ...(needsPlan ? { planSteps } : {}),
       ...(snap.toolCalls.length > 0 ? { toolCalls: snap.toolCalls } : {}),
       ...(snap.terminalTasks.length > 0 ? { terminalTasks: snap.terminalTasks } : {}),
     }
@@ -133,11 +150,16 @@ function createStreamer(deviceToken: string, taskId: string, log: (line: string)
       return
     }
     const chunk = full.slice(sent)
-    const needsActivity = activityVersion !== sentActivityVersion
+    const needsReasoning = reasoning.length > 0 && reasoning.length !== sentReasoningChars
+    const needsPlan = planVersion !== sentPlanVersion
+    const needsActivity =
+      activityVersion !== sentActivityVersion || needsReasoning || needsPlan
     if (!chunk && !needsActivity) return
     if (!force && chunk.length < 200 && !needsActivity && Date.now() - lastFlushAt < 800) return
     flushing = true
     const versionAtSend = activityVersion
+    const reasoningAtSend = reasoning.length
+    const planVersionAtSend = planVersion
     try {
       if (chunk) {
         const res = await deviceTaskStream(deviceToken, taskId, {
@@ -149,6 +171,8 @@ function createStreamer(deviceToken: string, taskId: string, log: (line: string)
         if (res.success) {
           sent = full.length
           sentActivityVersion = versionAtSend
+          sentReasoningChars = reasoningAtSend
+          sentPlanVersion = planVersionAtSend
         } else {
           // delta 失败(网络/状态冲突)→ 用全量快照重发:宁可重复一段,也不留半截
           const snap = await deviceTaskStream(deviceToken, taskId, {
@@ -160,6 +184,8 @@ function createStreamer(deviceToken: string, taskId: string, log: (line: string)
           if (snap.success) {
             sent = full.length
             sentActivityVersion = versionAtSend
+            sentReasoningChars = reasoningAtSend
+            sentPlanVersion = planVersionAtSend
           } else log(`stream 上报失败:${res.error ?? snap.error ?? '未知错误'}`)
         }
       } else {
@@ -170,8 +196,11 @@ function createStreamer(deviceToken: string, taskId: string, log: (line: string)
           progress,
           ...executionPayload(),
         })
-        if (res.success) sentActivityVersion = versionAtSend
-        else log(`stream 上报失败:${res.error ?? '未知错误'}`)
+        if (res.success) {
+          sentActivityVersion = versionAtSend
+          sentReasoningChars = reasoningAtSend
+          sentPlanVersion = planVersionAtSend
+        } else log(`stream 上报失败:${res.error ?? '未知错误'}`)
       }
       lastFlushAt = Date.now()
     } catch (e) {
@@ -196,11 +225,25 @@ function createStreamer(deviceToken: string, taskId: string, log: (line: string)
       count?: number
       max?: number
       message?: string
+      plan?: PlanStep[]
     }): void {
       if (evt.type === 'token' && typeof evt.text === 'string') {
         full += evt.text
         progress = progressOf('streaming', 60)
         void push(false)
+        return
+      }
+      if (evt.type === 'reasoning' && typeof evt.text === 'string') {
+        reasoning += evt.text
+        progress = progressOf('thinking', 25)
+        void push(false)
+        return
+      }
+      if (evt.type === 'plan_update' && Array.isArray(evt.plan)) {
+        planSteps = evt.plan
+        planVersion += 1
+        progress = progressOf('thinking', 40, { lastEvent: '更新执行计划' })
+        void push(true)
         return
       }
       if (evt.type === 'tool_call' && typeof evt.name === 'string') {
@@ -556,6 +599,12 @@ async function executeTask(
       }
     }
 
+    // 2026-11-28 生产实跑:某些上游按非流式回包(或只给 reasoning),onDelta 一帧不吐,
+    // 于是 AgentCore 有 assistantText、会话消息却是空 content。收尾前用最终正文兜底一次,
+    // 只在流式面完全为空时补,避免把已经流过的正文再追加一遍。
+    if (!streamer.text().trim() && result.assistantText.trim()) {
+      streamer.onEvent({ type: 'token', text: result.assistantText })
+    }
     await streamer.finalize()
     await deviceTaskComplete(token, task.id, {
       agent_session_id: result.sessionId,

@@ -1002,9 +1002,9 @@
       "title": "Agent Management",
       "total": "Total {total}",
       "updateSuccess": "Updated successfully",
-      "coze": {
-        "title": "Coze upstream config",
-        "coverageTitle": "Coze coverage",
+      "agentPlatform": {
+        "title": "智能体 upstream config",
+        "coverageTitle": "智能体 coverage",
         "coverageSubtitle": "Field-by-field audit of the real upstream config for 116 bots",
         "syncOne": "Sync this bot",
         "syncSuccess": "Synced ({status})",
@@ -1016,7 +1016,7 @@
         "lastSyncedAt": "Last synced",
         "batchHint": "Default batch {size}, max {max}, concurrency {concurrency}",
         "credentialsConfigured": "Credential configured: {envName}",
-        "credentialsMissing": "No Coze credential; batch sync returns 503",
+        "credentialsMissing": "No 智能体 credential; batch sync returns 503",
         "prompt": "Prompt",
         "model": "Model parameters",
         "onboarding": "Prologue & suggested questions",
@@ -1538,22 +1538,22 @@
     "developer": {
       "cancel": "Cancel",
       "colActions": "Actions",
-      "colCozeId": "Coze ID",
+      "col智能体Id": "智能体 ID",
       "colNickname": "Nickname",
       "colPlatform": "Platform",
       "colSignAccount": "Sign Account",
       "colStatus": "Status",
-      "cozeCreate": "Add Account",
-      "cozeCreateTitle": "Add Coze Account",
-      "cozeDeleteConfirm": "Delete account \"{cozeId}\" ?",
-      "cozeEditTitle": "Edit Coze Account",
-      "cozeExport": "Export Coze Accounts",
-      "cozeSearchPlaceholder": "Search Coze ID / Account / Nickname...",
-      "cozeSectionTitle": "Coze Developer Accounts",
+      "智能体Create": "Add Account",
+      "智能体CreateTitle": "Add 智能体 Account",
+      "智能体DeleteConfirm": "Delete account \"{智能体Id}\" ?",
+      "智能体EditTitle": "Edit 智能体 Account",
+      "智能体Export": "Export 智能体 Accounts",
+      "智能体SearchPlaceholder": "Search 智能体 ID / Account / Nickname...",
+      "智能体SectionTitle": "智能体 Developer Accounts",
       "delete": "Delete",
       "edit": "Edit",
       "fieldAddress": "Address",
-      "fieldCozeId": "Coze ID *",
+      "field智能体Id": "智能体 ID *",
       "fieldPlatform": "Platform",
       "fieldSignAccount": "Sign Account *",
       "fieldSignNickname": "Sign Nickname",
@@ -7541,7 +7541,7 @@
     "vipExclusive": "VIP Exclusive",
     "config": "Configuration",
     "dispatchSubagent": "Dispatch Subagent",
-    "coze": {
+    "agentPlatform": {
       "title": "Upstream capabilities",
       "prologue": "Prologue",
       "suggested": "Suggested questions",
@@ -8966,30 +8966,6 @@
         "MEDIA_COUNT_EXCEEDED": {
           "title": "Too many media files",
           "action": "Reduce attachments and retry"
-        },
-        "MEMORY_DREAM_FAILED": {
-          "title": "Memory consolidation failed",
-          "action": "Try again later; you can keep chatting in the meantime"
-        },
-        "MEMORY_FORGET_FAILED": {
-          "title": "Memory deletion failed",
-          "action": "Try again later; do not resubmit if the deletion did not take effect"
-        },
-        "MEMORY_PROCEDURAL_SAVE_FAILED": {
-          "title": "Failed to save procedural memory",
-          "action": "Try again later; this step will not be recorded in the procedure"
-        },
-        "MEMORY_RECALL_FAILED": {
-          "title": "Memory retrieval failed",
-          "action": "Try again later; this answer may lack historical context"
-        },
-        "MEMORY_SAVE_FAILED": {
-          "title": "Memory save failed",
-          "action": "Try again later; this turn may not be remembered"
-        },
-        "MEMORY_TOPICS_FAILED": {
-          "title": "Failed to load memory topics",
-          "action": "Try again later; the current conversation can continue"
         },
         "MISSING_DATA": {
           "title": "Required parameters are missing",
@@ -10748,7 +10724,7 @@
       "tasks": "Tasks",
       "progress": "Progress",
       "agents": "Agents",
-      "coze": "Coze agents",
+      "agentPlatform": "智能体 agents",
       "background": "Background",
       "swarm": "Swarm",
       "orchestration": "Orchestration",
@@ -10770,13 +10746,13 @@
       "unified": "Task Hub",
       "atomicrollback": "Full-stack Rollback"
     },
-    "coze": {
-      "title": "Coze agents",
+    "agentPlatform": {
+      "title": "智能体 agents",
       "hint": "Pick a synced community agent and test it with a real message.",
       "searchPlaceholder": "Search agents",
       "loading": "Loading…",
       "loadFailed": "Failed to load agents",
-      "empty": "No synced Coze agents",
+      "empty": "No synced 智能体 agents",
       "switch": "Switch",
       "loadingCapabilities": "Loading upstream capabilities…",
       "plugins": "Plugins",
@@ -10794,7 +10770,7 @@
       "failed": "Connection failed",
       "closed": "Disconnected",
       "notConnected": "Connection is not ready yet",
-      "connectFailed": "Failed to connect to Coze",
+      "connectFailed": "Failed to connect to 智能体",
       "upstreamFailed": "Upstream failed",
       "publicOnly": "Public capabilities only; prompt and model parameters are hidden"
     },
@@ -16401,7 +16377,7 @@
     "heroBadge": "Help Center",
     "heroSubtitle": "12 frequently asked questions about IHUI AI, find your answer in 30 seconds.",
     "heroTitle": "Frequently Asked Questions",
-    "metaDescription": "IHUI AI FAQ: platform introduction, comparison with Dify/Coze/FastGPT, pricing, deployment, API, model support, data security — 12 frequently asked questions.",
+    "metaDescription": "IHUI AI FAQ: platform introduction, comparison with Dify/智能体/FastGPT, pricing, deployment, API, model support, data security — 12 frequently asked questions.",
     "metaTitle": "FAQ — IHUI AI",
     "q10Answer": "Minimum: 2-core CPU / 4GB RAM / 20GB disk, supports 10-50 concurrent users. Recommended: 4-core CPU / 8GB RAM / 50GB SSD, supports 200 concurrent users. GPU is not required (LLM inference runs on cloud APIs); if you run local models (7B-13B), you need a single 24GB VRAM card.",
     "q10Question": "What hardware do I need for self-hosting?",
@@ -16411,8 +16387,8 @@
     "q12Question": "Will IHUI AI use my data to train your models?",
     "q1Answer": "IHUI AI (Chinese: 智汇 AI) is an all-in-one full-stack AI operating system. It unifies Agent design, knowledge-base RAG, multi-model dispatch, cross-platform collaboration and team operations in a single platform, supporting six clients (Web, Desktop, Mini Program, Browser Extension, React Native, CLI) from one codebase, with Apache 2.0 open-source core and self-hosting support.",
     "q1Question": "What is IHUI AI?",
-    "q2Answer": "Dify focuses on LLM app development (web only); Coze is closed-source (no self-hosting); FastGPT focuses on knowledge-base Q&A. IHUI AI is an open-source platform that simultaneously covers Agent marketplace + knowledge base + six-client distribution + team collaboration + credit billing — one platform that replaces the Dify + Coze + FastGPT trio.",
-    "q2Question": "How is IHUI AI different from Dify, Coze, and FastGPT?",
+    "q2Answer": "Dify focuses on LLM app development (web only); 智能体 is closed-source (no self-hosting); FastGPT focuses on knowledge-base Q&A. IHUI AI is an open-source platform that simultaneously covers Agent marketplace + knowledge base + six-client distribution + team collaboration + credit billing — one platform that replaces the Dify + 智能体 + FastGPT trio.",
+    "q2Question": "How is IHUI AI different from Dify, 智能体, and FastGPT?",
     "q3Answer": "Three audiences benefit most: AI developers (rapidly build/distribute/monetize Agents, publish to all six clients in one click), enterprise IT (self-host for data sovereignty, unified AI capability hub), and team leaders (multi-user collaboration, unified knowledge base, unified billing).",
     "q3Question": "Who is IHUI AI for?",
     "q4Answer": "OpenAI (GPT-4o/o1/GPT-4.1), Anthropic Claude (Opus 4 / Sonnet 4), Google Gemini, Alibaba Qwen (Qwen-Max/Plus), DeepSeek (V3/R1), Zhipu GLM-4, Baidu ERNIE, ByteDance Doubao, Moonshot Kimi, plus Ollama and any OpenAI-compatible endpoint. Unified billing, auto fallback, cost-based routing.",
@@ -16831,7 +16807,7 @@
       "wechat": "WeChat Pay"
     },
     "platforms": {
-      "coze": "Coze",
+      "agentPlatform": "智能体",
       "n8n": "n8n"
     },
     "privacyPolicy": "Privacy Policy",
@@ -16942,7 +16918,7 @@
       "gork": "Gork",
       "huawei": "Huawei",
       "jldx": "Jilin University",
-      "kouzi": "Coze",
+      "kouzi": "智能体",
       "openai": "OpenAI",
       "tencent": "Tencent",
       "yuanbaoxiang": "Yuanbao Box",
@@ -27270,7 +27246,7 @@
   },
   "apiSettings": {
     "title": "API Settings",
-    "cozeTitle": "Coze Configuration",
+    "智能体Title": "智能体 Configuration",
     "apiToken": "API Token",
     "tokenPlaceholder": "Enter API Token",
     "baseUrl": "Base URL",
@@ -30093,6 +30069,10 @@
   "tradeHub": {
     "title": "Trading",
     "subtitle": "Earnings, orders, payments and membership points"
+  },
+  "personalHub": {
+    "title": "Account",
+    "subtitle": "Account, favorites, learning and subscriptions"
   },
   "developerHub": {
     "title": "Developer",

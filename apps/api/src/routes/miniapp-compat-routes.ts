@@ -89,7 +89,7 @@ const MAX_AGENT_DURATION_DAYS = 3650
 
 /**
  * 内部路由转发:通过 server.inject 复用同进程已注册的主路由
- * (如 /api/ai/chat、/api/chat/kling/image/generate、/cozeZhsApi/n8n/addAgent),
+ * (如 /api/ai/chat、/api/chat/kling/image/generate、/agentZhsApi/n8n/addAgent),
  * 非跨进程 HTTP 自调用;鉴权头透传,由主路由完成参数校验与鉴权。
  * 与 ai-frontend-routes.ts 的 proxyToSelfApi 同模式。
  */
@@ -1306,7 +1306,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   // ==========================================================================
   // /workflows/* (2 个,n8n 工作流 — 2026-08-31 真实化,复用 n8n-proxy.ts 的接入模式)
   // 列表:配置 N8N_DOMAIN/N8N_API_KEY 环境变量时真实 fetch n8n REST API,
-  //       否则返回带 notAvailable 标记的桩;创建:内部转发到 /cozeZhsApi/n8n/addAgent
+  //       否则返回带 notAvailable 标记的桩;创建:内部转发到 /agentZhsApi/n8n/addAgent
   // ==========================================================================
   server.get('/workflows/n8n', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
@@ -1374,7 +1374,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // 创建:兼容字段映射后内部转发到主路由 /cozeZhsApi/n8n/addAgent
+  // 创建:兼容字段映射后内部转发到主路由 /agentZhsApi/n8n/addAgent
   // (n8n-proxy.ts 真实 INSERT agents + zhs_agent_examine,提交审核)
   server.post('/workflows/n8n/create', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
@@ -1398,7 +1398,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     if (!agentName || !agentDescription) {
       return reply.status(400).send(error(400, 'name 与 description 必填'))
     }
-    return proxyToMainRoute(server, 'POST', '/cozeZhsApi/n8n/addAgent', request, reply, {
+    return proxyToMainRoute(server, 'POST', '/agentZhsApi/n8n/addAgent', request, reply, {
       agent_name: agentName,
       agent_description: agentDescription,
       connector_user_id: request.userId!,

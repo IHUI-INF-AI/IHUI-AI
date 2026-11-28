@@ -107,10 +107,9 @@ const PAGES: Array<{
   { path: '/feedback', changeFrequency: 'weekly', priority: 0.5 },
 
   // SEO 长尾 — 产品对比(2026-07-26 极端曝光度优化)
-  // 这些是高频搜索词:ihui vs dify / ihui vs coze 等,直接进 SEO 第一页
+  // 这些是高频搜索词:ihui vs dify / ihui vs fastgpt 等,直接进 SEO 第一页
   { path: '/compare', changeFrequency: 'monthly', priority: 0.9 },
   { path: '/compare/ihui-vs-dify', changeFrequency: 'monthly', priority: 0.85 },
-  { path: '/compare/ihui-vs-coze', changeFrequency: 'monthly', priority: 0.85 },
   { path: '/compare/ihui-vs-fastgpt', changeFrequency: 'monthly', priority: 0.85 },
   { path: '/compare/ihui-vs-n8n', changeFrequency: 'monthly', priority: 0.85 },
   // 2026-07-26 阶段 4 新增 3 个高频对比

@@ -15,7 +15,6 @@ export interface CompareRow {
 export interface CompetitorConfig {
   id:
     | 'dify'
-    | 'coze'
     | 'fastgpt'
     | 'n8n'
     | 'openai-agent'

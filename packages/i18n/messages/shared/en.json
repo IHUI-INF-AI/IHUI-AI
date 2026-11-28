@@ -3256,12 +3256,12 @@
       "bypassSkipApproval": "Approval skipped",
       "mcpRequiresApproval": "MCP annotations require approval",
       "taintEgressGate": "Session taint: network access needs approval",
-      "itcpContractRequiresApproval": "Tool contract requires approval",
       "policyRequiresApproval": "Policy requires approval",
       "approvalPolicyDeny": "Policy denies execution",
       "policySkipsApproval": "Policy skips approval",
       "guardianReviewSuggested": "Review suggests a safer alternative",
-      "guardianReviewAlternativeApplied": "Safer alternative applied"
+      "guardianReviewAlternativeApplied": "Safer alternative applied",
+      "itcpContractRequiresApproval": "Tool contract requires approval"
     },
     "perm": {
       "allow": "Allowed",

@@ -96,8 +96,11 @@ export const STREAM_READ_TIMEOUT_MS = 30000
  * 空闲窗口,所以允许丢一拍不断流,连续两拍无字节才判死。改本值必须同步维持
  * `STREAM_READ_TIMEOUT_MS >= 2 × SSE_HEARTBEAT_INTERVAL_MS`(api-client 侧
  * 因依赖环无法 import 本文件,取值同值并有对应注释)。
+ *
+ * 取 10s 而非 15s:线上 EdgeOne 对 SSE 的空闲断流实测落在 15s,15s 周期会踩线
+ * (首帧 ping 后第 15 秒的连接被掐),10s 留 5s 余量。
  */
-export const SSE_HEARTBEAT_INTERVAL_MS = 15000
+export const SSE_HEARTBEAT_INTERVAL_MS = 10000
 /** 最大重试次数(业务错误 401/403/429 不计入重试) */
 export const STREAM_MAX_RETRIES = 3
 /** 指数退避初始延迟(ms):delay = INITIAL * 2^attempt */

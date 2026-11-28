@@ -163,7 +163,7 @@ describe('F-112 ws-ai 客户端身份覆盖', () => {
   })
 
   it('客户端 metadata.userId/provider 不能覆盖服务端身份', async () => {
-    const conn = await connect(app, '/cozeZhsApi/ws/qwen/stream?token=token-a')
+    const conn = await connect(app, '/agentZhsApi/ws/qwen/stream?token=token-a')
     await conn.waitFor((frames) => frames.some((f) => f.includes('"event":"ready"')))
     conn.ws.send(
       JSON.stringify({

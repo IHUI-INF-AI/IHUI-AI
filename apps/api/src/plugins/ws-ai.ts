@@ -1100,10 +1100,10 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
     })
   }
 
-  registerLlmProviderWs('/cozeZhsApi/ws/qwen/stream', 'qwen')
-  registerLlmProviderWs('/cozeZhsApi/ws/zhipu/stream', 'zhipu')
-  registerLlmProviderWs('/cozeZhsApi/ws/chatdeepseek/stream', 'deepseek')
-  registerLlmProviderWs('/cozeZhsApi/ws/doubao/streamDou', 'doubao')
+  registerLlmProviderWs('/agentZhsApi/ws/qwen/stream', 'qwen')
+  registerLlmProviderWs('/agentZhsApi/ws/zhipu/stream', 'zhipu')
+  registerLlmProviderWs('/agentZhsApi/ws/chatdeepseek/stream', 'deepseek')
+  registerLlmProviderWs('/agentZhsApi/ws/doubao/streamDou', 'doubao')
 
   // ==========================================================================
   // 4. /ws/stock/stream — Stock 流式分析
@@ -1262,7 +1262,7 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
   })
 
   // ==========================================================================
-  // 6. /ws/coze/chat — Coze WebSocket 聊天（迁移自 coze_zhs_py/api/websocket.py）
+  // 6. /ws/agent/chat — 智能体 WebSocket 聊天（迁移自 coze_zhs_py/api/websocket.py）
   //    协议事件:
   //      客户端 → 服务端: chat.start / chat.message / chat.stop / chat.clear
   //      服务端 → 客户端: chat.created / conversation.chat.created /
@@ -1270,7 +1270,7 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
   //                       conversation.chat.failed / error / system
   //    功能: conversation_id 自动管理 + 心跳保活
   // ==========================================================================
-  server.get('/ws/coze/chat', { websocket: true }, (socket, request) => {
+  server.get('/ws/agent/chat', { websocket: true }, (socket, request) => {
     const query = request.query as { token?: string; bot_id?: string; agent_id?: string }
     let botId = query.bot_id ?? ''
     ;(async () => {
@@ -1421,7 +1421,7 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
             const historyKey = `${userId}:${reqBotId}`
             const history = localChatHistories.get(historyKey) ?? []
             // 2026-11-28 完全弃用 Coze 后的本地计费：与 /chat/stream、WS capability 同口径预扣，
-            // 避免 /ws/coze/chat 成为绕过计费的免费口子。
+            // 避免 /ws/agent/chat 成为绕过计费的免费口子。
             // system 人格双写：messages[0] + system_prompt 字段（两条路都验证过 ai-service 生效），
             // 另打一条结构化日志便于线上核对 prompt 是否取到。
             const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = []
@@ -1459,7 +1459,7 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
 
             // 传 null 让 aiServiceFetchStream 注入内部系统票据：agnes/ 等模型在 ai-service
             // 属于「受限模型，仅系统管理员可用」，透传普通用户 JWT 会被 403；WS 的鉴权已在
-            // wsAuth 完成，计费/身份仍按 userId 走本地逻辑（与 /api/chat/coze/stream 同口径）。
+            // wsAuth 完成，计费/身份仍按 userId 走本地逻辑（与 /api/chat/agent/stream 同口径）。
             const resp = await aiServiceFetchStream(null, '/api/llm/complete/stream', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },

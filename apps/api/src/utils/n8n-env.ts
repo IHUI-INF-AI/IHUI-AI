@@ -5,7 +5,7 @@
 /**
  * n8n 上游基址的 env 读取唯一出口(issue #71,2026-09-28)。
  *
- * 立因:同一个 n8n 上游在本仓有两个名字 —— `N8N_DOMAIN`(n8n-proxy 的 /cozeZhsApi 代理、
+ * 立因:同一个 n8n 上游在本仓有两个名字 —— `N8N_DOMAIN`(n8n-proxy 的 /agentZhsApi 代理、
  * `/ai/n8n` 写面、miniapp-compat 列表)与 `N8N_BASE_URL`(ai-vendors/proxy-tools 的
  * GET/POST `/n8n/workflows` 与 `/n8n/workflow/run`、chat-models 的厂商清单)。
  * 各处只认自己那一个名字,于是"运维配了另一个变量名"的表现是**静默未生效**:

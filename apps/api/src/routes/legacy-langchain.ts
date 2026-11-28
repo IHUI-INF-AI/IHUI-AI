@@ -81,7 +81,7 @@ export const legacyLangchainRoutes: FastifyPluginAsync = async (server) => {
     if (body.stream) {
       return reply
         .status(400)
-        .send(error(400, '兼容接口暂不支持 stream,请使用 /api/chat/coze/stream'))
+        .send(error(400, '兼容接口暂不支持 stream,请使用 /api/chat/agent/stream'))
     }
     const model = body.model ?? 'qwen-plus'
     if (!(await ensurePointsBalance(request, reply, model))) return

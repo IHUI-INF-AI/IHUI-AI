@@ -96,12 +96,6 @@ import { taskMessagesRoutes } from './task-messages.js'
 import { oauthKeysRoutes } from './oauth-keys.js'
 import { plazaRoutes } from './plaza.js'
 import { shareFirstRoutes } from './share-first.js'
-import { cozeVariablesRoutes } from './coze-variables.js'
-import { cozeRoutes } from './coze.js'
-import { cozeEcosystemRoutes } from './coze-ecosystem.js'
-import { cozeTestRoutes } from './coze-test.js'
-import { cozeOauthRoutes } from './coze-oauth.js'
-import { COZE_INTEGRATION_ENABLED } from '../lib/coze-integration.js'
 import { knowledgeRagRoutes } from './knowledge-rag.js'
 import { crewRoutes } from './crew.js'
 import { agenticServiceRoutes } from './agentic-service.js'
@@ -442,11 +436,11 @@ import { createAgentRunRoutes } from './agent-runs.js'
 import { createCommandAckRoutes } from './command-acks.js'
 import { createKvFromRedis } from '../services/run-idempotency.js'
 
-// R81 补建：D 盘 coze_zhs_py 代理类路由
+// R81 补建：D 盘 旧平台_zhs_py 代理类路由
 import { n8nProxyRoutes } from './n8n-proxy.js'
 import { tencentHunyuan3dRoutes } from './tencent-hunyuan-3d.js'
 
-// P1-3/P1-4 补建：智能体分类字典缓存 + 分类同步 API（迁移自 coze_zhs_py/api/agent_category_cache_api.py + category_sync_api.py）
+// P1-3/P1-4 补建：智能体分类字典缓存 + 分类同步 API（迁移自 旧平台_zhs_py/api/agent_category_cache_api.py + category_sync_api.py）
 import { agentCategoriesCacheRoutes } from './agent-categories-cache.js'
 import { categorySyncRoutes } from './category-sync.js'
 // G-1058623③ 补建：智能体分类字典公开双键端点（api-client getAgentCategories 的精确路径）
@@ -655,7 +649,7 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(chatIssueBindingRoutes, { prefix: '/api/chat' })
   // D125:协作会话(邀请/评论)挂同一 /api/chat 前缀,与会话归属判定同域
   server.register(chatCollabRoutes, { prefix: '/api/chat' })
-  // Chat 多模型直连:deepseek/deepseek_ws/kling/multi/qwen/qwen_omni/zhipu/history/coze
+  // Chat 多模型直连:deepseek/deepseek_ws/kling/multi/qwen/qwen_omni/zhipu/history/旧平台
   server.register(chatModelRoutes, { prefix: '/api/chat' })
   // 用户自定义 AI 对话框技能(2026-07-21 新增,Skill 库统一面板支撑):GET/POST/PATCH/DELETE /api/chat/skills
   server.register(chatSkillsRoutes, { prefix: '/api/chat/skills' })
@@ -765,7 +759,7 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(menuRoutersRoutes, { prefix: '/api/admin/menu' })
   // 公开字典查询(登录用户可用,无需 admin):/api/dict/data/type/:dictType
   server.register(dictPublicRoutes, { prefix: '/api/dict' })
-  // 代理 / 广场 / Coze 变量 / Agent 服务
+  // 代理 / 广场 / 智能体服务
   server.register(agentsRoutes, { prefix: '/api' })
   // 商品目录:G-962 B8 /api/goods/select(购物车,公开在架商品)
   server.register(goodsRoutes, { prefix: '/api' })
@@ -776,20 +770,6 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(oauthKeysRoutes, { prefix: '/api/oauth-keys' })
   server.register(plazaRoutes, { prefix: '/api/plaza' })
   server.register(shareFirstRoutes, { prefix: '/api' })
-  server.register(cozeVariablesRoutes, { prefix: '/api/coze/variables' })
-  // 2026-11-28:Coze 平台停运,以下平台集成路由永久停用(不再注册)。
-  // 本地智能体链路走 /api/agents、/ws/coze/chat,与 Coze 无关,不受影响。
-  if (COZE_INTEGRATION_ENABLED) {
-    // Coze 平台集成:apps/audio/chat-audio/conversations/datasets/files/review/templates/workflows/workspaces/bot
-    server.register(cozeRoutes, { prefix: '/api/coze' })
-    // Coze 生态全量接口(R74 审计 P2 补建):REST 风格 apps/datasets/audio/files 端点
-    server.register(cozeEcosystemRoutes, { prefix: '/api/coze' })
-    // Coze 平台连接性测试:/api/coze/test/pat /api-key /workflow/:id /bot/:id /knowledge/:id
-    server.register(cozeTestRoutes, { prefix: '/api' })
-    // Coze OAuth client (项目作为 Coze OAuth client 调用 Coze 平台):
-    // /api/coze/oauth/authorize /token /refresh /jwt /config (4 模式: device/web/pkce/jwt)
-    server.register(cozeOauthRoutes, { prefix: '/api/coze/oauth' })
-  }
   // 知识库 RAG:/api/knowledge/health /ingest /search /rag-context /docs /docs/:id /docs/:id/chunks /docs/:id (DELETE) /docs/batch-delete
   server.register(knowledgeRagRoutes, { prefix: '/api/knowledge' })
   // 多智能体 Crew: 13 端点 (会话/任务/消息/Runs流式/Artifacts) + AgentRegistry 5 角色
@@ -839,7 +819,7 @@ export function registerRoutes(server: FastifyInstance) {
   // 学员中心：我的课程/笔记/证书/报告/错题/线下记录/论文（R2 补完）
   server.register(eduPublicRoutes, { prefix: '/api' })
 
-  // AI 厂商专属多模态：dashscope/doubao/gemini/suno/sora2/coze + 通用工具（R4 补完）
+  // AI 厂商专属多模态：dashscope/doubao/gemini/suno/sora2/旧平台 + 通用工具（R4 补完）
   server.register(aiVendorRoutes, { prefix: '/api/ai' })
   server.register(adminAiVendorRoutes, { prefix: '/api/admin/ai' })
   // AI 厂商 v2 路由：基于 R4 重构的 callVendor(ctx, reply) 新签名（dashscope/doubao/gemini 部分端点）
@@ -1237,7 +1217,7 @@ export function registerRoutes(server: FastifyInstance) {
   // 小程序支付链(2026-10-30):/api/pay/coupons/available、/api/orders/:no/apply-coupon、/api/pay/balance
   server.register(miniappPayRoutes, { prefix: '/api' })
 
-  // public_socket 9 端点(迁移自 coze_zhs_py/api/public_socket.py:1-663,P0 补齐 2026-07-20)
+  // public_socket 9 端点(迁移自 旧平台_zhs_py/api/public_socket.py:1-663,P0 补齐 2026-07-20)
   server.register(publicSocketRoutes, { prefix: '/api/admin' })
 
   // OpenClaw 控制台 8 面板后端端点
@@ -1314,10 +1294,10 @@ export function registerRoutes(server: FastifyInstance) {
   // Agent Runtime:PermissionGuard 5 mode + SessionManager 集成(/api/agent-runtime/*)
   server.register(agentRuntimeRoutes, { prefix: '/api/agent-runtime' })
 
-  // ===== R81 补建: D 盘 coze_zhs_py 代理类路由 =====
-  // n8n 代理(D 盘 coze_zhs_py/api/n8n_proxy.py):workflows 透传 + addAgent 真实写库
+  // ===== R81 补建: D 盘 旧平台_zhs_py 代理类路由 =====
+  // n8n 代理(D 盘 旧平台_zhs_py/api/n8n_proxy.py):workflows 透传 + addAgent 真实写库
   server.register(n8nProxyRoutes, { prefix: '/api' })
-  // 腾讯混元 3D(D 盘 coze_zhs_py/api/tencent_hunyuan_3d.py):submit/query/job/admin + video_generation_tasks 落库
+  // 腾讯混元 3D(D 盘 旧平台_zhs_py/api/tencent_hunyuan_3d.py):submit/query/job/admin + video_generation_tasks 落库
   server.register(tencentHunyuan3dRoutes, { prefix: '/api' })
 
   // ===== R83 补建: 路径别名 redirect (前端兼容) =====

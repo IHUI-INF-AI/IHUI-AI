@@ -72,35 +72,6 @@ export async function updateCarousel(
   })
 }
 
-// ===================== announcements(公告管理,G-17 2026-11-28) =====================
-// 列表走 /api/admin/messages/announcements(message.ts 管理面,支持
-// page/pageSize/title/isPublished;该端点不存在 includeUnpublished 参数,
-// 草稿用 isPublished=false 筛);写操作走 /api/admin/announcements(content.ts
-// 管理面,与后台公告页保存路径同一面),两者落同一张 announcements 表。
-
-export async function listAdminAnnouncements(
-  params: PageQuery = {},
-): Promise<ApiResult<PageData<AdminRow>>> {
-  return fetchApi<PageData<AdminRow>>(`/api/admin/messages/announcements${buildQs(params)}`)
-}
-
-export async function addAnnouncement(body: Record<string, unknown>): Promise<ApiResult<AdminRow>> {
-  return fetchApi<AdminRow>('/api/admin/announcements', {
-    method: 'POST',
-    body: JSON.stringify(body),
-  })
-}
-
-export async function updateAnnouncement(
-  id: string,
-  body: Record<string, unknown>,
-): Promise<ApiResult<AdminRow>> {
-  return fetchApi<AdminRow>(`/api/admin/announcements/${id}`, {
-    method: 'PATCH',
-    body: JSON.stringify(body),
-  })
-}
-
 export async function delCarousel(id: string): Promise<ApiResult<DeleteResult>> {
   return fetchApi<DeleteResult>(`/api/admin/carousel/${id}`, { method: 'DELETE' })
 }

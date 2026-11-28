@@ -82,7 +82,7 @@ export const AUTH_PUBLIC_PREFIX_PATHS: readonly string[] = [
   '/api/webhooks/',
   '/api/payments/',
   '/api/payment/',
-  '/api/cozeZhsApi/',
+  '/api/agentZhsApi/',
   // GitHub App webhook(HMAC 验签,匿名到达)
   '/api/github-app/',
   // 微信智联本地桥 webhook:账号级 secret 验签,桥不带 JWT/租户头;

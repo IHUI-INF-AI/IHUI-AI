@@ -9,16 +9,16 @@
  * 2026-09-14 迁移:UI(消息流/房间列表/媒体渲染/图片预览)已下沉共享层
  * @ihui/rn-app ChatRoomScreen(历史 Uniapp pagesA/assistant/index.vue +
  * pagesA/message/index.vue 对齐),本 wrapper 仅保留平台特定职责:
- * - 数据:MOCK 房间/历史 + 本地 echo(待接后端 cozeZhsApi,见下方端点注释)
+ * - 数据:MOCK 房间/历史 + 本地 echo(待接后端 agentZhsApi,见下方端点注释)
  * - 输入栏:BottomActionBar 聊天输入模式,经 bottomBar 节点注入共享屏
  * - 平台:Linking.openURL、Alert、KeyboardAvoidingView
  *
- * 数据接口:历史经 service/message.js(base3)+ utils/websocket.js 调 /cozeZhsApi/chat-room/*,
+ * 数据接口:历史经 service/message.js(base3)+ utils/websocket.js 调 /agentZhsApi/chat-room/*,
  * @ihui/api-client 无对应封装 → 本端先用 MOCK + 本地 echo,均以注释标明待接后端:
- * - 房间列表   GET  /cozeZhsApi/chat-room/users/{userUuid}/rooms            (getUserRooms)
- * - 房间历史   GET  /cozeZhsApi/chat-room/history?user_uuid=&room_id=      (getRoomHistory)
- * - 标记已读   PUT  /cozeZhsApi/chat-room/messages/mark-read?user_uuid=&room_id= (markRoomAsRead)
- * - 收发通道   WS   wss://<baseUrl3>/cozeZhsApi/chat-room/ws,event: join_room / send_message / room_message
+ * - 房间列表   GET  /agentZhsApi/chat-room/users/{userUuid}/rooms            (getUserRooms)
+ * - 房间历史   GET  /agentZhsApi/chat-room/history?user_uuid=&room_id=      (getRoomHistory)
+ * - 标记已读   PUT  /agentZhsApi/chat-room/messages/mark-read?user_uuid=&room_id= (markRoomAsRead)
+ * - 收发通道   WS   wss://<baseUrl3>/agentZhsApi/chat-room/ws,event: join_room / send_message / room_message
  *
  * 入口:mobile-rn 原生导航;小程序 pkg-user/assistant 经 @rn-shells 壳承载镜像(非独占)。
  */
@@ -49,7 +49,7 @@ interface WrapperRoom extends ChatRoomItem {
   receiverUuid: string
 }
 
-// ── ⚠️ @demo-data MOCK 数据(待接后端:GET /cozeZhsApi/chat-room/users/{userUuid}/rooms)──
+// ── ⚠️ @demo-data MOCK 数据(待接后端:GET /agentZhsApi/chat-room/users/{userUuid}/rooms)──
 // 本区块整页为演示态(假房间/假消息含"您的退款申请已提交"等业务内容),不得作为真实客服数据展示;
 // 端点接线(与 buildMockHistory 同标记)后整块移除(2026-10-24 全端 mock 审计定性)。
 
@@ -83,7 +83,7 @@ const MOCK_ROOMS: WrapperRoom[] = [
   },
 ]
 
-/** MOCK 历史消息(待接后端:GET /cozeZhsApi/chat-room/history?user_uuid=&room_id=) */
+/** MOCK 历史消息(待接后端:GET /agentZhsApi/chat-room/history?user_uuid=&room_id=) */
 function buildMockHistory(roomName: string): ChatRoomMessageItem[] {
   const raw: ChatRoomMessageItem[] = [
     {
@@ -173,17 +173,17 @@ export default function AssistantScreen() {
       setActiveRoom(full)
       setMode('chat')
       setRooms((prev) => prev.map((r) => (r.id === room.id ? { ...r, unreadCount: 0 } : r)))
-      // MOCK 房间历史;待接后端:GET /cozeZhsApi/chat-room/history?user_uuid=&room_id=,
+      // MOCK 房间历史;待接后端:GET /agentZhsApi/chat-room/history?user_uuid=&room_id=,
       // 响应 { code:200, data:{ messages:[{ id,user_uuid,type,content,send_time,is_del,sender_avatar }] } },
       // 再按 processMessages 反序+去重后填充。
       setMessages(buildMockHistory(full.name))
-      // MOCK 标记已读;待接后端:PUT /cozeZhsApi/chat-room/messages/mark-read?user_uuid=&room_id=
+      // MOCK 标记已读;待接后端:PUT /agentZhsApi/chat-room/messages/mark-read?user_uuid=&room_id=
     },
     [rooms],
   )
 
   /** 发送消息(对齐历史 handleSendMessage:先 push 临时消息,发送失败则移除)。
-   *  待接后端:WebSocket wss://<baseUrl3>/cozeZhsApi/chat-room/ws,
+   *  待接后端:WebSocket wss://<baseUrl3>/agentZhsApi/chat-room/ws,
    *  send({ event:'send_message', user_uuid, room_id, receiver_uuid, content }),
    *  服务端 room_message 回包后按 消息id / 内容+userUuid+sendTime 去重,
    *  将 isTemp 消息替换为正式消息(历史 addMessageToList);此处以本地 echo 模拟对方回复。 */

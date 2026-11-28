@@ -84,7 +84,7 @@ const SITE_KEYWORDS = [
   '开源',
   'Apache 2.0',
   'Dify 替代',
-  'Coze 替代',
+  '智能体平台替代',
   'FastGPT 替代',
   'n8n 替代',
   'Open WebUI 替代',

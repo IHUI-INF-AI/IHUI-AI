@@ -15,9 +15,9 @@ import { attributeError } from '@ihui/shared/utils/error-attribution'
  * 智能体创作核心接口(迁移自旧项目 aiModels.js)
  * 补齐 4 类端点:
  *   1. POST /api/agent/creation/my/:type  — 按类型查询我的创作
- *   2. GET  /api/cozeZhsApi/agent-category/agent/:id — 查询 agent 收费配置
- *   3. POST/PUT/DELETE /api/cozeZhsApi/agent-category — 收费配置 CRUD
- *   4. POST /api/cozeZhsApi/search/model/workflow/run — 模型工作流搜索
+ *   2. GET  /api/agentZhsApi/agent-category/agent/:id — 查询 agent 收费配置
+ *   3. POST/PUT/DELETE /api/agentZhsApi/agent-category — 收费配置 CRUD
+ *   4. POST /api/agentZhsApi/search/model/workflow/run — 模型工作流搜索
  *
  * 路由使用绝对路径注册(无 prefix),与旧前端 apiClient 路径直接对齐。
  */
@@ -195,14 +195,14 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   })
 
   // -------------------------------------------------------------------------
-  // 2. GET /api/cozeZhsApi/agent-category/agent/:id — 查询某 agent 的收费配置
+  // 2. GET /api/agentZhsApi/agent-category/agent/:id — 查询某 agent 的收费配置
   //    旧 aiModels.js getChargeInfoById(id)
   //    id = agent_id
   // -------------------------------------------------------------------------
   const agentIdParam = z.object({ id: z.string().min(1) })
 
   server.get(
-    '/api/cozeZhsApi/agent-category/agent/:id',
+    '/api/agentZhsApi/agent-category/agent/:id',
     { preHandler: requireAuth },
     async (req, reply) => {
       const parsed = agentIdParam.safeParse(req.params)
@@ -233,9 +233,9 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
 
   // -------------------------------------------------------------------------
   // 3. 收费配置 CRUD
-  //    POST   /api/cozeZhsApi/agent-category/create        — 创建
-  //    PUT    /api/cozeZhsApi/agent-category/:agent_id     — 更新
-  //    DELETE /api/cozeZhsApi/agent-category/:id           — 删除
+  //    POST   /api/agentZhsApi/agent-category/create        — 创建
+  //    PUT    /api/agentZhsApi/agent-category/:agent_id     — 更新
+  //    DELETE /api/agentZhsApi/agent-category/:id           — 删除
   //    旧 aiModels.js createZntCharge / putZntCharge / deleteZntCharge
   // -------------------------------------------------------------------------
 
@@ -258,7 +258,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   })
 
   server.post(
-    '/api/cozeZhsApi/agent-category/create',
+    '/api/agentZhsApi/agent-category/create',
     { preHandler: requireAdmin },
     async (req, reply) => {
       const bodyParsed = createChargeBody.safeParse(req.body ?? {})
@@ -313,7 +313,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   })
 
   server.put(
-    '/api/cozeZhsApi/agent-category/:agent_id',
+    '/api/agentZhsApi/agent-category/:agent_id',
     { preHandler: requireAdmin },
     async (req, reply) => {
       const paramParsed = updateChargeParam.safeParse(req.params)
@@ -359,7 +359,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   const deleteChargeParam = z.object({ id: z.string().min(1) })
 
   server.delete(
-    '/api/cozeZhsApi/agent-category/:id',
+    '/api/agentZhsApi/agent-category/:id',
     { preHandler: requireAdmin },
     async (req, reply) => {
       const parsed = deleteChargeParam.safeParse(req.params)
@@ -389,7 +389,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   )
 
   // -------------------------------------------------------------------------
-  // 4. POST /api/cozeZhsApi/search/model/workflow/run — 模型工作流搜索
+  // 4. POST /api/agentZhsApi/search/model/workflow/run — 模型工作流搜索
   //    旧 aiModels.js searchModelWorkflowRun(data)
   //    body: { query, model_id?, workflow_id? }
   //    当前无 workflow_run 表,返回空 results(记录到 db-needed.txt)
@@ -403,7 +403,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   })
 
   server.post(
-    '/api/cozeZhsApi/search/model/workflow/run',
+    '/api/agentZhsApi/search/model/workflow/run',
     { preHandler: requireAuth },
     async (req, reply) => {
       const bodyParsed = searchWorkflowBody.safeParse(req.body ?? {})

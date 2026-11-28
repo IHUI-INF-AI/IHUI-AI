@@ -6,7 +6,7 @@
  * G-1058623③ 智能体分类字典公开端点(机主拍板:新建公开双键字典端点)。
  *
  * 背景:api-client getAgentCategories() 调 GET /api/cache/agent-category-dict/categories
- * (fetchApi 的 normalizeUrl 把 /cozeZhsApi 前缀归一为 /api),此前后端零命中,
+ * (fetchApi 的 normalizeUrl 把 /agentZhsApi 前缀归一为 /api),此前后端零命中,
  * 4 个 RN 调用方(HomeScreen/PlazaScreen/AgentScreen/AiAssistantScreen)全靠静态 fallback 降级。
  * 既有管理面路由 agent-categories-cache.ts(带 requireAdmin)不可直接开放(权限面),
  * 故新建本公开**只读**端点:数据构建复用其缓存存储的推导函数 buildAgentCategoryDict(),

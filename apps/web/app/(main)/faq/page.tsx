@@ -17,7 +17,7 @@ const faqJsonLd = {
   url: 'https://aizhs.top/faq',
   name: '智汇 AI 常见问题 — 12 个高频问题解答',
   description:
-    '智汇 AI 常见问题:平台介绍、与 Dify/Coze/FastGPT 对比、价格、部署、API、模型支持、数据安全等 12 个高频问题。',
+    '智汇 AI 常见问题:平台介绍、与 Dify/FastGPT 对比、价格、部署、API、模型支持、数据安全等 12 个高频问题。',
   inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
   isPartOf: { '@id': 'https://aizhs.top/#website' },
   about: { '@id': 'https://aizhs.top/#organization' },
@@ -32,10 +32,10 @@ const faqJsonLd = {
     },
     {
       '@type': 'Question',
-      name: '智汇 AI 与 Dify、Coze、FastGPT 的区别?',
+      name: '智汇 AI 与 Dify、FastGPT 的区别?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Dify 偏 LLM 应用开发(仅 Web);Coze 闭源(不支持私有化);FastGPT 偏知识库 Q&A。智汇 AI 是当前少数同时覆盖 Agent 市场 + 知识库 + 六端分发 + 团队协作 + 积分计费的开源平台,一个平台顶 Dify + Coze + FastGPT 三件套。',
+        text: 'Dify 偏 LLM 应用开发(仅 Web);另一类闭源智能体平台不支持私有化;FastGPT 偏知识库 Q&A。智汇 AI 是当前少数同时覆盖 Agent 市场 + 知识库 + 六端分发 + 团队协作 + 积分计费的开源平台,一个平台顶 Dify + FastGPT 两件套。',
       },
     },
     {
@@ -124,7 +124,7 @@ const faqJsonLd = {
 export const metadata: Metadata = {
   title: '常见问题 — 智汇 AI | 12 个高频问题解答',
   description:
-    '智汇 AI 常见问题:平台介绍、与 Dify/Coze/FastGPT 对比、价格、部署、API、模型支持、数据安全等 12 个高频问题。',
+    '智汇 AI 常见问题:平台介绍、与 Dify/FastGPT 对比、价格、部署、API、模型支持、数据安全等 12 个高频问题。',
   alternates: {
     canonical: '/faq',
   },
