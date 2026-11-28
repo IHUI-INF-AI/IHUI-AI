@@ -216,7 +216,7 @@ export function DocumentAnnotationsPanel({
         ...lines,
         '请基于以上全部 AI 预审结论，按优先级给出可执行的修订计划，并逐项标注对应的段落/单元格；同时列出需要补充的证据和复核动作。',
       ].join('\n\n'),
-      anchor: first.anchor as AnnotationAnchor,
+      anchor: first.anchor as unknown as AnnotationAnchor,
       source: 'ai-finding',
       paneId,
       page: typeof rawAnchor.page === 'number' ? rawAnchor.page : undefined,
