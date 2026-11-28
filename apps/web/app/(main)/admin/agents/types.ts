@@ -120,7 +120,12 @@ export interface CozeConfigView {
 }
 
 export interface CozeCoverage {
-  credentials: { configured: boolean; envName: string | null; baseUrl: string }
+  credentials: {
+    configured: boolean
+    mode?: 'pat' | 'oauth' | 'none'
+    envName: string | null
+    baseUrl: string
+  }
   totalBots: number
   status: {
     synced: number

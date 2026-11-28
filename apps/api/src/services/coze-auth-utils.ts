@@ -11,20 +11,25 @@
  * - getCozeAccessToken: 获取 access_token（带内存缓存, RS256 JWT 签发）
  *
  * 环境变量:
- * - COZE_OAUTH_APP_ID / COZE_PUBLIC_KEY_ID / COZE_PRIVATE_KEY
- * - COZE_OAUTH_APP_AUD (默认 https://api.coze.cn)
+ * - COZE_OAUTH_APP_ID / COZE_PUBLIC_KEY_ID / COZE_PRIVATE_KEY(_PATH)
+ * - COZE_OAUTH_APP_AUD (默认 api.coze.cn，不能带 https://)
  * - COZE_API_BASE (默认 https://api.coze.cn)
  * - COZE_OAUTH_TOKEN_URL (默认 ${COZE_API_BASE}/api/permission/oauth2/token)
  */
 
 import { env } from 'node:process'
-import { randomUUID } from 'node:crypto'
+import { readFileSync } from 'node:fs'
+import { createPrivateKey, randomUUID, type KeyObject } from 'node:crypto'
 import { SignJWT } from 'jose'
 
 const TOKEN_TTL = 86399 // 24h - 1s, 与 Coze JWT 流程一致
 
 const DEFAULT_COZE_API_BASE = 'https://api.coze.cn'
-const DEFAULT_COZE_AUD = 'https://api.coze.cn'
+/**
+ * JWT 的 aud 必须是 `api.coze.cn`（不带协议）。
+ * 官方文档示例与实测均如此；带 `https://` 会被 Coze 以 invalid_client 拒绝。
+ */
+const DEFAULT_COZE_AUD = 'api.coze.cn'
 
 /** 缓存分槽上限:每个 (clientId, userUuid, scope) 一套 token,防止无界增长。 */
 const MAX_CACHED_TOKENS = 200
@@ -80,15 +85,44 @@ export interface CozeOAuthConfig {
   publicKeyId: string
 }
 
-function strToPrivateKey(pem: string): Uint8Array {
-  return new TextEncoder().encode(pem)
+function strToPrivateKey(pem: string): KeyObject {
+  // jose v6 不再接受 Uint8Array，必须先解析成 Node KeyObject。
+  return createPrivateKey(pem)
+}
+
+/** .env 里的 PEM 常用 `\n` 转义；也兼容真实换行与文件路径。 */
+function normalizePrivateKey(pem: string): string {
+  return pem.replace(/\\n/g, '\n').trim()
+}
+
+function resolveCozePrivateKey(): string | null {
+  const inline = env.COZE_PRIVATE_KEY?.trim()
+  if (inline) return normalizePrivateKey(inline)
+  const filePath = env.COZE_PRIVATE_KEY_PATH?.trim()
+  if (!filePath) return null
+  try {
+    return normalizePrivateKey(readFileSync(filePath, 'utf8'))
+  } catch (e) {
+    console.error(
+      '[coze-auth-utils] 读取 COZE_PRIVATE_KEY_PATH 失败:',
+      e instanceof Error ? e.message : String(e),
+    )
+    return null
+  }
+}
+
+/** JWT aud 规范化为 `api.coze.cn`（接受误配成 https://api.coze.cn 的旧值）。 */
+function normalizeCozeAud(value: string | undefined): string {
+  return (value ?? DEFAULT_COZE_AUD)
+    .replace(/^https?:\/\//, '')
+    .replace(/\/$/, '')
 }
 
 /** 加载 Coze OAuth 配置（环境变量优先） */
 export function loadCozeOAuthConfig(): CozeOAuthConfig | null {
   const clientId = env.COZE_OAUTH_APP_ID
   const publicKeyId = env.COZE_PUBLIC_KEY_ID
-  const privateKey = env.COZE_PRIVATE_KEY
+  const privateKey = resolveCozePrivateKey()
   if (!clientId || !publicKeyId || !privateKey) return null
   return {
     clientType: 'jwt',
@@ -100,9 +134,9 @@ export function loadCozeOAuthConfig(): CozeOAuthConfig | null {
   }
 }
 
-/** 从环境变量获取私钥 */
+/** 从环境变量/私钥文件获取私钥 */
 export function getPrivateKey(): string | null {
-  return env.COZE_PRIVATE_KEY ?? null
+  return resolveCozePrivateKey()
 }
 
 /** 生成 RS256 签名的 JWT token */
@@ -114,7 +148,7 @@ async function buildJwtToken(userUuid: string | null, privateKey: string): Promi
   const now = Math.floor(Date.now() / 1000)
   const payload: Record<string, string | number> = {
     iss: clientId,
-    aud: env.COZE_OAUTH_APP_AUD ?? DEFAULT_COZE_AUD,
+    aud: normalizeCozeAud(env.COZE_OAUTH_APP_AUD),
     iat: now,
     exp: now + TOKEN_TTL,
     jti: randomUUID().replace(/-/g, ''),
@@ -122,7 +156,7 @@ async function buildJwtToken(userUuid: string | null, privateKey: string): Promi
   if (userUuid) payload.session_name = userUuid
 
   return await new SignJWT(payload)
-    .setProtectedHeader({ alg: 'RS256', kid: publicKeyId })
+    .setProtectedHeader({ alg: 'RS256', kid: publicKeyId, typ: 'JWT' })
     .sign(strToPrivateKey(privateKey))
 }
 
@@ -156,7 +190,9 @@ export async function getCozeAccessToken(
     const publicKeyId = env.COZE_PUBLIC_KEY_ID
     const privateKey = pkOverride ?? getPrivateKey()
     if (!clientId || !publicKeyId || !privateKey) {
-      throw new Error('JWT 配置不完整 (COZE_OAUTH_APP_ID/COZE_PUBLIC_KEY_ID/COZE_PRIVATE_KEY)')
+      throw new Error(
+        'JWT 配置不完整 (COZE_OAUTH_APP_ID/COZE_PUBLIC_KEY_ID/COZE_PRIVATE_KEY(_PATH))',
+      )
     }
 
     const cacheKey = cacheKeyOf(clientId, userUuid, scope)
@@ -187,12 +223,15 @@ export async function getCozeAccessToken(
     if (!result.access_token) {
       throw new Error('Coze 授权响应缺少 access_token')
     }
-    // 用真实 TTL;响应没给才退回默认值 —— 固定 24h 会在上游提前吊销时继续回放过期 token。
-    const expiresIn =
-      typeof result.expires_in === 'number' && result.expires_in > 0
-        ? result.expires_in
-        : TOKEN_TTL
-    writeCachedToken(cacheKey, result.access_token, now + expiresIn)
+    // Coze 的 expires_in 实测是「绝对过期 Unix 时间戳」，不是 duration；
+    // 兼容少量返回 duration 的旧响应，避免把 24h token 缓存成几十年。
+    const nowAfter = Math.floor(Date.now() / 1000)
+    const rawExpires = Number(result.expires_in)
+    const expiresAt =
+      Number.isFinite(rawExpires) && rawExpires > 1_000_000_000
+        ? rawExpires - 60
+        : nowAfter + (Number.isFinite(rawExpires) && rawExpires > 0 ? rawExpires : TOKEN_TTL) - 60
+    writeCachedToken(cacheKey, result.access_token, Math.max(nowAfter + 60, expiresAt))
     return result.access_token
   } catch (e) {
     console.error(
