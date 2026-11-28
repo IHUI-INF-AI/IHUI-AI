@@ -160,9 +160,10 @@ export default function EduAICoursesPage() {
   }
 
   function stageClass(stage?: string) {
-    if (stage === 'primary') return 'bg-sky-500/10 text-sky-600'
-    if (stage === 'junior') return 'bg-amber-500/10 text-amber-600'
-    if (stage === 'senior') return 'bg-violet-500/10 text-violet-600'
+    // 2026-11-28:补 dark: 字色(对齐同目录 certification 页 levelClassMap 每档带 dark:text-* 的写法)
+    if (stage === 'primary') return 'bg-sky-500/10 text-sky-600 dark:text-sky-500'
+    if (stage === 'junior') return 'bg-amber-500/10 text-amber-600 dark:text-amber-500'
+    if (stage === 'senior') return 'bg-violet-500/10 text-violet-600 dark:text-violet-500'
     return 'bg-muted text-muted-foreground'
   }
 
@@ -223,7 +224,9 @@ export default function EduAICoursesPage() {
             <span
               className={cn(
                 'rounded-md px-2 py-0.5 text-label font-medium',
-                required ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600',
+                required
+                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
+                  : 'bg-amber-500/10 text-amber-600 dark:text-amber-500',
               )}
             >
               {required ? t('required') : t('elective')}

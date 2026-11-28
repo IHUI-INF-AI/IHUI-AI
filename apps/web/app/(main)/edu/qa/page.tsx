@@ -175,8 +175,8 @@ export default function EduQAPage() {
                     className={cn(
                       'shrink-0 rounded-md px-2 py-0.5 text-label',
                       item.status === 'answered'
-                        ? 'bg-emerald-500/10 text-emerald-600'
-                        : 'bg-amber-500/10 text-amber-600',
+                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
+                        : 'bg-amber-500/10 text-amber-600 dark:text-amber-500',
                     )}
                   >
                     {item.status === 'answered' ? t('answered') : t('pending')}

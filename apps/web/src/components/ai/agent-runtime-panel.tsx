@@ -222,7 +222,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
 
         <div className="min-h-0 flex-1 overflow-y-auto p-3 thin-scroll">
           {plan && (
-            <section className="mb-3 rounded-md border border-border bg-muted/30 p-3">
+            <section className="mb-3 rounded-md border border-stroke-default bg-muted/30 p-3">
               <div className="mb-1.5 flex items-center gap-1.5 text-label font-medium text-muted-foreground">
                 <FileText className="h-3 w-3" />
                 {t('plan')}

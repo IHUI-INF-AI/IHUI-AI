@@ -426,7 +426,7 @@ export function AgentTaskCenter({ variant = 'page', onToggleTechnical }: AgentTa
                     className={cn(
                       'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-label font-medium transition-colors',
                       !historyMode
-                        ? 'bg-background text-foreground shadow-sm'
+                        ? 'bg-background text-foreground shadow-elevation-sm'
                         : 'text-muted-foreground hover:text-foreground',
                     )}
                   >
@@ -444,7 +444,7 @@ export function AgentTaskCenter({ variant = 'page', onToggleTechnical }: AgentTa
                     className={cn(
                       'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-label font-medium transition-colors',
                       historyMode
-                        ? 'bg-background text-foreground shadow-sm'
+                        ? 'bg-background text-foreground shadow-elevation-sm'
                         : 'text-muted-foreground hover:text-foreground',
                     )}
                   >
@@ -610,7 +610,7 @@ export function AgentTaskCenter({ variant = 'page', onToggleTechnical }: AgentTa
                     key={example}
                     type="button"
                     onClick={() => setGoal(example)}
-                    className="rounded-full border border-border bg-muted/30 px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground"
+                    className="rounded-full border border-border bg-muted/30 px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:border-stroke-strong hover:text-foreground"
                   >
                     {example}
                   </button>

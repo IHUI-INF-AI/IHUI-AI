@@ -125,7 +125,7 @@ export default function EduExamResultPage() {
             className={cn(
               'mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-2xl',
               result.passed
-                ? 'bg-emerald-500/10 text-emerald-600'
+                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
                 : 'bg-destructive/10 text-destructive',
             )}
           >
@@ -137,7 +137,7 @@ export default function EduExamResultPage() {
           <p
             className={cn(
               'text-body font-medium',
-              result.passed ? 'text-emerald-600' : 'text-destructive',
+              result.passed ? 'text-emerald-600 dark:text-emerald-500' : 'text-destructive',
             )}
           >
             {result.passed ? t('passed') : t('failed')}
@@ -147,7 +147,7 @@ export default function EduExamResultPage() {
           <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-4 text-center text-body">
             <div>
               <p className="text-muted-foreground">{t('correct')}</p>
-              <p className="text-lg font-bold text-emerald-600">{correctCount}</p>
+              <p className="text-lg font-bold text-emerald-600 dark:text-emerald-500">{correctCount}</p>
             </div>
             <div>
               <p className="text-muted-foreground">{t('wrong')}</p>
@@ -195,7 +195,7 @@ export default function EduExamResultPage() {
                     <p className="text-destructive">{t('yourAnswer', { answer: r.myAnswer })}</p>
                   )}
                   {r.correctAnswer && (
-                    <p className="text-emerald-600">
+                    <p className="text-emerald-600 dark:text-emerald-500">
                       {t('correctAnswer', { answer: r.correctAnswer })}
                     </p>
                   )}

@@ -77,7 +77,7 @@ export default function EduExamPage() {
                       className={cn(
                         'shrink-0 rounded-md px-2 py-0.5 text-label',
                         (exam.bestScore ?? 0) >= exam.passScore
-                          ? 'bg-emerald-500/10 text-emerald-600'
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
                           : 'bg-muted text-muted-foreground',
                       )}
                     >
