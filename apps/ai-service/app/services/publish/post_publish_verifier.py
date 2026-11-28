@@ -42,15 +42,54 @@ if TYPE_CHECKING:
     from playwright._impl._api_structures import SetCookieParam
 
 
-def _all_cookies(credentials: dict[str, Any]) -> list[SetCookieParam]:
-    out: list[SetCookieParam] = []
+def _all_cookies(
+    credentials: dict[str, Any], default_domain: str = ".zhihu.com"
+) -> list[SetCookieParam]:
+    """从凭证还原 cookie。
+
+    优先用 `__cookie_jar__`(账号池落库时保留了每个 cookie 的 domain/path/过期时间),
+    否则退回旧的扁平键值形态。2026-11-28 修复:旧实现把**所有平台**的 cookie 都塞到
+    `.zhihu.com`,导致非知乎平台(微博/百家号/抖音/小红书)带着错域 cookie 访问,
+    永远处于未登录态。
+    """
+    jar = credentials.get("__cookie_jar__")
+    if isinstance(jar, list) and jar:
+        out: list[SetCookieParam] = []
+        for item in jar:
+            if not isinstance(item, dict):
+                continue
+            name = item.get("name")
+            value = item.get("value")
+            if not isinstance(name, str) or not name or not isinstance(value, str) or not value:
+                continue
+            cookie: dict[str, Any] = {
+                "name": name,
+                "value": value,
+                "domain": item.get("domain") or default_domain,
+                "path": item.get("path") or "/",
+            }
+            expires = item.get("expires")
+            if isinstance(expires, (int, float)) and expires > 0:
+                cookie["expires"] = float(expires)
+            if isinstance(item.get("secure"), bool):
+                cookie["secure"] = item["secure"]
+            if isinstance(item.get("httpOnly"), bool):
+                cookie["httpOnly"] = item["httpOnly"]
+            same_site = item.get("sameSite")
+            if same_site in ("Lax", "Strict", "None"):
+                cookie["sameSite"] = same_site
+            out.append(cookie)  # type: ignore[arg-type]
+        if out:
+            return out
+
+    out = []
     for name, value in credentials.items():
         if not isinstance(value, str) or not value:
             continue
         out.append({
             "name": name,
             "value": value,
-            "domain": ".zhihu.com",
+            "domain": default_domain,
             "path": "/",
             "httpOnly": name in ("z_c0", "d_c0", "KLBRSID", "q_c1"),
             "secure": True,

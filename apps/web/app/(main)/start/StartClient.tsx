@@ -14,17 +14,19 @@ import {
   Image as ImageIcon,
   PenLine,
   Send,
-  Sparkles,
   Users,
   Wrench,
   type LucideIcon,
 } from 'lucide-react'
 
-import { Button, Card, CardContent } from '@ihui/ui-react'
+import { Card, CardContent } from '@ihui/ui-react'
+import { CAPABILITY_COUNT } from '@ihui/shared/capabilities'
 
+import { StartCommandBar } from '@/components/start/start-command-bar'
+import { StartReview } from '@/components/start/StartReview'
+import { SchedulerBanner, type SchedulerSnapshot } from '@/components/publish/SchedulerBanner'
 import { START_SERVICES, type StartServiceIcon } from '@/config/start-services'
 import { fetchApi } from '@/lib/api'
-import { useAiPanelStore } from '@/stores/ai-panel'
 
 const ICONS: Record<StartServiceIcon, LucideIcon> = {
   pen: PenLine,
@@ -38,18 +40,28 @@ const ICONS: Record<StartServiceIcon, LucideIcon> = {
 }
 
 export default function StartClient() {
-  const openPanel = useAiPanelStore((s) => s.openPanel)
   const [queue, setQueue] = React.useState<{
     draft: number
     scheduled: number
     failed: number
     running: number
   } | null>(null)
+  const [overdue, setOverdue] = React.useState(0)
+  const [nextScheduledAt, setNextScheduledAt] = React.useState<string | null>(null)
+  const [scheduler, setScheduler] = React.useState<SchedulerSnapshot | undefined>()
 
   React.useEffect(() => {
     let cancelled = false
     void fetchApi<{
-      tasks?: { draft?: number; scheduled?: number; failed?: number; running?: number }
+      tasks?: {
+        draft?: number
+        scheduled?: number
+        failed?: number
+        running?: number
+        overdue?: number
+        nextScheduledAt?: string | null
+      }
+      scheduler?: SchedulerSnapshot
     }>('/api/publish/stats?days=30')
       .then((r) => {
         if (cancelled || !r.success || !r.data?.tasks) return
@@ -59,6 +71,9 @@ export default function StartClient() {
           failed: r.data.tasks.failed ?? 0,
           running: r.data.tasks.running ?? 0,
         })
+        setOverdue(r.data.tasks.overdue ?? 0)
+        setNextScheduledAt(r.data.tasks.nextScheduledAt ?? null)
+        setScheduler(r.data.scheduler)
       })
       .catch(() => {
         // 队列只是加速入口;统计不可用时静默隐藏,不阻塞八卡。
@@ -80,24 +95,25 @@ export default function StartClient() {
         <p className="mt-3 text-body leading-relaxed text-muted-foreground">
           内容、发布、数据、账号，一条链路从头做到尾。不想说，就从下面挑一件。
         </p>
-        <div className="mt-6 flex flex-wrap items-center gap-3">
-          <Button size="lg" onClick={openPanel} className="gap-2">
-            <Sparkles className="h-4 w-4" aria-hidden />
-            和 AI 说一句话
-          </Button>
-          <span className="text-caption text-muted-foreground">
-            不用先挑模型，直接说你要什么
-          </span>
-        </div>
+        <StartCommandBar />
       </section>
 
       {queue && (
         <section className="mt-8" aria-labelledby="start-queue-title">
+          {scheduler && (
+            <div className="mb-3">
+              <SchedulerBanner
+                scheduler={scheduler}
+                overdue={overdue}
+                nextScheduledAt={nextScheduledAt}
+              />
+            </div>
+          )}
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 id="start-queue-title" className="text-body font-medium">
-              今日队列
+              近 30 天队列
             </h2>
-            <span className="text-caption text-muted-foreground">最近 30 天</span>
+            <span className="text-caption text-muted-foreground">按状态直达</span>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
@@ -122,6 +138,10 @@ export default function StartClient() {
           </div>
         </section>
       )}
+
+      <section className="mt-6" aria-label="最近 7 天复盘">
+        <StartReview />
+      </section>
 
       <section className="mt-10" aria-labelledby="start-services-title">
         <h2 id="start-services-title" className="text-body font-medium">
@@ -156,6 +176,22 @@ export default function StartClient() {
               </Link>
             )
           })}
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1">
+          <Link
+            href="/assets"
+            className="inline-flex items-center gap-1 text-caption text-muted-foreground transition-colors hover:text-foreground"
+          >
+            我的资产（账号·任务·素材·收益）
+            <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+          </Link>
+          <Link
+            href="/capability-market"
+            className="inline-flex items-center gap-1 text-caption text-muted-foreground transition-colors hover:text-foreground"
+          >
+            查看全部能力（{CAPABILITY_COUNT} 项）
+            <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+          </Link>
         </div>
       </section>
     </div>

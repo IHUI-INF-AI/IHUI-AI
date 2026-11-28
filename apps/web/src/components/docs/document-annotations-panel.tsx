@@ -102,6 +102,10 @@ export function DocumentAnnotationsPanel({
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     [items],
   )
+  const aiRoots = React.useMemo(
+    () => roots.filter((root) => root.origin === 'ai' && root.anchor),
+    [roots],
+  )
   const replies = React.useMemo(() => {
     const map = new Map<string, DocumentAnnotationRecord[]>()
     for (const item of items) {
@@ -193,6 +197,38 @@ export function DocumentAnnotationsPanel({
     }
   }
 
+  /**
+   * 全部 AI 结论一次带回主对话:用户不必逐条点「交给主 AI」。
+   * 这不是把 finding 摘要成一段散文——每条都保留自己的坐标 label/证据,
+   * 主 AI 才能按优先级给出一份可执行修订计划,而不是泛泛建议。
+   */
+  const handoffAllAi = () => {
+    const first = aiRoots[0]
+    if (!first?.anchor) return
+    const rawAnchor = first.anchor as Record<string, unknown>
+    const lines = aiRoots.map(
+      (root, index) =>
+        `${index + 1}. [${root.label || 'AI 预审'}] ${root.body.slice(0, 1000)}`,
+    )
+    emitAnchorReference({
+      text: [
+        `【${documentTitle || '文档'} · AI 全文预审，共 ${aiRoots.length} 条】`,
+        ...lines,
+        '请基于以上全部 AI 预审结论，按优先级给出可执行的修订计划，并逐项标注对应的段落/单元格；同时列出需要补充的证据和复核动作。',
+      ].join('\n\n'),
+      anchor: first.anchor as AnnotationAnchor,
+      source: 'ai-finding',
+      paneId,
+      page: typeof rawAnchor.page === 'number' ? rawAnchor.page : undefined,
+      slide: typeof rawAnchor.slide === 'number' ? rawAnchor.slide : undefined,
+      element: typeof rawAnchor.element === 'string' ? rawAnchor.element : undefined,
+      excerpt: first.excerpt ?? undefined,
+      note: `全部 AI 预审结论 ${aiRoots.length} 条`,
+      autoSend: true,
+      autoSendPrompt: '请基于这份文档的全部 AI 预审结论，按优先级给出可执行的修订计划，并逐项标注对应的段落/单元格。',
+    })
+  }
+
   return (
     <aside
       ref={asideRef}
@@ -218,6 +254,20 @@ export function DocumentAnnotationsPanel({
           ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-1">
+          {aiRoots.length > 0 ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handoffAllAi}
+              className="h-7 gap-1 px-1.5 text-[10px] text-violet-700 hover:bg-violet-50 dark:text-violet-300 dark:hover:bg-violet-950/40"
+              title="把全部 AI 预审结论一次带回主 AI 对话"
+              data-testid="annotation-ai-handoff-all"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              全部交给主 AI
+              <span className="rounded-full bg-violet-500/10 px-1 text-[9px]">{aiRoots.length}</span>
+            </Button>
+          ) : null}
           <Button
             variant="ghost"
             size="sm"

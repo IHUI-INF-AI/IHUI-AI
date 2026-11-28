@@ -15,10 +15,10 @@ import { Loader2, BarChart3 } from 'lucide-react'
 import { apiOrThrow } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { BackButton } from '@/components/common'
+import { SchedulerBanner, type SchedulerSnapshot } from '@/components/publish/SchedulerBanner'
 import { StatsCards } from './StatsCards'
 import { FilterBar } from './FilterBar'
 import { TaskCard } from './TaskCard'
-import { SchedulerBanner, type SchedulerSnapshot } from './SchedulerBanner'
 import { normalizeHistoryStatusFilter, normalizeHistoryTaskFocus } from './history-helpers'
 
 interface Target {

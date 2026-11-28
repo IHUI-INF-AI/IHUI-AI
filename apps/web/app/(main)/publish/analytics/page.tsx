@@ -21,6 +21,7 @@ import {
   AnalyticsDashboard,
   type AnalyticsPeriod,
   type AnalyticsOverview,
+  type AnalyticsMetricsSummary,
   type AccountHealth,
 } from '@/components/publish/AnalyticsDashboard'
 
@@ -32,6 +33,7 @@ interface OverviewResponse {
   trend: ReadonlyArray<{ date: string; count: number }>
   platformDistribution: ReadonlyArray<{ platform: string; count: number; color: string }>
   failureReasons: ReadonlyArray<{ reason: string; count: number }>
+  metrics?: AnalyticsMetricsSummary | null
 }
 
 export default function AnalyticsPage() {
@@ -63,6 +65,7 @@ export default function AnalyticsPage() {
             trend: ovRes.trend,
             platformDistribution: ovRes.platformDistribution,
             failureReasons: ovRes.failureReasons,
+            metrics: ovRes.metrics ?? null,
           })
         } else {
           setOverview(null)
