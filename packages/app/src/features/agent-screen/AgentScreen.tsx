@@ -315,9 +315,10 @@ function createStyles(tk: AppThemeTokens) {
     vipText: { fontSize: rnType.badge.size, fontWeight: '600', color: tk.warning.onAmber },
     desc: {
       marginTop: rnSpacing.sm,
+      // 2026-11-28:body.size(14)配 bodySm.lineHeight(18)是档位表外的混搭,行距偏挤 → 整档 body(14/20)
       fontSize: rnType.body.size,
       color: tk.text.secondary,
-      lineHeight: rnType.bodySm.lineHeight,
+      lineHeight: rnType.body.lineHeight,
     },
     meta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.medium },
   })

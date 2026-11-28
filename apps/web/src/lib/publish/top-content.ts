@@ -7,6 +7,18 @@
  * 只排有阅读/播放快照的内容;并列时先看点赞,再看标题稳定排序。
  */
 
+export interface ContentPlatformPerformance {
+  readonly platform: string
+  readonly taskId: string
+  readonly views: number
+  readonly likes: number
+  readonly comments: number
+  readonly shares: number
+  readonly posts: number
+  readonly publishedAt: string | null
+  readonly publishedUrl: string | null
+}
+
 export interface ContentPerformance {
   readonly taskId: string
   readonly title: string
@@ -17,6 +29,10 @@ export interface ContentPerformance {
   readonly shares: number
   readonly publishedAt: string | null
   readonly publishedUrl: string | null
+  readonly platformKeys?: ReadonlyArray<string>
+  readonly platformCount?: number
+  readonly posts?: number
+  readonly platforms?: ReadonlyArray<ContentPlatformPerformance>
 }
 
 export function dedupeContent(

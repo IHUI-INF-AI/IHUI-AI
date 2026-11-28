@@ -280,7 +280,7 @@ export function BrowserTaskTemplateEditor({
                   {templates.map((template) => (
                     <div
                       key={template.id}
-                      className="rounded-md border bg-background p-3 text-sm shadow-sm"
+                      className="rounded-md border bg-background p-3 text-sm shadow-elevation-sm"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">

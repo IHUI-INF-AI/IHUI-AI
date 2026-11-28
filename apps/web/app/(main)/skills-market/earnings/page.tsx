@@ -143,7 +143,7 @@ export default function SkillEarningsPage() {
 
           <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border bg-card p-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
                 <Wallet className="h-5 w-5" />
               </div>
               <div>

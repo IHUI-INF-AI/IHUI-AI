@@ -21,6 +21,24 @@ import type { ContentPerformance } from '@/lib/publish/top-content'
 
 export type AnalyticsPeriod = '7d' | '30d' | '90d'
 
+const PLATFORM_DISPLAY_NAMES: Record<string, string> = {
+  csdn: 'CSDN',
+  juejin: '掘金',
+  weibo: '微博',
+  xiaohongshu: '小红书',
+  bilibili: 'B站',
+  zhihu: '知乎',
+  douyin: '抖音',
+  wechat: '公众号',
+  baijiahao: '百家号',
+  netease: '网易号',
+  shipinhao: '视频号',
+}
+
+function platformDisplayName(key: string): string {
+  return PLATFORM_DISPLAY_NAMES[key] ?? key
+}
+
 export interface AnalyticsMetricsSummary {
   readonly totals: {
     readonly views: number
@@ -214,6 +232,31 @@ export function AnalyticsDashboard({
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-label font-medium">{item.title}</div>
                     <div className="text-[10px] text-muted-foreground">{item.platform}</div>
+                    {item.platforms && item.platforms.length > 1 ? (
+                      <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5">
+                        {item.platforms.map((platform) => (
+                          <span
+                            key={platform.platform}
+                            className="text-[10px] text-muted-foreground tabular-nums"
+                          >
+                            {platform.publishedUrl ? (
+                              <a
+                                href={platform.publishedUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="hover:text-primary"
+                              >
+                                {platformDisplayName(platform.platform)} {platform.views}
+                              </a>
+                            ) : (
+                              <>
+                                {platformDisplayName(platform.platform)} {platform.views}
+                              </>
+                            )}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                   <div className="shrink-0 text-right text-label tabular-nums">
                     <div>

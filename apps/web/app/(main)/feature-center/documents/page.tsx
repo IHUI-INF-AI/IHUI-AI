@@ -680,7 +680,7 @@ export default function DocumentsPage() {
             return (
               <Card
                 key={item.id}
-                className="flex h-full flex-col transition-shadow hover:shadow-md"
+                className="flex h-full flex-col transition-shadow hover:shadow-elevation-md"
               >
                 <CardContent className="min-[640px]:p-3 flex flex-1 flex-col gap-3 p-3">
                   {/* 顶部:format 标签 + 分类徽章 */}

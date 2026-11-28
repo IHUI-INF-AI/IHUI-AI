@@ -922,7 +922,11 @@ export function AiPipMonitor({
               <ChevronDown className="h-3 w-3 flex-none text-slate-400" />
             </button>
           ) : (
-            <section className="mx-2 mt-1 max-h-[46vh] overflow-y-auto rounded-lg border border-white/10 bg-[#0d1117]/95 px-2 py-1.5 shadow-[0_14px_36px_rgba(0,0,0,0.55)] backdrop-blur-xl">
+            <section
+              // 豁免类别: 画中画暗壳悬浮环境影(0_14px_36px 大投影超出 elevation 档位表,
+              // 与 pip-wall 同族的固定暗色小窗风格,非容器 elevation)
+              className="mx-2 mt-1 max-h-[46vh] overflow-y-auto rounded-lg border border-white/10 bg-[#0d1117]/95 px-2 py-1.5 shadow-[0_14px_36px_rgba(0,0,0,0.55)] backdrop-blur-xl"
+            >
               <div className="flex min-w-0 items-center gap-2">
                 <span className="flex-none text-[8.5px] uppercase tracking-[0.18em] text-slate-500">
                   {labels.task}
@@ -993,6 +997,7 @@ export function AiPipMonitor({
                 type="button"
                 onClick={onContinue}
                 disabled={resumeBusy}
+                // 豁免类别: 恢复按钮的品牌琥珀效果光(rgba(245,158,11) 同色系发光,非 elevation)
                 className="inline-flex h-7 flex-none items-center gap-1 rounded-md bg-amber-400 px-2.5 text-[10px] font-semibold text-[#1b1305] shadow-[0_4px_16px_rgba(245,158,11,0.28)] transition-colors hover:bg-amber-300 disabled:opacity-50"
               >
                 <Play className="h-2.5 w-2.5" />

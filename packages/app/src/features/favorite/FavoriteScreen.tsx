@@ -198,7 +198,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     tabActive: { backgroundColor: tk.brand.cta },
     tabText: { fontSize: rnType.body.size, color: tk.text.secondary },
-    tabTextActive: { color: tk.surface.light, fontWeight: '600' },
+    tabTextActive: { color: tk.brand.ctaForeground, fontWeight: '600' },
     listBody: { padding: rnSpacing['sm-loose'], paddingBottom: rnSpacing['3xl'] },
     separator: { height: 12 },
     footer: { alignItems: 'center', paddingVertical: rnSpacing.lg },
