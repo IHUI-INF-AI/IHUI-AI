@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 
 import { MasterChatPanel } from './MasterChatPanel'
+import { MasterRunControlPanel } from './MasterRunControlPanel'
 
 interface DefinitionView {
   id: string
@@ -227,6 +228,10 @@ export function MasterRegistryConsole() {
 
       <div className="mb-6">
         <MasterChatPanel />
+      </div>
+
+      <div className="mb-6">
+        <MasterRunControlPanel />
       </div>
 
       {(error || notice) && (
