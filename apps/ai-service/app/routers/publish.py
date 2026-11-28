@@ -2263,9 +2263,15 @@ async def monitor_metrics_summary(
                    COALESCE(SUM(l.likes), 0)::bigint AS likes,
                    COALESCE(SUM(l.comments), 0)::bigint AS comments,
                    COALESCE(SUM(l.shares), 0)::bigint AS shares
-            FROM latest l JOIN publish_tasks t ON t.task_id = l.task_id
-            WHERE t.user_id = $1
-              AND l.collected_at >= NOW() - make_interval(days => $2)
+            FROM latest l
+            WHERE l.collected_at >= NOW() - make_interval(days => $2)
+              AND (
+                EXISTS (SELECT 1 FROM publish_tasks t WHERE t.task_id = l.task_id AND t.user_id = $1)
+                OR EXISTS (
+                  SELECT 1 FROM publish_history h
+                  WHERE h.task_id = l.task_id AND h.platform = l.platform AND h.user_id = $1
+                )
+              )
             GROUP BY l.platform
             ORDER BY views DESC
             """,
@@ -2285,8 +2291,15 @@ async def monitor_metrics_summary(
                    COALESCE(SUM(likes), 0)::bigint AS likes,
                    COALESCE(SUM(comments), 0)::bigint AS comments,
                    COALESCE(SUM(shares), 0)::bigint AS shares
-            FROM daily JOIN publish_tasks t ON t.task_id = daily.task_id
-            WHERE t.user_id = $1 AND d >= NOW() - make_interval(days => $2)
+            FROM daily
+            WHERE d >= NOW() - make_interval(days => $2)
+              AND (
+                EXISTS (SELECT 1 FROM publish_tasks t WHERE t.task_id = daily.task_id AND t.user_id = $1)
+                OR EXISTS (
+                  SELECT 1 FROM publish_history h
+                  WHERE h.task_id = daily.task_id AND h.platform = daily.platform AND h.user_id = $1
+                )
+              )
             GROUP BY d ORDER BY d
             """,
             user_id, days,
