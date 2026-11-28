@@ -27,6 +27,7 @@ from ...core.internal_ticket import (
 )
 from ..agent_run_cancel_bus import (
     request_remote_cancel,
+    request_remote_steer,
     start_remote_cancel_watch,
     stop_remote_cancel_watch,
 )
@@ -532,6 +533,18 @@ class AgentOpsTool:
                 "outcome": "steered",
                 "changed": True,
                 "delivery": "next_iteration",
+            }
+        run_status = str(run.get("status") or "") if isinstance(run, dict) else ""
+        if run_status == "running" and await request_remote_steer(run_id, message):
+            # 请求落在没有该 run 控制句柄的实例：写 Redis 队列，由执行实例的
+            # watcher 在下一轮 LLM 前注入。这里如实回报 queued，不冒充已注入。
+            return {
+                "runId": run_id,
+                "sessionId": session_id,
+                "outcome": "queued",
+                "changed": True,
+                "delivery": "next_iteration",
+                "remote": True,
             }
         woken = await wake_session(session_id, owner_user_id=user_id, text=message)
         return {"runId": run_id, "sessionId": session_id, **woken}

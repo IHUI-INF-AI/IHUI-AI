@@ -27,6 +27,7 @@ from typing import Any
 from ..core.config import settings
 from .agent_task_registry import (
     cancel_tasks,
+    request_local_steer,
     request_local_stop,
     run_task_key,
     session_task_key,
@@ -35,6 +36,7 @@ from .agent_task_registry import (
 logger = logging.getLogger(__name__)
 
 _KEY_PREFIX = "ihui:agent:run-cancel:"
+_STEER_KEY_PREFIX = "ihui:agent:run-steer:"
 _DEFAULT_TTL_SECONDS = 300.0
 _DEFAULT_POLL_INTERVAL_SECONDS = 0.5
 
@@ -44,6 +46,11 @@ _client_lock = asyncio.Lock()
 
 def cancel_key(run_id: str) -> str:
     return f"{_KEY_PREFIX}{run_id}"
+
+
+def steer_key(run_id: str) -> str:
+    return f"{_STEER_KEY_PREFIX}{run_id}"
+
 
 
 async def _get_client() -> Any | None:
@@ -103,6 +110,59 @@ async def request_remote_cancel(
         return False
 
 
+async def request_remote_steer(
+    run_id: str,
+    text: str,
+    *,
+    ttl_seconds: float = _DEFAULT_TTL_SECONDS,
+) -> bool:
+    """把一条 steer 文本写进跨实例队列；返回 False 表示 Redis 不可用。
+
+    用 list 而不是单 key：同一 run 可能连续收到多条引导，执行侧按 FIFO 消费；
+    每条都保留到 TTL，watcher 晚启动也不会丢。
+    """
+    if not run_id or not text.strip():
+        return False
+    client = await _get_client()
+    if client is None:
+        return False
+    key = steer_key(run_id)
+    try:
+        await client.rpush(key, text.strip())
+        await client.expire(key, max(1, int(ttl_seconds)))
+        logger.info("[run-cancel-bus] remote steer queued run=%s", run_id)
+        return True
+    except Exception as error:  # noqa: BLE001
+        logger.warning("[run-cancel-bus] remote steer request failed run=%s: %s", run_id, error)
+        return False
+
+
+async def _drain_remote_steers(client: Any, run_id: str) -> int:
+    """把队列里的 steer 逐条交给本进程控制句柄；返回成功注入条数。
+
+    控制句柄暂时不可接收（暂停中/收尾中）时不消费、直接退出，让文本留在
+    Redis 等下一轮；绝不能 pop 后丢掉。
+    """
+    accepted = 0
+    while True:
+        try:
+            value = await client.lpop(steer_key(run_id))
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:  # noqa: BLE001 -- 轮询失败不能把执行任务带崩
+            logger.debug("[run-cancel-bus] steer poll failed run=%s: %s", run_id, error)
+            return accepted
+        if not value:
+            return accepted
+        if not request_local_steer(run_id, str(value)):
+            # 放回队首，保留原顺序；下一轮再试。
+            with contextlib.suppress(Exception):
+                await client.lpush(steer_key(run_id), value)
+            return accepted
+        accepted += 1
+        logger.info("[run-cancel-bus] remote steer applied run=%s", run_id)
+
+
 async def watch_remote_cancel(
     run_id: str,
     session_id: str = "",
@@ -155,6 +215,7 @@ async def watch_remote_cancel(
                 result.get("pending"),
             )
             return
+        await _drain_remote_steers(client, run_id)
         await asyncio.sleep(interval)
 
 

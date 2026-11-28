@@ -697,6 +697,48 @@ async def test_run_talk_prefers_local_steer(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 @pytest.mark.asyncio
+async def test_run_talk_queues_remote_steer_when_local_miss(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(ops_module, "request_local_steer", lambda _run_id, _text: False)
+    queued: list[tuple[str, str]] = []
+
+    async def fake_remote(run_id: str, text: str) -> bool:
+        queued.append((run_id, text))
+        return True
+
+    monkeypatch.setattr(ops_module, "request_remote_steer", fake_remote)
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "code": 0,
+                "data": {
+                    "action": "run_get",
+                    "result": {
+                        "id": "run-remote",
+                        "status": "running",
+                        "sessionId": "session-remote",
+                        "mode": "single",
+                    },
+                },
+            },
+        )
+
+    envelope = await _tool(handler).handle(
+        {"action": "run_talk", "runId": "run-remote", "message": "补充风险点"},
+        user_id="user-1",
+    )
+
+    assert envelope["ok"] is True
+    assert envelope["data"]["outcome"] == "queued"
+    assert envelope["data"]["remote"] is True
+    assert envelope["data"]["delivery"] == "next_iteration"
+    assert queued == [("run-remote", "补充风险点")]
+
+
+@pytest.mark.asyncio
 async def test_health_is_passthrough() -> None:
     def handler(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"code": 0, "data": {"action": "health", "result": {"ok": True}}})

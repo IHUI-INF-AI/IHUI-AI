@@ -46,6 +46,51 @@ async def test_request_remote_cancel_writes_payload_and_ttl(
 
 
 @pytest.mark.asyncio
+async def test_request_remote_steer_queues_text_and_ttl(
+    fake_redis: fakeredis.aioredis.FakeRedis,
+) -> None:
+    ok = await bus.request_remote_steer("run-steer", "补充风险点", ttl_seconds=120)
+
+    assert ok is True
+    assert await fake_redis.lrange(bus.steer_key("run-steer"), 0, -1) == ["补充风险点"]
+    ttl = await fake_redis.ttl(bus.steer_key("run-steer"))
+    assert 0 < ttl <= 120
+
+
+@pytest.mark.asyncio
+async def test_watcher_drains_remote_steer_into_local_control(
+    fake_redis: fakeredis.aioredis.FakeRedis,
+) -> None:
+    received = asyncio.Event()
+
+    class Control:
+        def __init__(self) -> None:
+            self.texts: list[str] = []
+
+        def request_stop(self) -> None:
+            pass
+
+        def steer(self, text: str) -> bool:
+            self.texts.append(text)
+            received.set()
+            return True
+
+    control = Control()
+    register_run_control("run-steer-watch", control)
+    watcher = asyncio.create_task(
+        bus.watch_remote_cancel("run-steer-watch", "session-steer", interval=0.01)
+    )
+    try:
+        await fake_redis.rpush(bus.steer_key("run-steer-watch"), "补充风险点")
+        await asyncio.wait_for(received.wait(), timeout=1.5)
+        assert control.texts == ["补充风险点"]
+        assert await fake_redis.llen(bus.steer_key("run-steer-watch")) == 0
+    finally:
+        await bus.stop_remote_cancel_watch(watcher)
+        unregister_run_control("run-steer-watch", control)
+
+
+@pytest.mark.asyncio
 async def test_watcher_cancels_registered_task_and_removes_key(
     fake_redis: fakeredis.aioredis.FakeRedis,
 ) -> None:
