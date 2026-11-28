@@ -268,14 +268,14 @@ describe('WorkBuddy 一键重置页', () => {
     let push: ((ev: { layer: number; done: number; total: number; item: string }) => void) | undefined
     vi.mocked(workbuddyResetMaintenance).mockImplementationOnce(async (_k, onP) => {
       push = onP as typeof push
-      await new Promise((r) => setTimeout(r, 30))
+      await new Promise((r) => setTimeout(r, 500))
       return { layers: [{ layer: 1, name: 'maintenance_clean', ok: true, detail: 'x' }] }
     })
     render(<WorkbuddyResetPage />)
     fireEvent.click(await screen.findByText('maintCta'))
     await waitFor(() => expect(push).toBeTruthy())
     act(() => push!({ layer: 1, done: 1, total: 2, item: 'logs/20261010/main.log' }))
-    expect(screen.getByText('progressLabel')).toBeTruthy()
+    await waitFor(() => expect(screen.getByText('progressLabel')).toBeTruthy())
     expect(screen.getByText('logs/20261010/main.log')).toBeTruthy()
     expect(screen.getByText('1/2')).toBeTruthy()
     // 完成后进度卡撤下

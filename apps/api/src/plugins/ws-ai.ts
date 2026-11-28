@@ -22,6 +22,8 @@ import { releasePointsHold } from '../services/points-service.js'
 import { estimateTokens } from '../services/context-manager-service.js'
 import { resolveDefaultChatModel } from '../utils/retired-providers.js'
 import { findAgentByAgentId } from '../db/agents-queries.js'
+import { db } from '../db/index.js'
+import { cozeChatHistory } from '@ihui/database'
 
 /**
  * F-461:消息收发时刷新 ws-auto-recovery 的活动时间(内存时间戳,轻量、不落库)。
@@ -1414,6 +1416,9 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
             if (!conversationId) conversationId = `local_${randomUUID()}`
             const historyKey = `${userId}:${reqBotId}`
             const history = localChatHistories.get(historyKey) ?? []
+            // 2026-11-28 完全弃用 Coze 后的本地计费：与 /chat/stream、WS capability 同口径预扣，
+            // 避免 /ws/coze/chat 成为绕过计费的免费口子。
+            const billingReference = `ws-coze:${userId}:${randomUUID()}`
             // system 人格双写：messages[0] + system_prompt 字段（两条路都验证过 ai-service 生效），
             // 另打一条结构化日志便于线上核对 prompt 是否取到。
             const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = []
@@ -1427,6 +1432,28 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
             server.log.info(
               `ws-coze 本地执行 agentId=${meta?.agentId ?? 'none'} promptLen=${systemPrompt.length} model=${localModel}`,
             )
+
+            // 预扣积分（同 provider 通道口径）
+            const billing = await reserveLlmPoints({
+              userId,
+              modelId: localModel,
+              promptTokens: Math.max(1, estimateTokens(messages.map((m) => m.content).join('\n'))),
+              maxCompletionTokens: DEFAULT_MAX_COMPLETION_TOKENS,
+              source: 'llm_chat',
+              referenceId: billingReference,
+            }).catch((e) => {
+              server.log.error({ err: e, userId }, 'ws-coze 积分预检异常')
+              return null
+            })
+            if (!billing?.ok) {
+              stopHeartbeat()
+              send(socket, {
+                code: billing?.status ?? 503,
+                event: 'conversation.chat.failed',
+                message: billing?.message ?? '积分服务暂不可用,请稍后重试',
+              })
+              return
+            }
 
             const resp = await aiServiceFetchStream(request, '/api/llm/complete/stream', {
               method: 'POST',
@@ -1503,6 +1530,29 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
             history.push({ role: 'user', content: queryText })
             if (fullAnswer) history.push({ role: 'assistant', content: fullAnswer })
             localChatHistories.set(historyKey, history.slice(-24))
+            // 2026-11-28:会话历史落库（进程重启不再丢），并结算本轮积分（同 provider 通道口径）
+            try {
+              await db.insert(cozeChatHistory).values([
+                { botId: reqBotId, conversationId, role: 'user', content: queryText },
+                { botId: reqBotId, conversationId, role: 'assistant', content: fullAnswer || '(empty)' },
+              ])
+            } catch (e) {
+              server.log.warn({ err: e, userId, conversationId }, 'ws-coze 会话历史落库失败(已忽略)')
+            }
+            try {
+              await settleLlmPointsUsage({
+                userId,
+                modelId: localModel,
+                promptTokens: Math.max(1, estimateTokens(messages.map((m) => m.content).join('\n'))),
+                completionTokens: Math.max(1, estimateTokens(fullAnswer)),
+                source: 'llm_chat',
+                description: `WS coze-local ${localModel}`,
+                referenceId: billingReference,
+                holdReferenceId: billingReference,
+              })
+            } catch (e) {
+              server.log.error({ err: e, userId, billingReference }, 'ws-coze 积分结算失败')
+            }
             send(socket, {
               code: 200,
               msg: 'success',
@@ -1511,6 +1561,11 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
             })
           } catch (e) {
             stopHeartbeat()
+            await releasePointsHold({
+              userId,
+              source: 'llm_chat',
+              referenceId: billingReference,
+            }).catch(() => undefined)
             send(socket, {
               code: 500,
               event: 'conversation.chat.failed',

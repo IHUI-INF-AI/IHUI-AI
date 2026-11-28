@@ -2227,6 +2227,7 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-28**
+- 🚀 機能/改善:/ws/coze/chat 本地执行接积分预扣/结算 + 会话历史落库 (ed5a640e7)
 - 🐞 修正:本地执行人格改走 system_prompt 置顶注入（messages 仅对话，避免被注入链覆盖） (3cbf0ccafa)
 - 🚀 機能/改善:/ws/coze/chat 切本地 LLM 执行，完全弃用 Coze 后端（人格取 agent_prompt，历史进程内维护） (1fa02efdf2)
 - 🔧 その他:accept provenance watermark on MCP 2026 test (9d57f17940)
