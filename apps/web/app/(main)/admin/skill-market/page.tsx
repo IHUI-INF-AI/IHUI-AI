@@ -12,6 +12,7 @@ import {
   BarChart3,
   ChevronLeft,
   ChevronRight,
+  Download,
   List,
   Loader2,
   RotateCcw,
@@ -26,7 +27,7 @@ import type {
   SkillMarketSettlementResponse,
   SkillPurchaseRefundResponse,
 } from '@ihui/shared/skills/market'
-import { apiOrThrow } from '@/lib/api'
+import { apiOrThrow, fetchRaw } from '@/lib/api'
 
 const PAGE_SIZE = 20
 
@@ -102,6 +103,13 @@ function SettlementPanel({
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-title font-semibold">账期：{data.period.month ?? '全部账期'}</div>
+        <div className="text-label text-muted-foreground">
+          {data.period.month ? '按下单时间归期（Asia/Shanghai 自然月）' : '累计全部账期'}
+        </div>
+      </div>
+
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => (
           <div key={card.label} className="rounded-lg border bg-card p-4">
@@ -177,6 +185,9 @@ function SettlementPanel({
 export default function AdminSkillMarketPage() {
   const qc = useQueryClient()
   const [view, setView] = React.useState<'purchases' | 'settlement'>('purchases')
+  const [month, setMonth] = React.useState('')
+  const [exporting, setExporting] = React.useState(false)
+  const [exportError, setExportError] = React.useState<string | null>(null)
   const [status, setStatus] = React.useState<'all' | 'paid' | 'refunded'>('all')
   const [keywordInput, setKeywordInput] = React.useState('')
   const [keyword, setKeyword] = React.useState('')
@@ -199,10 +210,35 @@ export default function AdminSkillMarketPage() {
   })
 
   const settlementQuery = useQuery({
-    queryKey: ['admin', 'skill-market', 'settlement'],
-    queryFn: () => apiOrThrow<SkillMarketSettlementResponse>('/api/admin/skills-market/settlement'),
+    queryKey: ['admin', 'skill-market', 'settlement', month],
+    queryFn: () => {
+      const qs = month ? `?month=${encodeURIComponent(month)}` : ''
+      return apiOrThrow<SkillMarketSettlementResponse>(`/api/admin/skills-market/settlement${qs}`)
+    },
     enabled: view === 'settlement',
   })
+
+  const exportSettlement = async () => {
+    setExporting(true)
+    setExportError(null)
+    try {
+      const qs = month ? `?month=${encodeURIComponent(month)}` : ''
+      const blob = await fetchRaw(`/api/admin/skills-market/settlement/export${qs}`)
+      const filename = month
+        ? `skill-market-settlement-${month}.csv`
+        : `skill-market-settlement-all-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.csv`
+      const objectUrl = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = objectUrl
+      link.download = filename
+      link.click()
+      URL.revokeObjectURL(objectUrl)
+    } catch (err) {
+      setExportError((err as Error).message || '结算单导出失败')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const refundMutation = useMutation({
     mutationFn: async (input: { id: string; reason: string }) =>
@@ -284,6 +320,41 @@ export default function AdminSkillMarketPage() {
           结算汇总
         </Button>
       </div>
+
+      {view === 'settlement' && (
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="text-body text-muted-foreground" htmlFor="settlement-month">
+            账期
+          </label>
+          <input
+            id="settlement-month"
+            type="month"
+            className="h-9 rounded-md border bg-background px-3 text-body"
+            value={month}
+            onChange={(e) => {
+              setMonth(e.target.value)
+              setExportError(null)
+            }}
+          />
+          {month && (
+            <Button variant="outline" size="sm" onClick={() => setMonth('')}>
+              全部账期
+            </Button>
+          )}
+          <Button size="sm" onClick={() => void exportSettlement()} disabled={exporting}>
+            {exporting ? (
+              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-1 h-4 w-4" />
+            )}
+            导出 CSV
+          </Button>
+          {exportError && <span className="text-body text-destructive">{exportError}</span>}
+          <span className="text-label text-muted-foreground">
+            {month ? '按下单时间归期' : '全部账期'}
+          </span>
+        </div>
+      )}
 
       {view === 'settlement' ? (
         <SettlementPanel

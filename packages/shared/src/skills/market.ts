@@ -227,10 +227,20 @@ export interface SkillMarketSettlementRow extends SkillMarketSettlementTotals {
   sellerNickname: string | null
 }
 
+/** 结算归期：按月下单时间归集；month=null 表示全部账期。 */
+export interface SkillMarketSettlementPeriod {
+  month: string | null
+  /** 账期起点（含），ISO 字符串；全部账期时为 null。 */
+  from: string | null
+  /** 账期终点（不含），ISO 字符串；全部账期时为 null。 */
+  to: string | null
+}
+
 export interface SkillMarketSettlementResponse {
   summary: SkillMarketSettlementTotals
   items: SkillMarketSettlementRow[]
   currency: 'CNY'
+  period: SkillMarketSettlementPeriod
 }
 
 /** 作者收益汇总(GET /skills/market/earnings)。 */

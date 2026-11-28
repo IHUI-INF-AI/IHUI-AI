@@ -14,7 +14,7 @@
  * - 购买账本先以唯一键 `(buyer_user_id, skill_name)` 抢占，重复购买不再扣款；
  * - 余额不足抛 `InsufficientSkillFundsError`，整个事务回滚（不会留下半笔账）。
  */
-import { and, desc, eq, ilike, or, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, ilike, lt, or, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { db } from '../db/index.js'
 import { createCommissionFlow } from '../db/commission-queries.js'
@@ -27,6 +27,7 @@ import {
 } from '@ihui/database'
 import type {
   SkillMarketEntry,
+  SkillMarketSettlementPeriod,
   SkillMarketSettlementResponse,
   SkillMarketSettlementRow,
   SkillMarketSettlementTotals,
@@ -403,11 +404,42 @@ function settlementInt(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
+const SETTLEMENT_MONTH_RE = /^(\d{4})-(0[1-9]|1[0-2])$/
+
+/** 账期按 Asia/Shanghai 自然月切分，返回 UTC 时间边界（前端不要自行推算）。 */
+export function getSettlementMonthBounds(month: string): { start: Date; end: Date } {
+  const match = SETTLEMENT_MONTH_RE.exec(month)
+  if (!match) throw new Error(`无效账期: ${month}`)
+  const year = Number(match[1])
+  const monthNo = Number(match[2])
+  // UTC+8 的月初 00:00 = 前一日 UTC 16:00；Date.UTC 的 month 参数可跨年。
+  const start = new Date(Date.UTC(year, monthNo - 1, 1) - 8 * 60 * 60 * 1000)
+  const end = new Date(Date.UTC(year, monthNo, 1) - 8 * 60 * 60 * 1000)
+  return { start, end }
+}
+
+export function resolveSettlementPeriod(month?: string): SkillMarketSettlementPeriod {
+  if (!month) return { month: null, from: null, to: null }
+  const { start, end } = getSettlementMonthBounds(month)
+  return { month, from: start.toISOString(), to: end.toISOString() }
+}
+
 /**
  * 管理员结算汇总：按 技能 + 卖家 聚合购买账本。
  * 查询只做原始聚合，净额统一走 computeSkillSettlementTotals，保证列表与总额同口径。
+ * month 归期口径 = 下单时间；退款沿用原购买行的下单月份，不按退款时间二次归期。
  */
-export async function getSkillMarketSettlement(): Promise<SkillMarketSettlementResponse> {
+export async function getSkillMarketSettlement(input?: {
+  month?: string
+}): Promise<SkillMarketSettlementResponse> {
+  const period = resolveSettlementPeriod(input?.month)
+  const monthScope = period.month
+    ? and(
+        gte(skillMarketPurchases.createdAt, new Date(period.from as string)),
+        lt(skillMarketPurchases.createdAt, new Date(period.to as string)),
+      )
+    : undefined
+
   const rows = await db
     .select({
       skillName: skillMarketPurchases.skillName,
@@ -426,6 +458,7 @@ export async function getSkillMarketSettlement(): Promise<SkillMarketSettlementR
     })
     .from(skillMarketPurchases)
     .leftJoin(sellerUser, eq(skillMarketPurchases.sellerUserId, sellerUser.id))
+    .where(monthScope)
     .groupBy(skillMarketPurchases.skillName, skillMarketPurchases.sellerUserId, sellerUser.nickname)
     .orderBy(sql`COALESCE(SUM(${skillMarketPurchases.priceCents}), 0) DESC`)
 
@@ -474,7 +507,7 @@ export async function getSkillMarketSettlement(): Promise<SkillMarketSettlementR
     },
   )
 
-  return { summary, items, currency: 'CNY' }
+  return { summary, items, currency: 'CNY', period }
 }
 
 export class SkillPurchaseStateError extends Error {

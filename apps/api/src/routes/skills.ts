@@ -46,6 +46,10 @@ import {
   refundSkillPurchase,
   resolveSkillAuthorShareBps,
 } from '../services/skill-market-purchase-service.js'
+import {
+  buildSkillMarketSettlementCsv,
+  settlementCsvFilename,
+} from '../services/skill-settlement-csv.js'
 import { checkAuth } from '../plugins/auth.js'
 import { authorizeInternalSecretCall } from '../plugins/internal-secret-auth.js'
 import { db } from '../db/index.js'
@@ -1016,13 +1020,54 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
   )
 
   // GET /admin/skills-market/settlement — 按技能+卖家聚合成交、分成、退款与平台承担。
-  // 只读；金额单位均为分，净额口径由服务层统一计算。
+  // 只读；金额单位均为分，净额口径由服务层统一计算。month=YYYY-MM 按下单时间归期。
   server.get(
     '/admin/skills-market/settlement',
     { preHandler: requireAdmin },
-    async (_request, reply) => {
-      const result: SkillMarketSettlementResponse = await getSkillMarketSettlement()
+    async (request, reply) => {
+      const parsed = z
+        .object({
+          month: z
+            .string()
+            .regex(/^\d{4}-(0[1-9]|1[0-2])$/, '账期格式必须为 YYYY-MM')
+            .optional(),
+        })
+        .safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const result: SkillMarketSettlementResponse = await getSkillMarketSettlement({
+        month: parsed.data.month,
+      })
       return reply.send(success(result))
+    },
+  )
+
+  // GET /admin/skills-market/settlement/export — 下载同一口径的 CSV 结算单。
+  // 带 UTF-8 BOM；文件名只含 ASCII，避免部分浏览器把中文名截断。
+  server.get(
+    '/admin/skills-market/settlement/export',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const parsed = z
+        .object({
+          month: z
+            .string()
+            .regex(/^\d{4}-(0[1-9]|1[0-2])$/, '账期格式必须为 YYYY-MM')
+            .optional(),
+        })
+        .safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const data = await getSkillMarketSettlement({ month: parsed.data.month })
+      const filename = settlementCsvFilename(data.period.month)
+      return reply
+        .header('Content-Type', 'text/csv; charset=utf-8')
+        .header('Content-Disposition', `attachment; filename="${filename}"`)
+        .header('Cache-Control', 'no-store')
+        .header('X-Content-Type-Options', 'nosniff')
+        .send(buildSkillMarketSettlementCsv(data))
     },
   )
 
