@@ -65,6 +65,7 @@ describe('MasterRegistryConsole', () => {
     })
 
     render(<MasterRegistryConsole />)
+    fireEvent.click(screen.getByRole('button', { name: '智能体注册表' }))
 
     await screen.findByText('写作助手')
     expect(screen.getByText('50%')).toBeTruthy()
@@ -93,6 +94,7 @@ describe('MasterRegistryConsole', () => {
     })
 
     render(<MasterRegistryConsole />)
+    fireEvent.click(screen.getByRole('button', { name: '智能体注册表' }))
     await screen.findByText('写作助手')
     fireEvent.click(screen.getByRole('button', { name: '版本' }))
 
@@ -129,6 +131,7 @@ describe('MasterRegistryConsole', () => {
     })
 
     render(<MasterRegistryConsole />)
+    fireEvent.click(screen.getByRole('button', { name: '智能体注册表' }))
     await screen.findByText('写作助手')
     fireEvent.click(screen.getByRole('button', { name: '删除' }))
 

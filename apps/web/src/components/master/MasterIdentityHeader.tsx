@@ -2,14 +2,16 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 
 /**
- * 总管身份头（2026-11-28 立）。
+ * 总管身份卡（2026-11-28 Trae 式重做）。
  *
- * 产品名默认「总管」，但每个用户可以给“自己的总智能体”改名。改名只影响
- * 展示与自称；master.md 的固定人格、三工具和审批纪律不在这里改写。
+ * 参照 TRAE 宝的工作台工牌：浅色证件卡 + 像素头像 + 编号，在深色三栏里只做
+ * “身份”这一件事。名字可内联改；改名只影响展示与自称，不改 master.md 的
+ * 固定人格、三工具和审批纪律。
  */
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { Pencil, Plus, RotateCcw } from 'lucide-react'
 
 interface MasterIdentityHeaderProps {
   name: string
@@ -105,121 +107,121 @@ export function MasterIdentityHeader({
   const initial = Array.from(name)[0] ?? '总'
 
   return (
-    <section className="relative overflow-hidden rounded-[28px] border border-slate-800/80 bg-slate-950 px-5 py-5 text-white shadow-[0_24px_70px_-34px_rgba(15,23,42,0.8)] sm:px-7 sm:py-6">
-      <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-emerald-500/20 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-28 left-1/3 h-64 w-64 rounded-full bg-sky-500/10 blur-3xl" />
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(148,163,184,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.06)_1px,transparent_1px)] bg-[size:36px_36px] [mask-image:linear-gradient(to_bottom,black,transparent_80%)]" />
-
+    <section className="px-3 pt-4">
       <div className="relative">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex min-w-0 items-start gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-emerald-300/30 bg-gradient-to-br from-emerald-400 to-teal-600 text-2xl font-semibold text-slate-950 shadow-lg shadow-emerald-950/40">
+        <div className="mx-auto mb-[-7px] h-4 w-9 rounded-t-md border border-white/10 bg-[#252a32]" />
+        <div className="relative overflow-hidden rounded-[14px] bg-[#e8e5dc] px-3.5 pb-3.5 pt-4 text-[#14171c] shadow-[0_18px_50px_-22px_rgba(0,0,0,0.9)]">
+          <div className="absolute right-3 top-3 font-mono text-[8px] tracking-[0.16em] text-black/30">
+            IHUI-AI
+          </div>
+          <div className="flex items-start gap-3 pr-8">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[10px] border border-black/10 bg-[#101318] text-[19px] font-semibold text-emerald-300">
               {initial}
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-emerald-300/80">
+              <p className="text-[8px] font-semibold uppercase tracking-[0.2em] text-black/45">
                 Your master agent
               </p>
-              {editing ? (
-                <div className="mt-1 flex flex-wrap items-center gap-2">
-                  <input
-                    ref={inputRef}
-                    value={draft}
-                    onChange={(event) => setDraft(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        event.preventDefault()
-                        void save()
-                      }
-                      if (event.key === 'Escape') cancelEdit()
-                    }}
-                    maxLength={maxLength}
-                    aria-label="总智能体名字"
-                    className="w-52 rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-2xl font-semibold text-white outline-none placeholder:text-white/40 focus:border-emerald-300"
-                  />
-                  <button
-                    type="button"
-                    disabled={saving}
-                    onClick={() => void save()}
-                    className="rounded-xl bg-emerald-400 px-3 py-2 text-xs font-semibold text-slate-950 disabled:opacity-50"
-                  >
-                    {saving ? '保存中' : '保存'}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={saving}
-                    onClick={cancelEdit}
-                    className="rounded-xl border border-white/20 px-3 py-2 text-xs text-white/80 disabled:opacity-50"
-                  >
-                    取消
-                  </button>
-                  {name !== defaultName && (
-                    <button
-                      type="button"
-                      disabled={saving}
-                      onClick={() => void reset()}
-                      className="text-xs text-white/50 underline-offset-4 hover:text-white hover:underline disabled:opacity-50"
-                    >
-                      恢复默认「{defaultName}」
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div className="mt-1 flex flex-wrap items-center gap-3">
-                  <h1 className="truncate text-3xl font-semibold tracking-tight sm:text-4xl">
-                    {name}
-                  </h1>
-                  <button
-                    type="button"
-                    onClick={beginEdit}
-                    className="rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[11px] text-white/70 transition hover:border-white/30 hover:text-white"
-                  >
-                    重命名
-                  </button>
-                </div>
-              )}
-              <p className="mt-2 max-w-xl text-sm leading-6 text-slate-300">
-                你的智能体总控。能注册、派发、暂停、续跑、记事；删除与回滚必须走审批。
+              <h1 className="mt-0.5 break-words text-[19px] font-semibold leading-tight tracking-tight">
+                {name}
+              </h1>
+              <p className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-black/35">
+                No.001 · Master control
               </p>
             </div>
           </div>
-
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[11px] text-emerald-200">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
-            在线
-          </span>
+          <div className="mt-3 flex items-center justify-between border-t border-black/10 pt-2.5">
+            <span className="inline-flex items-center gap-1.5 text-[10px] text-black/55">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
+              全局总控 · 在线
+            </span>
+            <button
+              type="button"
+              onClick={beginEdit}
+              className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[10px] text-black/50 transition hover:bg-black/5 hover:text-black"
+            >
+              <Pencil className="h-3 w-3" />
+              重命名
+            </button>
+          </div>
         </div>
+      </div>
 
-        {error && (
-          <p className="mt-3 rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">
-            {error}
-          </p>
-        )}
+      {editing && (
+        <div className="mt-3 rounded-lg border border-white/[0.08] bg-[#12151a] p-2.5">
+          <input
+            ref={inputRef}
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                void save()
+              }
+              if (event.key === 'Escape') cancelEdit()
+            }}
+            maxLength={maxLength}
+            aria-label="总智能体名字"
+            className="w-full rounded-md border border-white/10 bg-[#0c0e12] px-2.5 py-2 text-sm text-white outline-none placeholder:text-white/25 focus:border-emerald-400/40"
+          />
+          <div className="mt-2 flex items-center gap-2">
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void save()}
+              className="rounded-md bg-emerald-400 px-2.5 py-1.5 text-[11px] font-medium text-[#08110c] disabled:opacity-40"
+            >
+              {saving ? '保存中' : '保存'}
+            </button>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={cancelEdit}
+              className="rounded-md border border-white/10 px-2.5 py-1.5 text-[11px] text-white/60 disabled:opacity-40"
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      )}
 
-        <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-white/10 pt-4">
-          <MetaChip label="注册表" value={loading ? '…' : String(definitionCount)} />
-          <MetaChip label="待审批" value={loading ? '…' : String(approvalCount)} />
-          <MetaChip label="工具面" value="三件套固定" />
-          <MetaChip label="控制面" value="single run" />
-          <div className="flex-1" />
+      {error && <p className="mt-2 text-[11px] leading-4 text-red-300">{error}</p>}
+
+      <div className="mt-3 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-white/[0.07] bg-white/[0.07]">
+        <MetaStat label="注册表" value={loading ? '…' : String(definitionCount)} />
+        <MetaStat label="待审批" value={loading ? '…' : String(approvalCount)} />
+      </div>
+
+      <div className="mt-2 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onToggleCreate}
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-white/[0.08] bg-white/[0.03] px-2 py-1.5 text-[10px] text-white/55 transition hover:bg-white/[0.06] hover:text-white/80"
+        >
+          <Plus className="h-3 w-3" />
+          {creating ? '收起新建' : '新建定义'}
+        </button>
+        {name !== defaultName && (
           <button
             type="button"
-            onClick={onToggleCreate}
-            className="rounded-xl bg-white px-3.5 py-2 text-xs font-semibold text-slate-950 transition hover:bg-emerald-200"
+            disabled={saving}
+            onClick={() => void reset()}
+            className="inline-flex items-center gap-1 rounded-md px-1.5 py-1.5 text-[10px] text-white/35 transition hover:text-white/60 disabled:opacity-40"
           >
-            {creating ? '收起新建' : '新建定义'}
+            <RotateCcw className="h-3 w-3" />
+            恢复「{defaultName}」
           </button>
-        </div>
+        )}
       </div>
     </section>
   )
 }
 
-function MetaChip({ label, value }: { label: string; value: string }) {
+function MetaStat({ label, value }: { label: string; value: string }) {
   return (
-    <span className="inline-flex items-baseline gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px]">
-      <span className="text-slate-400">{label}</span>
-      <span className="font-medium text-slate-100">{value}</span>
-    </span>
+    <div className="bg-[#101318] px-3 py-2">
+      <p className="text-[9px] uppercase tracking-[0.12em] text-white/30">{label}</p>
+      <p className="mt-0.5 text-[15px] font-medium tabular-nums text-white/80">{value}</p>
+    </div>
   )
 }

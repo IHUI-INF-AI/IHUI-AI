@@ -200,6 +200,9 @@ const WebWorkPanel = React.memo(
  */
 export function GlobalShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  // 总管是独立 Agent 工作面：/master 让出整块工作区，不再被常驻 AI 侧栏压成 760px 卡片。
+  // 只影响这一条路由；离开后侧栏按 store 原状态恢复。
+  const isMasterWorkspace = pathname === '/master'
   const [mobileOpen, setMobileOpen] = React.useState(false)
   const t = useTranslations('a11y')
   // 静态 ID(非 useId),避免 React 18 useId 在 SSR/CSR 之间偶尔漂移导致 hydration mismatch。
@@ -406,30 +409,32 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
            - 桌面/普通浏览器 env()=0,dvh≈vh,样式完全不变。 */}
         <div className="flex h-dvh overflow-hidden pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
           {/* 左列:桌面端全高侧边栏(占据左上角,不再有 40px 顶部空) */}
-          <React.Suspense
-            // 2026-08-28 CLS 根治:此前 fallback={null},Sidebar 因内部 useSearchParams() 在
-            // 预渲染/挂起阶段不渲染,懒加载完成后才以 160px 宽度插入 flex 流,
-            // 把右列 work-area 从 x=0 全宽挤到 x=160 —— 一次性 0.30 CLS(web-vitals.spec.ts 实锤)。
-            // 修复:fallback 渲染等宽占位 aside,预留与真实 Sidebar 相同的空间:
-            // - width 引用 layout.tsx inline script 预设的 --sidebar-width(160-180,fallback 160;
-            //   折叠持久化时 inline script 预设 60px),与 sidebar.tsx 真实 aside 的宽度策略一致
-            // - data-viewport-collapsed="true" 复用 globals.css <1024px 强制 60px 规则,
-            //   移动端占位与真实 sidebar 行为字节级一致
-            // - bg-background 避免占位期间透出底色闪烁
-            fallback={
-              <aside
-                aria-hidden
-                // 与真实桌面侧栏同锚点:沉浸模式隐藏时占位也要一起收,否则留下 160px 空洞
-                data-main-sidebar=""
-                data-viewport-collapsed="true"
-                className="relative h-screen shrink-0 bg-background"
-                // fallback 宽度取几何档(不再写字面量 160px),与真实 Sidebar 同一来源
-                style={{ width: `var(--sidebar-width, ${SIDEBAR_WIDTH}px)` }}
-              />
-            }
-          >
-            <Sidebar id={sidebarId} mobileOpen={mobileOpen} onCloseMobile={handleCloseMobile} />
-          </React.Suspense>
+          {!isMasterWorkspace && (
+            <React.Suspense
+              // 2026-08-28 CLS 根治:此前 fallback={null},Sidebar 因内部 useSearchParams() 在
+              // 预渲染/挂起阶段不渲染,懒加载完成后才以 160px 宽度插入 flex 流,
+              // 把右列 work-area 从 x=0 全宽挤到 x=160 —— 一次性 0.30 CLS(web-vitals.spec.ts 实锤)。
+              // 修复:fallback 渲染等宽占位 aside,预留与真实 Sidebar 相同的空间:
+              // - width 引用 layout.tsx inline script 预设的 --sidebar-width(160-180,fallback 160;
+              //   折叠持久化时 inline script 预设 60px),与 sidebar.tsx 真实 aside 的宽度策略一致
+              // - data-viewport-collapsed="true" 复用 globals.css <1024px 强制 60px 规则,
+              //   移动端占位与真实 sidebar 行为字节级一致
+              // - bg-background 避免占位期间透出底色闪烁
+              fallback={
+                <aside
+                  aria-hidden
+                  // 与真实桌面侧栏同锚点:沉浸模式隐藏时占位也要一起收,否则留下 160px 空洞
+                  data-main-sidebar=""
+                  data-viewport-collapsed="true"
+                  className="relative h-screen shrink-0 bg-background"
+                  // fallback 宽度取几何档(不再写字面量 160px),与真实 Sidebar 同一来源
+                  style={{ width: `var(--sidebar-width, ${SIDEBAR_WIDTH}px)` }}
+                />
+              }
+            >
+              <Sidebar id={sidebarId} mobileOpen={mobileOpen} onCloseMobile={handleCloseMobile} />
+            </React.Suspense>
+          )}
 
           {/* 右列:flex-row 横向排列(AISidePanel + work-area + WebWorkPanel)
             2026-07-30 彻底根治:AISidePanel 从 fixed 改为 flex 子元素,
@@ -445,23 +450,25 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
             - flex 布局保证 AISidePanel 与 work-area-portal-root 永不重叠,TagsView 永不被压缩
             - --ai-panel-occupy CSS 变量仍同步到 :root(供 WebWorkPanel 计算最大可用宽度)
           */}
-            <React.Suspense
-              // 2026-08-28 CLS 根治:与 Sidebar 同模式。此前 fallback={null},AISidePanel 挂起期间
-              // 不占空间,挂载后以 width+6px(默认 386px)插入 flex 流,把 work-area 从 1120px
-              // 压到 734px —— 一次性 0.26 CLS。修复:fallback 渲染等宽占位:
-              // - width 引用 layout.tsx inline script 预设的 --ai-panel-width(读 localStorage
-              //   ihui-ai-panel state.width,范围 320-720,fallback 380),与真实面板宽度策略一致
-              // - hidden + min-[640px]:block 复制真实容器的响应式显隐(<640px 走浮窗不占 flex 空间)
-              // - mr-1.5 py-2 shrink-0 与真实容器(展开态)class 一致,占位与实体几何对齐
-              // - open 恒为 true(store merge 强制)、floatMode/workAreaCollapsed 恒为默认 false
-              //   (不持久化),首帧占位宽度与挂载后真实宽度必然一致
-              // 2026-09-30:改为复用 AiPanelPlaceholder 组件本体(此前是内联复制的一份
-              // 同形 div,两份几何会各自漂移)。注:next/dynamic 自带内层 Suspense 边界,
-              // 真正渲染的是 dynamic 的 loading 插槽;此处保留只为语义兜底与几何一致。
-              fallback={<AiPanelPlaceholder />}
-            >
-              <AISidePanel />
-            </React.Suspense>
+            {!isMasterWorkspace && (
+              <React.Suspense
+                // 2026-08-28 CLS 根治:与 Sidebar 同模式。此前 fallback={null},AISidePanel 挂起期间
+                // 不占空间,挂载后以 width+6px(默认 386px)插入 flex 流,把 work-area 从 1120px
+                // 压到 734px —— 一次性 0.26 CLS。修复:fallback 渲染等宽占位:
+                // - width 引用 layout.tsx inline script 预设的 --ai-panel-width(读 localStorage
+                //   ihui-ai-panel state.width,范围 320-720,fallback 380),与真实面板宽度策略一致
+                // - hidden + min-[640px]:block 复制真实容器的响应式显隐(<640px 走浮窗不占 flex 空间)
+                // - mr-1.5 py-2 shrink-0 与真实容器(展开态)class 一致,占位与实体几何对齐
+                // - open 恒为 true(store merge 强制)、floatMode/workAreaCollapsed 恒为默认 false
+                //   (不持久化),首帧占位宽度与挂载后真实宽度必然一致
+                // 2026-09-30:改为复用 AiPanelPlaceholder 组件本体(此前是内联复制的一份
+                // 同形 div,两份几何会各自漂移)。注:next/dynamic 自带内层 Suspense 边界,
+                // 真正渲染的是 dynamic 的 loading 插槽;此处保留只为语义兜底与几何一致。
+                fallback={<AiPanelPlaceholder />}
+              >
+                <AISidePanel />
+              </React.Suspense>
+            )}
             {/*
             work-area-portal-root:作为 TagsView 搜索弹层(TagsViewSearchButton) 的 portal 目标。
             overflow-hidden 裁剪搜索弹层 slide-in-from-top 动画的初始 translateY(-100%)。
@@ -495,9 +502,11 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
                   页面级自定义声明(useTopBarBack/<BackButton/>)优先,一级列表/营销/分享页不声明。
                   放 GlobalTopBar 旁挂载一次即可,/login 早退分支(上方)不经过此处。 */}
               <TopBarBackAutoRegister />
-              <React.Suspense fallback={null}>
-                <GlobalTopBarMemo mobileMenu={mobileMenuNode} />
-              </React.Suspense>
+              {!isMasterWorkspace && (
+                <React.Suspense fallback={null}>
+                  <GlobalTopBarMemo mobileMenu={mobileMenuNode} />
+                </React.Suspense>
+              )}
               {/* 2026-08-01 架构改动:WebWorkPanel 从右列独立区域改为嵌入 work-area 内覆盖 children
                 (用户规则:"不允许额外出来一个窗口,所有内容必须在工作内容展示区内展示")
                 - relative 容器包裹 children + WebWorkPanel

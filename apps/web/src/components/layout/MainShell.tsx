@@ -42,6 +42,7 @@ export function MainShell({ children }: { children: React.ReactNode }) {
   // 管不到这个自定义容器,所以必须在 pathname 变化时绘制前归零。
   // 用 useLayoutEffect(同 TabBar 先例):在浏览器绘制前复位,避免旧偏移闪一帧。
   const pathname = usePathname()
+  const isMasterWorkspace = pathname === '/master'
   const mainRef = React.useRef<HTMLElement | null>(null)
   React.useLayoutEffect(() => {
     const el = mainRef.current
@@ -67,14 +68,19 @@ export function MainShell({ children }: { children: React.ReactNode }) {
     //   详见 GlobalTopBar.tsx useEffect 注释。
     // - 历史根因:旧方案纯硬编码,依赖 mobileMenu 的 ml-1.5/w-9/gap-1,样式变化即失效
     //   → "反反复复修不好"。新方案动态测量根治。
-    <div className="flex min-h-0 flex-1 flex-col pb-2 pr-2 pl-[var(--topbar-content-left)] cursor-default">
+    <div
+      className="flex min-h-0 flex-1 flex-col pb-2 pr-2 pl-[var(--topbar-content-left)] cursor-default"
+      style={isMasterWorkspace ? { padding: 0 } : undefined}
+    >
       {/* 工作区卡片:仅包含 main 内容
           - bg-shell-panel rounded-xl 保持卡片视觉
           - flex-1 + min-h-0 填充剩余高度
           - overflow-hidden 裁剪子元素溢出 + 保持圆角不被覆盖
           - cursor-default:覆盖外层(工作区内是默认光标) */}
       <div
-        className="bg-shell-panel relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl cursor-default"
+        className={`bg-shell-panel relative flex min-h-0 flex-1 flex-col overflow-hidden cursor-default ${
+          isMasterWorkspace ? 'rounded-none' : 'rounded-xl'
+        }`}
         data-workspace-card
       >
         <main
@@ -106,9 +112,9 @@ export function MainShell({ children }: { children: React.ReactNode }) {
         >
           {/* 2026-08-01 全局错误通知条:从顶部滑下,常驻直到用户关闭
               (用户需求:internet server error 这种错误提示应该从页面上面滑下来,常驻直到错误解决) */}
-          <GlobalErrorBanner />
+          {!isMasterWorkspace && <GlobalErrorBanner />}
           {/* 2026-10-18 票85③ 连通性横幅:四态各画各的格,在线/没结论时不出现 */}
-          <ConnectivityBanner />
+          {!isMasterWorkspace && <ConnectivityBanner />}
           {children}
         </main>
       </div>
