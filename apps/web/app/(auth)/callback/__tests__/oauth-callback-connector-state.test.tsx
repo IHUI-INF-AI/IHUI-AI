@@ -92,9 +92,9 @@ describe('OAuth 回调 state 形状分流', () => {
     render(<OAuthCallbackHandler provider="generic" />)
 
     await waitFor(() => expect(h.fetchApi).toHaveBeenCalledTimes(1), { timeout: 3000 })
-    expect(h.fetchApi).toHaveBeenCalledWith('/api/callback/connectors/oauth', {
-      params: { code: 'auth-code', state },
-    })
+    expect(h.fetchApi).toHaveBeenCalledWith(
+      `/api/callback/connectors/oauth?${new URLSearchParams({ code: 'auth-code', state }).toString()}`,
+    )
     // 登录链路完全未被触发:否则会触发 consent 闸并丢弃 user_access_token
     expect(h.notifyExtensionAuth).not.toHaveBeenCalled()
     expect(h.fetchApi).not.toHaveBeenCalledWith('/api/auth/feishu/callback', expect.anything())
