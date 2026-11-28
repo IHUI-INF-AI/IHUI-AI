@@ -1408,10 +1408,16 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
             if (!conversationId) conversationId = `local_${randomUUID()}`
             const historyKey = `${userId}:${reqBotId}`
             const history = localChatHistories.get(historyKey) ?? []
-            // system 人格走 system_prompt 字段（ai-service 置顶注入），messages 只放对话，避免被注入链覆盖。
-            const messages: Array<{ role: 'user' | 'assistant'; content: string }> = []
+            // system 人格双写：messages[0] + system_prompt 字段（两条路都验证过 ai-service 生效），
+            // 另打一条结构化日志便于线上核对 prompt 是否取到。
+            const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = []
+            if (systemPrompt) messages.push({ role: 'system', content: systemPrompt })
             for (const h of history.slice(-12)) messages.push(h)
             messages.push({ role: 'user', content: queryText })
+            server.log.info(
+              { agentId: meta?.agentId, promptLen: systemPrompt.length, model: localModel, source: 'ws-coze-local' },
+              'ws-coze 本地执行',
+            )
 
             const resp = await aiServiceFetchStream(request, '/api/llm/complete/stream', {
               method: 'POST',

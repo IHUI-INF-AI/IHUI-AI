@@ -84,6 +84,7 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 ## Recent updates (auto-maintained)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-28**
+- 🐞 修复:本地执行人格改走 system_prompt 置顶注入（messages 仅对话，避免被注入链覆盖） (3cbf0ccafa)
 - 🚀 新功能/改进:/ws/coze/chat 切本地 LLM 执行，完全弃用 Coze 后端（人格取 agent_prompt，历史进程内维护） (1fa02efdf2)
 - 🔧 工程/其他:accept provenance watermark on MCP 2026 test (9d57f17940)
 - 🚀 新功能/改进:hybrid lexical + BM25 scoring, golden 49/49 and natural 48/48 unchanged (56119149ad)
