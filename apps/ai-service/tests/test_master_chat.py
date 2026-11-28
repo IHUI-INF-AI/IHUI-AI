@@ -35,6 +35,7 @@ async def test_master_chat_pins_persona_and_tools(monkeypatch: pytest.MonkeyPatc
     )
     monkeypatch.setattr(module, "scan_output", lambda _text: None)
     monkeypatch.setattr(module, "annotate_ai_generated", lambda data: data)
+    monkeypatch.setattr(module, "default_chat_model", lambda: "agnes/master-default")
 
     request = Request({"type": "http", "method": "POST", "path": "/api/v1/ai/master/chat"})
     body = await master_chat(MasterChatRequest(message="列一下我的智能体"), request)
@@ -44,6 +45,37 @@ async def test_master_chat_pins_persona_and_tools(monkeypatch: pytest.MonkeyPatc
     assert captured["allowed_tools"] == list(MASTER_TOOL_NAMES)
     assert captured["system_prompt"] == MASTER_SYSTEM_PROMPT
     assert captured["user_id"] == "user-1"
+    assert captured["model"] == "agnes/master-default"
+
+
+@pytest.mark.asyncio
+async def test_master_chat_keeps_explicit_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, Any] = {}
+
+    async def fake_require(_request: Request) -> str:
+        return "user-1"
+
+    async def fake_chat(**kwargs: Any) -> object:
+        captured.update(kwargs)
+        return object()
+
+    monkeypatch.setattr(module, "require_request_user_id", fake_require)
+    monkeypatch.setattr(module.conversation_service, "chat", fake_chat)
+    monkeypatch.setattr(
+        module.conversation_service,
+        "result_to_dict",
+        lambda _result: {"final_response": "已处理", "trace": []},
+    )
+    monkeypatch.setattr(module, "scan_output", lambda _text: None)
+    monkeypatch.setattr(module, "annotate_ai_generated", lambda data: data)
+    monkeypatch.setattr(module, "default_chat_model", lambda: "agnes/master-default")
+
+    request = Request({"type": "http", "method": "POST", "path": "/api/v1/ai/master/chat"})
+    await master_chat(
+        MasterChatRequest(message="列一下我的智能体", model="agnes/explicit"), request
+    )
+
+    assert captured["model"] == "agnes/explicit"
 
 
 @pytest.mark.asyncio

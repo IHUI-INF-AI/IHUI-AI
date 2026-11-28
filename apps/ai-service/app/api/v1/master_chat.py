@@ -18,6 +18,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from ...agents.master_profile import MASTER_SYSTEM_PROMPT, MASTER_TOOL_NAMES
+from ...core.default_model import default_chat_model
 from ...core.jwt_auth import DEV_ANONYMOUS_PRINCIPAL, require_request_user_id
 from ...middleware.output_safety import annotate_ai_generated, apply_disclaimers, scan_output
 from ...services.conversation import SessionOwnershipError, conversation_service
@@ -43,7 +44,7 @@ async def master_chat(req: MasterChatRequest, request: Request) -> dict[str, Any
         result = await conversation_service.chat(
             user_input=req.message,
             session_id=req.session_id,
-            model=req.model,
+            model=req.model or default_chat_model(),
             allowed_tools=list(MASTER_TOOL_NAMES),
             max_iterations=req.max_iterations,
             user_id=user_id,
