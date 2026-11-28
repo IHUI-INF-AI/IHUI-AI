@@ -9,7 +9,16 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, CheckCircle2, Clock, Loader2, Receipt, ShoppingBag, Undo2, XCircle } from 'lucide-react'
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Clock,
+  Loader2,
+  Receipt,
+  ShoppingBag,
+  Undo2,
+  XCircle,
+} from 'lucide-react'
 
 import type { SkillMyPurchaseItem } from '@ihui/shared/skills/market'
 import { AuthGatePrompt, BackButton } from '@/components/common'
@@ -88,7 +97,10 @@ export default function MySkillPurchasesPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3 text-label">
-          <Link href="/skills-market" className="inline-flex items-center gap-1 text-primary hover:underline">
+          <Link
+            href="/skills-market"
+            className="inline-flex items-center gap-1 text-primary hover:underline"
+          >
             <ArrowLeft className="h-3.5 w-3.5" />
             返回 Skill 市场
           </Link>
@@ -122,8 +134,13 @@ export default function MySkillPurchasesPage() {
         <div className="rounded-lg border border-dashed p-10 text-center">
           <ShoppingBag className="mx-auto mb-2 h-10 w-10 opacity-30" />
           <p className="text-body font-medium">还没有购买记录</p>
-          <p className="mt-1 text-label text-muted-foreground">在 Skill 市场购买付费技能后，这里会显示订单与退款入口。</p>
-          <Link href="/skills-market" className="mt-4 inline-flex items-center gap-1 text-label text-primary hover:underline">
+          <p className="mt-1 text-label text-muted-foreground">
+            在 Skill 市场购买付费技能后，这里会显示订单与退款入口。
+          </p>
+          <Link
+            href="/skills-market"
+            className="mt-4 inline-flex items-center gap-1 text-label text-primary hover:underline"
+          >
             去 Skill 市场看看
           </Link>
         </div>
@@ -153,7 +170,9 @@ export default function MySkillPurchasesPage() {
                         </div>
                       )}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 font-medium">{yuan(item.priceCents)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 font-medium">
+                      {yuan(item.priceCents)}
+                    </td>
                     <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
                       {dateFmt.format(new Date(item.createdAt))}
                     </td>
@@ -188,7 +207,9 @@ export default function MySkillPurchasesPage() {
                           )}
                         </div>
                       ) : (
-                        <span className="rounded bg-emerald-50 px-2 py-0.5 text-label text-emerald-700">在购</span>
+                        <span className="rounded bg-emerald-50 px-2 py-0.5 text-label text-emerald-700">
+                          在购
+                        </span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -203,7 +224,11 @@ export default function MySkillPurchasesPage() {
                         </button>
                       ) : (
                         <span className="text-label text-muted-foreground">
-                          {request?.status === 'pending' ? '等待审核' : item.status === 'refunded' ? '已退款' : '—'}
+                          {request?.status === 'pending'
+                            ? '等待审核'
+                            : item.status === 'refunded'
+                              ? '已退款'
+                              : '—'}
                         </span>
                       )}
                     </td>
@@ -216,11 +241,28 @@ export default function MySkillPurchasesPage() {
       )}
 
       {target && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-lg border bg-background p-5 shadow-xl">
+        // 2026-11-28:z-50 → z-modal(低于 AI 面板 z-sticky=990 会被盖住),对齐项目手搓 dialog 惯例
+        // (connectors/hooks-manager 同形):role/aria-modal + 遮罩点击关闭
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- 模态遮罩点击外部关闭;键盘用户通过取消按钮提供等价交互
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="申请退款"
+          className="fixed inset-0 z-modal flex items-center justify-center bg-black/40 p-4"
+          onClick={() => {
+            setTarget(null)
+            setError(null)
+          }}
+        >
+          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 仅阻止冒泡,避免点击面板内部触发遮罩关闭 */}
+          <div
+            className="w-full max-w-md rounded-lg border bg-background p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2 className="text-title font-semibold">申请退款</h2>
             <p className="mt-2 text-body text-muted-foreground">
-              技能「{target.skillName}」成交价 {yuan(target.priceCents)}。提交后进入运营审核，审核通过才退款，不是立即到账。
+              技能「{target.skillName}」成交价 {yuan(target.priceCents)}
+              。提交后进入运营审核，审核通过才退款，不是立即到账。
             </p>
             <textarea
               className="mt-3 min-h-24 w-full rounded-md border bg-background px-3 py-2 text-body"
@@ -246,7 +288,9 @@ export default function MySkillPurchasesPage() {
                 type="button"
                 className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-label font-medium text-primary-foreground disabled:opacity-60"
                 disabled={requestMutation.isPending || reason.trim().length < 5}
-                onClick={() => requestMutation.mutate({ purchaseId: target.id, reason: reason.trim() })}
+                onClick={() =>
+                  requestMutation.mutate({ purchaseId: target.id, reason: reason.trim() })
+                }
               >
                 {requestMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 提交申请
