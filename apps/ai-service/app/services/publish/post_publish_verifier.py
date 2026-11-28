@@ -25,8 +25,12 @@ URL 跳转但正文为空/文章不存在的假阳性)。
 """
 from __future__ import annotations
 
+import html as html_lib
+import re
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
+
+import httpx
 
 from app.core.logging import get_logger
 
@@ -98,11 +102,15 @@ def _all_cookies(
     return out
 
 
-def _account_id(credentials: dict[str, Any], db_account_id: int | str | None = None) -> str:
+def _account_id(
+    credentials: dict[str, Any],
+    db_account_id: int | str | None = None,
+    platform: str = "zhihu",
+) -> str:
     """核验会话用的身份键 —— 委托唯一出口(旧实现取「首个凭证值」哈希,刷新即换脸)。"""
     from app.services.publish.anti_risk.account_identity import resolve_account_id
 
-    return resolve_account_id("zhihu", credentials, db_account_id)
+    return resolve_account_id(platform, credentials, db_account_id)
 
 
 async def verify_published(
@@ -125,6 +133,8 @@ async def verify_published(
     """
     if platform == "zhihu":
         return await _verify_zhihu(credentials, content_id, expect_title, db_account_id)
+    if platform == "csdn":
+        return await _verify_csdn(credentials, content_id, expect_title, db_account_id)
     return {
         "checked_at": datetime.now(UTC).isoformat(),
         "passed": False,
@@ -132,6 +142,139 @@ async def verify_published(
         "content_length": 0,
         "images_total": 0,
         "images_loaded": 0,
+    }
+
+
+async def _verify_csdn(
+    credentials: dict[str, Any],
+    content_id: str,
+    expect_title: str,
+    db_account_id: int | str | None = None,
+) -> dict[str, Any]:
+    """CSDN 公开文章页核验：200 + 标题关键词 + 正文长度。
+
+    先用 httpx 直取；CSDN 对服务器 IP 常返回安全验证页，此时用账号池 cookie
+    启动 Playwright 复核。只有公开页真实渲染出标题/正文才算通过。
+    """
+    checked_at = datetime.now(UTC).isoformat()
+    issues: list[str] = []
+    content_length = 0
+    images_total = 0
+    images_loaded = 0
+    security_blocked = False
+    username = str(credentials.get("UserName") or credentials.get("username") or "").strip()
+    if not username:
+        return {
+            "checked_at": checked_at,
+            "passed": False,
+            "issues": ["missing UserName, cannot build CSDN public url"],
+            "content_length": 0,
+            "images_total": 0,
+            "images_loaded": 0,
+        }
+    url = f"https://blog.csdn.net/{username}/article/details/{content_id}"
+    try:
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+            resp = await client.get(
+                url,
+                headers={
+                    "User-Agent": (
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36 Chrome/141.0.0.0 Safari/537.36"
+                    )
+                },
+            )
+        if resp.status_code != 200:
+            issues.append(f"公开页 HTTP {resp.status_code}(文章可能不存在或未公开)")
+        html_text = resp.text or ""
+        if "安全验证" in html_text or "captcha" in html_text.lower():
+            security_blocked = True
+        title_match = re.search(r"<title[^>]*>(.*?)</title>", html_text, re.S | re.I)
+        page_title = html_lib.unescape(title_match.group(1)).strip() if title_match else ""
+        kw = (expect_title or "").strip()[:8]
+        if not security_blocked and kw and kw not in page_title and kw not in html_text[:30000]:
+            issues.append(f"标题不匹配(期望='{kw}',页面标题='{page_title}')")
+        body_match = re.search(
+            r'<div[^>]+id="content_views"[^>]*>(.*?)(?:</div>\s*</div>|<div[^>]+class="hide-article-box")',
+            html_text,
+            re.S | re.I,
+        )
+        body_html = body_match.group(1) if body_match else html_text
+        body_html = re.sub(
+            r"<(script|style)[^>]*>.*?</\1>", " ", body_html, flags=re.S | re.I
+        )
+        body_text = html_lib.unescape(re.sub(r"<[^>]+>", " ", body_html))
+        content_length = len(re.sub(r"\s+", "", body_text))
+        images_total = len(re.findall(r"<img\b", body_html, re.I))
+        if not security_blocked and content_length < 200:
+            issues.append(f"正文渲染不足(content_length={content_length}<200)")
+    except Exception as e:
+        logger.exception("[verifier] csdn http verify failed content_id=%s", content_id)
+        issues.append(f"HTTP verify exception: {type(e).__name__}: {e}")
+
+    if (security_blocked or content_length < 200) and _HAS_PLAYWRIGHT:
+        issues = []
+        content_length = 0
+        images_total = 0
+        images_loaded = 0
+        try:
+            from app.services.publish.anti_risk import create_stealth_browser_context
+            from app.services.publish.anti_risk.browser_factory import close_stealth_context
+
+            async with async_playwright() as p:
+                browser, context = await create_stealth_browser_context(
+                    account_id=_account_id(credentials, db_account_id, "csdn"),
+                    platform="csdn",
+                    playwright_instance=p,
+                    headless=True,
+                )
+                try:
+                    await context.add_cookies(_all_cookies(credentials, ".csdn.net"))
+                    page = await context.new_page()
+                    await page.goto(url, wait_until="domcontentloaded", timeout=60000)
+                    await page.wait_for_timeout(6000)
+                    measure = await page.evaluate(
+                        """() => {
+                            const art = document.querySelector('#content_views, .article_content, article');
+                            const text = art ? art.innerText || '' : (document.body ? document.body.innerText || '' : '');
+                            const imgs = Array.from(document.images || []);
+                            const loaded = imgs.filter((im) => (im.naturalWidth || 0) > 0 && (im.naturalHeight || 0) > 0).length;
+                            const bodyText = document.body ? document.body.innerText || '' : '';
+                            return {
+                                content_length: text.length,
+                                images_total: imgs.length,
+                                images_loaded: loaded,
+                                page_title: (document.title || '').trim(),
+                                security: bodyText.includes('安全验证') || bodyText.toLowerCase().includes('captcha'),
+                            };
+                        }"""
+                    )
+                    content_length = int(measure.get("content_length", 0))
+                    images_total = int(measure.get("images_total", 0))
+                    images_loaded = int(measure.get("images_loaded", 0))
+                    page_title = (measure.get("page_title") or "").strip()
+                    if measure.get("security"):
+                        issues.append("CSDN 浏览器复核仍返回安全验证页")
+                    if content_length < 200:
+                        issues.append(f"正文渲染不足(content_length={content_length}<200)")
+                    kw = (expect_title or "").strip()[:8]
+                    if kw and kw not in page_title and kw not in (await page.content())[:20000]:
+                        issues.append(f"标题不匹配(期望='{kw}',页面标题='{page_title}')")
+                finally:
+                    await close_stealth_context(browser, context)
+        except Exception as e:
+            logger.exception("[verifier] csdn browser verify failed content_id=%s", content_id)
+            issues.append(f"browser verify exception: {type(e).__name__}: {e}")
+    elif security_blocked:
+        issues.append("CSDN 返回安全验证页，且浏览器复核不可用")
+
+    return {
+        "checked_at": checked_at,
+        "passed": len(issues) == 0,
+        "issues": issues,
+        "content_length": content_length,
+        "images_total": images_total,
+        "images_loaded": images_loaded,
     }
 
 
