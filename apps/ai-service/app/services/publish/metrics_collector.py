@@ -319,12 +319,12 @@ def _apply_juejin_info(info: dict[str, Any], metrics: dict[str, Any]) -> None:
     metrics["views"] = int(info.get("view_count") or 0)
     metrics["likes"] = int(info.get("digg_count") or 0)
     metrics["comments"] = int(info.get("comment_count") or 0)
-    metrics["shares"] = int(info.get("collect_count") or 0)
+    # collect_count 是“收藏”，不是“转发”，不能混进 shares。
     metrics["source"].update(
         views="article_info.view_count",
         likes="article_info.digg_count",
         comments="article_info.comment_count",
-        shares="article_info.collect_count(收藏)",
+        collects="article_info.collect_count(收藏,不计入 shares)",
     )
 
 
