@@ -86,6 +86,7 @@ const PERMISSION_LABELS: Record<ApiKeyPermission, string> = {
   'edu:write': 'apiKeyPerms.eduWrite',
   'im:send': 'apiKeyPerms.imSend',
   'publish:operate': 'apiKeyPerms.publishOperate',
+  'publish:submit': 'apiKeyPerms.publishSubmit',
   'billing:read': 'apiKeyPerms.billingRead',
   'oauth:manage': 'apiKeyPerms.oauthManage',
   'mcp:connect': 'apiKeyPerms.mcpConnect',
