@@ -635,6 +635,64 @@ class AgentCheckpointManager:
             row = conn.execute(_SELECT_LATEST_BY_SESSION_SQL, (session_id,)).fetchone()
         return _row_to_agent_checkpoint(row) if row is not None else None
 
+    def _record_receipt_pg_sync(
+        self,
+        checkpoint_id: str,
+        tool_call_id: str,
+        record: dict[str, Any],
+        expected_rev: int,
+        next_rev: int,
+    ) -> bool:
+        """同步版回执 CAS(Windows Proactor 下代替 async pool)。"""
+        with self._pg_sync_connect() as conn:
+            self._pg_sync_ensure_table(conn)
+            row = conn.execute(_SELECT_BY_ID_SQL, (checkpoint_id,)).fetchone()
+            if row is None:
+                return False
+            cp = _row_to_agent_checkpoint(row)
+            if _receipts_rev(cp.tool_state) != expected_rev:
+                return False
+            _apply_receipt(cp.tool_state, tool_call_id, record, next_rev)
+            cur = conn.execute(
+                _RECEIPT_UPDATE_SQL,
+                (_json_dumps(cp.to_dict()), checkpoint_id, expected_rev),
+            )
+            return int(getattr(cur, "rowcount", 0) or 0) > 0
+
+    def _apply_stale_mark_pg_sync(
+        self,
+        checkpoint_id: str,
+        target_status: str,
+        from_status: str,
+        payload_json: str,
+    ) -> bool:
+        """同步版归位 CAS:只有当前状态仍是 from_status 才改。"""
+        with self._pg_sync_connect() as conn:
+            self._pg_sync_ensure_table(conn)
+            cur = conn.execute(
+                _MARK_STALE_SQL,
+                (target_status, payload_json, checkpoint_id, from_status),
+            )
+            return int(getattr(cur, "rowcount", 0) or 0) > 0
+
+    def _delete_pg_sync(self, checkpoint_id: str) -> None:
+        with self._pg_sync_connect() as conn:
+            self._pg_sync_ensure_table(conn)
+            conn.execute(
+                "DELETE FROM agent_checkpoints WHERE checkpoint_id = %s",
+                (checkpoint_id,),
+            )
+
+    def _cleanup_pg_sync(self, now: float) -> int:
+        with self._pg_sync_connect() as conn:
+            self._pg_sync_ensure_table(conn)
+            cur = conn.execute(
+                "DELETE FROM agent_checkpoints WHERE expires_at <= %s",
+                (_ts_to_iso(now),),
+            )
+        return int(getattr(cur, "rowcount", 0) or 0)
+
+
     async def _get_redis(self) -> Any:
         """获取 redis 客户端,连接失败时降级为内存模式。"""
         if self._redis is None and self._use_redis:
@@ -852,6 +910,15 @@ class AgentCheckpointManager:
         next_rev: int,
     ) -> bool:
         """(内部)回执写 PG:先读 payload 校验 rev,再用 rev 条件 UPDATE。"""
+        if self._need_pg_thread():
+            return await asyncio.to_thread(
+                self._record_receipt_pg_sync,
+                checkpoint_id,
+                tool_call_id,
+                record,
+                expected_rev,
+                next_rev,
+            )
         pool = await self._get_pool()
         await self._ensure_table()
         async with pool.connection() as conn:
@@ -1098,23 +1165,32 @@ class AgentCheckpointManager:
                 self._session_index[subject.session_id] = checkpoint_id
         if self._use_pg:
             try:
-                pool = await self._get_pool()
-                await self._ensure_table()
-                async with pool.connection() as conn:
-                    cur = await conn.execute(
-                        _MARK_STALE_SQL,
+                if self._need_pg_thread():
+                    await asyncio.to_thread(
+                        self._apply_stale_mark_pg_sync,
+                        checkpoint_id,
                         target_status,
-                        payload_json,
-                        checkpoint_id,
                         decision.from_status,
+                        payload_json,
                     )
-                if int(getattr(cur, "rowcount", 0) or 0) == 0:
-                    # 另一个实例已把它改走(可能改成了终态)。内存已收敛到 paused,
-                    # 下次 load 会以 PG 为准回填;这里只喊一行,不猜、不二次覆盖。
-                    logger.info(
-                        "checkpoint %s 归位 CAS 未命中(0 行受影响),判定为已被他人改写",
-                        checkpoint_id,
-                    )
+                else:
+                    pool = await self._get_pool()
+                    await self._ensure_table()
+                    async with pool.connection() as conn:
+                        cur = await conn.execute(
+                            _MARK_STALE_SQL,
+                            target_status,
+                            payload_json,
+                            checkpoint_id,
+                            decision.from_status,
+                        )
+                    if int(getattr(cur, "rowcount", 0) or 0) == 0:
+                        # 另一个实例已把它改走(可能改成了终态)。内存已收敛到 paused,
+                        # 下次 load 会以 PG 为准回填;这里只喊一行,不猜、不二次覆盖。
+                        logger.info(
+                            "checkpoint %s 归位 CAS 未命中(0 行受影响),判定为已被他人改写",
+                            checkpoint_id,
+                        )
             except Exception as e:  # noqa: BLE001 - PG 不可达按既有降级口径
                 logger.warning("AgentCheckpointManager PG 归位写入失败(降级继续): %s", e)
         redis = await self._get_redis()
@@ -1274,13 +1350,16 @@ class AgentCheckpointManager:
         # PG 同步删除(尽力,失败不阻塞)
         if self._use_pg:
             try:
-                pool = await self._get_pool()
-                await self._ensure_table()
-                async with pool.connection() as conn:
-                    await conn.execute(
-                        "DELETE FROM agent_checkpoints WHERE checkpoint_id = %s",
-                        checkpoint_id,
-                    )
+                if self._need_pg_thread():
+                    await asyncio.to_thread(self._delete_pg_sync, checkpoint_id)
+                else:
+                    pool = await self._get_pool()
+                    await self._ensure_table()
+                    async with pool.connection() as conn:
+                        await conn.execute(
+                            "DELETE FROM agent_checkpoints WHERE checkpoint_id = %s",
+                            checkpoint_id,
+                        )
             except Exception as e:
                 logger.warning("AgentCheckpointManager PG 删除失败(降级继续): %s", e)
 
@@ -1310,16 +1389,20 @@ class AgentCheckpointManager:
         # 同步清理 PG 过期行(尽力,失败不阻塞;返回计数以内存清理为准)
         if self._use_pg:
             try:
-                pool = await self._get_pool()
-                await self._ensure_table()
-                async with pool.connection() as conn:
-                    cur = await conn.execute(
-                        "DELETE FROM agent_checkpoints WHERE expires_at <= %s",
-                        _ts_to_iso(now),
+                if self._need_pg_thread():
+                    rows = await asyncio.to_thread(self._cleanup_pg_sync, now)
+                    logger.debug("AgentCheckpointManager PG 过期清理 %s 行", rows)
+                else:
+                    pool = await self._get_pool()
+                    await self._ensure_table()
+                    async with pool.connection() as conn:
+                        cur = await conn.execute(
+                            "DELETE FROM agent_checkpoints WHERE expires_at <= %s",
+                            _ts_to_iso(now),
+                        )
+                    logger.debug(
+                        "AgentCheckpointManager PG 过期清理 %s 行", cur.rowcount
                     )
-                logger.debug(
-                    "AgentCheckpointManager PG 过期清理 %s 行", cur.rowcount
-                )
             except Exception as e:
                 logger.warning("AgentCheckpointManager PG 清理失败(降级继续): %s", e)
 
