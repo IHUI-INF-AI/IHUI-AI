@@ -13,6 +13,8 @@ import type {
   SkillMarketEntry,
   SkillSubscriptionResponse,
   SkillNotification,
+  SkillPurchaseResponse,
+  SkillEarningsResponse,
 } from '@ihui/shared/skills/market'
 
 export const SKILL_MARKET_PAGE_SIZE = 20
@@ -31,6 +33,18 @@ export function installSkill(name: string): Promise<SkillInstallResponse> {
   return apiOrThrow<SkillInstallResponse>(`/api/skills/${encodeURIComponent(name)}/install`, {
     method: 'POST',
   })
+}
+
+/** 购买并安装付费 skill；免费/已购/作者本人调用也不会重复扣款。 */
+export function purchaseSkill(name: string): Promise<SkillPurchaseResponse> {
+  return apiOrThrow<SkillPurchaseResponse>(`/api/skills/${encodeURIComponent(name)}/purchase`, {
+    method: 'POST',
+  })
+}
+
+/** 当前用户的技能分成收益（金额单位：分）。 */
+export function fetchSkillEarnings(): Promise<SkillEarningsResponse> {
+  return apiOrThrow<SkillEarningsResponse>('/api/skills/market/earnings')
 }
 
 export function rateSkill(name: string, body: SkillRateRequest): Promise<SkillRating> {

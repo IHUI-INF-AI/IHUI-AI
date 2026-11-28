@@ -29,7 +29,15 @@ import type {
   SkillPublishRequest,
   SkillSubscriptionResponse,
   SkillNotification,
+  SkillPurchaseResponse,
 } from '@ihui/shared/skills/market'
+import {
+  InsufficientSkillFundsError,
+  getSkillEarnings,
+  hasPurchasedSkill,
+  purchasePaidSkill,
+  resolveSkillAuthorShareBps,
+} from '../services/skill-market-purchase-service.js'
 import { checkAuth } from '../plugins/auth.js'
 import { authorizeInternalSecretCall } from '../plugins/internal-secret-auth.js'
 import { db } from '../db/index.js'
@@ -246,6 +254,9 @@ const MARKET_SEED: SkillMarketEntry[] = MARKET_SEED_RAW.map((entry) => ({
   ...entry,
   enabled: true,
   source: 'builtin' as const,
+  // 内置技能一律免费，且无归属作者 ⇒ 分成比例 0（全部归平台）。
+  priceCents: 0,
+  revenueShareBps: 0,
 }))
 
 /**
@@ -280,6 +291,8 @@ const publishSchema = z.object({
   version: z.string().default('1.0.0'),
   license: z.string().default('MIT'),
   content: z.string().min(1).max(65536),
+  /** 单次买断价（人民币分）；0/缺省 = 免费。 */
+  priceCents: z.number().int().min(0).max(100_000_000).optional(),
 })
 
 /** listing 级上下架切换的请求体(P2-14) */
@@ -581,6 +594,36 @@ async function notifySubscribers(
 }
 
 export const skillsRoutes: FastifyPluginAsync = async (server) => {
+  /**
+   * 安装一个市场条目到用户私有库并启用。
+   * install 与 purchase 共用同一份写入逻辑，避免“购买成功但没装进去”的双轨。
+   */
+  async function installMarketEntry(
+    userId: string,
+    entry: SkillMarketEntry,
+  ): Promise<number> {
+    entry.installCount += 1
+    entry.updatedAt = new Date().toISOString()
+    // 市场条目计数是读改写；并发安装可能少记，但用户库写入必须成功。
+    const entries = await readMarket(server.redis, MARKET_KEY)
+    const marketIdx = entries.findIndex((e) => e.name === entry.name)
+    if (marketIdx >= 0) entries[marketIdx] = entry
+    await writeMarket(server.redis, MARKET_KEY, entries)
+
+    // F-188:与 GET/POST /skills 统一写 JSON 数组(String)，不能再 HSET 成 Hash ——
+    // 同一 key 混用两种类型，后写方必然 WRONGTYPE，已安装条目会从用户库消失。
+    const userKey = `skills:${userId}`
+    const skills = await readSkills(server.redis, userKey)
+    const installed = marketEntryToSkillRecord(entry)
+    const userIdx = skills.findIndex((s) => s.name === installed.name)
+    if (userIdx >= 0) skills[userIdx] = installed
+    else skills.push(installed)
+    await writeSkills(server.redis, userKey, skills)
+    // install ⇒ 立即可用：运行面按启用集白名单发放（见 filterRuntimeVisibleSkills）。
+    await addEnabled(server.redis, enabledKey(userId), entry.name)
+    return entry.installCount
+  }
+
   // GET /skills — 列出当前用户的所有 skill
   server.get('/skills', async (request: FastifyRequest, reply: FastifyReply) => {
     if (!(await checkAuth(request, reply))) return
@@ -813,6 +856,13 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(response))
   })
 
+  // GET /skills/market/earnings — 当前作者的技能分成收益(按购买账本聚合)
+  server.get('/skills/market/earnings', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId!
+    return reply.send(success(await getSkillEarnings(userId)))
+  })
+
   // POST /skills/:name/install — 安装 skill(installCount++ + 写入用户私有库 Hash)
   server.post<{ Params: { name: string } }>('/skills/:name/install', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
@@ -829,29 +879,103 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '市场 Skill 不存在'))
     }
     const entry = entries[idx]!
-    entry.installCount += 1
-    entry.updatedAt = new Date().toISOString()
-    await writeMarket(server.redis, MARKET_KEY, entries)
+    // 付费条目先校验购买资格:买家必须已有 paid 账本,作者本人可免费安装。
+    // 校验失败时 fail-closed(不写用户库、不加 installCount)。
+    if ((entry.priceCents ?? 0) > 0 && entry.ownerId !== userId) {
+      const purchased = await hasPurchasedSkill(userId, entry.name)
+      if (!purchased) {
+        return reply
+          .status(402)
+          .send(error(402, '该 Skill 需要先购买,再安装;请调用 /skills/:name/purchase'))
+      }
+    }
 
-    // F-188:与 GET/POST /skills 统一写 JSON 数组(String),不能再 HSET 成 Hash ——
-    // 同一 key 混用两种类型,后写方必然 WRONGTYPE,已安装条目会从用户库消失。
-    const userKey = `skills:${userId}`
-    const skills = await readSkills(server.redis, userKey)
-    const installed = marketEntryToSkillRecord(entry)
-    const userIdx = skills.findIndex((s) => s.name === installed.name)
-    if (userIdx >= 0) skills[userIdx] = installed
-    else skills.push(installed)
-    // writeSkills 自带进程内降级、不抛错,因此这里不必再吞异常(吞掉反而会把"没写进去"报成 installed:true)。
-    await writeSkills(server.redis, userKey, skills)
-    // install ⇒ 立即可用:运行面按启用集白名单发放(见 filterRuntimeVisibleSkills),
-    // 不在这里补一笔启用集,"安装后可被 Agent 调用"就永远不成立(装完即处于停用态)。
-    // addEnabled 自带 Redis 降级,不抛错、不阻塞 install 响应。
-    await addEnabled(server.redis, enabledKey(userId), entry.name)
+    const installCount = await installMarketEntry(userId, entry)
 
     const resp: SkillInstallResponse = {
       name: parsed.data.name,
       installed: true,
-      installCount: entry.installCount,
+      installCount,
+    }
+    return reply.send(success(resp))
+  })
+
+  // POST /skills/:name/purchase — 购买并安装付费 skill(免费 skill 直接走 install)
+  server.post<{ Params: { name: string } }>('/skills/:name/purchase', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId!
+
+    const parsed = nameParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    const entries = await readMarket(server.redis, MARKET_KEY)
+    const idx = entries.findIndex((e) => e.name === parsed.data.name)
+    if (idx < 0) {
+      return reply.status(404).send(error(404, '市场 Skill 不存在'))
+    }
+    const entry = entries[idx]!
+    if (entry.enabled === false && entry.ownerId !== userId) {
+      return reply.status(404).send(error(404, '市场 Skill 不存在'))
+    }
+
+    const priceCents = entry.priceCents ?? 0
+    let charged = false
+    let alreadyPurchased = false
+    let authorShareCents = 0
+    let platformShareCents = 0
+    let balanceAfter: number | null = null
+
+    // 免费条目/作者本人:不产生扣款,直接安装。作者本人买自己的付费条目也不扣款。
+    if (priceCents > 0 && entry.ownerId !== userId) {
+      try {
+        const result = await purchasePaidSkill({ buyerUserId: userId, entry })
+        charged = result.charged
+        alreadyPurchased = result.alreadyPurchased
+        authorShareCents = result.authorShareCents
+        platformShareCents = result.platformShareCents
+        balanceAfter = result.balanceAfter
+        // 购买绕过 tokenBalance 的统一入口直接改 user_margins,必须同步失效余额缓存;
+        // 缓存失效失败只影响下一次读余额,不回滚已提交的购买。
+        if (result.charged) {
+          await server.tokenBalance?.invalidateCache(userId).catch((cacheErr) => {
+            request.log.warn({ err: cacheErr }, '购买后失效买家余额缓存失败')
+          })
+          if (entry.ownerId && entry.ownerId !== userId) {
+            await server.tokenBalance?.invalidateCache(entry.ownerId).catch((cacheErr) => {
+              request.log.warn({ err: cacheErr }, '购买后失效卖家余额缓存失败')
+            })
+          }
+        }
+      } catch (err) {
+        if (err instanceof InsufficientSkillFundsError) {
+          return reply
+            .status(402)
+            .send(
+              error(
+                402,
+                `钱包余额不足:需要 ${err.requiredCents} 分,当前 ${err.balanceCents} 分`,
+              ),
+            )
+        }
+        throw err
+      }
+    }
+
+    const installCount = await installMarketEntry(userId, entry)
+    const resp: SkillPurchaseResponse = {
+      name: entry.name,
+      installed: true,
+      charged,
+      alreadyPurchased,
+      free: priceCents <= 0,
+      priceCents,
+      authorShareCents,
+      platformShareCents,
+      currency: 'CNY',
+      balanceAfter,
+      installCount,
     }
     return reply.send(success(resp))
   })
@@ -1058,6 +1182,10 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
       existing.tags = body.tags
       existing.version = body.version
       existing.license = body.license
+      // 价格只在本次显式提交时改；缺省保持原价，避免“改简介把付费条目打成免费”。
+      if (body.priceCents !== undefined) existing.priceCents = body.priceCents
+      // 分成比例按平台策略快照一次；历史条目已有快照则不随后续策略漂移。
+      existing.revenueShareBps ??= resolveSkillAuthorShareBps()
       existing.updatedAt = new Date().toISOString()
       // 归属补齐(给契约落地前上架、没有 ownerId 的条目补登记)。
       // 谁能走到这里:上面的写授权已把住"非归属的普通用户一律 403",而内部通道
@@ -1099,6 +1227,8 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
       author: entryAuthor,
       version: body.version,
       license: body.license,
+      priceCents: body.priceCents ?? 0,
+      revenueShareBps: resolveSkillAuthorShareBps(),
       installCount: 0,
       rating: 0,
       ratingCount: 0,
