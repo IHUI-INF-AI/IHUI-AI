@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 
 /**
- * 运行控制面板（2026-11-28 Trae 式重做）。
+ * 运行控制面板（2026-11-28 按本机 TRAE 宝实机改为浅色）。
  *
  * 只调用显式 HTTP 控制面 `/api/master/runs/{runId}/pause|resume|talk|stop`，
  * 不复制 agent_ops 的执行逻辑，也不在前端伪造运行状态。控制面只作用于当前
@@ -37,9 +37,9 @@ const ACTION_LABELS: Record<Action, string> = {
 }
 
 const ACTION_STYLES: Record<Action, string> = {
-  pause: 'border-amber-400/25 text-amber-200 hover:bg-amber-400/10',
-  resume: 'border-emerald-400/25 text-emerald-200 hover:bg-emerald-400/10',
-  stop: 'border-red-400/25 text-red-300 hover:bg-red-400/10',
+  pause: 'border-[#e4c98f] bg-[#fbf4e3] text-[#8a6114] hover:bg-[#f7ecd3]',
+  resume: 'border-[#b8d2b9] bg-[#eef5ec] text-[#3f7144] hover:bg-[#e4efe2]',
+  stop: 'border-[#e4b8b1] bg-[#fbefed] text-[#a2483b] hover:bg-[#f7e4e1]',
 }
 
 interface MasterRunControlPanelProps {
@@ -100,30 +100,30 @@ export function MasterRunControlPanel({ masterName = '总管' }: MasterRunContro
     : ''
 
   return (
-    <section className="flex h-full min-h-0 flex-col bg-transparent">
-      <header className="shrink-0 border-b border-white/[0.06] px-5 py-4">
+    <section className="flex h-full min-h-0 flex-col bg-white">
+      <header className="shrink-0 border-b border-[#eee9e1] px-7 py-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-[9px] font-medium uppercase tracking-[0.2em] text-sky-300/60">
+            <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#a29a8e]">
               Run control
             </p>
-            <h2 className="mt-1.5 text-[16px] font-medium text-white/85">运行控制</h2>
+            <h2 className="mt-1 text-[22px] font-semibold leading-8 text-[#23211c]">运行控制</h2>
           </div>
-          <span className="rounded border border-white/[0.07] px-2 py-1 text-[10px] text-white/35">
+          <span className="rounded-full border border-[#e4ded3] px-2.5 py-1 text-[11px] text-[#8c8478]">
             single run · HTTP 控制面
           </span>
         </div>
-        <p className="mt-2 max-w-[760px] text-[11px] leading-5 text-white/35">
+        <p className="mt-3 max-w-[760px] text-[13px] leading-6 text-[#7d7569]">
           按 runId 暂停、续跑、注入中途提示、停止；只作用于{masterName}
           当前进程内派发的 run。长任务可能在轮次边界前返回 pause_requested，需要继续查账本。
         </p>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-        <div className="w-full max-w-[760px]">
+      <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
+        <div className="w-full max-w-[820px]">
           <label
             htmlFor="master-run-id"
-            className="mb-1.5 block text-[10px] uppercase tracking-[0.14em] text-white/25"
+            className="mb-1.5 block text-[11px] uppercase tracking-[0.14em] text-[#a29a8e]"
           >
             Run ID
           </label>
@@ -134,7 +134,7 @@ export function MasterRunControlPanel({ masterName = '总管' }: MasterRunContro
               placeholder="粘贴 runId"
               id="master-run-id"
               aria-label="runId"
-              className="min-w-0 flex-1 rounded-md border border-white/[0.08] bg-[#111419] px-3 py-2 font-mono text-[11px] text-white/75 outline-none placeholder:text-white/20 focus:border-sky-400/30"
+              className="min-w-0 flex-1 rounded-lg border border-[#e3ddd2] bg-[#faf9f6] px-3 py-2.5 font-mono text-[12px] text-[#3a352d] outline-none placeholder:text-[#b0a89d] focus:border-[#bdb5a8]"
             />
             {(Object.keys(ACTION_LABELS) as Action[]).map((action) => (
               <button
@@ -142,17 +142,17 @@ export function MasterRunControlPanel({ masterName = '总管' }: MasterRunContro
                 type="button"
                 disabled={!runId.trim() || busy !== null}
                 onClick={() => void call(action)}
-                className={`rounded-md border px-3 py-2 text-[11px] font-medium transition disabled:opacity-25 ${ACTION_STYLES[action]}`}
+                className={`rounded-lg border px-3.5 py-2.5 text-[12px] font-medium transition disabled:opacity-25 ${ACTION_STYLES[action]}`}
               >
                 {busy === action ? '处理中' : ACTION_LABELS[action]}
               </button>
             ))}
           </div>
 
-          <form onSubmit={talk} className="mt-5">
+          <form onSubmit={talk} className="mt-6">
             <label
               htmlFor="master-run-talk"
-              className="mb-1.5 block text-[10px] uppercase tracking-[0.14em] text-white/25"
+              className="mb-1.5 block text-[11px] uppercase tracking-[0.14em] text-[#a29a8e]"
             >
               中途提示
             </label>
@@ -164,12 +164,12 @@ export function MasterRunControlPanel({ masterName = '总管' }: MasterRunContro
                 id="master-run-talk"
                 aria-label="中途提示"
                 maxLength={8000}
-                className="min-w-0 flex-1 rounded-md border border-white/[0.08] bg-[#111419] px-3 py-2 text-[12px] text-white/75 outline-none placeholder:text-white/20 focus:border-emerald-400/30"
+                className="min-w-0 flex-1 rounded-lg border border-[#e3ddd2] bg-[#faf9f6] px-3 py-2.5 text-[13px] text-[#3a352d] outline-none placeholder:text-[#b0a89d] focus:border-[#bdb5a8]"
               />
               <button
                 type="submit"
                 disabled={!runId.trim() || !message.trim() || busy !== null}
-                className="rounded-md bg-white/[0.06] px-3 py-2 text-[11px] font-medium text-white/70 transition hover:bg-white/[0.1] disabled:opacity-25"
+                className="rounded-lg border border-[#ded8ce] bg-white px-3.5 py-2.5 text-[12px] font-medium text-[#5e574d] transition hover:bg-[#f7f4ef] disabled:opacity-25"
               >
                 {busy === 'talk' ? '注入中' : '注入提示'}
               </button>
@@ -177,22 +177,22 @@ export function MasterRunControlPanel({ masterName = '总管' }: MasterRunContro
           </form>
 
           {error && (
-            <p className="mt-4 rounded-md border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-[11px] leading-5 text-amber-200">
+            <p className="mt-5 rounded-lg border border-[#e8c9b4] bg-[#fbf1e9] px-3.5 py-2.5 text-[12px] leading-5 text-[#9a5b2c]">
               {error}
             </p>
           )}
           {result && (
-            <div className="mt-4 rounded-md border border-white/[0.07] bg-white/[0.025] px-3 py-2.5 text-[11px] text-white/60">
-              <p data-testid="run-control-result" className="font-medium break-all text-white/75">
+            <div className="mt-5 rounded-lg border border-[#e6e0d6] bg-[#faf9f6] px-3.5 py-3 text-[12px] text-[#6a6358]">
+              <p data-testid="run-control-result" className="font-medium break-all text-[#332f28]">
                 {summary || '控制请求已返回'}
               </p>
-              <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded bg-[#0b0d11] p-2 text-[10px] leading-4 text-white/30">
+              <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded bg-white p-2.5 text-[11px] leading-5 text-[#928a7e]">
                 {JSON.stringify(result, null, 2)}
               </pre>
             </div>
           )}
 
-          <p className="mt-6 border-t border-white/[0.05] pt-3 text-[10px] leading-5 text-white/20">
+          <p className="mt-7 border-t border-[#f0ebe3] pt-3 text-[11px] leading-5 text-[#a49c90]">
             控制请求只影响当前 AI 服务进程内由{masterName}派发的 single run；跨实例或已终态 run
             会返回明确错误码，不会把“提交成功”当成“已经暂停”。
           </p>
@@ -201,4 +201,3 @@ export function MasterRunControlPanel({ masterName = '总管' }: MasterRunContro
     </section>
   )
 }
-

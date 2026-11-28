@@ -2,15 +2,16 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 
 /**
- * 总管对话面板（2026-11-28 Trae 式重做）。
+ * 总管对话面板（2026-11-28 按本机 TRAE 宝实机重做）。
  *
- * 对话是这个产品的主面：没有白卡片、没有大段说明，空态只给目标和建议词，
- * 输入框固定在底部。人格、三工具、审批边界仍在 ai-service 固定，前端不复制。
+ * 实机是纯白聊天面：没有深色卡片、没有会话标题栏，进来先看到三句浅灰气泡
+ * 欢迎语，输入框固定在底部。人格、三工具、审批边界仍在 ai-service 固定，
+ * 前端只负责传话和展示真实结果。
  */
 'use client'
 
-import { useState, type FormEvent } from 'react'
-import { ArrowUp, Bot } from 'lucide-react'
+import { useState, type FormEvent, type ReactNode } from 'react'
+import { ArrowUp } from 'lucide-react'
 
 interface ChatTurn {
   role: 'user' | 'master'
@@ -26,15 +27,7 @@ interface MasterReply {
 
 interface MasterChatPanelProps {
   masterName?: string
-  /** 父级“新建对话”时换 key 重挂载；组件本身不依赖。 */
-  resetKey?: number
 }
-
-const SUGGESTIONS = [
-  '列一下我名下的智能体',
-  '看最近一次运行的状态',
-  '把 writer 暂停，并告诉我 checkpoint',
-]
 
 export function MasterChatPanel({ masterName = '总管' }: MasterChatPanelProps) {
   const [input, setInput] = useState('')
@@ -42,12 +35,6 @@ export function MasterChatPanel({ masterName = '总管' }: MasterChatPanelProps)
   const [turns, setTurns] = useState<ChatTurn[]>([])
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
-
-  function clearConversation() {
-    setTurns([])
-    setSessionId(undefined)
-    setError('')
-  }
 
   async function send(event: FormEvent) {
     event.preventDefault()
@@ -95,98 +82,57 @@ export function MasterChatPanel({ masterName = '总管' }: MasterChatPanelProps)
   }
 
   return (
-    <section className="flex h-full min-h-0 flex-1 flex-col bg-transparent">
-      <header className="flex h-10 shrink-0 items-center justify-between border-b border-white/[0.06] px-4 text-[10px] text-white/35">
-        <span className="inline-flex items-center gap-2">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/80" />
-          当前会话
-        </span>
-        <div className="flex items-center gap-3">
-          <span className="hidden sm:inline">固定人格 · 三工具</span>
-          {turns.length > 0 && (
-            <button
-              type="button"
-              onClick={clearConversation}
-              className="text-white/35 transition hover:text-white/70"
-            >
-              清空
-            </button>
-          )}
-        </div>
-      </header>
-
-      {turns.length === 0 ? (
-        <div className="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto px-5 py-8">
-          <div className="mx-auto w-full max-w-[620px]">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-emerald-400/20 bg-emerald-400/10 text-emerald-300">
-              <Bot className="h-5 w-5" />
-            </div>
-            <h2 className="mt-5 text-[22px] font-semibold tracking-tight text-white/90">
-              与{masterName}协作
-            </h2>
-            <p className="mt-2 max-w-[520px] text-[12px] leading-6 text-white/40">
-              直接把目标交给它。{masterName}会拆步骤、调智能体、查运行账本并回报结果；
-              删除与回滚必须走审批，模型不能直接执行。
-            </p>
-            <div className="mt-7 flex flex-wrap gap-2">
-              {SUGGESTIONS.map((suggestion) => (
-                <button
-                  key={suggestion}
-                  type="button"
-                  onClick={() => setInput(suggestion)}
-                  className="rounded-md border border-white/[0.07] bg-white/[0.025] px-2.5 py-1.5 text-[11px] text-white/45 transition hover:border-white/15 hover:bg-white/[0.05] hover:text-white/75"
-                >
-                  {suggestion}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto flex w-full max-w-[760px] flex-col gap-5 px-5 py-6">
-            {turns.map((turn, index) =>
+    <section className="flex h-full min-h-0 flex-1 flex-col bg-white">
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-3">
+        <div className="mx-auto flex w-full max-w-[980px] flex-col items-start gap-3">
+          {turns.length === 0 ? (
+            <>
+              <Bubble>嗨，我是{masterName}！</Bubble>
+              <Bubble>
+                想做什么事，直接跟我说！拆步骤、调智能体、查运行账本，这些我都接得住。你专心做你的，有进展或需要你拿主意的事，我会回来找你。
+              </Bubble>
+              <Bubble>
+                我现在叫{masterName}，你也可以给我换个别的名字，以后随时能改。
+              </Bubble>
+            </>
+          ) : (
+            turns.map((turn, index) =>
               turn.role === 'user' ? (
                 <div
                   key={`${turn.role}-${index}`}
-                  className="ml-auto max-w-[85%] rounded-2xl rounded-br-md border border-emerald-300/10 bg-[#173528] px-4 py-2.5 text-[13px] leading-6 text-[#dff7e8]"
+                  className="ml-auto max-w-[76%] whitespace-pre-wrap break-words rounded-[16px] rounded-br-[7px] bg-[#e8f1e6] px-4 py-2.5 text-[16px] leading-7 text-[#26352a]"
                 >
                   {turn.text}
                 </div>
               ) : (
-                <div key={`${turn.role}-${index}`} className="mr-auto max-w-[92%]">
-                  <div className="mb-1.5 flex items-center gap-1.5 text-[10px] text-white/30">
-                    <span className="flex h-4 w-4 items-center justify-center rounded bg-emerald-400/15 text-emerald-300">
-                      <Bot className="h-2.5 w-2.5" />
-                    </span>
-                    {masterName}
-                  </div>
-                  <div className="whitespace-pre-wrap break-words text-[13px] leading-7 text-white/70">
-                    {turn.text}
-                  </div>
+                <div
+                  key={`${turn.role}-${index}`}
+                  className="mr-auto max-w-[88%] whitespace-pre-wrap break-words rounded-[16px] rounded-bl-[7px] bg-[#f2f1ee] px-4 py-2.5 text-[16px] leading-7 text-[#29261f]"
+                >
+                  {turn.text}
                 </div>
               ),
-            )}
-            {sending && (
-              <div className="flex items-center gap-2 text-[11px] text-white/35">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
-                {masterName}正在处理…
-              </div>
-            )}
-          </div>
+            )
+          )}
+          {sending && (
+            <div className="flex items-center gap-2 rounded-[16px] bg-[#f2f1ee] px-4 py-2.5 text-[13px] text-[#8a8378]">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#6e9f76]" />
+              {masterName}正在处理…
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       {error && (
-        <p className="mx-auto mb-1 w-full max-w-[760px] px-5 text-[11px] leading-5 text-red-300/90">
+        <p className="mx-auto w-full max-w-[980px] px-6 text-[12px] leading-5 text-red-600">
           {error}
         </p>
       )}
 
-      <div className="shrink-0 px-4 pb-4 pt-2">
+      <div className="shrink-0 px-6 pb-5 pt-2">
         <form
           onSubmit={send}
-          className="mx-auto w-full max-w-[760px] rounded-[14px] border border-white/[0.08] bg-[#12151a] transition focus-within:border-emerald-400/30"
+          className="mx-auto w-full max-w-[980px] rounded-[18px] border border-[#e8e3da] bg-[#faf9f6] px-4 pb-2.5 pt-3 shadow-[0_1px_3px_rgba(34,28,18,0.03)] transition focus-within:border-[#cbc4b8]"
         >
           <textarea
             value={input}
@@ -199,19 +145,21 @@ export function MasterChatPanel({ masterName = '总管' }: MasterChatPanelProps)
             }}
             placeholder={`给${masterName}发消息，例如：列一下我名下的智能体，或把 writer 暂停`}
             maxLength={8000}
-            rows={3}
-            className="block max-h-40 min-h-[72px] w-full resize-none bg-transparent px-3.5 pt-3 text-[13px] leading-6 text-white/80 outline-none placeholder:text-white/25"
+            rows={2}
+            className="block max-h-40 min-h-[46px] w-full resize-none bg-transparent text-[16px] leading-7 text-[#2b2821] outline-none placeholder:text-[#a8a198]"
           />
-          <div className="flex items-center justify-between px-2.5 pb-2">
-            <div className="flex items-center gap-2 text-[10px] text-white/25">
-              <span className="rounded border border-white/[0.06] px-1.5 py-0.5">Auto</span>
-              <span className="hidden sm:inline">固定三工具 · single run</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-[11px] text-[#999186]">
+              <span className="rounded-full border border-[#ddd7cc] px-2 py-0.5 text-[#766e63]">
+                Auto
+              </span>
+              <span className="hidden sm:inline">固定三工具 · 删除与回滚必须审批</span>
             </div>
             <button
               type="submit"
               aria-label="发送"
               disabled={sending || !input.trim()}
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-400 text-[#07110b] transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-25"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-[#23211d] text-white transition hover:bg-[#3a372f] disabled:cursor-not-allowed disabled:opacity-20"
             >
               <ArrowUp className="h-4 w-4" />
             </button>
@@ -219,5 +167,13 @@ export function MasterChatPanel({ masterName = '总管' }: MasterChatPanelProps)
         </form>
       </div>
     </section>
+  )
+}
+
+function Bubble({ children }: { children: ReactNode }) {
+  return (
+    <div className="max-w-[88%] whitespace-pre-wrap break-words rounded-[16px] rounded-bl-[7px] bg-[#f2f1ee] px-4 py-2.5 text-[16px] leading-7 text-[#29261f]">
+      {children}
+    </div>
   )
 }

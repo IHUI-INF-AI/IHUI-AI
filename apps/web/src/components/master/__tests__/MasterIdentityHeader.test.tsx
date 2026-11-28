@@ -14,11 +14,8 @@ function renderHeader(overrides: Partial<Parameters<typeof MasterIdentityHeader>
   render(
     <MasterIdentityHeader
       name="总管"
-      definitionCount={2}
-      approvalCount={1}
       onRename={onRename}
       onReset={onReset}
-      onToggleCreate={vi.fn()}
       {...overrides}
     />,
   )
@@ -26,13 +23,10 @@ function renderHeader(overrides: Partial<Parameters<typeof MasterIdentityHeader>
 }
 
 describe('MasterIdentityHeader', () => {
-  it('显示默认名和注册表/审批统计', () => {
+  it('显示默认名与职责说明', () => {
     renderHeader()
     expect(screen.getByRole('heading', { name: '总管' })).toBeTruthy()
-    expect(screen.getByText('注册表')).toBeTruthy()
-    expect(screen.getByText('2')).toBeTruthy()
-    expect(screen.getByText('待审批')).toBeTruthy()
-    expect(screen.getByText('1')).toBeTruthy()
+    expect(screen.getByText('跟进你的所有任务')).toBeTruthy()
   })
 
   it('改名保存后回调真实名字，失败不伪装成功', async () => {
