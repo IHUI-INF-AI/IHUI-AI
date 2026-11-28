@@ -8967,6 +8967,30 @@
           "title": "Too many media files",
           "action": "Reduce attachments and retry"
         },
+        "MEMORY_DREAM_FAILED": {
+          "title": "Memory consolidation failed",
+          "action": "Try again later; you can keep chatting in the meantime"
+        },
+        "MEMORY_FORGET_FAILED": {
+          "title": "Memory deletion failed",
+          "action": "Try again later; do not resubmit if the deletion did not take effect"
+        },
+        "MEMORY_PROCEDURAL_SAVE_FAILED": {
+          "title": "Failed to save procedural memory",
+          "action": "Try again later; this step will not be recorded in the procedure"
+        },
+        "MEMORY_RECALL_FAILED": {
+          "title": "Memory retrieval failed",
+          "action": "Try again later; this answer may lack historical context"
+        },
+        "MEMORY_SAVE_FAILED": {
+          "title": "Memory save failed",
+          "action": "Try again later; this turn may not be remembered"
+        },
+        "MEMORY_TOPICS_FAILED": {
+          "title": "Failed to load memory topics",
+          "action": "Try again later; the current conversation can continue"
+        },
         "MISSING_DATA": {
           "title": "Required parameters are missing",
           "action": "Fill them in and retry"
@@ -30069,10 +30093,6 @@
   "tradeHub": {
     "title": "Trading",
     "subtitle": "Earnings, orders, payments and membership points"
-  },
-  "personalHub": {
-    "title": "Account",
-    "subtitle": "Account, favorites, learning and subscriptions"
   },
   "developerHub": {
     "title": "Developer",

@@ -8963,6 +8963,30 @@
           "title": "媒體檔案數量超出限制",
           "action": "精簡附件後重試"
         },
+        "MEMORY_DREAM_FAILED": {
+          "title": "記憶整理失敗",
+          "action": "稍後重試；若持續失敗，可先繼續目前對話"
+        },
+        "MEMORY_FORGET_FAILED": {
+          "title": "記憶刪除失敗",
+          "action": "稍後重試；刪除未生效時不要重複提交"
+        },
+        "MEMORY_PROCEDURAL_SAVE_FAILED": {
+          "title": "流程記憶儲存失敗",
+          "action": "稍後重試；目前步驟結果不會被記入流程"
+        },
+        "MEMORY_RECALL_FAILED": {
+          "title": "記憶讀取失敗",
+          "action": "稍後重試；本次回答可能缺少歷史上下文"
+        },
+        "MEMORY_SAVE_FAILED": {
+          "title": "記憶儲存失敗",
+          "action": "稍後重試；本輪內容可能不會被記住"
+        },
+        "MEMORY_TOPICS_FAILED": {
+          "title": "記憶主題讀取失敗",
+          "action": "稍後重試；不影響目前對話繼續"
+        },
         "MISSING_DATA": {
           "title": "缺少必填參數",
           "action": "補充參數後重試"
@@ -30220,10 +30244,6 @@
   "tradeHub": {
     "title": "交易",
     "subtitle": "收益、訂單、支付與會員積分"
-  },
-  "personalHub": {
-    "title": "個人中心",
-    "subtitle": "帳戶、收藏、學習與訂閱"
   },
   "developerHub": {
     "title": "開發者",

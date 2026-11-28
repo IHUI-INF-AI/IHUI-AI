@@ -3212,6 +3212,7 @@
       "bypassSkipApproval": "已跳過審批",
       "mcpRequiresApproval": "MCP 標註要求確認",
       "taintEgressGate": "會話汙點:出網需確認",
+      "itcpContractRequiresApproval": "契約要求人工審批",
       "policyRequiresApproval": "策略要求審批",
       "approvalPolicyDeny": "策略拒絕執行",
       "policySkipsApproval": "策略免審批",

@@ -6,7 +6,7 @@
  * 步骤决策(D55 / G-66)词汇表 —— 跨端单一真相源。
  *
  * 数据来源:`apps/ai-service` 的 `_derive_step_decision()`(从结果可见路径推导)与
- * `_decision_hints`(auto 免审批等不可见路径手工写入),两处合计 25 个字面量。
+ * `_decision_hints`(auto 免审批等不可见路径手工写入),两处合计 26 个字面量。
  * 本模块只认**全集**,不另建第二套枚举(后端新增字面量时由用例与守门 57 一起逼齐)。
  *
  * 纪律:
@@ -34,6 +34,8 @@ export const STEP_DECISIONS = [
   'bypass_skip_approval',
   'mcp_annotations_require_approval',
   'taint_egress_gate',
+  // ITCP 契约的 permission 面声明必须人工审批:声明面硬约束,会话级授权不能绕过
+  'itcp_contract_requires_approval',
   'approval_policy_always',
   // 工具级审批策略 deny:本会问人的一律确定性拒绝(agent_loop_v2 写 _decision_hints)
   'approval_policy_deny',
@@ -72,6 +74,7 @@ const DECISION_WORD_KEY: Record<StepDecision, string> = {
   bypass_skip_approval: 'decision.bypassSkipApproval',
   mcp_annotations_require_approval: 'decision.mcpRequiresApproval',
   taint_egress_gate: 'decision.taintEgressGate',
+  itcp_contract_requires_approval: 'decision.itcpContractRequiresApproval',
   approval_policy_always: 'decision.policyRequiresApproval',
   approval_policy_deny: 'decision.approvalPolicyDeny',
   approval_policy_never: 'decision.policySkipsApproval',
@@ -103,6 +106,8 @@ const DECISION_STATE: Record<StepDecision, StepDecisionState> = {
   // 会话级污点闸门把出网工具抬升为需人工审批(agent_loop_v2 在此置 needs_approval=True 后走审批),
   // 与 mcp_annotations_require_approval 同属"还没跑,在等人点头" ⇒ needsUser
   taint_egress_gate: 'needsUser',
+  // 契约硬约束同样停在"还没跑,在等人点头":任何会话级 allow 都不能把它降回去
+  itcp_contract_requires_approval: 'needsUser',
   approval_policy_always: 'needsUser',
   // 与 never 反向:本会问人的一律确定性拒绝 ⇒ 工具未执行,同拒绝面
   approval_policy_deny: 'rejected',
