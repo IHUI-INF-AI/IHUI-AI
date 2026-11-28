@@ -10,6 +10,7 @@ import type {
   DeviceTaskDiffSummary,
   DeviceTaskExecutionPayload,
   DeviceTaskProgress,
+  PlanStep,
   RegisterDeviceTokenInput,
   RegisterDeviceTokenResponse,
   TerminalTask,
@@ -379,6 +380,10 @@ export async function deviceTaskStream(
     textDelta?: string
     content?: string
     progress?: DeviceTaskProgress
+    /** 思考过程全量(设备端累积后上报;服务端写 reasoning 列,三端历史可回放) */
+    reasoning?: string
+    /** 执行计划全量快照(步骤状态整体替换,不是增量) */
+    planSteps?: Array<PlanStep | Record<string, unknown>>
     /**
      * 执行面全量快照(工具卡/终端任务)。与正文并行上报:
      * 设备端 AgentCore 的 tool_call/tool_result 折叠成卡片,服务端落 metadata 并广播给同账号三端。
@@ -398,6 +403,8 @@ export async function deviceTaskStream(
         ...(input.textDelta !== undefined ? { text_delta: input.textDelta } : {}),
         ...(input.content !== undefined ? { content: input.content } : {}),
         ...(input.progress ? { progress: input.progress } : {}),
+        ...(input.reasoning !== undefined ? { reasoning: input.reasoning } : {}),
+        ...(input.planSteps ? { plan_steps: input.planSteps } : {}),
         ...(input.toolCalls ? { tool_calls: input.toolCalls } : {}),
         ...(input.terminalTasks ? { terminal_tasks: input.terminalTasks } : {}),
       }),
