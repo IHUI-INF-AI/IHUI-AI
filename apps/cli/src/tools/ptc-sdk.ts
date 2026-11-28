@@ -13,13 +13,15 @@
  */
 
 import type { Tool, ToolParameter } from './index.js'
-import { PTC_DEFAULT_BINDING_TIMEOUT_MS } from '@ihui/ptc-runtime'
 import {
   PTC_DEFAULT_MAX_BINDING_CALLS,
   PTC_DEFAULT_MAX_CONCURRENT_BINDING_CALLS,
 } from './ptc-executor.js'
 import type { PtcBindingCallQuota, PtcBindingConcurrencyQuota } from './ptc-executor.js'
-import { PTC_DEFAULT_BINDING_TOOL_NAMES } from './ptc-tool.js'
+import {
+  PTC_DEFAULT_BINDING_TIMEOUT_MS,
+  PTC_DEFAULT_BINDING_TOOL_NAMES,
+} from './ptc-tool.js'
 
 const BINDING_NAMES: ReadonlySet<string> = new Set<string>(PTC_DEFAULT_BINDING_TOOL_NAMES)
 
