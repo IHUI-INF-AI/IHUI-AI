@@ -801,7 +801,7 @@
       "usersInvited": "邀約註冊",
       "usersInvited7d": "近7日邀約",
       "activeUsers7d": "近7日活躍",
-      "levelDistTitle": "等級分布",
+      "levelDistTitle": "等級分佈",
       "level0": "等級 0",
       "level1": "等級 1",
       "level2": "等級 2",
@@ -836,7 +836,7 @@
       "pv1h": "1小時 PV",
       "uv1h": "1小時 UV",
       "trafficTruncated": "資料已截斷",
-      "familyBreakdown": "IP 段分布",
+      "familyBreakdown": "IP 段分佈",
       "moreFamilies": "另有 {count} 個",
       "noTrafficData": "暫無流量資料",
       "panelPageUsage": "頁面使用統計",
@@ -844,15 +844,15 @@
       "pv5mNow": "5分鐘 PV {count}",
       "pageUsageScope": "統計範圍",
       "scopePublic": "公開",
-      "scopeAdmin": "管理後台",
+      "scopeAdmin": "管理後臺",
       "scopeAuth": "需登入",
       "pageUsageTop": "熱門頁面",
       "avgDwellSec": "平均停留(秒)",
       "pageUsageNoData": "暫無頁面資料",
       "panelHourlyVisits": "每小時瀏覽",
       "hourlyVisitWindow": "最近 24 小時",
-      "panelPlatforms": "平台分佈",
-      "platformNoData": "暫無平台資料",
+      "panelPlatforms": "平臺分佈",
+      "platformNoData": "暫無平臺資料",
       "platformRn": "原生應用",
       "platformMp": "小程序",
       "platformEx": "擴充",
@@ -6436,7 +6436,7 @@
     "capSearch": "搜尋",
     "capFetch": "拉取",
     "capAction": "寫入",
-    "modePreset": "預設平台",
+    "modePreset": "預設平臺",
     "modeCustom": "自訂",
     "operationCount": "{count} 個操作",
     "invoke": "呼叫",
@@ -6472,26 +6472,26 @@
     "spaceIdLabel": "空間 ID",
     "folderTokenLabel": "資料夾 Token(可選)",
     "operationsTitle": "操作清單",
-    "operationsEmpty": "暫無操作,匯入 OpenAPI 或使用平台範本",
+    "operationsEmpty": "暫無操作,匯入 OpenAPI 或使用平臺範本",
     "unsupportedTitle": "暫不支援",
     "invokeSuccess": "呼叫成功",
     "invokeFailed": "呼叫失敗",
     "requiredParams": "必填參數: {params}",
     "noOperations": "該連接器沒有可執行操作",
     "customHint": "自訂接入:填 Base URL + 驗證,再用 OpenAPI 匯入或手填操作",
-    "managedUnavailableHint": "該渠道尚未由平台管理員開通，一般成員無需設定；開通後可一鍵接入。",
-    "quickTitle": "平台一鍵接入",
+    "managedUnavailableHint": "該渠道尚未由平臺管理員開通，一般成員無需設定；開通後可一鍵接入。",
+    "quickTitle": "平臺一鍵接入",
     "userAuthorize": "掃碼授權自己帳號",
-    "quickHint": "飛書、釘釘、企業微信等由平台統一授權，點一下即可接入，不需要掃碼或填寫應用密鑰。",
+    "quickHint": "飛書、釘釘、企業微信等由平臺統一授權，點一下即可接入，不需要掃碼或填寫應用密鑰。",
     "connectNow": "一鍵接入",
     "connected": "已接入",
-    "managedReady": "平台已授權",
-    "managedNotReady": "待平台設定",
-    "managedMissing": "缺少平台環境變數: {keys}",
+    "managedReady": "平臺已授權",
+    "managedNotReady": "待平臺設定",
+    "managedMissing": "缺少平臺環境變數: {keys}",
     "managedConnected": "{name} 已接入",
-    "managedBadge": "平台託管",
-    "managedToggle": "使用平台託管憑證",
-    "managedToggleHint": "憑證由平台統一提供，你不需要填寫 app_id 或 app_secret。",
+    "managedBadge": "平臺託管",
+    "managedToggle": "使用平臺託管憑證",
+    "managedToggleHint": "憑證由平臺統一提供，你不需要填寫 app_id 或 app_secret。",
     "managedToggleOffHint": "已切換為手動填寫憑證，僅建議進階使用者使用。",
     "advancedAdd": "進階接入",
     "check": "測試連線",
@@ -6539,11 +6539,11 @@
     "wechatClawbotActionFailed": "操作失敗，請重試",
     "wechatHubTitle": "微信自動化 · 微信智聯",
     "wechatHubBadge": "wechat-hub",
-    "wechatHubHint": "完整微信自動化台：掃碼登入、會話/聯絡人/群組/朋友圈、自動回覆、AI 分析與稽核。多種後端可選（iLink 官方 / 本地橋）。",
+    "wechatHubHint": "完整微信自動化臺：掃碼登入、會話/聯絡人/群組/朋友圈、自動回覆、AI 分析與稽核。多種後端可選（iLink 官方 / 本地橋）。",
     "wechatHubLoading": "正在讀取微信智聯帳號…",
     "wechatHubEmpty": "尚無微信帳號，請點下方按鈕至微信智聯新增。",
     "wechatHubLoadFailed": "讀取微信智聯失敗",
-    "wechatHubNote": "完整設定與操作請在微信智聯管理台完成。",
+    "wechatHubNote": "完整設定與操作請在微信智聯管理臺完成。",
     "wechatHubConfigure": "開啟微信智聯"
   },
   "adminAiSkills": {
@@ -9566,10 +9566,34 @@
       "targetPlaceholder": "如:重點高中、985大學"
     },
     "options": {
-      "classLevel": "[\"優秀(班上前 10%)\",\"良好(10-30%)\",\"中等(30-70%)\",\"一般(後 30%)\"]",
-      "difficulty": "文史背誦",
-      "obstacle": "家庭環境影響",
-      "school": "私立學校"
+      "classLevel": [
+        "優秀(班上前 10%)",
+        "良好(10-30%)",
+        "中等(30-70%)",
+        "一般(後 30%)"
+      ],
+      "difficulty": [
+        "語文閱讀理解",
+        "英語聽力口語",
+        "數學計算",
+        "物理概念",
+        "化學記憶",
+        "文科背誦"
+      ],
+      "obstacle": [
+        "注意力不集中",
+        "時間管理差",
+        "學習方法不當",
+        "缺乏學習動力",
+        "考試焦慮",
+        "家庭環境影響"
+      ],
+      "school": [
+        "重點中學",
+        "普通中學",
+        "國際學校",
+        "私立學校"
+      ]
     },
     "result": {
       "failed": "AI 分析失敗",
@@ -9833,7 +9857,7 @@
       "folderNone": "未分類"
     },
     "searchPlaceholder": "搜尋對話",
-    "workbenchSessions": "工作台會話",
+    "workbenchSessions": "工作臺會話",
     "searchNoResult": "未找到結果",
     "empty": "暫無資料",
     "unfavorite": "取消收藏",
@@ -9844,7 +9868,7 @@
       "failed": "失敗",
       "refresh": "重新整理",
       "empty": "暫無終端",
-      "cursor": "游標",
+      "cursor": "遊標",
       "altScreen": "替代畫面",
       "noIntegration": "無整合",
       "running": "執行中",
@@ -9947,7 +9971,14 @@
       "ckPaymentConfirmDone": "支付結果確認",
       "ckDownloadExportExport": "已觸發生成/匯出",
       "ckDownloadExportDownload": "下載已開始",
-      "ckDownloadExportDone": "產物核對完成"
+      "ckDownloadExportDone": "產物核對完成",
+      "maximize": "最大化",
+      "restore": "還原",
+      "checkpointChatTitle": "AI 在瀏覽器裡等你確認",
+      "checkpointChatBody": "「{label}」這一步需要你處理，處理後瀏覽器任務才會繼續。",
+      "checkpointChatAction": "去處理",
+      "checkpointChatMore": "另有 {count} 個等待確認",
+      "checkpointChatTimeout": "已超時，建議接管"
     },
     "resizeFloatHint": "調整大小",
     "earlier": "更早"
@@ -10275,7 +10306,18 @@
       "datePublished": "2026-07-26",
       "description": "智匯 AI 資訊頻道:聚合 41 個權威信源(微博/知乎/36 氪/HackerNews/TechCrunch/OpenAI Blog/Arxiv 等),每 6 小時自動採集,模型/產品/行業/論文分類與趨勢信號實時更新。",
       "headline": "AI 資訊 · 全網實時聚合流",
-      "keywords": "智匯 AI"
+      "keywords": [
+        "AI 資訊",
+        "大模型",
+        "OpenAI",
+        "GPT",
+        "Claude",
+        "HackerNews",
+        "TechCrunch",
+        "Arxiv",
+        "趨勢信號",
+        "智匯 AI"
+      ]
     },
     "compare": {
       "capabilityOverlay": "能力雷達疊加",
@@ -10682,6 +10724,7 @@
       "tasks": "任務",
       "progress": "進度",
       "agents": "代理",
+      "coze": "Coze 智能體",
       "background": "背景",
       "swarm": "集群",
       "orchestration": "編排",
@@ -10702,6 +10745,34 @@
       "agenttasks": "執行任務",
       "unified": "任務中心",
       "atomicrollback": "整棧回滾"
+    },
+    "coze": {
+      "title": "Coze 智能體",
+      "hint": "選一個已同步的社群智能體，直接發訊息聯調。",
+      "searchPlaceholder": "搜尋智能體",
+      "loading": "載入中…",
+      "loadFailed": "智能體列表載入失敗",
+      "empty": "暫無已同步的 Coze 智能體",
+      "switch": "切換",
+      "loadingCapabilities": "讀取上游能力…",
+      "plugins": "外掛",
+      "workflows": "工作流",
+      "knowledge": "知識庫",
+      "shortcuts": "快捷指令",
+      "chatEmpty": "選擇智能體後，在下方發一則訊息開始聯調",
+      "streaming": "生成中…",
+      "inputPlaceholder": "輸入訊息，Enter 傳送",
+      "send": "傳送",
+      "clear": "清空",
+      "ready": "已連線",
+      "connecting": "連線中…",
+      "loginRequired": "登入後可聯調",
+      "failed": "連線失敗",
+      "closed": "連線已中斷",
+      "notConnected": "連線尚未就緒，請稍後重試",
+      "connectFailed": "連線 Coze 失敗",
+      "upstreamFailed": "上游回傳失敗",
+      "publicOnly": "僅顯示公開能力，不含提示詞與模型參數"
     },
     "applied": "已套用",
     "apply": "套用",
@@ -12631,8 +12702,8 @@
     "reasoningEffortFallback": "推理強度已由後端調整為 {requested} → {effective}",
     "analysisOpen": "檢視場景分析",
     "terminal": {
-      "waitingInput": "等待輸入",
-      "promptLabel": "終端輸入",
+      "waitingInput": "等待你的輸入",
+      "promptLabel": "指令提示：{prompt}",
       "submit": "送出"
     },
     "titleAutoUpdate": {
@@ -12656,7 +12727,10 @@
     "reviewTargetBranchPlaceholder": "輸入分支名稱",
     "reviewTargetCommit": "指定 Commit",
     "reviewTargetCommitLabel": "Commit SHA",
-    "reviewTargetCommitPlaceholder": "輸入 Commit SHA"
+    "reviewTargetCommitPlaceholder": "輸入 Commit SHA",
+    "reasoningEffortDefault": "預設",
+    "pptxOutline": "文字大綱",
+    "officePreviewLabel": "預覽"
   },
   "chatHistory": {
     "moveToGroup": "移動到分組",
@@ -14763,7 +14837,7 @@
       },
       "agent": {
         "title": "Agent 使用",
-        "desc": "從市場選用 Agent、收藏、自訂提示詞、發佈到自己的工作台。"
+        "desc": "從市場選用 Agent、收藏、自訂提示詞、發佈到自己的工作臺。"
       },
       "knowledge-base": {
         "title": "知識庫",
@@ -14781,6 +14855,109 @@
         "title": "常見問題",
         "desc": "登入失敗、積分異常、模型不可用、資料匯出等高頻問答。"
       }
+    },
+    "repositoryFiles": {
+      "title": "文檔文件",
+      "description": "倉庫 docs 下的 PDF、Office、表格、圖片、音視頻等非 Markdown 文件，按原格式直接預覽",
+      "loading": "加載中...",
+      "preview": "預覽",
+      "count": "共 {count} 個"
+    },
+    "projectFiles": {
+      "aiHint": "讓 AI 在當前文件上直接工作：總結全文、提煉關鍵信息，或針對內容提問。",
+      "aiAnalyze": "AI 解讀",
+      "aiAsk": "問答",
+      "aiClose": "關閉 AI 解讀",
+      "aiContinueChat": "在對話中繼續",
+      "aiContinuePrompt": "請閱讀這份文件，並告訴我它最關鍵的 3 個信息。",
+      "aiCopy": "複製",
+      "aiCopied": "已複製",
+      "aiError": "AI 分析失敗，請重試",
+      "aiKeypoints": "提取要點",
+      "aiQuestionPlaceholder": "針對這份文檔提問…",
+      "aiReading": "AI 正在閱讀文檔…",
+      "aiSend": "發送問題",
+      "aiSource": "基於 {chars} 個字符",
+      "aiStart": "生成摘要",
+      "aiSummary": "總結",
+      "aiTitle": "AI 文檔助手",
+      "aiTooLarge": "文件超過 20MB，暫不支持 AI 分析",
+      "aiTruncated": "文檔較長，已截取開頭與結尾",
+      "aiUnsupported": "當前文件類型暫不支持 AI 文本分析",
+      "count": "共 {count} 個",
+      "description": "項目工作區上傳的文件，按原格式直接預覽",
+      "download": "下載原文件",
+      "exitFullscreen": "退出全屏",
+      "fullscreen": "全屏",
+      "loading": "加載中...",
+      "preview": "預覽",
+      "previewFailed": "預覽失敗，請下載後查看",
+      "retry": "重試",
+      "title": "我的項目文件",
+      "aiRevise": "AI 修訂",
+      "reviseTitle": "AI 修訂稿",
+      "reviseClose": "關閉 AI 修訂",
+      "reviseInstructionLabel": "修訂要求",
+      "reviseInstructionPlaceholder": "說明要改什麼，例如：依合規口徑重寫第二部分",
+      "reviseDefaultInstruction": "依合規、準確、可執行的標準修訂這份文件：消除前後矛盾與模糊表述，補齊缺失的關鍵要素；不要新增原文沒有的事實。",
+      "revisePresetCompliance": "依合規口徑重寫",
+      "revisePresetConcise": "精簡冗餘表述",
+      "revisePresetEvidence": "補齊證據與要素",
+      "reviseRun": "產生修訂稿",
+      "reviseRunning": "產生中…",
+      "reviseRegenerate": "重新產生",
+      "reviseStop": "停止",
+      "reviseReading": "AI 正在通讀並重寫…",
+      "reviseLimit": "單次上限 1.2 萬字元 / 20MB",
+      "reviseHint": "AI 會輸出整篇修訂稿，並與原文逐行對比，不會只在側欄給建議。",
+      "reviseSteps": "產生後逐處接受或駁回；匯出時依原格式寫回，Word 保留樣式。",
+      "reviseTooLarge": "檔案超過 20MB，暫不支援 AI 修訂",
+      "reviseTooLong": "文件 {chars} 字元，超過 1.2 萬字元的整篇修訂上限，請拆分後重試",
+      "reviseAborted": "已停止產生",
+      "reviseError": "AI 修訂失敗，請重試",
+      "reviseHunkCount": "{count} 處修改",
+      "reviseAcceptedCount": "已接受 {accepted}/{total}",
+      "reviseSuspicious": "輸出可能不完整，請核對結尾",
+      "reviseViewSplit": "分欄",
+      "reviseViewUnified": "單欄",
+      "reviseOriginal": "原文",
+      "reviseRevised": "AI 修訂稿",
+      "reviseHunkAt": "第 {start}–{end} 行",
+      "reviseAccept": "接受",
+      "reviseReject": "駁回",
+      "reviseAcceptAll": "全部接受",
+      "reviseRejectAll": "全部駁回",
+      "reviseCopy": "複製修訂全文",
+      "reviseCopied": "已複製",
+      "reviseExport": "匯出修訂稿",
+      "reviseExporting": "匯出中…",
+      "reviseExportDone": "已匯出 {name}",
+      "reviseExportFailed": "匯出失敗，請重試",
+      "reviseExportFallback": "Word 段落結構無法安全對齊，已改為匯出 Markdown 修訂稿",
+      "reviseNothingAccepted": "還沒有接受任何修改；全部駁回時匯出內容與原文一致。",
+      "reviseExportDocxNote": "匯出會把已接受的行寫回原 Word 段落，保留現有樣式。",
+      "reviseExportNote": "該格式暫不做二進位寫回，匯出為 Markdown 修訂稿。",
+      "reviseRenderCapped": "差異超過 {rows} 行，僅渲染前 {rows} 行",
+      "reviseNoChanges": "AI 沒有給出需要修改的內容，目前版本已符合要求。",
+      "reviseContinue": "在此稿上繼續修訂",
+      "reviseContinueBase": "下一輪將基於第 {round} 輪已接受的修訂稿繼續修改",
+      "revisePrevHunk": "上一處",
+      "reviseNextHunk": "下一處",
+      "reviseHunkPosition": "第 {current}/{total} 處",
+      "reviseSaveToDocs": "儲存到文件中心",
+      "reviseSavingToDocs": "儲存中…",
+      "reviseSavedToDocs": "已儲存到文件中心:{name}",
+      "reviseSaveToDocsFailed": "儲存到文件中心失敗,請稍後重試",
+      "revisePickProject": "選擇專案",
+      "reviseLoadingProjects": "載入專案中…",
+      "reviseSaveConfirm": "儲存",
+      "reviseNoProjects": "尚無專案,請先在工作區建立專案",
+      "reviseSavedAsVersion": "已儲存為第 {version} 版",
+      "reviseVersionChangeLog": "AI 修訂稿:採納 {accepted}/{total} 處",
+      "versionHistory": "歷史版本",
+      "versionEmpty": "尚無版本記錄,儲存一次 AI 修訂後會出現在這裡",
+      "versionDownload": "下載此版本",
+      "versionLoadFailed": "版本載入失敗,請稍後重試"
     }
   },
   "drama": {
@@ -15607,7 +15784,16 @@
   },
   "eduCoursesPage": {
     "subtitle": "管理已報名的全部課程",
-    "title": "我的課程"
+    "title": "我的課程",
+    "empty": "尚無課程",
+    "loading": "載入中...",
+    "progress": "進度 {n}%",
+    "searchAriaLabel": "搜尋課程",
+    "searchPlaceholder": "搜尋課程...",
+    "statusCompleted": "已完成",
+    "statusInProgress": "進行中",
+    "statusNotStarted": "未開始",
+    "total": "共 {n} 門"
   },
   "eduDashboardPage": {
     "coursesCard": {
@@ -15728,20 +15914,33 @@
     "subtitle": "本週課程安排一覽",
     "title": "課程表",
     "today": "今天",
-    "weekdays": "[]"
+    "weekdays": []
   },
   "enterprise": {
     "architecture": {
-      "effectFlow": "[]",
-      "effectMetrics": "[]",
+      "effectFlow": [],
+      "effectMetrics": [],
       "effectTitle": "AI化效果",
-      "infoAdvanced": "[]",
+      "infoAdvanced": [],
       "infoAdvancedLabel": "高級信息世界",
-      "infoBasic": "[]",
+      "infoBasic": [],
       "infoBasicLabel": "初級信息世界",
       "infoTitle": "信息世界",
       "label": "企業AI化服務架構",
-      "physicalItems": "[{\"desc\":\"協助企業梳理組織結構，定義數位員工崗位\",\"title\":\"組織架構\"},{\"desc\":\"正向與逆向流程分析，優化業務運作效率\",\"title\":\"流程梳理\"},{\"desc\":\"企業文化、使命願景、批判性思維與謙卑態度\",\"title\":\"人本價值\"}]",
+      "physicalItems": [
+        {
+          "desc": "協助企業梳理組織結構，定義數位員工崗位",
+          "title": "組織架構"
+        },
+        {
+          "desc": "正向與逆向流程分析，優化業務運作效率",
+          "title": "流程梳理"
+        },
+        {
+          "desc": "企業文化、使命願景、批判性思維與謙卑態度",
+          "title": "人本價值"
+        }
+      ],
       "physicalTitle": "物理世界",
       "title": "從物理世界到信息世界,構建人機協同的超級企業"
     },
@@ -15767,13 +15966,142 @@
     "compass": {
       "adoptionLabel": "{percent}% 企業已採用",
       "label": "智能體場景羅盤",
-      "quadrants": "[]",
+      "quadrants": [
+        {
+          "description": "簡單決策 + 簡單執行,快速部署高頻應用",
+          "examples": [
+            "知識問答",
+            "流程自動化"
+          ],
+          "tag": "Q1",
+          "title": "高效助手"
+        },
+        {
+          "description": "複雜決策 + 簡單執行,提供深度分析與建議",
+          "examples": [
+            "數據分析",
+            "決策支持"
+          ],
+          "tag": "Q2",
+          "title": "智慧顧問"
+        },
+        {
+          "description": "簡單決策 + 複雜執行,處理跨系統複雜任務",
+          "examples": [
+            "會議安排",
+            "審批流程"
+          ],
+          "tag": "Q3",
+          "title": "執行專家"
+        },
+        {
+          "description": "複雜決策 + 複雜執行,自主規劃與多智能體協作",
+          "examples": [
+            "營銷自動化",
+            "多智能體協同"
+          ],
+          "tag": "Q4",
+          "title": "全能專家"
+        }
+      ],
       "subtitle": "幫助企業識別和規劃智能體應用場景,從簡單到復雜逐步推進AI化",
       "title": "基於任務復雜度與自主決策度的場景規劃"
     },
     "courses": {
       "label": "課程體系",
-      "phases": "[]",
+      "phases": [
+        {
+          "courses": [
+            {
+              "duration": "1課時",
+              "isNew": true,
+              "name": "AI技術發展歷程概述"
+            },
+            {
+              "duration": "1課時",
+              "isNew": true,
+              "name": "AI生產力工具的使用方法"
+            },
+            {
+              "duration": "1課時",
+              "isNew": true,
+              "name": "主流AI工具與平臺介紹"
+            },
+            {
+              "duration": "1課時",
+              "isNew": true,
+              "name": "低/無代碼智能體應用搭建"
+            },
+            {
+              "duration": "1課時",
+              "isNew": true,
+              "name": "企業AI化結構化分析方法"
+            },
+            {
+              "duration": "1課時",
+              "isNew": true,
+              "name": "AI時代素養——批判性思維"
+            }
+          ],
+          "description": "掌握主流AI工具與平臺,理解AI技術發展脈絡",
+          "tag": "PHASE 01",
+          "title": "AI新工具課程"
+        },
+        {
+          "courses": [
+            {
+              "duration": "1課時",
+              "isNew": false,
+              "name": "結構化問題解決與引導"
+            },
+            {
+              "duration": "1課時",
+              "isNew": false,
+              "name": "創新障礙突破"
+            },
+            {
+              "duration": "1課時",
+              "isNew": false,
+              "name": "創意學習方法"
+            },
+            {
+              "duration": "1課時",
+              "isNew": false,
+              "name": "組織變革心理"
+            }
+          ],
+          "description": "突破創新障礙,掌握結構化問題解決與組織變革方法",
+          "tag": "PHASE 02",
+          "title": "思維類課程"
+        },
+        {
+          "courses": [
+            {
+              "duration": "1課時",
+              "isNew": false,
+              "name": "企業文化管理"
+            },
+            {
+              "duration": "1課時",
+              "isNew": false,
+              "name": "使命、願景與價值觀"
+            },
+            {
+              "duration": "系列",
+              "isNew": false,
+              "name": "中國傳統哲學系列"
+            },
+            {
+              "duration": "系列",
+              "isNew": false,
+              "name": "西方哲學系列"
+            }
+          ],
+          "description": "從東西方哲學到企業文化管理,構建深層組織共識",
+          "tag": "PHASE 03",
+          "title": "文化類課程"
+        }
+      ],
       "subtitle": "幫助企業決策者全面理解AI時代的機遇與挑戰",
       "title": "系統化AI認知與實踐課程"
     },
@@ -15792,7 +16120,7 @@
       "title": "智匯 AI企業服務"
     },
     "join": {
-      "benefits": "[]",
+      "benefits": [],
       "consultHint": "掃碼諮詢或直接聯系我們",
       "joinNow": "立即加入",
       "label": "加入智匯 AI社",
@@ -15802,13 +16130,44 @@
     },
     "modules": {
       "coreServiceBadge": "核心服務",
-      "items": "[]",
+      "items": [
+        {
+          "description": "線下課程、探索活動與互助社群,深度鏈接志同道合的決策者",
+          "features": [
+            "系統化課程",
+            "實踐探索",
+            "社群互助"
+          ],
+          "tag": "MODULE 01",
+          "title": "在地社群"
+        },
+        {
+          "description": "便捷的在線交流平臺,隨時隨地獲取信息與支持",
+          "features": [
+            "交流平臺",
+            "經驗共享",
+            "資源對接"
+          ],
+          "tag": "MODULE 02",
+          "title": "線上社群"
+        },
+        {
+          "description": "專業大模型與智能體服務,提供深度AI化諮詢與支持",
+          "features": [
+            "專業大模型",
+            "智能體服務",
+            "諮詢服務"
+          ],
+          "tag": "MODULE 03",
+          "title": "AI專業服務"
+        }
+      ],
       "label": "三大服務模塊"
     },
     "positioning": {
       "description": "智匯 AI社致力於幫助企業決策者深度理解AI與企業的關系,通過系統化的課程、實踐探索和社群互助,構建人機協同的超級組織,實現企業的理性效率提升。",
       "label": "核心定位",
-      "tags": "[]",
+      "tags": [],
       "title": "AI時代企業理性效率服務與互助社群"
     },
     "inquiry": "企業諮詢"
@@ -16102,7 +16461,11 @@
       "noMatch": "暫無匹配的文檔",
       "preview": "預覽",
       "searchPlaceholder": "搜索文檔標題或描述...",
-      "title": "文檔集市"
+      "title": "文檔集市",
+      "catAllFormats": "全部格式",
+      "clearFilters": "清除篩選",
+      "formatFilter": "格式",
+      "previewFailed": "預覽失敗,請稍後重試"
     },
     "enterMarketplace": "進入集市",
     "loading": "加載中...",
@@ -18199,7 +18562,14 @@
       "viewMore": "查看更多"
     },
     "marquee": {
-      "items": "[]",
+      "items": [
+        "🎉 全新 AI 教育模塊上線,支持課程學習 / 直播 / 考試一體化",
+        "🚀 模型市場新增 GPT-5 / Claude 4.5 / Gemini 2.5 Pro 等旗艦模型",
+        "💎 VIP 會員限時 7 折,享 100+ 智能體無限使用",
+        "🌍 多語言支持升級:新增 5 種語言實時翻譯",
+        "🎨 主題中心 50+ 套主題,一鍵切換視覺風格",
+        "📚 知識庫 RAG 上線,文檔秒變智能問答"
+      ],
       "label": "公告"
     },
     "miniappModal": {
@@ -18755,7 +19125,15 @@
       "title": "Top 5 頁面",
       "visitsHeader": "訪問數"
     },
-    "weekdays": "[]"
+    "weekdays": [
+      "週一",
+      "週二",
+      "週三",
+      "週四",
+      "週五",
+      "週六",
+      "週日"
+    ]
   },
   "models": {
     "relay": {
@@ -18770,7 +19148,21 @@
       "offPeak": "低谷",
       "cacheRead": "快取讀",
       "cacheWrite": "快取寫",
-      "subscriptionOnly": "訂閱專享"
+      "subscriptionOnly": "訂閱專享",
+      "billingMode": "計費方式",
+      "byImage": "按圖",
+      "bySecond": "按秒",
+      "byCall": "按次",
+      "dynamicCost": "按量計費",
+      "minCharge": "最低收費",
+      "minChargePerCall": "每次最低收費",
+      "unitPrice": "單價",
+      "referencePrice": "參考價",
+      "tieredPrice": "階梯價",
+      "startingAt": "起",
+      "unitImage": "圖片",
+      "unitSecond": "秒",
+      "unitCall": "次"
     },
     "aiNews": {
       "fallbackHint": "暫無最新資訊,顯示 2026-07 真實新模型",
@@ -19153,7 +19545,24 @@
         "docs": "查看文檔",
         "title": "OpenClaw - 讓 AI 部署更簡單"
       },
-      "steps": "[]",
+      "steps": [
+        {
+          "desc": "通過一行命令安裝 OpenClaw CLI 工具",
+          "title": "安裝 CLI"
+        },
+        {
+          "desc": "使用您的 API 令牌登錄 OpenClaw",
+          "title": "登錄認證"
+        },
+        {
+          "desc": "選擇需要部署的模型和區域",
+          "title": "配置模型"
+        },
+        {
+          "desc": "執行部署命令,等待服務就緒",
+          "title": "一鍵啟動"
+        }
+      ],
       "stepsTitle": "部署步驟",
       "subtitle": "開源 AI 網關,支持多模型路由、負載均衡和緩存加速",
       "title": "OpenClaw 一鍵部署"
@@ -19467,13 +19876,31 @@
     "consumeTrend": "+{n}% vs 上月",
     "packages": {
       "enterprise": {
-        "features": "[]"
+        "features": [
+          "200M tokens 額度",
+          "專屬模型通道",
+          "無限 API 令牌",
+          "專屬客戶經理",
+          "調用日誌永久",
+          "SLA 99.95%"
+        ]
       },
       "pro": {
-        "features": "[]"
+        "features": [
+          "15M tokens 額度",
+          "全部模型可用",
+          "20 個 API 令牌",
+          "優先技術支持",
+          "調用日誌 90 天"
+        ]
       },
       "starter": {
-        "features": "[]"
+        "features": [
+          "1M tokens 額度",
+          "基礎模型可用",
+          "5 個 API 令牌",
+          "社區支持"
+        ]
       }
     },
     "productSchema": {
@@ -20565,7 +20992,7 @@
     "plan": "計劃模式",
     "plaza": "廣場",
     "pluginMarket": "插件市場",
-    "workbench": "工作台",
+    "workbench": "工作臺",
     "connectors": "連接器",
     "points": "積分",
     "pricing": "定價",
@@ -20686,10 +21113,10 @@
     "deployDiagnosis": "部署診斷",
     "logs": "日誌",
     "events": "事件",
-    "apiPlatformApps": "API 平台應用",
-    "apiPlatformPackages": "API 平台方案",
-    "apiPlatformBilling": "API 平台計費",
-    "apiPlatformUsage": "API 平台用量",
+    "apiPlatformApps": "API 平臺應用",
+    "apiPlatformPackages": "API 平臺方案",
+    "apiPlatformBilling": "API 平臺計費",
+    "apiPlatformUsage": "API 平臺用量",
     "shopProducts": "商城商品",
     "shopPayments": "商城支付",
     "shopWithdrawals": "商城提領",
@@ -20716,7 +21143,7 @@
     "aiGc": "AI 內容生成",
     "crew": "團隊",
     "developerLink": "開發者連結",
-    "identityProportion": "身份占比",
+    "identityProportion": "身份佔比",
     "productIdentity": "產品身份",
     "userAgentAudio": "使用者智慧體·音訊",
     "userAgentContext": "使用者智慧體·上下文",
@@ -20732,12 +21159,12 @@
     "authVeriCodes": "驗證碼",
     "loginLogs": "登入日誌",
     "eduOrganization": "教育機構",
-    "eduPlatform": "教育平台",
-    "eduUserPlatform": "教育使用者平台",
+    "eduPlatform": "教育平臺",
+    "eduUserPlatform": "教育使用者平臺",
     "eduZhsIdentity": "教育智匯身份",
     "eduCourseAudit": "課程審核",
     "eduCoursePay": "課程支付",
-    "eduCoursePlatformLog": "課程平台日誌",
+    "eduCoursePlatformLog": "課程平臺日誌",
     "systemLoginLogs": "系統登入日誌",
     "systemOperationLogs": "系統操作日誌",
     "systemTasksLog": "系統任務日誌",
@@ -20768,7 +21195,9 @@
     "messagesShort": "訊息",
     "mine": "我的",
     "allFeatures": "全部功能",
-    "unknown": "未知"
+    "unknown": "未知",
+    "aiHome": "智匯AI",
+    "feed": "動態"
   },
   "news": {
     "allCategories": "全部分類",
@@ -20817,7 +21246,13 @@
       }
     },
     "benefits": {
-      "items": "[]",
+      "items": [
+        "每週 AI 工程實戰案例",
+        "新功能提前體驗",
+        "獨家 prompt 模板",
+        "行業趨勢分析",
+        "社區活動通知"
+      ],
       "title": "訂閱福利"
     },
     "errors": {
@@ -21267,17 +21702,35 @@
       "enterprise": {
         "contactSales": "聯系銷售",
         "cta": "聯系銷售",
-        "features": "[]",
+        "features": [
+          "不限積分",
+          "私有化部署",
+          "SSO/SAML 2.0",
+          "審計日誌",
+          "專屬技術支持"
+        ],
         "name": "企業版"
       },
       "free": {
         "cta": "立即開始",
-        "features": "[\"每月 1000 積分\",\"所有 AI 模型\",\"所有 6 個客戶端\",\"API 存取\",\"社群支援\"]",
+        "features": [
+          "每月 1000 積分",
+          "所有 AI 模型",
+          "所有 6 個客戶端",
+          "API 存取",
+          "社群支援"
+        ],
         "name": "免費版"
       },
       "pro": {
         "cta": "升級到 Pro",
-        "features": "[\"每月 10000 積分\",\"優先佇列\",\"進階模型(GPT-4o/Claude Opus)\",\"團隊協作(5 席位)\",\"電子郵件支援\"]",
+        "features": [
+          "每月 10000 積分",
+          "優先佇列",
+          "進階模型(GPT-4o/Claude Opus)",
+          "團隊協作(5 席位)",
+          "電子郵件支援"
+        ],
         "name": "專業版"
       },
       "unknown": {
@@ -21506,7 +21959,13 @@
     "earlyBird": {
       "cta": "立即加入",
       "desc": "限前 18 席,售完即恢復原價",
-      "features": "[\"全年所有課程免費參加\",\"線下探索活動優先參與名額\",\"智匯 AI 會員社群無限次互動\",\"早鳥專屬導師 1v1 諮詢 1 次\",\"早鳥專屬資料包(價值 ¥3000)\"]",
+      "features": [
+        "全年所有課程免費參加",
+        "線下探索活動優先參與名額",
+        "智匯 AI 會員社群無限次互動",
+        "早鳥專屬導師 1v1 諮詢 1 次",
+        "早鳥專屬資料包(價值 ¥3000)"
+      ],
       "name": "早鳥會員",
       "originalPrice": "¥18000",
       "period": "/人/年",
@@ -21515,7 +21974,13 @@
     "enterprise": {
       "cta": "聯系商務",
       "desc": "面向企業決策者團隊的定製方案",
-      "features": "[\"專屬客戶經理 + 客製化部署\",\"團隊培訓 + 內部知識庫接入\",\"API 高併發配額 + SLA 保障\",\"私有化部署可選\",\"季度復盤 + 戰略諮詢\"]",
+      "features": [
+        "專屬客戶經理 + 客製化部署",
+        "團隊培訓 + 內部知識庫接入",
+        "API 高併發配額 + SLA 保障",
+        "私有化部署可選",
+        "季度復盤 + 戰略諮詢"
+      ],
       "name": "企業服務",
       "period": "/月",
       "price": "商務洽談"
@@ -21548,13 +22013,54 @@
     "standard": {
       "cta": "瞭解詳情",
       "desc": "早鳥售罄後自動切換至此方案",
-      "features": "[\"全年所有課程免費參加\",\"線下探索活動優先參與名額\",\"智匯 AI 會員社群無限次互動\"]",
+      "features": [
+        "全年所有課程免費參加",
+        "線下探索活動優先參與名額",
+        "智匯 AI 會員社群無限次互動"
+      ],
       "name": "標準會員",
       "period": "/人/年",
       "price": "¥18000"
     },
     "testimonials": {
-      "items": "[{\"company\":\"TechStart\",\"name\":\"張明\",\"role\":\"CTO\",\"text\":\"IHUI AI 讓我們在 2 周內上線了企業 AI 助手,節省了 3 個月開發時間\"},{\"company\":\"DataFlow\",\"name\":\"Sarah Chen\",\"role\":\"Lead Engineer\",\"text\":\"多租戶 RLS 設計非常專業,340 張表的隔離做得無可挑剔\"},{\"company\":\"創智科技\",\"name\":\"李華\",\"role\":\"創辦人\",\"text\":\"176 個 LLM 統一適配,再也不用寫 10 套 API 呼叫程式碼了\"},{\"company\":\"CloudSys\",\"name\":\"Marcus Weber\",\"role\":\"DevOps\",\"text\":\"從原始碼部署到生產只用了 3 天,文件非常詳細\"},{\"company\":\"智雲科技\",\"name\":\"王芳\",\"role\":\"AI 架構師\",\"text\":\"LangGraph + MCP + A2A 三棧協定,是我們見過最完整的 AI 框架\"},{\"company\":\"AIVentures\",\"name\":\"Alex Kim\",\"role\":\"CTO\",\"text\":\"Apache 2.0 商用友善,5346 個測試讓人放心\"}]",
+      "items": [
+        {
+          "company": "TechStart",
+          "name": "張明",
+          "role": "CTO",
+          "text": "IHUI AI 讓我們在 2 周內上線了企業 AI 助手,節省了 3 個月開發時間"
+        },
+        {
+          "company": "DataFlow",
+          "name": "Sarah Chen",
+          "role": "Lead Engineer",
+          "text": "多租戶 RLS 設計非常專業,340 張表的隔離做得無可挑剔"
+        },
+        {
+          "company": "創智科技",
+          "name": "李華",
+          "role": "創辦人",
+          "text": "176 個 LLM 統一適配,再也不用寫 10 套 API 呼叫程式碼了"
+        },
+        {
+          "company": "CloudSys",
+          "name": "Marcus Weber",
+          "role": "DevOps",
+          "text": "從原始碼部署到生產只用了 3 天,文件非常詳細"
+        },
+        {
+          "company": "智雲科技",
+          "name": "王芳",
+          "role": "AI 架構師",
+          "text": "LangGraph + MCP + A2A 三棧協定,是我們見過最完整的 AI 框架"
+        },
+        {
+          "company": "AIVentures",
+          "name": "Alex Kim",
+          "role": "CTO",
+          "text": "Apache 2.0 商用友善,5346 個測試讓人放心"
+        }
+      ],
       "subtitle": "真實用戶反饋,來自不同行業與團隊規模",
       "title": "開發者怎麼說"
     }
@@ -22524,7 +23030,16 @@
     "noSuggestions": "暫無匹配建議",
     "open": "打開",
     "popular": "熱門搜索",
-    "quickSuggestions": "[\"設定\",\"個人檔案\",\"專案\",\"對話歷史\",\"成員\",\"工作區\",\"快捷鍵\",\"AI 模型\"]",
+    "quickSuggestions": [
+      "設定",
+      "個人檔案",
+      "專案",
+      "對話歷史",
+      "成員",
+      "工作區",
+      "快捷鍵",
+      "AI 模型"
+    ],
     "resultsCount": "共 {total} 條結果(用戶 {users}、項目 {projects}、文件 {files})",
     "searchHistory": "搜索歷史",
     "searchPlaceholder": "搜索…",
@@ -22692,28 +23207,52 @@
     "cards": {
       "consulting": {
         "desc": "架構諮詢 / 技術選型 / 代碼 review",
-        "features": "[\"視訊會議 / 遠端桌面\",\"2 小時起\",\"故障排查\",\"增值稅發票\",\"回應 SLA 24h\"]",
+        "features": [
+          "視訊會議 / 遠端桌面",
+          "2 小時起",
+          "故障排查",
+          "增值稅發票",
+          "回應 SLA 24h"
+        ],
         "price": "¥999",
         "title": "技術諮詢",
         "unit": "/小時"
       },
       "custom": {
         "desc": "基於 IHUI-AI 定製企業專屬功能",
-        "features": "[\"業務整合 / Agent 開發\",\"UI 客製 / API 擴展\",\"80 工時(約 2 週)\",\"3 個月保固\",\"原始碼 + 部署文件\"]",
+        "features": [
+          "業務整合 / Agent 開發",
+          "UI 客製 / API 擴展",
+          "80 工時(約 2 週)",
+          "3 個月保固",
+          "原始碼 + 部署文件"
+        ],
         "price": "¥19,999",
         "title": "定製開發",
         "unit": "起"
       },
       "deployment": {
         "desc": "源碼部署到您的服務器",
-        "features": "[\"PostgreSQL + Redis 設定\",\"8 端建置\",\"2 小時線上培訓\",\"30 天電子郵件支援\",\"3-5 工作日交付\"]",
+        "features": [
+          "PostgreSQL + Redis 設定",
+          "8 端建置",
+          "2 小時線上培訓",
+          "30 天電子郵件支援",
+          "3-5 工作日交付"
+        ],
         "price": "¥4,999",
         "title": "私有化部署",
         "unit": "/次"
       },
       "training": {
         "desc": "1 天線下 / 2 天線上深度培訓",
-        "features": "[\"架構原理 + 部署實操\",\"二次開發 + Agent 設計\",\"核心維護者授課\",\"20 人上限\",\"影片 + PPT + 實操環境\"]",
+        "features": [
+          "架構原理 + 部署實操",
+          "二次開發 + Agent 設計",
+          "核心維護者授課",
+          "20 人上限",
+          "影片 + PPT + 實操環境"
+        ],
         "price": "¥9,999",
         "title": "企業培訓工作坊",
         "unit": "/場"
@@ -22734,7 +23273,32 @@
       "title": "企業詢價"
     },
     "faq": {
-      "items": "[{\"a\":\"支援微信付款、支付寶、對公轉帳、Stripe(海外)。客製開發分期付款:50% 啟動 + 30% 中期 + 20% 驗收。\",\"q\":\"如何付款？\"},{\"a\":\"可以開具增值稅普通發票 / 專用發票。請在詢價表單中備註開票資訊。\",\"q\":\"可以開發票嗎？\"},{\"a\":\"諮詢類服務按小時計費,已消費不退款。部署/培訓服務未啟動可全額退款,啟動後按已消費工時扣除。\",\"q\":\"退款政策？\"},{\"a\":\"私有化部署 3-5 工作日,培訓 1-2 週預約,客製開發按工時估算(80 工時約 2 週)。\",\"q\":\"交付週期？\"},{\"a\":\"私有化部署含 30 天電子郵件支援,客製開發含 3 個月保固,諮詢類按小時計費無固定售後。\",\"q\":\"售後支援？\"},{\"a\":\"客製開發原始碼歸客戶所有,可申請版權轉讓。IHUI-AI 核心程式碼 Apache 2.0 開源。\",\"q\":\"原始碼歸屬？\"}]",
+      "items": [
+        {
+          "a": "支援微信付款、支付寶、對公轉帳、Stripe(海外)。客製開發分期付款:50% 啟動 + 30% 中期 + 20% 驗收。",
+          "q": "如何付款？"
+        },
+        {
+          "a": "可以開具增值稅普通發票 / 專用發票。請在詢價表單中備註開票資訊。",
+          "q": "可以開發票嗎？"
+        },
+        {
+          "a": "諮詢類服務按小時計費,已消費不退款。部署/培訓服務未啟動可全額退款,啟動後按已消費工時扣除。",
+          "q": "退款政策？"
+        },
+        {
+          "a": "私有化部署 3-5 工作日,培訓 1-2 週預約,客製開發按工時估算(80 工時約 2 週)。",
+          "q": "交付週期？"
+        },
+        {
+          "a": "私有化部署含 30 天電子郵件支援,客製開發含 3 個月保固,諮詢類按小時計費無固定售後。",
+          "q": "售後支援？"
+        },
+        {
+          "a": "客製開發原始碼歸客戶所有,可申請版權轉讓。IHUI-AI 核心程式碼 Apache 2.0 開源。",
+          "q": "原始碼歸屬？"
+        }
+      ],
       "title": "常見問題"
     },
     "hero": {
@@ -23387,7 +23951,7 @@
       "doublebell": "雙響鈴",
       "bubble": "氣泡",
       "marimba": "木琴",
-      "chime": "和弦鈴",
+      "chime": "和絃鈴",
       "knock": "輕敲"
     }
   },
@@ -23439,7 +24003,7 @@
       "publishFailed": "發布失敗",
       "publishLicense": "許可證",
       "publishPrice": "價格（元）",
-      "publishPriceHint": "0 = 免費；付費條目售出後按平台比例給作者分成。",
+      "publishPriceHint": "0 = 免費；付費條目售出後按平臺比例給作者分成。",
       "publishName": "技能名稱",
       "publishSubmit": "發布",
       "publishSuccess": "發布成功",
@@ -23949,7 +24513,7 @@
     "approval": {
       "approved": "已核准",
       "denied": "已拒絕",
-      "hint": "請處理以下待核准任務",
+      "hint": "請處理以下待核準任務",
       "origin": "來源",
       "target": "目標",
       "approve": "核准",
@@ -24255,7 +24819,16 @@
   "useCasesAiEdu": {
     "about": "關於課程",
     "courseSchema": {
-      "about": "[\"AI 教育\",\"課程編排\",\"智慧答疑\",\"作業批改\",\"學習推薦\",\"MCP 工具協定\",\"知識庫 RAG\",\"多模型調度\"]",
+      "about": [
+        "AI 教育",
+        "課程編排",
+        "智慧答疑",
+        "作業批改",
+        "學習推薦",
+        "MCP 工具協定",
+        "知識庫 RAG",
+        "多模型調度"
+      ],
       "courseWorkload": "PT16H",
       "description": "面向 K12/職業培訓/企業內訓的 AI 教育 Agent 搭建實戰課,涵蓋課程結構化編排、智能答疑、作業批改、學習數據看板、個性化推薦,30 分鐘即可上線。",
       "endDate": "2026-12-31",
@@ -24264,7 +24837,13 @@
       "name": "IHUI AI 教育 Agent 實戰課",
       "provider": "智匯 AI",
       "startDate": "2026-08-01",
-      "teaches": "[\"課程結構化編排\",\"智慧答疑工作流設計\",\"作業自動批改實現\",\"學習數據儀表板建置\",\"個人化學習路徑推薦\"]"
+      "teaches": [
+        "課程結構化編排",
+        "智慧答疑工作流設計",
+        "作業自動批改實現",
+        "學習數據儀錶板建置",
+        "個人化學習路徑推薦"
+      ]
     },
     "courseWorkload": "學習時長",
     "description": "課程描述",
@@ -25908,7 +26487,26 @@
     "title": "銀行卡",
     "empty": "暫無銀行卡",
     "default": "預設",
-    "holder": "持卡人"
+    "holder": "持卡人",
+    "loadFailed": "加載銀行卡失敗",
+    "add": "添加銀行卡",
+    "bankName": "開戶銀行",
+    "bankNamePlaceholder": "如：招商銀行",
+    "number": "卡號",
+    "numberPlaceholder": "12–19 位銀行卡號",
+    "holderPlaceholder": "持卡人姓名",
+    "setDefault": "設為默認",
+    "formDefault": "設為默認卡",
+    "formIncomplete": "請填寫開戶銀行、持卡人和卡號",
+    "invalidNumber": "請輸入 12–19 位有效卡號",
+    "addFailed": "添加失敗，請檢查卡號是否有效或已存在",
+    "deleteFailed": "刪除失敗，請重試",
+    "setDefaultFailed": "設置默認失敗，請重試",
+    "deleteConfirm": "確認刪除這張銀行卡？",
+    "deleting": "刪除中...",
+    "saving": "保存中...",
+    "readOnly": "只讀",
+    "readOnlyHint": "歷史提現賬戶，僅展示"
   },
   "carte": {
     "title": "智匯社社群",
@@ -26931,7 +27529,21 @@
   },
   "community": {
     "follow": "關注",
-    "follower": "粉絲"
+    "follower": "粉絲",
+    "title": "智匯AI",
+    "subtitle": "智能體社區：發現並用好每一個 AI",
+    "posts": "帖子",
+    "searchPlaceholder": "搜索智能體",
+    "banners": "精選推薦",
+    "categories": "分類",
+    "recent": "最近使用",
+    "recentHint": "最近用過",
+    "recentEmpty": "還沒有使用記錄，去挑一個智能體吧",
+    "myAgents": "我的智能體",
+    "recommended": "智能體推薦",
+    "unknownAgent": "未知智能體",
+    "voiceHint": "語音搜索請在完整版使用",
+    "imageHint": "圖片搜索請在完整版使用"
   },
   "profileEdit": {
     "retry": "重試",
@@ -27657,7 +28269,7 @@
     "earningsStatusRefunded": "已退款",
     "earningsRefundDetail": "退款 ¥{refund} · 扣回 ¥{clawback}",
     "earningsClawbackMissing": "扣回未記錄",
-    "earningsNote": "淨分成 = 銷售分成 - 退款實際扣回；餘額不足未扣回的部分由平台承擔。"
+    "earningsNote": "淨分成 = 銷售分成 - 退款實際扣回；餘額不足未扣回的部分由平臺承擔。"
   },
   "chatSearchBar": {
     "messageNotFound": "找不到該訊息，可能已不在目前清單視窗內",
@@ -27831,7 +28443,7 @@
     "toastPlanFailed": "預演失敗",
     "toastRunOk": "整棧回滾已執行",
     "toastRunFail": "整棧回滾失敗",
-    "availabilityAvailable": "另一台裝置剛建立了檢查點:{id}",
+    "availabilityAvailable": "另一臺裝置剛建立了檢查點:{id}",
     "availabilityUnavailable": "檢查點服務暫不可用,請稍後再試"
   },
   "traceReplay": {
@@ -29938,7 +30550,7 @@
     "verbosity": "詳細程度",
     "verbosityCustom": "自訂",
     "verbosityConcise": "簡潔",
-    "verbosityConciseDesc": "僅顯示核心資訊，減少干擾",
+    "verbosityConciseDesc": "僅顯示核心資訊，減少幹擾",
     "verbosityStandard": "標準",
     "verbosityStandardDesc": "平衡的細節與簡潔性",
     "verbosityDetailed": "詳細",
@@ -30036,13 +30648,19 @@
     "presetBuiltinFocus": "專注",
     "presetBuiltinFocusDesc": "隱藏時間戳、用量與工具細節，只留對話本身",
     "presetBuiltinAccessible": "無障礙",
-    "presetBuiltinAccessibleDesc": "高對比、大字号與焦點環，兼顧低視力與暈動敏感",
+    "presetBuiltinAccessibleDesc": "高對比、大字號與焦點環，兼顧低視力與暈動敏感",
     "accentDefault": "預設",
     "accentBlue": "藍色",
     "accentViolet": "紫色",
     "accentEmerald": "翠綠",
     "accentAmber": "琥珀",
-    "accentRose": "玫瑰紅"
+    "accentRose": "玫瑰紅",
+    "themeSkinDefault": "跟隨系統",
+    "themeSkinPearl": "珍珠白",
+    "themeSkinObsidian": "黑曜石",
+    "presetBuiltinPink": "櫻花粉",
+    "themeSkinLabel": "主題面板",
+    "presetBuiltinPinkDesc": "柔和的粉色點綴，介面更溫暖輕盈"
   },
   "checkinAssistant": {
     "taskPanelTitle": "任務面板",
@@ -30135,7 +30753,7 @@
     "loadFailed": "載入失敗",
     "retry": "重試",
     "emptyAccounts": "暫無帳號",
-    "platformAll": "全部平台",
+    "platformAll": "全部平臺",
     "platformTrae": "Trae",
     "platformWorkbuddy": "WorkBuddy",
     "platformQoder": "Qoder",
@@ -30177,7 +30795,7 @@
     "boardRankingTitle": "排行榜",
     "boardTrendTitle": "趨勢",
     "boardTodayGain": "今日增加 {delta}",
-    "refreshCredits": "重新整理积分",
+    "refreshCredits": "重新整理積分",
     "boardLineTotal": "總計",
     "boardLineGained": "已獲",
     "boardLineConsumed": "已耗",
@@ -30195,7 +30813,7 @@
     "addSmartImport": "匯入已找到帳號",
     "addSmartDesktopOnly": "此功能僅限桌面端使用",
     "addManualAdvanced": "進階選項",
-    "platformLabel": "平台",
+    "platformLabel": "平臺",
     "name": "名稱",
     "namePlaceholder": "輸入帳號名稱",
     "jwt": "JWT",
@@ -30324,7 +30942,7 @@
     "createSuccess": "建立成功",
     "colName": "姓名",
     "add": "新增",
-    "noData": "暂无资料",
+    "noData": "暫無資料",
     "colId": "ID",
     "colEmployeeNo": "員工工號",
     "colPosition": "職級",
@@ -30485,7 +31103,7 @@
     "portalInvalid": "門戶資料無效",
     "automationPrompt": "請執行稅務 {period} 自動化",
     "title": "財務助手",
-    "intro": "智慧稅務與財務自動化平台",
+    "intro": "智慧稅務與財務自動化平臺",
     "bookkeepingTitle": "記帳",
     "bookkeepingDesc": "智慧記帳助手",
     "periodLabel": "所屬期間",
@@ -30498,7 +31116,7 @@
     "taxDesc": "一鍵計算應納稅額",
     "taxpayerLabel": "納稅人類型",
     "taxpayerGeneralValue": "一般納稅人",
-    "taxpayerSmallValue": "小规模納稅人",
+    "taxpayerSmallValue": "小規模納稅人",
     "fieldSalesLabel": "銷售額",
     "fieldProfitLabel": "利潤總額",
     "annualBonusLabel": "年度獎金",
@@ -30535,7 +31153,7 @@
     "openChat": "開啟對話",
     "streaming": "生成中",
     "idle": "閒置",
-    "targetEtaxInvoiceLedger": "發票台帳",
+    "targetEtaxInvoiceLedger": "發票臺帳",
     "targetEtaxVatDeclaration": "營業稅申報",
     "targetEtaxCitQuarterly": "營利事業所得稅季報",
     "targetEtaxIitDeclaration": "個人所得稅申報",
@@ -30549,7 +31167,7 @@
     "tabPayroll": "薪資",
     "tabTodo": "待辦",
     "title": "人事資料",
-    "periodMonth": "所属月份",
+    "periodMonth": "所屬月份",
     "uploadDone": "已上傳{total}筆",
     "confirmDone": "確認成功",
     "importKind": "導入類型",
@@ -30786,7 +31404,7 @@
     "noAccounts": "沒有帳戶",
     "openExternalBrowser": "以外部瀏覽器開啟",
     "orDivider": "或",
-    "platform": "平台",
+    "platform": "平臺",
     "scan": "掃描登入",
     "scanLogin": "掃描登入",
     "scanLoginDescription": "用手機掃描 QR 碼登入",
@@ -30797,9 +31415,9 @@
     "scanLoginTimeout": "掃描逾時,請重試",
     "scanLoginTitle": "掃描登入",
     "scanWithPhoneHint": "使用手機掃描 QR 碼",
-    "selectPlatform": "選擇平台",
+    "selectPlatform": "選擇平臺",
     "startScanLogin": "開始掃描",
-    "subtitle": "管理社群平台帳號",
+    "subtitle": "管理社群平臺帳號",
     "title": "帳號管理",
     "verify": "驗證"
   },
@@ -30878,7 +31496,7 @@
   "finAccounting": {
     "filingApprove": "通過",
     "title": "財務帳套",
-    "desc": "客戶、帳套、憑證覆核、報表結帳與稅務申報的一體化工作台。",
+    "desc": "客戶、帳套、憑證覆核、報表結帳與稅務申報的一體化工作臺。",
     "tabClients": "客戶與帳套",
     "tabVouchers": "憑證與覆核",
     "tabReports": "報表與結帳",
@@ -30988,7 +31606,7 @@
     "moneyOut": "支出",
     "importStatement": "匯入流水",
     "statementImported": "流水已匯入",
-    "invoicesTitle": "發票台帳",
+    "invoicesTitle": "發票臺帳",
     "invoiceStats": "發票統計",
     "noInvoices": "尚無發票",
     "addInvoice": "新增發票",
@@ -31454,7 +32072,7 @@
     "perfRange": "起訖",
     "perfOpenCycle": "開放",
     "perfCloseCycle": "關閉",
-    "perfLaunchTitle": "发起評估",
+    "perfLaunchTitle": "發起評估",
     "perfAssignEmployee": "被評估人",
     "perfAssignReviewer": "上級評估人",
     "perfSelfScore": "自評分",
@@ -31637,8 +32255,8 @@
     "errorPermission": "目前工作區權限不足，請調整權限後再試。",
     "errorReasonLabel": "技術原因",
     "panelTitle": "任務中心",
-    "panelSubtitle": "會話任務與後台執行，都彙總在這裡",
-    "menuSubtitle": "會話任務與後台執行",
+    "panelSubtitle": "會話任務與後臺執行，都彙總在這裡",
+    "menuSubtitle": "會話任務與後臺執行",
     "close": "關閉",
     "backToTools": "返回工具面板",
     "technicalView": "技術檢視",
@@ -31649,6 +32267,87 @@
     "injected": "要求已送出，AI 會在下一步處理",
     "injectFailed": "補充要求傳送失敗",
     "defaultWorkspaceName": "AI 預設工作區",
-    "workspaceAutoFailed": "自動準備工作區失敗，請手動選擇工作區"
+    "workspaceAutoFailed": "自動準備工作區失敗，請手動選擇工作區",
+    "statusRunning": "執行中",
+    "statusCompleted": "已完成",
+    "statusFailed": "失敗",
+    "statusCanceled": "已停止",
+    "approvalPending": "等待確認",
+    "approvalAllowed": "已允許",
+    "approvalDenied": "已拒絕"
+  },
+  "ringtoneNames": {
+    "dingdong": "叮咚",
+    "tritone": "三音階",
+    "waterdrop": "水滴",
+    "doublebell": "雙鈴",
+    "bubble": "氣泡",
+    "marimba": "馬林巴",
+    "chime": "風鈴",
+    "knock": "敲門"
+  },
+  "adminAiModels": {
+    "telemetry": {
+      "title": "模型運行監測",
+      "subtitle": "近 60 分鐘 · 真實調用流水(不含測試)",
+      "subtitleWindow": "窗口 {window} · 真實調用流水(不含測試)",
+      "callsLabel": "窗口調用",
+      "tokensLabel": "窗口 Token",
+      "costLabel": "成本",
+      "costSub": "{priced}/{calls} 有價",
+      "qpsLabel": "當前 QPS",
+      "tpsLabel": "當前 Token/s",
+      "errorLabel": "錯誤率",
+      "p95Label": "P95 延遲",
+      "last5m": "近 5 分鐘均值 · 負載",
+      "activeConfigs": "{count} 個配置有流量",
+      "attributed": "已歸屬 {pct}",
+      "unattributed": "未歸屬 {count} 次",
+      "ioSplit": "輸入 {input} · 輸出 {output}",
+      "noTraffic": "近 1 小時暫無調用",
+      "chartTitle": "調用趨勢",
+      "chartPeak": "峰值 {count} 次",
+      "chartHover": "{time} · {calls} 次 · {tokens} tok",
+      "updatedAt": "更新於 {time}",
+      "refresh": "刷新",
+      "fullMonitor": "完整監控",
+      "column": "近 {window} 運行態",
+      "columnHint": "調用與 Token 數來自調用流水，按配置 ID 歸屬",
+      "cellCalls": "{count} 次 · {tokens} tok",
+      "cellRates": "QPS {qps} · {tps} tok/s",
+      "cellNoCalls": "近 {window} 無調用",
+      "cellErrors": "錯誤 {count}",
+      "cellTip": "近 {window}：調用 {calls} 次，Token {tokens}，錯誤 {errors} 次，P95 {p95}，最近調用 {last}",
+      "noLatency": "無延遲樣本",
+      "loadFailed": "運行數據讀取失敗",
+      "retry": "重試",
+      "cellUnavailable": "運行數據暫不可用",
+      "grade": {
+        "column": "評級",
+        "rubricTitle": "評分口徑（近 60 分鐘）",
+        "rubricError": "錯誤率：≤0.5% = 100 分 · ≤1% = 90 · ≤2% = 78 · ≤5% = 60 · ≤10% = 30 · >10% = 0",
+        "rubricLatency": "端到端 P95：≤3s = 100 分 · ≤8s = 88 · ≤15s = 70 · ≤30s = 40 · >30s = 10",
+        "rubricScope": "只衡量運行可靠性與延遲，不代表回答質量、正確性或工具調用成功率",
+        "rubricCombine": "綜合分取兩項較低分（短板決定等級）：≥90 優秀 · ≥75 良好 · ≥60 一般 · <60 較差",
+        "rubricSample": "近 1 小時 ≥20 次調用且有延遲樣本才評級，否則「樣本不足」",
+        "rubricLoad": "QPS/TPS 只表示負載，不參與質量評分；行業無統一數值，閾值可按項目 SLO 調整",
+        "tier": {
+          "excellent": "優秀",
+          "good": "良好",
+          "fair": "一般",
+          "poor": "較差",
+          "insufficient": "樣本不足"
+        },
+        "score": "{score} 分",
+        "overall": "整體",
+        "tipDetail": "錯誤率 {errorPct} · P95 {p95} · 樣本 {calls} 次",
+        "tipShortBoard": "綜合分取兩項較低分，短板決定等級",
+        "tipNeedSample": "近 1 小時 {calls} 次調用；樣本需 ≥20 次才評級",
+        "tipNoLatency": "近 1 小時 {calls} 次調用，但沒有可用的延遲樣本",
+        "rubricLatencyNote": "P95 含完整生成耗時，長輸出模型應結合 Token 量解讀"
+      }
+    },
+    "providerRelay": "反代",
+    "providerRelayHint": "該配置屬於號池反代平臺，轉發由對應適配器處理"
   }
 }

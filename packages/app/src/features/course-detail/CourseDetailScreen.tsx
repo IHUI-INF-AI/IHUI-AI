@@ -177,7 +177,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     btnDisabled: { opacity: 0.5 },
-    btnText: { color: tk.surface.light, fontSize: rnType.title.size },
+    btnText: { color: tk.brand.ctaForeground, fontSize: rnType.title.size },
     header: {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingTop: rnSpacing.md,

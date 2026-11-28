@@ -60,6 +60,12 @@ export interface McpServer {
   cwd?: string;
   transport?: MCPTransport;
   url?: string;
+  /**
+   * 显式选择 MCP 协议版本。`2026-07-28` = 无状态 HTTP 核心(无 initialize /
+   * Mcp-Session-Id,每请求自带 `_meta` 与 Mcp-Method/Mcp-Name 头);
+   * 缺省仍按 `DEFAULT_PROTOCOL_VERSION` 走旧握手,避免把未知 server 直接打红。
+   */
+  protocolVersion?: string;
   headers?: Record<string, string>;
   api_key?: string;
   auth?: MCPAuth;
@@ -337,6 +343,7 @@ function saveMcpConfig(config: McpConfig): void {
 export interface AddMcpServerOptions {
   transport?: MCPTransport;
   url?: string;
+  protocolVersion?: string;
   headers?: Record<string, string>;
   api_key?: string;
   auth?: MCPAuth;
@@ -365,6 +372,7 @@ export function addMcpServer(
   const server: McpServer = { name, command, args, transport };
   if (options?.env) server.env = options.env;
   if (options?.url) server.url = options.url;
+  if (options?.protocolVersion) server.protocolVersion = options.protocolVersion;
   if (options?.headers) server.headers = options.headers;
   if (options?.api_key) server.api_key = options.api_key;
   if (options?.auth) server.auth = options.auth;

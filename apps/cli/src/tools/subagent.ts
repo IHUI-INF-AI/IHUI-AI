@@ -68,7 +68,17 @@ import type { HunkTracker } from '../checkpoints/hunk-tracker.js';
 
 export type { SubagentPersona, CapabilityMode, IsolationMode };
 
-const MAX_SUBAGENT_DEPTH = 3;
+/**
+ * 子代理最大嵌套深度。默认 5（产品化档），可用 `IHUI_MAX_SUBAGENT_DEPTH` 在 1..5
+ * 内收紧；不设 env 时不再回到旧的 3 层硬顶。上限仍是 5，防止单个回合递归失控。
+ */
+export function resolveMaxSubagentDepth(raw: string | undefined): number {
+  const parsed = raw === undefined ? Number.NaN : Number(raw)
+  if (!Number.isInteger(parsed)) return 5
+  return Math.min(Math.max(parsed, 1), 5)
+}
+
+const MAX_SUBAGENT_DEPTH = resolveMaxSubagentDepth(process.env.IHUI_MAX_SUBAGENT_DEPTH);
 const SUBAGENT_MAX_ITERATIONS = 10;
 
 /**

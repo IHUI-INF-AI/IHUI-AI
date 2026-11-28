@@ -10,7 +10,7 @@ import { success, error } from '../utils/response.js'
 import { db } from '../db/index.js'
 import { deviceTokens, type Device, type DeviceTask } from '@ihui/database'
 import { deviceTaskEvent, isDeviceTaskStage, isDeviceTaskStatus } from '@ihui/types'
-import type { DeviceTaskProgress } from '@ihui/types'
+import type { DeviceTaskDiffSummary, DeviceTaskProgress } from '@ihui/types'
 import { readChatSyncRev } from '../db/chat-sync-rev-queries.js'
 import { AppError } from '../errors/AppError.js'
 import {
@@ -665,6 +665,8 @@ export const devicesRoutes: FastifyPluginAsync = async (server) => {
           agent_session_id: res.agentSessionId,
           // G3:plan 档停住后靠这一项读人的决策(approved/rejected/null)
           approval_decision: res.approvalDecision,
+          // G4:diff 档的逐文件裁决(null=未裁决或未给;[]=一个都不收)
+          approval_accepted_paths: res.approvalAcceptedPaths,
         }),
       )
     } catch (e) {
@@ -684,6 +686,11 @@ export const devicesRoutes: FastifyPluginAsync = async (server) => {
         preview: z.string().min(1).max(2000),
         message_id: z.string().uuid().optional(),
         iterations: z.number().int().min(0).max(1000).optional(),
+        /**
+         * G4:文件级改动。这里只收形状,预算与逐字段校验在 runtime 的唯一判定出口
+         * `isDeviceTaskDiffSummary`(两处各抄一份必漂移)。
+         */
+        diff: z.unknown().optional(),
       })
       .safeParse(request.body)
     if (!parsed.success) {
@@ -694,6 +701,10 @@ export const devicesRoutes: FastifyPluginAsync = async (server) => {
         preview: parsed.data.preview,
         ...(parsed.data.message_id !== undefined ? { messageId: parsed.data.message_id } : {}),
         ...(parsed.data.iterations !== undefined ? { iterations: parsed.data.iterations } : {}),
+        // 形状校验在 runtime 的 isDeviceTaskDiffSummary 里做;这里不重复解释一遍
+        ...(parsed.data.diff !== undefined
+          ? { diff: parsed.data.diff as DeviceTaskDiffSummary }
+          : {}),
       })
       broadcastDeviceTask(device.userId, task)
       return reply.send(success({ task_id: task.id, stage: 'awaiting_approval' }))
@@ -737,12 +748,23 @@ export const devicesRoutes: FastifyPluginAsync = async (server) => {
     if (!userId) return
     const id = requireId(request, reply)
     if (!id) return
-    const parsed = z.object({ decision: z.enum(['approved', 'rejected']) }).safeParse(request.body)
+    const parsed = z
+      .object({
+        decision: z.enum(['approved', 'rejected']),
+        /** G4:kind=diff 的逐文件收下清单;缺省按 decision 全收/全退 */
+        accepted_paths: z.array(z.string().min(1).max(400)).max(80).optional(),
+      })
+      .safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     try {
-      const task = await decideTaskApproval(userId, id, parsed.data.decision)
+      const task = await decideTaskApproval(
+        userId,
+        id,
+        parsed.data.decision,
+        parsed.data.accepted_paths,
+      )
       broadcastDeviceTask(userId, task)
       return reply.send(success({ decision: parsed.data.decision, status: task.status }))
     } catch (e) {
@@ -811,6 +833,8 @@ export const devicesRoutes: FastifyPluginAsync = async (server) => {
         mode: z.enum(['execute', 'plan']).optional(),
         auto_approve: z.boolean().optional(),
         model: z.string().max(100).optional(),
+        /** G4:execute 档跑完先交文件级 diff 等人逐文件收下/回退 */
+        review_diff: z.boolean().optional(),
       })
       .safeParse(request.body)
     if (!parsed.success) {
@@ -829,6 +853,7 @@ export const devicesRoutes: FastifyPluginAsync = async (server) => {
             ? { autoApprove: parsed.data.auto_approve }
             : {}),
           ...(parsed.data.model !== undefined ? { model: parsed.data.model } : {}),
+          ...(parsed.data.review_diff !== undefined ? { reviewDiff: parsed.data.review_diff } : {}),
         },
       })
       broadcastDeviceTask(userId, task)

@@ -20,6 +20,7 @@ import {
   AGENT_TOOLS,
   API_CONTROL_TOOLS,
   WEB_UI_CONTROL_TOOLS,
+  docReviseToolsFor,
   fileToolsFor,
   mergeAgentTools,
   uiControlToolsFor,
@@ -113,5 +114,24 @@ describe('fileToolsFor - 文件意图条件携带(2026-09-21,用户实测 read_f
     expect(fileToolsFor('你好')).toEqual([])
     expect(fileToolsFor('帮我写一首关于春天的诗')).toEqual([])
     expect(fileToolsFor('')).toEqual([])
+  })
+})
+
+describe('docReviseToolsFor - 主 AI 主动修订意图(2026-11-28)', () => {
+  it('文档名词 + 修订动词才带 UI 桥两枚', () => {
+    expect(docReviseToolsFor('帮我按合规要求修订这份合同')).toEqual([
+      'web_ui_describe',
+      'web_ui_invoke',
+    ])
+    expect(docReviseToolsFor('把协议的付款条款润色一下')).toContain('web_ui_invoke')
+    expect(docReviseToolsFor('Please proofread this document and fix the wording')).toContain(
+      'web_ui_invoke',
+    )
+  })
+  it('只有名词或只有动词 → 不携带;普通问答不误触发', () => {
+    expect(docReviseToolsFor('这份合同的签署方是谁')).toEqual([])
+    expect(docReviseToolsFor('帮我修订一下代码风格')).toEqual([])
+    expect(docReviseToolsFor('你好')).toEqual([])
+    expect(docReviseToolsFor('')).toEqual([])
   })
 })

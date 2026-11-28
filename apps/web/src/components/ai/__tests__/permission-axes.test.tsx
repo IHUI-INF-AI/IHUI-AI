@@ -36,8 +36,10 @@ import { useAiPanelStore } from '@/stores/ai-panel'
 import { axisPairOrDefaults, effectiveAxisPair, resolveRequestAxes } from '@/lib/permission-axes'
 import { PermissionAxesPicker } from '../permission-axes-picker'
 
+// 双轴 18 个键落在 shared 词包(apps/web 启动时与 web 包深合并);
+// 只读 web 包会把这些键判成缺失,故取 shared 真词包。
 const messages = JSON.parse(
-  readFileSync(resolve(process.cwd(), '../../packages/i18n/messages/web/zh-CN.json'), 'utf-8'),
+  readFileSync(resolve(process.cwd(), '../../packages/i18n/messages/shared/zh-CN.json'), 'utf-8'),
 ) as { chat: { permission: Record<string, string> } }
 
 function packKey(key: string): string {

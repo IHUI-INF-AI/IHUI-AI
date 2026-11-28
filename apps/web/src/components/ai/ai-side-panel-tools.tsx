@@ -26,6 +26,8 @@ import { usePaneChatStore } from '@/stores/chat-pane-context'
 import { usePaneAiToolsPanelStore } from '@/stores/ai-tools-panel'
 // D52(2026-09-24 立):任务监控分区面板——在既有 tab 体系之上做分组层,不新建第二套 Tab
 import { TaskMonitorZonesView } from '@/components/ai/task-monitor-sections'
+// 2026-11-28:Coze 智能体面板入口——在面板内直接选择智能体、流式对话并展示上游公开能力
+import { CozeAgentPanel } from '@/components/ai/coze-agent-panel'
 import { useTaskMonitorStore } from '@/stores/task-monitor'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import {
@@ -99,6 +101,7 @@ export type ToolTabKey =
   | 'tasks'
   | 'progress'
   | 'agents'
+  | 'coze'
   | 'background'
   | 'swarm'
   | 'orchestration'
@@ -127,6 +130,7 @@ const TAB_KEYS: ToolTabKey[] = [
   'tasks',
   'progress',
   'agents',
+  'coze',
   'background',
   'swarm',
   'orchestration',
@@ -149,6 +153,9 @@ const TAB_KEYS: ToolTabKey[] = [
   'inspector',
 ]
 
+/** Coze 智能体面板的 tab 文案键(单独命名,避免在多处重复同一魔法串) */
+const COZE_TAB_LABEL_KEY = 'tabs.coze'
+
 /** Tab → i18n 字面量键(禁模板拼接 `t(\`tabs.${key}\`)`;新增 Tab 必须同笔在此登记 + 五语言补键) */
 const TAB_LABEL_KEY: Record<ToolTabKey, string> = {
   goal: 'tabs.goal',
@@ -157,6 +164,7 @@ const TAB_LABEL_KEY: Record<ToolTabKey, string> = {
   tasks: 'tabs.tasks',
   progress: 'tabs.progress',
   agents: 'tabs.agents',
+  coze: COZE_TAB_LABEL_KEY,
   background: 'tabs.background',
   swarm: 'tabs.swarm',
   orchestration: 'tabs.orchestration',
@@ -667,6 +675,8 @@ export function AiSidePanelTools() {
             </button>
           </div>
         )
+      case 'coze':
+        return <CozeAgentPanel />
       case 'background':
         return (
           <div className="space-y-3">

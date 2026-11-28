@@ -5,7 +5,16 @@
 'use client'
 
 import * as React from 'react'
-import { Download, Loader2, Maximize2, MessageSquare, Minimize2, Sparkles } from 'lucide-react'
+import {
+  Download,
+  History,
+  Loader2,
+  Maximize2,
+  MessageSquare,
+  Minimize2,
+  Sparkles,
+  Wand2,
+} from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@ihui/ui-react'
 import { toast } from '@/components/common'
@@ -14,6 +23,8 @@ import { fetchRaw } from '@/lib/api'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useFileHandoffStore } from '@/stores/file-handoff'
 import { AiDocumentPanel, canAnalyzeWithAi } from './ai-document-panel'
+import { AiRevisionPanel } from './ai-revision-panel'
+import { FileVersionHistory } from './file-version-history'
 import { UniversalFilePreview } from './universal-file-preview'
 
 /**
@@ -35,6 +46,10 @@ export interface FileViewerTarget {
   readonly load?: () => Promise<Blob>
   /** 标题下的附加说明(项目名 / 相对路径) */
   readonly subtitle?: string
+  /** 该文件所属项目(项目文件才有):修订稿「保存回文档中心」按此上传,未知则不显示。 */
+  readonly projectId?: string
+  /** 工作区文件 id(项目文件才有):有值时可看版本历史、修订稿存为新版本。 */
+  readonly fileId?: string
 }
 
 interface Props {
@@ -67,12 +82,13 @@ export function FileViewerDialog({ target, onClose }: Props) {
   const [loading, setLoading] = React.useState(false)
   const [failed, setFailed] = React.useState(false)
   const [expanded, setExpanded] = React.useState(false)
-  const [aiOpen, setAiOpen] = React.useState(false)
+  /** 右侧面板:AI 解读 / AI 修订稿 / 版本历史。三者互斥,避免同一份文件出现两套请求。 */
+  const [panel, setPanel] = React.useState<'ai' | 'revision' | 'versions' | null>(null)
   const [reloadKey, setReloadKey] = React.useState(0)
 
   React.useEffect(() => {
     setExpanded(false)
-    setAiOpen(false)
+    setPanel(null)
     if (!target) {
       setUrl(null)
       setBlob(null)
@@ -159,11 +175,13 @@ export function FileViewerDialog({ target, onClose }: Props) {
     >
       <DialogContent
         className={cn(
-          expanded
-            ? 'h-[92vh] max-w-[96vw]'
-            : aiOpen
-              ? 'h-[88vh] max-w-[min(96vw,78rem)]'
-              : 'max-w-3xl',
+          panel === 'revision'
+            ? 'h-[92vh] max-w-[min(96vw,112rem)] grid-rows-[auto_minmax(0,1fr)]'
+            : expanded
+              ? 'h-[92vh] max-w-[96vw]'
+              : panel === 'ai'
+                ? 'h-[88vh] max-w-[min(96vw,78rem)]'
+                : 'max-w-3xl',
         )}
       >
         <DialogHeader className="pr-8">
@@ -187,16 +205,43 @@ export function FileViewerDialog({ target, onClose }: Props) {
             <div className="flex shrink-0 items-center gap-1">
               {aiAvailable ? (
                 <Button
-                  variant={aiOpen ? 'secondary' : 'ghost'}
+                  variant={panel === 'ai' ? 'secondary' : 'ghost'}
                   size="sm"
                   disabled={!blob}
-                  onClick={() => setAiOpen((v) => !v)}
+                  onClick={() => setPanel((value) => (value === 'ai' ? null : 'ai'))}
                   aria-label={t('aiAnalyze')}
                   title={t('aiAnalyze')}
                   className="gap-1.5"
                 >
                   <Sparkles className="h-4 w-4 text-violet-600 dark:text-violet-400" />
                   <span className="hidden text-xs sm:inline">{t('aiAnalyze')}</span>
+                </Button>
+              ) : null}
+              {aiAvailable ? (
+                <Button
+                  variant={panel === 'revision' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  disabled={!blob}
+                  onClick={() => setPanel((value) => (value === 'revision' ? null : 'revision'))}
+                  aria-label={t('aiRevise')}
+                  title={t('aiRevise')}
+                  className="gap-1.5"
+                >
+                  <Wand2 className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                  <span className="hidden text-xs sm:inline">{t('aiRevise')}</span>
+                </Button>
+              ) : null}
+              {target?.fileId ? (
+                <Button
+                  variant={panel === 'versions' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  onClick={() => setPanel((value) => (value === 'versions' ? null : 'versions'))}
+                  aria-label={t('versionHistory')}
+                  title={t('versionHistory')}
+                  className="gap-1.5"
+                >
+                  <History className="h-4 w-4" />
+                  <span className="hidden text-xs sm:inline">{t('versionHistory')}</span>
                 </Button>
               ) : null}
               {aiAvailable ? (
@@ -235,42 +280,59 @@ export function FileViewerDialog({ target, onClose }: Props) {
             </div>
           </div>
         </DialogHeader>
-        <div
-          className={cn(
-            'min-h-0 overflow-y-auto',
-            aiOpen && 'grid gap-3 lg:grid-cols-[minmax(0,1fr)_340px]',
-          )}
-        >
-          <div className="min-h-[300px] min-w-0">
-            {loading ? (
-              <div className="flex items-center justify-center py-8 text-muted-foreground">
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                {t('loading')}
-              </div>
-            ) : failed ? (
-              <div className="flex flex-col items-center justify-center gap-3 py-8">
-                <p className="text-center text-body text-muted-foreground">{t('previewFailed')}</p>
-                <Button variant="outline" size="sm" onClick={() => setReloadKey((v) => v + 1)}>
-                  {t('retry')}
-                </Button>
-              </div>
-            ) : url && target ? (
-              <UniversalFilePreview
-                src={url}
+        {panel === 'versions' && target?.fileId ? (
+          <div className="min-h-0 overflow-y-auto">
+            <FileVersionHistory fileId={target.fileId} name={target.name} />
+          </div>
+        ) : panel === 'revision' && blob && target ? (
+          <AiRevisionPanel
+            file={blob}
+            name={target.name}
+            projectId={target.projectId}
+            fileId={target.fileId}
+            onClose={() => setPanel(null)}
+            className="min-h-0"
+          />
+        ) : (
+          <div
+            className={cn(
+              'min-h-0 overflow-y-auto',
+              panel === 'ai' && 'grid gap-3 lg:grid-cols-[minmax(0,1fr)_340px]',
+            )}
+          >
+            <div className="min-h-[300px] min-w-0">
+              {loading ? (
+                <div className="flex items-center justify-center py-8 text-muted-foreground">
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  {t('loading')}
+                </div>
+              ) : failed ? (
+                <div className="flex flex-col items-center justify-center gap-3 py-8">
+                  <p className="text-center text-body text-muted-foreground">
+                    {t('previewFailed')}
+                  </p>
+                  <Button variant="outline" size="sm" onClick={() => setReloadKey((v) => v + 1)}>
+                    {t('retry')}
+                  </Button>
+                </div>
+              ) : url && target ? (
+                <UniversalFilePreview
+                  src={url}
+                  name={target.name}
+                  className={expanded ? 'max-h-[72vh]' : 'max-h-[60vh]'}
+                />
+              ) : null}
+            </div>
+            {panel === 'ai' && blob && target ? (
+              <AiDocumentPanel
+                file={blob}
                 name={target.name}
-                className={expanded ? 'max-h-[72vh]' : 'max-h-[60vh]'}
+                onClose={() => setPanel(null)}
+                className="min-h-[360px]"
               />
             ) : null}
           </div>
-          {aiOpen && blob && target ? (
-            <AiDocumentPanel
-              file={blob}
-              name={target.name}
-              onClose={() => setAiOpen(false)}
-              className="min-h-[360px]"
-            />
-          ) : null}
-        </div>
+        )}
       </DialogContent>
     </Dialog>
   )

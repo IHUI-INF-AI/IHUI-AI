@@ -35,6 +35,31 @@ const { mockUseTheme } = vi.hoisted(() => ({
 }))
 
 // Mock react-syntax-highlighter 的 Prism 为可检测的 <pre>(避免加载真实高亮库)
+// 2026-11-28:生产已改为动态 import `dist/esm/prism` 的 default;旧根路径 mock 不再命中。
+vi.mock('react-syntax-highlighter/dist/esm/prism', () => {
+  const MockPrism = ({
+    language,
+    style,
+    children,
+  }: {
+    language?: string
+    style?: unknown
+    children?: string
+  }) => {
+    const styleAttr = style ? `__style__:${JSON.stringify(style)}` : ''
+    return React.createElement(
+      'pre',
+      {
+        'data-testid': 'syntax-highlighter',
+        'data-style-key': styleAttr,
+        className: `language-${language ?? ''}`,
+      },
+      children,
+    )
+  }
+  return { default: MockPrism }
+})
+
 vi.mock('react-syntax-highlighter', async () => {
   return {
     Prism: ({

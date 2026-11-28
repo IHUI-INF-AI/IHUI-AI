@@ -500,6 +500,30 @@ export { fileToolsFor } from '@ihui/shared/chat/file-tool-intent'
 // 媒体族同款:意图判据单一源在共享层(视频是计费工具,多端必须同一把尺子)
 export { videoToolsFor } from '@ihui/shared/chat/media-tool-intent'
 
+/**
+ * 文档修订意图 → 主 AI 主动修订所需的 UI 桥工具(2026-11-28 立)。
+ *
+ * 普通对话不携带 agentTools(2026-08-29 打字机修复),于是"帮我按合规要求改一下这份合同"
+ * 这类话术里,模型根本看不见 web_ui_invoke,只能回一段干巴巴的文字,无法主动打开修订面板。
+ * 与 edu/finance/hr 同一范式:命中"文档名词 + 修订动词"才条件携带这两枚,普通问答仍返回 []。
+ *
+ * 修订动作本身由 `document.revise` 命令执行(端侧按附件文件名取回 File,见
+ * ui-action-registry / chat-attachment-registry),不在这里复制第二套执行逻辑。
+ */
+const DOC_REVISE_NOUN_RE =
+  /合同|协议|文档|文书|条款|报告|方案|简历|通知|说明|论文|文案|稿件|材料|章程|细则|标书|docx|\.doc\b|\.pdf|document|contract|agreement|proposal|report/i
+const DOC_REVISE_VERB_RE =
+  /修订|修改|改写|润色|校对|纠错|重写|改一版|帮我改|调整.*(措辞|表述|条款|语气)|优化.*(措辞|表述|语气)|revis|polish|rewrite|proofread|edit this document/i
+
+export const DOC_REVISE_TOOLS = ['web_ui_describe', 'web_ui_invoke'] as const
+
+export function docReviseToolsFor(content: string): string[] {
+  if (!content) return []
+  if (!DOC_REVISE_NOUN_RE.test(content)) return []
+  if (!DOC_REVISE_VERB_RE.test(content)) return []
+  return [...DOC_REVISE_TOOLS]
+}
+
 export function eduToolsFor(content: string): string[] {
   if (!content) return []
   const text = content.toLowerCase()

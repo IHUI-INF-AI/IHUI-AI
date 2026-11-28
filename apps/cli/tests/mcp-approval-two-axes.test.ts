@@ -41,7 +41,13 @@ function conn(serverName = 'demo'): McpConnection {
 
 function mcpDef(
   name: string,
-  annotations?: { readOnlyHint?: boolean; openWorldHint?: boolean },
+  annotations?: {
+    readOnlyHint?: boolean;
+    openWorldHint?: boolean;
+    destructiveHint?: boolean;
+    idempotentHint?: boolean;
+    title?: string;
+  },
 ): McpToolDef {
   return { name, description: `fixture ${name}`, inputSchema: { type: 'object' }, annotations }
 }
@@ -58,7 +64,13 @@ function ctxWith(overrides: Partial<ToolContext> = {}): ToolContext {
  */
 function mcpToolWithStubHandler(
   name: string,
-  annotations?: { readOnlyHint?: boolean; openWorldHint?: boolean },
+  annotations?: {
+    readOnlyHint?: boolean;
+    openWorldHint?: boolean;
+    destructiveHint?: boolean;
+    idempotentHint?: boolean;
+    title?: string;
+  },
 ): { tool: Tool; handler: ReturnType<typeof vi.fn> } {
   const real = mcpToolToTool(conn(), mcpDef(name, annotations))
   const handler = vi.fn(async () => ({ success: true, output: 'ran' }))
@@ -96,6 +108,18 @@ describe('两轴映射:mcp-runtime 只声明事实(不判定)', () => {
   it('readOnlyHint 必须是显式 true 才算只读', () => {
     const tool = mcpToolToTool(conn(), mcpDef('axes_readonly_false', { readOnlyHint: false, openWorldHint: false }))
     expect(tool.approvalExemption).toEqual({ readonlyAxis: false, closedWorldAxis: true })
+  })
+
+  it('destructiveHint=true 是硬否决：即使 readOnlyHint=true 也按 dangerous 走确认', () => {
+    const tool = mcpToolToTool(
+      conn(),
+      mcpDef('axes_destructive_wins', {
+        readOnlyHint: true,
+        openWorldHint: false,
+        destructiveHint: true,
+      }),
+    )
+    expect(tool.dangerLevel).toBe('dangerous')
   })
 })
 

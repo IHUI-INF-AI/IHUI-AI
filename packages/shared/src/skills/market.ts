@@ -183,6 +183,87 @@ export interface SkillMarketPurchaseAdminListResponse {
   pageSize: number
 }
 
+/** 退款申请状态：pending 待审、approved 已退款、rejected 已拒绝、cancelled 买家撤回。 */
+export type SkillRefundRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled'
+
+/** 买家看到的退款申请摘要（不暴露审核人 ID）。 */
+export interface SkillRefundRequestSummary {
+  id: string
+  status: SkillRefundRequestStatus
+  reason: string
+  reviewNote: string | null
+  createdAt: string
+  reviewedAt: string | null
+}
+
+/** 买家“我的购买”行（GET /skills/market/purchases）。 */
+export interface SkillMyPurchaseItem {
+  id: string
+  skillName: string
+  priceCents: number
+  currency: string
+  status: 'paid' | 'refunded'
+  createdAt: string
+  refundedAt: string | null
+  refundAmountCents: number
+  /** 最近一次退款申请；没有则 null。 */
+  refundRequest: SkillRefundRequestSummary | null
+  /** 当前是否可以提交退款申请：在购且没有待审申请。 */
+  canRequestRefund: boolean
+}
+
+export interface SkillMyPurchasesResponse {
+  items: SkillMyPurchaseItem[]
+  total: number
+}
+
+/** 提交退款申请响应；alreadyRequested=true 表示命中了已有待审申请。 */
+export interface SkillRefundRequestCreateResponse {
+  request: SkillRefundRequestSummary
+  alreadyRequested: boolean
+}
+
+/** 管理员退款申请行：带购买与买卖双方展示信息，不暴露手机号。 */
+export interface AdminSkillRefundRequestItem {
+  id: string
+  purchaseId: string
+  skillName: string
+  buyerUserId: string
+  buyerNickname: string | null
+  sellerUserId: string | null
+  sellerNickname: string | null
+  priceCents: number
+  purchaseStatus: 'paid' | 'refunded'
+  purchaseCreatedAt: string
+  purchaseRefundedAt: string | null
+  reason: string
+  status: SkillRefundRequestStatus
+  reviewNote: string | null
+  reviewedAt: string | null
+  createdAt: string
+}
+
+export interface AdminSkillRefundRequestListResponse {
+  items: AdminSkillRefundRequestItem[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+/** 管理员审核结果；approve 时带回退款金额与卖家扣回。 */
+export interface AdminSkillRefundRequestReviewResponse {
+  requestId: string
+  status: SkillRefundRequestStatus
+  alreadyReviewed: boolean
+  refundedAmountCents: number
+  sellerClawbackCents: number
+  buyerBalanceAfter: number | null
+  /** 批准退款时带回，供路由回收买家已安装技能；拒绝时为 null。 */
+  purchaseId: string | null
+  skillName: string | null
+  buyerUserId: string | null
+}
+
 /**
  * 技能市场结算口径（管理员，GET /admin/skills-market/settlement）。
  *

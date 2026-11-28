@@ -390,14 +390,16 @@ describe('装车证明:判据必须真接在主链路上', () => {
     // 空气泡防线:流必须取复核后的档位,而不是入口那个旧 model
     // 2026-11-22:号池决策轮(autoPoolModel)优先 —— 服务端解析值同样是"发起前定档"
     // (POST /api/chat/auto-resolve 在建消息前 await 完成),平台轮仍取 effectiveModel。
-    // 字面量锁同时钉住 streamChat 与 runPoolToolLoop 两处,防有人改回入口旧值。
-    expect(src).toContain('model: autoPoolModel ?? effectiveModel')
-    // 号池决策腿接线锁:auto 轮主发送(非重生成)先问服务端,失败保持 'auto' 走平台腿
-    expect(src).toContain("if (roundModel === 'auto' && !isRegenerate)")
-    expect(src).toContain('poolCandidates: listPoolModelIds()')
-    // assistant 消息 model 写实际模型(号池轮是 resolved;号池通道无 usage 帧,
+    // 2026-11-28:号池分支已下沉到 runPoolToolLoop,主发送实参统一取复核后的 effectiveModel。
+    expect(src).toContain('model: effectiveModel')
+    // 号池决策腿接线锁:2026-11-21 起号池判定改由 channel / 登记集合承担,
+    // 不再在发送链里 await auto-resolve;命中后走 runPoolToolLoop(仍取复核后的档位)。
+    expect(src).toContain('const modelIsFromPool =')
+    expect(src).toContain("currentModelChannel === 'pool' || isPoolModelId(effectiveModel)")
+    expect(src).toContain('runPoolToolLoop({')
+    // assistant 消息 model 写本轮定档(号池轮消息模型也在 resolved 链路回写;
     // 消息 model 是 conversationModel 三级回退的唯一显示源)
-    expect(src).toContain('model: autoPoolModel ?? roundModel')
+    expect(src).toContain('model: roundModel')
   })
 
   it('model-switch.ts 不自带 toast / store 依赖(DI 出口,别把第二份真相写进纯模块)', () => {

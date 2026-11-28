@@ -32,6 +32,12 @@ import type { DeviceTaskExecutionPayload, DeviceTaskProgress } from '@ihui/types
 import { AgentCore } from '../server/agent-core.js'
 import type { PermissionMode } from '../tools/permissions.js'
 import { deviceLogPath, resolveWorkspacePath } from './credential.js'
+import {
+  captureWorkspaceDiff,
+  revertWorkspaceChanges,
+  snapshotWorkspace,
+  type WorkspaceSnapshot,
+} from './workspace-diff.js'
 
 export interface DeviceRunnerConfig {
   apiUrl: string
@@ -189,8 +195,18 @@ function createStreamer(deviceToken: string, taskId: string, log: (line: string)
 
 type ApprovalVerdict = 'approved' | 'rejected' | 'cancelled' | 'timeout'
 
+interface ApprovalWaitResult {
+  verdict: ApprovalVerdict
+  /**
+   * G4:kind=diff 的逐文件裁决。**undefined 与 [] 不同**:
+   * undefined = 人没给逐文件清单(批准即全收、拒绝即全退);
+   * [] = 一个都不收。执行端据此决定回退范围,不能把两者折成一个。
+   */
+  acceptedPaths?: string[]
+}
+
 /**
- * 原地等审批(G3,2026-11-26)。
+ * 原地等审批(G3,2026-11-26;G4 扩到 diff)。
  * 每 5s 走一次租约:既续租(防服务端把任务判超时),又读人的决定与取消意图。
  * 默认 30 分钟封顶 —— 设备是串行执行的,一条没人管的任务挂着等于整条队列全堵;
  * 超时如实报 failed(人可以重排),而不是假装还在跑。
@@ -202,7 +218,7 @@ async function waitForApproval(
   log: (line: string) => void,
   onCancel: () => void,
   maxMs = 30 * 60_000,
-): Promise<ApprovalVerdict> {
+): Promise<ApprovalWaitResult> {
   const deadline = Date.now() + maxMs
   while (Date.now() < deadline) {
     try {
@@ -210,17 +226,24 @@ async function waitForApproval(
       if (res.success && res.data) {
         if (res.data.cancel_requested) {
           onCancel()
-          return 'cancelled'
+          return { verdict: 'cancelled' }
         }
-        if (res.data.approval_decision === 'approved') return 'approved'
-        if (res.data.approval_decision === 'rejected') return 'rejected'
+        const accepted = Array.isArray(res.data.approval_accepted_paths)
+          ? res.data.approval_accepted_paths
+          : undefined
+        if (res.data.approval_decision === 'approved') {
+          return accepted === undefined
+            ? { verdict: 'approved' }
+            : { verdict: 'approved', acceptedPaths: accepted }
+        }
+        if (res.data.approval_decision === 'rejected') return { verdict: 'rejected' }
       }
     } catch (e) {
       log(`等审批心跳异常:${e instanceof Error ? e.message : String(e)}`)
     }
     await delay(5000)
   }
-  return 'timeout'
+  return { verdict: 'timeout' }
 }
 
 /** 执行单个任务。返回后调用方继续 claim。 */
@@ -248,6 +271,14 @@ async function executeTask(
   }
 
   log(`认领任务 ${task.id} → ${workspacePath}`)
+
+  // G4:改动审查要的判据是"跑之前长什么样",必须在 agent 动第一下之前取。
+  // plan 档不启用(它的审批位要留给"批方案",同一任务不设两次审批)。
+  const reviewEnabled = payload.reviewDiff === true && payload.mode !== 'plan'
+  const snapshot: WorkspaceSnapshot | null = reviewEnabled ? snapshotWorkspace(workspacePath) : null
+  if (snapshot && !snapshot.repoRoot) {
+    log(`任务 ${task.id} 要求改动审查,但工作区不是 git 仓库 → 本轮只能跑,抓不到 diff`)
+  }
 
   const attach = await deviceTaskAttach(token, task.id)
   if (!attach.success || !attach.data) {
@@ -322,7 +353,7 @@ async function executeTask(
         return
       }
       log(`任务 ${task.id} 出完方案(${plan.length} 字),等你批准`)
-      const verdict = await waitForApproval(
+      const { verdict } = await waitForApproval(
         token,
         task.id,
         progressOf('awaiting_approval', 60, { lastEvent: '等待你批准计划' }),
@@ -378,6 +409,110 @@ async function executeTask(
       )
     }
 
+    // G4(2026-11-28):execute 档跑完先把文件级改动交上来,人逐文件收下/回退。
+    // 不可回退的文件(执行前就脏)只展示、不参与回退 —— 见 workspace-diff.ts 的判据。
+    let reviewInfo: Record<string, unknown> | undefined
+    if (reviewEnabled && snapshot && !cancelled) {
+      if (!snapshot.repoRoot) {
+        streamer.onEvent({
+          type: 'token',
+          text: '\n\n— 工作区不是 git 仓库,本轮无法抓取改动 —\n',
+        })
+      } else {
+        const diff = captureWorkspaceDiff(workspacePath, snapshot)
+        if (!diff) {
+          log(`任务 ${task.id} 结束后工作区没有可审改动`)
+        } else {
+          const head = `${diff.files.length} 个文件 (+${diff.additions} −${diff.deletions})${diff.truncated ? ',仅列前 80 个' : ''}`
+          streamer.onEvent({ type: 'token', text: `\n\n— 改动待审阅:${head} —\n` })
+          await streamer.finalize()
+          const asked = await deviceTaskRequestApproval(token, task.id, {
+            preview: `改动 ${head}`,
+            ...(attach.success && attach.data?.message_id
+              ? { messageId: attach.data.message_id }
+              : {}),
+            diff,
+          })
+          if (!asked.success) {
+            log(`改动审批上报失败:${asked.error ?? '未知错误'}`)
+            // 报不上审批 = 人看不到改动;此时把改动全部回退,不把"没审过的改动"留在工作区。
+            const rolled = revertWorkspaceChanges(workspacePath, snapshot, diff.files, [])
+            await deviceTaskFail(
+              token,
+              task.id,
+              `改动审批上报失败:${asked.error ?? '未知'}(已回退 ${rolled.reverted.length} 个文件)`,
+            )
+            return
+          }
+          log(`任务 ${task.id} 跑完,改动 ${head},等你审阅`)
+          const wait = await waitForApproval(
+            token,
+            task.id,
+            progressOf('awaiting_approval', 90, { lastEvent: '等待你审阅改动' }),
+            log,
+            () => {
+              cancelled = true
+              controller.abort()
+            },
+          )
+
+          const finishReview = async (
+            keepPaths: string[] | undefined,
+            note: string,
+          ): Promise<void> => {
+            const outcome = revertWorkspaceChanges(workspacePath, snapshot, diff.files, keepPaths)
+            const kept = keepPaths === undefined ? diff.files.length : keepPaths.length
+            const skippedNote =
+              outcome.skipped.length > 0
+                ? `;${outcome.skipped.length} 个文件保留原状(执行前已有未提交改动)`
+                : ''
+            streamer.onEvent({
+              type: 'token',
+              text: `\n${note}(收下 ${kept} 个,回退 ${outcome.reverted.length} 个${skippedNote})\n`,
+            })
+            await streamer.finalize()
+            reviewInfo = {
+              files: diff.files.length,
+              kept,
+              reverted: outcome.reverted.length,
+              skipped: outcome.skipped.length,
+            }
+          }
+
+          if (wait.verdict === 'cancelled') {
+            await finishReview([], '任务已取消,改动已回退')
+            log(`任务 ${task.id} 审阅改动时被取消`)
+            await deviceTaskFail(token, task.id, '用户已取消', null, progressOf('cancelled', 0))
+            return
+          }
+          if (wait.verdict === 'timeout') {
+            await finishReview([], '审阅超时,改动已回退')
+            log(`任务 ${task.id} 等改动审阅超时`)
+            await deviceTaskFail(token, task.id, '等待改动审阅超时(30 分钟),改动已回退', null, {
+              stage: 'failed',
+              percent: 0,
+              lastEvent: '等待改动审阅超时',
+              updatedAt: nowIso(),
+            } satisfies DeviceTaskProgress)
+            return
+          }
+          if (wait.verdict === 'rejected') {
+            await finishReview([], '改动已退回')
+            log(`任务 ${task.id} 的改动被退回`)
+            await deviceTaskFail(token, task.id, '用户退回了这些改动(已回退)', null, {
+              stage: 'cancelled',
+              percent: 0,
+              lastEvent: '改动被退回',
+              updatedAt: nowIso(),
+            } satisfies DeviceTaskProgress)
+            return
+          }
+          // approved:accceptedPaths=undefined ⇒ 全收;[] ⇒ 一个都不收(全部回退)
+          await finishReview(wait.acceptedPaths, '改动已审阅')
+        }
+      }
+    }
+
     await streamer.finalize()
     await deviceTaskComplete(token, task.id, {
       agent_session_id: result.sessionId,
@@ -385,6 +520,7 @@ async function executeTask(
       iterations: result.iterations,
       usage: result.usage,
       permission_mode: finalPermissionMode,
+      ...(reviewInfo ? { review: reviewInfo } : {}),
     })
     log(`任务 ${task.id} 完成(${result.stopReason}, ${result.iterations} 轮)`)
   } catch (e) {

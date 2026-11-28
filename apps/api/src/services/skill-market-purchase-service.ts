@@ -21,18 +21,25 @@ import { createCommissionFlow } from '../db/commission-queries.js'
 import {
   commissionFlows,
   skillMarketPurchases,
+  skillMarketRefundRequests,
   tokenFlows,
   userMargins,
   users,
   withdrawalFlows,
 } from '@ihui/database'
 import type {
+  AdminSkillRefundRequestItem,
+  AdminSkillRefundRequestListResponse,
+  AdminSkillRefundRequestReviewResponse,
   SkillEarningsResponse,
   SkillMarketEntry,
   SkillMarketSettlementPeriod,
   SkillMarketSettlementResponse,
   SkillMarketSettlementRow,
   SkillMarketSettlementTotals,
+  SkillMyPurchasesResponse,
+  SkillRefundRequestCreateResponse,
+  SkillRefundRequestSummary,
   SkillSellerAccountFlag,
   SkillSellerAccountsResponse,
 } from '@ihui/shared/skills/market'
@@ -355,6 +362,402 @@ export async function listSkillMarketPurchasesAdmin(input: {
   ])
 
   return { items: rows, total: totalRows[0]?.count ?? 0 }
+}
+
+export class SkillRefundRequestNotFoundError extends Error {
+  constructor(message = '退款申请不存在') {
+    super(message)
+    this.name = 'SkillRefundRequestNotFoundError'
+  }
+}
+
+export class SkillRefundRequestStateError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'SkillRefundRequestStateError'
+  }
+}
+
+type RefundRequestStatus = SkillRefundRequestSummary['status']
+
+function normalizeRefundRequestStatus(status: string): RefundRequestStatus {
+  return status === 'approved' || status === 'rejected' || status === 'cancelled'
+    ? status
+    : 'pending'
+}
+
+function toRefundRequestSummary(row: {
+  id: string
+  status: string
+  reason: string
+  reviewNote: string | null
+  createdAt: Date
+  reviewedAt: Date | null
+}): SkillRefundRequestSummary {
+  return {
+    id: row.id,
+    status: normalizeRefundRequestStatus(row.status),
+    reason: row.reason,
+    reviewNote: row.reviewNote,
+    createdAt: row.createdAt.toISOString(),
+    reviewedAt: row.reviewedAt?.toISOString() ?? null,
+  }
+}
+
+/**
+ * 买家“我的购买”列表：只返回自己的购买与最近一次退款申请。
+ * 不返回卖家/作者分成信息，买家只需要知道成交价与退款进度。
+ */
+export async function listSkillMyPurchases(buyerUserId: string): Promise<SkillMyPurchasesResponse> {
+  const rows = await db
+    .select({
+      id: skillMarketPurchases.id,
+      skillName: skillMarketPurchases.skillName,
+      priceCents: skillMarketPurchases.priceCents,
+      currency: skillMarketPurchases.currency,
+      status: skillMarketPurchases.status,
+      createdAt: skillMarketPurchases.createdAt,
+      refundedAt: skillMarketPurchases.refundedAt,
+      refundAmountCents: skillMarketPurchases.refundAmountCents,
+    })
+    .from(skillMarketPurchases)
+    .where(eq(skillMarketPurchases.buyerUserId, buyerUserId))
+    .orderBy(desc(skillMarketPurchases.createdAt))
+
+  const purchaseIds = rows.map((row) => row.id)
+  const requests =
+    purchaseIds.length > 0
+      ? await db
+          .select({
+            id: skillMarketRefundRequests.id,
+            purchaseId: skillMarketRefundRequests.purchaseId,
+            status: skillMarketRefundRequests.status,
+            reason: skillMarketRefundRequests.reason,
+            reviewNote: skillMarketRefundRequests.reviewNote,
+            createdAt: skillMarketRefundRequests.createdAt,
+            reviewedAt: skillMarketRefundRequests.reviewedAt,
+          })
+          .from(skillMarketRefundRequests)
+          .where(inArray(skillMarketRefundRequests.purchaseId, purchaseIds))
+          .orderBy(desc(skillMarketRefundRequests.createdAt))
+      : []
+
+  // 同一购买可能有多条历史申请（被拒后重提）；按时间倒序取第一条作为“最近一次”。
+  const latestByPurchase = new Map<string, (typeof requests)[number]>()
+  for (const request of requests) {
+    if (!latestByPurchase.has(request.purchaseId)) latestByPurchase.set(request.purchaseId, request)
+  }
+
+  const items = rows.map((row) => {
+    const latest = latestByPurchase.get(row.id)
+    const purchaseStatus = row.status === 'refunded' ? ('refunded' as const) : ('paid' as const)
+    return {
+      id: row.id,
+      skillName: row.skillName,
+      priceCents: row.priceCents,
+      currency: row.currency,
+      status: purchaseStatus,
+      createdAt: row.createdAt.toISOString(),
+      refundedAt: row.refundedAt?.toISOString() ?? null,
+      refundAmountCents: row.refundAmountCents,
+      refundRequest: latest ? toRefundRequestSummary(latest) : null,
+      canRequestRefund: purchaseStatus === 'paid' && latest?.status !== 'pending',
+    }
+  })
+
+  return { items, total: items.length }
+}
+
+/**
+ * 买家提交退款申请。只写申请，不动钱；运营审核通过后才调用退款事务。
+ * 同一购买已有待审申请时按幂等处理，返回已有申请而不是报错。
+ */
+export async function createSkillRefundRequest(input: {
+  purchaseId: string
+  buyerUserId: string
+  reason: string
+}): Promise<SkillRefundRequestCreateResponse> {
+  const reason = input.reason.trim()
+  if (reason.length < 5) throw new SkillRefundRequestStateError('退款原因至少 5 个字')
+  if (reason.length > 500) throw new SkillRefundRequestStateError('退款原因最多 500 个字')
+
+  return db.transaction(async (tx) => {
+    const [purchase] = await tx
+      .select({
+        id: skillMarketPurchases.id,
+        buyerUserId: skillMarketPurchases.buyerUserId,
+        sellerUserId: skillMarketPurchases.sellerUserId,
+        status: skillMarketPurchases.status,
+      })
+      .from(skillMarketPurchases)
+      .where(
+        and(
+          eq(skillMarketPurchases.id, input.purchaseId),
+          eq(skillMarketPurchases.buyerUserId, input.buyerUserId),
+        ),
+      )
+      .limit(1)
+      .for('update')
+
+    if (!purchase) throw new SkillRefundRequestNotFoundError('购买记录不存在或不属于当前用户')
+    if (purchase.status !== 'paid') throw new SkillRefundRequestStateError('该笔购买已退款，无需重复申请')
+
+    const [created] = await tx
+      .insert(skillMarketRefundRequests)
+      .values({
+        purchaseId: purchase.id,
+        buyerUserId: purchase.buyerUserId,
+        sellerUserId: purchase.sellerUserId,
+        reason,
+      })
+      .onConflictDoNothing()
+      .returning({
+        id: skillMarketRefundRequests.id,
+        status: skillMarketRefundRequests.status,
+        reason: skillMarketRefundRequests.reason,
+        reviewNote: skillMarketRefundRequests.reviewNote,
+        createdAt: skillMarketRefundRequests.createdAt,
+        reviewedAt: skillMarketRefundRequests.reviewedAt,
+      })
+
+    if (created) {
+      return { request: toRefundRequestSummary(created), alreadyRequested: false }
+    }
+
+    const [existing] = await tx
+      .select({
+        id: skillMarketRefundRequests.id,
+        status: skillMarketRefundRequests.status,
+        reason: skillMarketRefundRequests.reason,
+        reviewNote: skillMarketRefundRequests.reviewNote,
+        createdAt: skillMarketRefundRequests.createdAt,
+        reviewedAt: skillMarketRefundRequests.reviewedAt,
+      })
+      .from(skillMarketRefundRequests)
+      .where(
+        and(
+          eq(skillMarketRefundRequests.purchaseId, purchase.id),
+          eq(skillMarketRefundRequests.status, 'pending'),
+        ),
+      )
+      .limit(1)
+
+    if (!existing) throw new SkillRefundRequestStateError('退款申请状态冲突，请刷新后重试')
+    return { request: toRefundRequestSummary(existing), alreadyRequested: true }
+  })
+}
+
+/** 管理员退款申请列表；默认按 pending 优先、时间倒序。 */
+export async function listSkillRefundRequestsAdmin(input: {
+  page: number
+  pageSize: number
+  status?: RefundRequestStatus
+}): Promise<AdminSkillRefundRequestListResponse> {
+  const where = input.status ? eq(skillMarketRefundRequests.status, input.status) : undefined
+
+  const [rows, totalRows] = await Promise.all([
+    db
+      .select({
+        id: skillMarketRefundRequests.id,
+        purchaseId: skillMarketRefundRequests.purchaseId,
+        buyerUserId: skillMarketRefundRequests.buyerUserId,
+        buyerNickname: buyerUser.nickname,
+        sellerUserId: skillMarketRefundRequests.sellerUserId,
+        sellerNickname: sellerUser.nickname,
+        skillName: skillMarketPurchases.skillName,
+        priceCents: skillMarketPurchases.priceCents,
+        purchaseStatus: skillMarketPurchases.status,
+        purchaseCreatedAt: skillMarketPurchases.createdAt,
+        purchaseRefundedAt: skillMarketPurchases.refundedAt,
+        reason: skillMarketRefundRequests.reason,
+        status: skillMarketRefundRequests.status,
+        reviewNote: skillMarketRefundRequests.reviewNote,
+        reviewedAt: skillMarketRefundRequests.reviewedAt,
+        createdAt: skillMarketRefundRequests.createdAt,
+      })
+      .from(skillMarketRefundRequests)
+      .leftJoin(
+        skillMarketPurchases,
+        eq(skillMarketRefundRequests.purchaseId, skillMarketPurchases.id),
+      )
+      .leftJoin(buyerUser, eq(skillMarketRefundRequests.buyerUserId, buyerUser.id))
+      .leftJoin(sellerUser, eq(skillMarketRefundRequests.sellerUserId, sellerUser.id))
+      .where(where)
+      .orderBy(
+        sql`CASE WHEN ${skillMarketRefundRequests.status} = 'pending' THEN 0 ELSE 1 END`,
+        desc(skillMarketRefundRequests.createdAt),
+      )
+      .limit(input.pageSize)
+      .offset((input.page - 1) * input.pageSize),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(skillMarketRefundRequests)
+      .where(where),
+  ])
+
+  const items: AdminSkillRefundRequestItem[] = rows.map((row) => ({
+    id: row.id,
+    purchaseId: row.purchaseId,
+    skillName: row.skillName ?? '（购买记录已删除）',
+    buyerUserId: row.buyerUserId,
+    buyerNickname: row.buyerNickname,
+    sellerUserId: row.sellerUserId,
+    sellerNickname: row.sellerNickname,
+    priceCents: row.priceCents ?? 0,
+    purchaseStatus: row.purchaseStatus === 'refunded' ? 'refunded' : 'paid',
+    purchaseCreatedAt: (row.purchaseCreatedAt ?? row.createdAt).toISOString(),
+    purchaseRefundedAt: row.purchaseRefundedAt?.toISOString() ?? null,
+    reason: row.reason,
+    status: normalizeRefundRequestStatus(row.status),
+    reviewNote: row.reviewNote,
+    reviewedAt: row.reviewedAt?.toISOString() ?? null,
+    createdAt: row.createdAt.toISOString(),
+  }))
+
+  return { items, total: totalRows[0]?.count ?? 0, page: input.page, pageSize: input.pageSize }
+}
+
+/**
+ * 管理员批准退款：申请行 FOR UPDATE 串行化，退款与申请状态在同一事务内完成。
+ * 退款本身幂等；若购买已由其他入口退过，仍会把申请标成 approved，不重复退钱。
+ */
+export async function approveSkillRefundRequest(input: {
+  requestId: string
+  operatorId: string | null
+  note?: string
+}): Promise<AdminSkillRefundRequestReviewResponse> {
+  return db.transaction(async (tx) => {
+    const [request] = await tx
+      .select()
+      .from(skillMarketRefundRequests)
+      .where(eq(skillMarketRefundRequests.id, input.requestId))
+      .for('update')
+
+    if (!request) throw new SkillRefundRequestNotFoundError()
+    if (request.status === 'approved') {
+      // 幂等重试仍带回购买信息，让路由可以补做安装态回收（首次审批若在 Redis 回收前中断）。
+      const [purchase] = await tx
+        .select({
+          skillName: skillMarketPurchases.skillName,
+          refundAmountCents: skillMarketPurchases.refundAmountCents,
+          sellerClawbackCents: skillMarketPurchases.sellerClawbackCents,
+        })
+        .from(skillMarketPurchases)
+        .where(eq(skillMarketPurchases.id, request.purchaseId))
+        .limit(1)
+      return {
+        requestId: request.id,
+        status: 'approved' as const,
+        alreadyReviewed: true,
+        refundedAmountCents: purchase?.refundAmountCents ?? 0,
+        sellerClawbackCents: purchase?.sellerClawbackCents ?? 0,
+        buyerBalanceAfter: null,
+        purchaseId: request.purchaseId,
+        skillName: purchase?.skillName ?? null,
+        buyerUserId: request.buyerUserId,
+      }
+    }
+    if (request.status !== 'pending') {
+      throw new SkillRefundRequestStateError(`该申请已处理: ${request.status}`)
+    }
+
+    const refund = await refundSkillPurchaseTx(tx, {
+      purchaseId: request.purchaseId,
+      reason: request.reason,
+      operatorId: input.operatorId,
+    })
+
+    const reviewNote = input.note?.trim().slice(0, 500) || null
+    await tx
+      .update(skillMarketRefundRequests)
+      .set({
+        status: 'approved',
+        reviewedBy: input.operatorId,
+        reviewNote,
+        reviewedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(skillMarketRefundRequests.id, request.id),
+          eq(skillMarketRefundRequests.status, 'pending'),
+        ),
+      )
+
+    return {
+      requestId: request.id,
+      status: 'approved' as const,
+      alreadyReviewed: false,
+      refundedAmountCents: refund.refundedAmountCents,
+      sellerClawbackCents: refund.sellerClawbackCents,
+      buyerBalanceAfter: refund.buyerBalanceAfter,
+      purchaseId: refund.purchaseId,
+      skillName: refund.skillName,
+      buyerUserId: refund.buyerUserId,
+    }
+  })
+}
+
+/** 管理员拒绝退款申请；只改申请状态，不动购买与钱。 */
+export async function rejectSkillRefundRequest(input: {
+  requestId: string
+  operatorId: string | null
+  note?: string
+}): Promise<AdminSkillRefundRequestReviewResponse> {
+  return db.transaction(async (tx) => {
+    const [request] = await tx
+      .select()
+      .from(skillMarketRefundRequests)
+      .where(eq(skillMarketRefundRequests.id, input.requestId))
+      .for('update')
+
+    if (!request) throw new SkillRefundRequestNotFoundError()
+    if (request.status === 'rejected') {
+      return {
+        requestId: request.id,
+        status: 'rejected' as const,
+        alreadyReviewed: true,
+        refundedAmountCents: 0,
+        sellerClawbackCents: 0,
+        buyerBalanceAfter: null,
+        purchaseId: request.purchaseId,
+        skillName: null,
+        buyerUserId: request.buyerUserId,
+      }
+    }
+    if (request.status !== 'pending') {
+      throw new SkillRefundRequestStateError(`该申请已处理: ${request.status}`)
+    }
+
+    const reviewNote = input.note?.trim().slice(0, 500) || null
+    await tx
+      .update(skillMarketRefundRequests)
+      .set({
+        status: 'rejected',
+        reviewedBy: input.operatorId,
+        reviewNote,
+        reviewedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(skillMarketRefundRequests.id, request.id),
+          eq(skillMarketRefundRequests.status, 'pending'),
+        ),
+      )
+
+    return {
+      requestId: request.id,
+      status: 'rejected' as const,
+      alreadyReviewed: false,
+      refundedAmountCents: 0,
+      sellerClawbackCents: 0,
+      buyerBalanceAfter: null,
+      purchaseId: request.purchaseId,
+      skillName: null,
+      buyerUserId: request.buyerUserId,
+    }
+  })
 }
 
 /**
@@ -724,124 +1127,136 @@ export async function refundSkillPurchase(input: {
   reason?: string
   operatorId: string | null
 }): Promise<RefundSkillPurchaseResult> {
-  return db.transaction(async (tx) => {
-    const [purchase] = await tx
-      .select()
-      .from(skillMarketPurchases)
-      .where(eq(skillMarketPurchases.id, input.purchaseId))
-      .for('update')
+  return db.transaction((tx) => refundSkillPurchaseTx(tx, input))
+}
 
-    if (!purchase) throw new SkillPurchaseNotFoundError()
+type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
-    if (purchase.status === 'refunded') {
-      return {
-        alreadyRefunded: true,
-        purchaseId: purchase.id,
-        skillName: purchase.skillName,
-        buyerUserId: purchase.buyerUserId,
-        refundedAmountCents: purchase.refundAmountCents,
-        sellerClawbackCents: purchase.sellerClawbackCents ?? 0,
-        buyerBalanceAfter: null,
-      }
-    }
-    if (purchase.status !== 'paid') {
-      throw new SkillPurchaseStateError(`不支持退款的购买状态: ${purchase.status}`)
-    }
+/** 退款事务本体：允许退款申请审核在同一个事务里同时改申请状态。 */
+async function refundSkillPurchaseTx(
+  tx: DbTransaction,
+  input: {
+    purchaseId: string
+    reason?: string
+    operatorId: string | null
+  },
+): Promise<RefundSkillPurchaseResult> {
+  const [purchase] = await tx
+    .select()
+    .from(skillMarketPurchases)
+    .where(eq(skillMarketPurchases.id, input.purchaseId))
+    .for('update')
 
-    const priceCents = purchase.priceCents
-    // 买家全额退回：即使 margin 行不存在也补建，保证退款不会因账号没余额行而失败。
-    const [buyer] = await tx
-      .insert(userMargins)
-      .values({ userId: purchase.buyerUserId, tokenQuantity: priceCents, frozenQuantity: 0 })
-      .onConflictDoUpdate({
-        target: userMargins.userId,
-        set: {
-          tokenQuantity: sql`${userMargins.tokenQuantity} + ${priceCents}`,
-          updatedAt: new Date(),
-        },
-      })
-      .returning({ tokenQuantity: userMargins.tokenQuantity })
+  if (!purchase) throw new SkillPurchaseNotFoundError()
 
-    await tx.insert(tokenFlows).values({
-      userId: purchase.buyerUserId,
-      opType: 0,
-      quantity: priceCents,
-      balanceAfter: buyer?.tokenQuantity ?? priceCents,
-      remark: `skill_market_refund:${purchase.skillName}`.slice(0, 255),
-      relatedOrderNo: `skillrefund:${purchase.id}`,
-    })
-
-    let sellerClawbackCents = 0
-    if (purchase.sellerUserId && purchase.authorShareCents > 0) {
-      const [seller] = await tx
-        .select({ tokenQuantity: userMargins.tokenQuantity })
-        .from(userMargins)
-        .where(eq(userMargins.userId, purchase.sellerUserId))
-        .for('update')
-
-      const before = seller?.tokenQuantity ?? 0
-      sellerClawbackCents = Math.min(before, purchase.authorShareCents)
-      let sellerBalanceAfter = before
-      if (sellerClawbackCents > 0) {
-        const [updated] = await tx
-          .update(userMargins)
-          .set({
-            tokenQuantity: before - sellerClawbackCents,
-            updatedAt: new Date(),
-          })
-          .where(eq(userMargins.userId, purchase.sellerUserId))
-          .returning({ tokenQuantity: userMargins.tokenQuantity })
-        sellerBalanceAfter = updated?.tokenQuantity ?? before - sellerClawbackCents
-
-        await tx.insert(tokenFlows).values({
-          userId: purchase.sellerUserId,
-          opType: 3,
-          quantity: sellerClawbackCents,
-          balanceAfter: sellerBalanceAfter,
-          remark: `skill_market_refund_clawback:${purchase.skillName}`.slice(0, 255),
-          relatedOrderNo: `skillrefund:${purchase.id}:seller`,
-        })
-      }
-
-      // 购买时写入的佣金记录优先按 purchase 上的 commission_flow_id 精确冲正；
-      // 早期没有该列的历史行回退到 remark 匹配，防止作者继续提现已退回的分成。
-      const commissionWhere = purchase.commissionFlowId
-        ? eq(commissionFlows.id, purchase.commissionFlowId)
-        : and(
-            eq(commissionFlows.beneficiaryId, purchase.sellerUserId),
-            eq(
-              commissionFlows.remark,
-              `skill_market_author_share:${purchase.id}:${purchase.skillName}`.slice(0, 255),
-            ),
-          )
-      await tx
-        .update(commissionFlows)
-        .set({ status: 0, updatedAt: new Date(), updatedBy: input.operatorId })
-        .where(commissionWhere)
-    }
-
-    await tx
-      .update(skillMarketPurchases)
-      .set({
-        status: 'refunded',
-        refundedAt: new Date(),
-        refundAmountCents: priceCents,
-        sellerClawbackCents,
-        refundReason: input.reason?.slice(0, 255),
-        refundedBy: input.operatorId,
-      })
-      .where(eq(skillMarketPurchases.id, purchase.id))
-
+  if (purchase.status === 'refunded') {
     return {
-      alreadyRefunded: false,
+      alreadyRefunded: true,
       purchaseId: purchase.id,
       skillName: purchase.skillName,
       buyerUserId: purchase.buyerUserId,
-      refundedAmountCents: priceCents,
-      sellerClawbackCents,
-      buyerBalanceAfter: buyer?.tokenQuantity ?? priceCents,
+      refundedAmountCents: purchase.refundAmountCents,
+      sellerClawbackCents: purchase.sellerClawbackCents ?? 0,
+      buyerBalanceAfter: null,
     }
+  }
+  if (purchase.status !== 'paid') {
+    throw new SkillPurchaseStateError(`不支持退款的购买状态: ${purchase.status}`)
+  }
+
+  const priceCents = purchase.priceCents
+  // 买家全额退回：即使 margin 行不存在也补建，保证退款不会因账号没余额行而失败。
+  const [buyer] = await tx
+    .insert(userMargins)
+    .values({ userId: purchase.buyerUserId, tokenQuantity: priceCents, frozenQuantity: 0 })
+    .onConflictDoUpdate({
+      target: userMargins.userId,
+      set: {
+        tokenQuantity: sql`${userMargins.tokenQuantity} + ${priceCents}`,
+        updatedAt: new Date(),
+      },
+    })
+    .returning({ tokenQuantity: userMargins.tokenQuantity })
+
+  await tx.insert(tokenFlows).values({
+    userId: purchase.buyerUserId,
+    opType: 0,
+    quantity: priceCents,
+    balanceAfter: buyer?.tokenQuantity ?? priceCents,
+    remark: `skill_market_refund:${purchase.skillName}`.slice(0, 255),
+    relatedOrderNo: `skillrefund:${purchase.id}`,
   })
+
+  let sellerClawbackCents = 0
+  if (purchase.sellerUserId && purchase.authorShareCents > 0) {
+    const [seller] = await tx
+      .select({ tokenQuantity: userMargins.tokenQuantity })
+      .from(userMargins)
+      .where(eq(userMargins.userId, purchase.sellerUserId))
+      .for('update')
+
+    const before = seller?.tokenQuantity ?? 0
+    sellerClawbackCents = Math.min(before, purchase.authorShareCents)
+    let sellerBalanceAfter = before
+    if (sellerClawbackCents > 0) {
+      const [updated] = await tx
+        .update(userMargins)
+        .set({
+          tokenQuantity: before - sellerClawbackCents,
+          updatedAt: new Date(),
+        })
+        .where(eq(userMargins.userId, purchase.sellerUserId))
+        .returning({ tokenQuantity: userMargins.tokenQuantity })
+      sellerBalanceAfter = updated?.tokenQuantity ?? before - sellerClawbackCents
+
+      await tx.insert(tokenFlows).values({
+        userId: purchase.sellerUserId,
+        opType: 3,
+        quantity: sellerClawbackCents,
+        balanceAfter: sellerBalanceAfter,
+        remark: `skill_market_refund_clawback:${purchase.skillName}`.slice(0, 255),
+        relatedOrderNo: `skillrefund:${purchase.id}:seller`,
+      })
+    }
+
+    // 购买时写入的佣金记录优先按 purchase 上的 commission_flow_id 精确冲正；
+    // 早期没有该列的历史行回退到 remark 匹配，防止作者继续提现已退回的分成。
+    const commissionWhere = purchase.commissionFlowId
+      ? eq(commissionFlows.id, purchase.commissionFlowId)
+      : and(
+          eq(commissionFlows.beneficiaryId, purchase.sellerUserId),
+          eq(
+            commissionFlows.remark,
+            `skill_market_author_share:${purchase.id}:${purchase.skillName}`.slice(0, 255),
+          ),
+        )
+    await tx
+      .update(commissionFlows)
+      .set({ status: 0, updatedAt: new Date(), updatedBy: input.operatorId })
+      .where(commissionWhere)
+  }
+
+  await tx
+    .update(skillMarketPurchases)
+    .set({
+      status: 'refunded',
+      refundedAt: new Date(),
+      refundAmountCents: priceCents,
+      sellerClawbackCents,
+      refundReason: input.reason?.slice(0, 255),
+      refundedBy: input.operatorId,
+    })
+    .where(eq(skillMarketPurchases.id, purchase.id))
+
+  return {
+    alreadyRefunded: false,
+    purchaseId: purchase.id,
+    skillName: purchase.skillName,
+    buyerUserId: purchase.buyerUserId,
+    refundedAmountCents: priceCents,
+    sellerClawbackCents,
+    buyerBalanceAfter: buyer?.tokenQuantity ?? priceCents,
+  }
 }
 
 interface EarningsSummaryRow {

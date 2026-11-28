@@ -108,6 +108,7 @@ import { resolveRoundModel } from './model-switch'
 // 这里用它补齐,避免号池模型被静默送进平台链路。
 import { isPoolModelId } from './pool-model-routing'
 import {
+  docReviseToolsFor,
   eduToolsFor,
   fileToolsFor,
   financeToolsFor,
@@ -1027,7 +1028,19 @@ export function createSendMessage(
       // 全默认时指令为空串 ⇒ 不写该 key,请求体与接线前逐字节一致。
       // 同一快照时刻读取,避免流式途中改风格导致"界面显示"与"本轮实际下发"分叉。
       const appearanceStyleDirective = buildAiStyleDirective(getAppearanceConfig())
-      const mergedSystemPrompt = [samplingParams.systemPrompt, appearanceStyleDirective]
+      // 文档修订意图(2026-11-28):仅带工具不够,模型还需要知道"用哪条命令、参数叫什么"。
+      // 指令只在本轮命中"文档名词 + 修订动词"时追加,普通问答的 systemPrompt 逐字不变。
+      const docReviseDirective =
+        docReviseToolsFor(content).length > 0
+          ? '本轮用户在要求修订已附带的文档。若确实如此,不要只回复文字,必须调用 ' +
+            'web_ui_invoke(name="document.revise", args={"name": 附件文件名, "instruction": 用户的具体修订要求}),' +
+            '端侧会打开该附件的 AI 修订面板并自动出稿。文件名取消息里的 📎 名称;只有一个附件时可省略 name。'
+          : ''
+      const mergedSystemPrompt = [
+        samplingParams.systemPrompt,
+        appearanceStyleDirective,
+        docReviseDirective,
+      ]
         .map((s) => s?.trim())
         .filter((s): s is string => !!s)
         .join('\n\n')
@@ -1787,6 +1800,8 @@ export function createSendMessage(
               ...mergeAgentTools(chatStore, 'build'),
               ...eduToolsFor(content),
               ...uiControlToolsFor(content),
+              // 文档修订意图:主 AI 才能主动调 document.revise 打开修订面板(2026-11-28)
+              ...docReviseToolsFor(content),
               ...fileToolsFor(content),
               ...videoToolsFor(content),
               ...financeToolsFor(content),

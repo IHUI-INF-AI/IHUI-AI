@@ -127,9 +127,11 @@ describe('D131 ②:反向对照 —— 正常态屏幕上必须搜不到该件',
 describe('D131 ③:装车证明(生产 importer,排除测试面)', () => {
   const repoRead = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8')
 
-  it('输入区 chrome 必须 import ConnectionStatusBar', () => {
-    const src = repoRead('../../chat/message-input.tsx')
-    expect(src).toContain("from '@/components/chat/connection-status-bar'")
+  it('输入区状态槽必须 import 并挂载 ConnectionStatusBar', () => {
+    // 2026-11 输入区重构:chrome 从 message-input 下沉到 InputStatusSlot,
+    // 槽负责折叠/清账并从同一实现取件;锁槽而不是旧宿主。
+    const src = repoRead('../../chat/input-status-slot.tsx')
+    expect(src).toContain("from './connection-status-bar'")
     expect(src).toContain('<ConnectionStatusBar')
   })
 

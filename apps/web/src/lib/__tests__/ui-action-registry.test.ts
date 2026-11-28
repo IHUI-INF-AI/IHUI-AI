@@ -11,6 +11,8 @@ import {
   isAllowedNavigatePath,
   resolveUiTarget,
 } from '@/lib/ui-action-registry'
+import { __resetChatAttachments, rememberChatAttachment } from '@/lib/chat-attachment-registry'
+import { useChatDocRevisionStore } from '@/stores/chat-doc-revision'
 
 const navigateMock = vi.fn()
 
@@ -39,6 +41,8 @@ beforeEach(() => {
   mount('')
   navigateMock.mockClear()
   configureUiControlBridge({ navigate: navigateMock })
+  __resetChatAttachments()
+  useChatDocRevisionStore.getState().close()
 })
 
 describe('target 四级解析', () => {
@@ -288,6 +292,26 @@ describe('快照容量与结构', () => {
 })
 
 describe('invoke 命令', () => {
+  it('document.revise 按附件文件名打开修订面板并带入指令', async () => {
+    const file = new File(['合同正文'], '合同.docx')
+    rememberChatAttachment(file)
+    const r = await executeUiAction('invoke', {
+      name: 'document.revise',
+      args: { name: '合同.docx', instruction: '把付款期限改成 30 天' },
+    })
+    expect(r.ok).toBe(true)
+    expect(r.data?.file).toBe('合同.docx')
+    const request = useChatDocRevisionStore.getState().request
+    expect(request?.file).toBe(file)
+    expect(request?.instruction).toBe('把付款期限改成 30 天')
+  })
+
+  it('document.revise 无附件 → SELECTOR_NOT_FOUND,不假装已打开', async () => {
+    const r = await executeUiAction('invoke', { name: 'document.revise' })
+    expect(r.ok).toBe(false)
+    expect(r.errorCode).toBe('SELECTOR_NOT_FOUND')
+  })
+
   it('未知命令 SELECTOR_NOT_FOUND', async () => {
     expect((await executeUiAction('invoke', { name: 'no-such-cmd' })).errorCode).toBe(
       'SELECTOR_NOT_FOUND',

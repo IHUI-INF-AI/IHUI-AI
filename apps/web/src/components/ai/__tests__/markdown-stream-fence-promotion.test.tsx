@@ -30,6 +30,15 @@ const { mockUseTheme } = vi.hoisted(() => ({
 vi.mock('next-themes', () => ({ useTheme: () => mockUseTheme() }))
 
 // 高亮器 mock 成原样吐 children 的 <pre>,折叠(前 5 行)与全展一眼可辨
+// 2026-11-28:生产动态 import `dist/esm/prism` 的 default,旧根路径 mock 不命中。
+vi.mock('react-syntax-highlighter/dist/esm/prism', () => ({
+  default: ({ language, children }: { language?: string; children?: string }) =>
+    React.createElement(
+      'pre',
+      { 'data-testid': 'syntax-highlighter', 'data-lang': language ?? '' },
+      children,
+    ),
+}))
 vi.mock('react-syntax-highlighter', async () => ({
   Prism: ({ language, children }: { language?: string; children?: string }) =>
     React.createElement(

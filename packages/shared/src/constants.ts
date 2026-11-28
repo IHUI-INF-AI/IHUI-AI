@@ -43,6 +43,14 @@ export const DEFAULT_TARGET_RATIO = 0.6
 export const DEFAULT_KEEP_RECENT = 6
 export const DEFAULT_MIN_MESSAGES = 2
 export const DEFAULT_PROTOCOL_VERSION = '2025-03-26'
+/**
+ * MCP 2026-07-28 的无状态 HTTP 核心版本。
+ *
+ * 刻意不塞进 `SUPPORTED_PROTOCOL_VERSIONS`:那份清单是**状态式 initialize 协商**
+ * 的兼容面,2026 版本不再走 initialize/Mcp-Session-Id,混进去会让旧运行时误以为
+ * 可以用握手路径协商它。是否启用由 `mcpServers[].protocolVersion` 显式选择。
+ */
+export const MCP_STATELESS_PROTOCOL_VERSION = '2026-07-28'
 export const SUPPORTED_PROTOCOL_VERSIONS = [
   '2024-11-05',
   '2025-03-26',

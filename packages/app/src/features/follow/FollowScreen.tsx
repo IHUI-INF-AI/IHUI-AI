@@ -209,7 +209,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     tabActive: { backgroundColor: tk.brand.cta },
     tabText: { fontSize: rnType.body.size, color: tk.text.secondary },
-    tabTextActive: { color: tk.surface.light, fontWeight: '600' },
+    tabTextActive: { color: tk.brand.ctaForeground, fontWeight: '600' },
     listBody: { padding: rnSpacing['sm-loose'], paddingBottom: rnSpacing['3xl'] },
     separator: { height: 12 },
     footer: { alignItems: 'center', paddingVertical: rnSpacing.lg },
@@ -253,9 +253,10 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing.lg,
       paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.lg,
-      backgroundColor: tk.brand.DEFAULT,
+      // 2026-11-28:brand.DEFAULT/foreground 自立档 → 强制 cta 成对档(同文件 tabActive 已用 cta)
+      backgroundColor: tk.brand.cta,
     },
-    emptyActionText: { fontSize: rnType.body.size, color: tk.brand.foreground },
+    emptyActionText: { fontSize: rnType.body.size, color: tk.brand.ctaForeground },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

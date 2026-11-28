@@ -212,6 +212,25 @@ export async function deleteFile(id: string): Promise<void> {
 }
 
 /**
+ * 新版本落盘后更新文件行指针(2026-11-28 立,版本链写路径)。
+ * 只改存储三件套(path/size/mimeType),name/projectId/uploadedBy 保持原文件语义 ——
+ * 新版本不是新文件,文档中心仍是一条记录、版本历史挂同一 fileId。
+ */
+export async function updateFileStorage(
+  id: string,
+  data: { path: string; size: number; mimeType: string },
+): Promise<File> {
+  const rows = await db
+    .update(files)
+    .set({ path: data.path, size: data.size, mimeType: data.mimeType })
+    .where(eq(files.id, id))
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('更新文件存储失败')
+  return row
+}
+
+/**
  * 统计项目下文件数量（不含回收站）。
  */
 export async function countFilesByProject(projectId: string): Promise<number> {

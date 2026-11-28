@@ -20,6 +20,8 @@ import {
 } from '@/lib/command-registry'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { useWorkPanelStore } from '@/stores/work-panel'
+import { useChatDocRevisionStore } from '@/stores/chat-doc-revision'
+import { findChatAttachment } from '@/lib/chat-attachment-registry'
 import { UI_ROUTES } from '@/lib/ui-routes.generated'
 import { NAVIGATE_DENY_RE, buildRouteIndex } from '@/lib/ui-route-index'
 
@@ -376,6 +378,17 @@ function buildCommands(): UiCommandDescriptor[] {
       group: COMMAND_GROUP_BY_ACTION[cmd.action.type],
       target: commandTarget(cmd.action),
     }
+  })
+  // 主 AI 主动修订入口(2026-11-28):不属于静态 BUILTIN_COMMANDS 的导航/面板动作,
+  // 需要 args(附件文件名 + 修订要求),由 invoke 分支单独执行。列进 describe 是为了
+  // 让模型先看得见这条命令,而不是靠猜 id。
+  commands.push({
+    id: 'document.revise',
+    label: 'AI 修订文档',
+    description:
+      '打开用户已附带文档的 AI 修订面板并自动出稿。args.name = 附件文件名(可省略取最近一份),args.instruction = 修订要求(可省略用默认指令)',
+    group: 'panel',
+    target: 'revision',
   })
   // 879 条路由全铺会淹没快照,每组第一条作为"可去页面"示例即可
   const seenGroups = new Set<string>()
@@ -767,6 +780,24 @@ export async function executeUiAction(
 
     case 'invoke': {
       const name = String(p.name ?? '')
+      // 主 AI 主动修订(2026-11-28):按附件文件名取回同一份 File,打开修订面板并自动出稿。
+      // 找不到文件就如实失败 —— 不让模型把"页面上没有这份附件"误当成已打开。
+      if (name === 'document.revise') {
+        const args = p.args && typeof p.args === 'object' ? (p.args as Record<string, unknown>) : {}
+        const fileName = typeof args.name === 'string' ? args.name.trim() : ''
+        const instruction = typeof args.instruction === 'string' ? args.instruction.trim() : ''
+        const file = findChatAttachment(fileName || undefined)
+        if (!file) {
+          return fail(
+            'SELECTOR_NOT_FOUND',
+            fileName
+              ? `当前对话没有附带名为「${fileName}」的文档,请让用户先上传该文件`
+              : '当前对话没有可修订的文档附件,请让用户先上传文件',
+          )
+        }
+        useChatDocRevisionStore.getState().open(file, instruction)
+        return { ok: true, data: { opened: 'revision', file: file.name } }
+      }
       const cmd = BUILTIN_COMMANDS.find((c) => c.id === name)
       if (cmd) {
         recordCommandUse(cmd.id)

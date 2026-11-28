@@ -39,6 +39,8 @@ export interface ContextChipsRowProps {
   onRetryReference?: (id: string) => void
   /** D124:图片附件打开位图标注编辑器(宿主在发送前回填标注结果) */
   onAnnotateReference?: (id: string) => void
+  /** 对话侧「AI 修订」:文档附件一键带着输入区正文出修订稿(宿主接修订对话框) */
+  onReviseReference?: (id: string) => void
   /** 已选 MCP 工具 chips */
   tools: SelectedToolItem[]
   onRemoveTool: (id: string) => void
@@ -72,6 +74,7 @@ export function ContextChipsRow({
   onRemoveReference,
   onRetryReference,
   onAnnotateReference,
+  onReviseReference,
   tools,
   onRemoveTool,
   quoted,
@@ -106,6 +109,7 @@ export function ContextChipsRow({
           onRemove={onRemoveReference}
           onRetry={onRetryReference}
           onAnnotate={onAnnotateReference}
+          onRevise={onReviseReference}
         />
       )}
       {/* 已选工具卡(重形态保留) */}

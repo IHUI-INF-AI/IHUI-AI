@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  Inbox,
   List,
   Loader2,
   RotateCcw,
@@ -25,6 +26,9 @@ import {
 
 import { Button } from '@ihui/ui-react'
 import type {
+  AdminSkillRefundRequestItem,
+  AdminSkillRefundRequestListResponse,
+  AdminSkillRefundRequestReviewResponse,
   SkillMarketPurchaseAdminItem,
   SkillMarketPurchaseAdminListResponse,
   SkillMarketSettlementResponse,
@@ -46,6 +50,13 @@ const FLAG_LABEL: Record<SkillSellerAccountFlag, string> = {
   clawback_missing: '扣回未记录',
   negative_wallet: '余额为负',
   commission_mismatch: '佣金缺口',
+}
+
+const REFUND_REQUEST_STATUS_LABEL: Record<string, string> = {
+  pending: '待审核',
+  approved: '已退款',
+  rejected: '已拒绝',
+  cancelled: '已撤回',
 }
 
 function yuan(cents: number): string {
@@ -190,6 +201,129 @@ function SettlementPanel({
           </tbody>
         </table>
       </div>
+    </div>
+  )
+}
+
+function RefundRequestsPanel({
+  data,
+  isLoading,
+  error,
+  onReview,
+}: {
+  data?: AdminSkillRefundRequestListResponse
+  isLoading: boolean
+  error: Error | null
+  onReview: (item: AdminSkillRefundRequestItem, action: 'approve' | 'reject') => void
+}) {
+  const dateFmt = new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+
+  if (isLoading) {
+    return (
+      <div className="rounded-lg border px-4 py-12 text-center text-muted-foreground">
+        <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+        正在加载退款申请…
+      </div>
+    )
+  }
+  if (error) {
+    return (
+      <div className="rounded-lg border px-4 py-12 text-center text-destructive">
+        {error.message}
+      </div>
+    )
+  }
+  if (!data || data.items.length === 0) {
+    return (
+      <div className="rounded-lg border px-4 py-12 text-center text-muted-foreground">
+        <Inbox className="mx-auto mb-2 h-8 w-8 opacity-40" />
+        当前筛选下没有退款申请
+      </div>
+    )
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-lg border">
+      <table className="w-full text-body">
+        <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
+          <tr>
+            <th className="px-4 py-2.5 font-medium">申请时间</th>
+            <th className="px-4 py-2.5 font-medium">技能 / 购买</th>
+            <th className="px-4 py-2.5 font-medium">买家 / 卖家</th>
+            <th className="px-4 py-2.5 font-medium">金额</th>
+            <th className="px-4 py-2.5 font-medium">申请原因</th>
+            <th className="px-4 py-2.5 font-medium">状态</th>
+            <th className="px-4 py-2.5 text-right font-medium">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.items.map((item) => (
+            <tr key={item.id} className="border-t transition-colors hover:bg-muted/30">
+              <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
+                {dateFmt.format(new Date(item.createdAt))}
+              </td>
+              <td className="px-4 py-3">
+                <div className="font-medium">{item.skillName}</div>
+                <div className="font-mono text-label text-muted-foreground" title={item.purchaseId}>
+                  {shortId(item.purchaseId)}
+                </div>
+              </td>
+              <td className="px-4 py-3">
+                <div>{item.buyerNickname ?? shortId(item.buyerUserId)}</div>
+                <div className="text-label text-muted-foreground">
+                  卖家：
+                  {item.sellerNickname ??
+                    (item.sellerUserId ? shortId(item.sellerUserId) : '平台自营')}
+                </div>
+              </td>
+              <td className="whitespace-nowrap px-4 py-3 font-medium">
+                {yuan(item.priceCents)}
+              </td>
+              <td className="max-w-64 px-4 py-3">
+                <div className="text-label text-muted-foreground">{item.reason}</div>
+              </td>
+              <td className="whitespace-nowrap px-4 py-3">
+                <span
+                  className={
+                    item.status === 'pending'
+                      ? 'rounded bg-amber-50 px-2 py-0.5 text-label text-amber-700'
+                      : item.status === 'approved'
+                        ? 'rounded bg-emerald-50 px-2 py-0.5 text-label text-emerald-700'
+                        : 'rounded bg-muted px-2 py-0.5 text-label text-muted-foreground'
+                  }
+                >
+                  {REFUND_REQUEST_STATUS_LABEL[item.status] ?? item.status}
+                </span>
+                {item.reviewNote && (
+                  <div className="mt-1 text-label text-muted-foreground">
+                    审核：{item.reviewNote}
+                  </div>
+                )}
+              </td>
+              <td className="px-4 py-3 text-right">
+                {item.status === 'pending' ? (
+                  <div className="flex justify-end gap-1">
+                    <Button size="sm" onClick={() => onReview(item, 'approve')}>
+                      通过退款
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => onReview(item, 'reject')}>
+                      拒绝
+                    </Button>
+                  </div>
+                ) : (
+                  <span className="text-label text-muted-foreground">已处理</span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }
@@ -368,9 +502,9 @@ function SellerAccountsPanel({
 
 export default function AdminSkillMarketPage() {
   const qc = useQueryClient()
-  const [view, setView] = React.useState<'purchases' | 'settlement' | 'sellerAccounts'>(
-    'purchases',
-  )
+  const [view, setView] = React.useState<
+    'purchases' | 'settlement' | 'sellerAccounts' | 'refundRequests'
+  >('purchases')
   const [month, setMonth] = React.useState('')
   const [exporting, setExporting] = React.useState(false)
   const [exportError, setExportError] = React.useState<string | null>(null)
@@ -378,6 +512,14 @@ export default function AdminSkillMarketPage() {
   const [keywordInput, setKeywordInput] = React.useState('')
   const [keyword, setKeyword] = React.useState('')
   const [page, setPage] = React.useState(1)
+  const [requestStatus, setRequestStatus] = React.useState<
+    'all' | 'pending' | 'approved' | 'rejected'
+  >('pending')
+  const [requestPage, setRequestPage] = React.useState(1)
+  const [reviewTarget, setReviewTarget] = React.useState<AdminSkillRefundRequestItem | null>(null)
+  const [reviewAction, setReviewAction] = React.useState<'approve' | 'reject'>('approve')
+  const [reviewNote, setReviewNote] = React.useState('')
+  const [reviewError, setReviewError] = React.useState<string | null>(null)
   const [target, setTarget] = React.useState<SkillMarketPurchaseAdminItem | null>(null)
   const [reason, setReason] = React.useState('')
   const [banner, setBanner] = React.useState<string | null>(null)
@@ -413,6 +555,51 @@ export default function AdminSkillMarketPage() {
       )
     },
     enabled: view === 'sellerAccounts',
+  })
+
+  const refundRequestsQuery = useQuery({
+    queryKey: ['admin', 'skill-market', 'refund-requests', requestStatus, requestPage],
+    queryFn: () => {
+      const qs = new URLSearchParams({
+        page: String(requestPage),
+        pageSize: String(PAGE_SIZE),
+      })
+      if (requestStatus !== 'all') qs.set('status', requestStatus)
+      return apiOrThrow<AdminSkillRefundRequestListResponse>(
+        `/api/admin/skills-market/refund-requests?${qs.toString()}`,
+      )
+    },
+    enabled: view === 'refundRequests',
+  })
+
+  const reviewMutation = useMutation({
+    mutationFn: async (input: {
+      id: string
+      action: 'approve' | 'reject'
+      note: string
+    }) =>
+      apiOrThrow<AdminSkillRefundRequestReviewResponse>(
+        `/api/admin/skills-market/refund-requests/${input.id}/${input.action}`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ note: input.note.trim() || undefined }),
+        },
+      ),
+    onSuccess: (result, input) => {
+      setReviewTarget(null)
+      setReviewNote('')
+      setReviewError(null)
+      setBanner(
+        result.alreadyReviewed
+          ? '该申请此前已处理，本次未重复执行。'
+          : input.action === 'approve'
+            ? `退款申请已通过：退回买家 ${yuan(result.refundedAmountCents)}，从卖家扣回 ${yuan(result.sellerClawbackCents)}。`
+            : '退款申请已拒绝，未改动买家余额与购买状态。',
+      )
+      void qc.invalidateQueries({ queryKey: ['admin', 'skill-market'] })
+      void qc.invalidateQueries({ queryKey: ['skills-market', 'my-purchases'] })
+    },
+    onError: (e: Error) => setReviewError(e.message),
   })
 
   const exportSettlement = async () => {
@@ -463,6 +650,8 @@ export default function AdminSkillMarketPage() {
   const total = listQuery.data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const items = listQuery.data?.items ?? []
+  const requestTotal = refundRequestsQuery.data?.total ?? 0
+  const requestTotalPages = Math.max(1, Math.ceil(requestTotal / PAGE_SIZE))
   const dateFmt = new Intl.DateTimeFormat('zh-CN', {
     year: 'numeric',
     month: '2-digit',
@@ -524,6 +713,14 @@ export default function AdminSkillMarketPage() {
           <Wallet className="mr-1 h-4 w-4" />
           卖家账户
         </Button>
+        <Button
+          variant={view === 'refundRequests' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setView('refundRequests')}
+        >
+          <Inbox className="mr-1 h-4 w-4" />
+          退款申请
+        </Button>
       </div>
 
       {(view === 'settlement' || view === 'sellerAccounts') && (
@@ -575,6 +772,64 @@ export default function AdminSkillMarketPage() {
           isLoading={sellerAccountsQuery.isLoading}
           error={sellerAccountsQuery.error as Error | null}
         />
+      ) : view === 'refundRequests' ? (
+        <>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              className="h-9 rounded-md border bg-background px-3 text-body"
+              value={requestStatus}
+              onChange={(e) => {
+                setRequestStatus(e.target.value as 'all' | 'pending' | 'approved' | 'rejected')
+                setRequestPage(1)
+              }}
+            >
+              <option value="all">全部状态</option>
+              <option value="pending">待审核</option>
+              <option value="approved">已退款</option>
+              <option value="rejected">已拒绝</option>
+            </select>
+            <span className="text-body text-muted-foreground">共 {requestTotal} 条</span>
+          </div>
+
+          <RefundRequestsPanel
+            data={refundRequestsQuery.data}
+            isLoading={refundRequestsQuery.isLoading}
+            error={refundRequestsQuery.error as Error | null}
+            onReview={(item, action) => {
+              setReviewTarget(item)
+              setReviewAction(action)
+              setReviewNote('')
+              setReviewError(null)
+              setBanner(null)
+            }}
+          />
+
+          <div className="flex items-center justify-between">
+            <span className="text-body text-muted-foreground">
+              第 {requestPage} / {requestTotalPages} 页
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={requestPage <= 1}
+                onClick={() => setRequestPage(Math.max(1, requestPage - 1))}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                上一页
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={requestPage >= requestTotalPages}
+                onClick={() => setRequestPage(requestPage + 1)}
+              >
+                下一页
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </>
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-2">
@@ -724,7 +979,7 @@ export default function AdminSkillMarketPage() {
 
       {target && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-lg border bg-background p-5 shadow-xl">
+          <div className="w-full max-w-md rounded-lg border bg-background p-5 shadow-elevation-xl">
             <h2 className="text-title font-semibold">确认退款</h2>
             <p className="mt-2 text-body text-muted-foreground">
               技能「{target.skillName}」将全额退回 {yuan(target.priceCents)}；卖家已到账的{' '}
@@ -761,6 +1016,65 @@ export default function AdminSkillMarketPage() {
               >
                 {refundMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
                 确认退款
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {reviewTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-lg border bg-background p-5 shadow-elevation-xl">
+            <h2 className="text-title font-semibold">
+              {reviewAction === 'approve' ? '通过退款申请' : '拒绝退款申请'}
+            </h2>
+            <p className="mt-2 text-body text-muted-foreground">
+              {reviewAction === 'approve'
+                ? `批准后立即退回买家 ${yuan(reviewTarget.priceCents)}；卖家已到账分成会尽量扣回，余额不足部分由平台承担。`
+                : '拒绝只改申请状态，不改买家余额与购买状态。'}
+            </p>
+            <p className="mt-2 text-label text-muted-foreground">
+              技能「{reviewTarget.skillName}」· 买家{' '}
+              {reviewTarget.buyerNickname ?? shortId(reviewTarget.buyerUserId)} · 申请{' '}
+              {shortId(reviewTarget.id)}
+            </p>
+            <div className="mt-2 rounded-md bg-muted/40 px-3 py-2 text-label text-muted-foreground">
+              申请原因：{reviewTarget.reason}
+            </div>
+            <textarea
+              className="mt-3 min-h-20 w-full rounded-md border bg-background px-3 py-2 text-body"
+              placeholder="审核说明（可选，最多 500 字，会展示给买家）"
+              maxLength={500}
+              value={reviewNote}
+              onChange={(e) => setReviewNote(e.target.value)}
+            />
+            {reviewError && <p className="mt-2 text-body text-destructive">{reviewError}</p>}
+            <div className="mt-4 flex justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={reviewMutation.isPending}
+                onClick={() => {
+                  setReviewTarget(null)
+                  setReviewError(null)
+                }}
+              >
+                取消
+              </Button>
+              <Button
+                variant={reviewAction === 'approve' ? 'destructive' : 'outline'}
+                size="sm"
+                disabled={reviewMutation.isPending}
+                onClick={() =>
+                  reviewMutation.mutate({
+                    id: reviewTarget.id,
+                    action: reviewAction,
+                    note: reviewNote,
+                  })
+                }
+              >
+                {reviewMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+                {reviewAction === 'approve' ? '确认退款' : '确认拒绝'}
               </Button>
             </div>
           </div>

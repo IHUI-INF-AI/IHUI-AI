@@ -37,6 +37,38 @@ export function lastRequestCarriesToolOutput(
   })
 }
 
+/**
+ * 原生 function calling 的协议闭环判据：assistant.tool_calls 的每个 id 都必须有
+ * 且仅有一条 role:'tool' 结果与之配对。prompt 模式没有这两格，返回 paired=false。
+ */
+export function nativeToolResultPairing(requests: Array<Record<string, unknown>>): {
+  assistantCalls: string[]
+  toolResults: string[]
+  paired: boolean
+} {
+  const last = requests[requests.length - 1]
+  if (!last) return { assistantCalls: [], toolResults: [], paired: false }
+  const messages = (last.messages ?? []) as Array<{
+    role?: string
+    tool_calls?: Array<{ id?: string }>
+    tool_call_id?: string
+  }>
+  const assistantCalls = messages.flatMap((m) =>
+    m.role === 'assistant' && Array.isArray(m.tool_calls)
+      ? m.tool_calls.map((c) => c.id).filter((id): id is string => typeof id === 'string')
+      : [],
+  )
+  const toolResults = messages
+    .filter((m) => m.role === 'tool')
+    .map((m) => m.tool_call_id)
+    .filter((id): id is string => typeof id === 'string')
+  const paired =
+    assistantCalls.length > 0 &&
+    assistantCalls.length === toolResults.length &&
+    assistantCalls.every((id, index) => id === toolResults[index])
+  return { assistantCalls, toolResults, paired }
+}
+
 export async function directReadCase(): Promise<CaseResult> {
   const builder = createCase('tool-call.direct-read', 'tool-call')
   const seed = loadWorkspaceSeed('ops-notes')
@@ -76,6 +108,12 @@ export async function directReadCase(): Promise<CaseResult> {
     lastRequestCarriesToolOutput(outcome.requests, 'ZEBRA-42'),
     outcome.requests.length,
   )
+  const protocolPairing = nativeToolResultPairing(outcome.requests)
+  builder.check(
+    '原生闭环：assistant.tool_calls 与 role:tool 的 tool_call_id 一一配对',
+    protocolPairing.paired,
+    protocolPairing,
+  )
   const before = normalizeSeed(seed)
   const after = snapshotWorkspace(dir)
   builder.check(
@@ -90,6 +128,7 @@ export async function directReadCase(): Promise<CaseResult> {
   builder.metric('tool-call.executed_calls', outcome.toolResults.length)
   builder.metric('tool-call.workspace_state_correct', true)
   builder.metric('tool-call.stop_reason', outcome.result.stopReason)
+  builder.metric('protocol.native_tool_result_pairing', protocolPairing.paired)
   builder.evidence(
     'tool_calls',
     calls.map((c) => ({ name: c.name, path: c.arguments.path ?? null })),

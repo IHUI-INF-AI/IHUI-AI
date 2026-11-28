@@ -8,6 +8,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { BankCardInput, BankCardItem, BankCardScreenProps } from '../../types'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { Check } from 'lucide-react-native'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 import { TextField } from '../../components/TextField'
@@ -200,7 +201,13 @@ export function BankCardScreen({
             testID="bank-card-form-default"
           >
             <View style={[styles.toggleBox, formDefault ? styles.toggleBoxOn : null]}>
-              {formDefault ? <Text style={styles.toggleCheck}>✓</Text> : null}
+              {formDefault ? (
+                <Check
+                  size={rnType.badge.size}
+                  color={styles.toggleBoxOnText.color}
+                  strokeWidth={3}
+                />
+              ) : null}
             </View>
             <Text style={styles.toggleLabel}>{t('bankCard.formDefault')}</Text>
           </TouchableOpacity>
@@ -395,7 +402,8 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
     },
     toggleBoxOn: { borderColor: tk.brand.cta, backgroundColor: tk.brand.cta },
-    toggleCheck: { fontSize: rnType.badge.size, color: tk.brand.ctaForeground },
+    // R3 配对成文:toggleBoxOn 的前景档(Check 图标 color 从此条目取值)
+    toggleBoxOnText: { color: tk.brand.ctaForeground },
     toggleLabel: { fontSize: rnType.body.size, color: tk.text.primary },
     formError: { fontSize: rnType.body.size, color: tk.danger.deepText },
     formActions: {

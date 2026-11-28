@@ -198,7 +198,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     playBtnDisabled: { backgroundColor: tk.border.medium },
-    playBtnText: { color: tk.surface.light, fontSize: rnType.body.size, fontWeight: '600' },
+    playBtnText: { color: tk.brand.ctaForeground, fontSize: rnType.body.size, fontWeight: '600' },
     modalOverlay: {
       flex: 1,
       backgroundColor: tk.overlay.modal,

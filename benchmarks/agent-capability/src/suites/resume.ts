@@ -101,8 +101,30 @@ function toolResultNames(text: string): string[] {
   return names
 }
 
-function toolResultNamesInMessages(messages: ReadonlyArray<{ content: string }>): string[] {
-  return messages.flatMap((message) => toolResultNames(message.content))
+function toolResultNamesInMessages(
+  messages: ReadonlyArray<{
+    role?: string
+    content: string
+    tool_calls?: Array<{ id?: string; function?: { name?: string } }>
+    tool_call_id?: string
+  }>,
+): string[] {
+  // prompt 模式的历史形态：结果被 formatToolResult 包成 `[工具结果 ✓] name` 文本。
+  const names = messages.flatMap((message) => toolResultNames(message.content))
+  // 原生形态：assistant 的 tool_calls 提供 id→name，role:'tool' 的结果按 id 反查。
+  const callNamesById = new Map<string, string>()
+  for (const message of messages) {
+    for (const call of message.tool_calls ?? []) {
+      if (typeof call.id === 'string' && typeof call.function?.name === 'string') {
+        callNamesById.set(call.id, call.function.name)
+      }
+    }
+    if (message.role === 'tool' && typeof message.tool_call_id === 'string') {
+      const name = callNamesById.get(message.tool_call_id)
+      if (name !== undefined) names.push(name)
+    }
+  }
+  return names
 }
 
 function callNames(calls: readonly ToolCallRecord[]): string[] {
@@ -186,6 +208,10 @@ function persistSession(
       id: `msg-${String(index + 1).padStart(3, '0')}`,
       role: message.role as ChatMessage['role'],
       content: message.content,
+      ...(Array.isArray(message.tool_calls) && message.tool_calls.length > 0
+        ? { tool_calls: message.tool_calls }
+        : {}),
+      ...(typeof message.tool_call_id === 'string' ? { tool_call_id: message.tool_call_id } : {}),
     }))
   const session: Session = {
     id: `eval_${spec.id}`,
@@ -215,6 +241,10 @@ function resumeMessages(loaded: Session): EvalMessage[] {
     ...loaded.history.map((message) => ({
       role: message.role as EvalMessage['role'],
       content: message.content,
+      ...(Array.isArray(message.tool_calls) && message.tool_calls.length > 0
+        ? { tool_calls: message.tool_calls }
+        : {}),
+      ...(typeof message.tool_call_id === 'string' ? { tool_call_id: message.tool_call_id } : {}),
     })),
   ]
 }
@@ -312,16 +342,31 @@ async function runInterrupted(
 function requestMessages(
   outcome: TurnOutcome,
   index = 0,
-): Array<{ role?: string; content?: unknown }> {
+): Array<{
+  role?: string
+  content?: unknown
+  tool_calls?: Array<{ id?: string; function?: { name?: string } }>
+  tool_call_id?: string
+}> {
   const request = outcome.requests[index]
   const messages = request?.messages
-  return Array.isArray(messages) ? (messages as Array<{ role?: string; content?: unknown }>) : []
+  return Array.isArray(messages)
+    ? (messages as Array<{
+        role?: string
+        content?: unknown
+        tool_calls?: Array<{ id?: string; function?: { name?: string } }>
+        tool_call_id?: string
+      }>)
+    : []
 }
 
 function requestToolResultCount(outcome: TurnOutcome): number {
   const messages = requestMessages(outcome).map((message) => ({
+    role: message.role,
     content:
       typeof message.content === 'string' ? message.content : JSON.stringify(message.content ?? ''),
+    ...(Array.isArray(message.tool_calls) ? { tool_calls: message.tool_calls } : {}),
+    ...(typeof message.tool_call_id === 'string' ? { tool_call_id: message.tool_call_id } : {}),
   }))
   return toolResultNamesInMessages(messages).length
 }
@@ -411,7 +456,11 @@ async function executeResumeCase(spec: ResumeCaseSpec): Promise<CaseResult> {
     const midTurn = interrupted.snapshots[spec.interruptAfter - 1]!
     builder.check(
       '中断点停在半回合：工具对已执行、助手尚未收口',
-      midTurn.calls.length === 2 && midTurn.messages[midTurn.messages.length - 1]!.role === 'user',
+      // prompt 模式把结果并进一条 user 消息；原生模式落成 role:'tool'。
+      // 两者的共同事实是"最后一条不是 assistant"——助手还没对这批结果收口。
+      midTurn.calls.length === 2 &&
+        (midTurn.messages[midTurn.messages.length - 1]!.role === 'user' ||
+          midTurn.messages[midTurn.messages.length - 1]!.role === 'tool'),
       {
         calls: callNames(midTurn.calls),
         lastRole: midTurn.messages[midTurn.messages.length - 1]?.role,

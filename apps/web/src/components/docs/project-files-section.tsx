@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Eye, FolderOpen, Loader2 } from 'lucide-react'
 import { Button, Card, CardContent } from '@ihui/ui-react'
@@ -82,6 +82,16 @@ function formatSize(bytes: number): string {
 export function ProjectFilesSection() {
   const t = useTranslations('docs.projectFiles')
   const { allow } = useAuthGate()
+  const queryClient = useQueryClient()
+  // AI 修订稿保存成功后由 ai-revision-panel 派发该事件:文档中心立即重拉列表,
+  // 不让用户等 staleTime 过期才发现"刚存的稿子不见了"。
+  React.useEffect(() => {
+    const onChanged = (): void => {
+      void queryClient.invalidateQueries({ queryKey: ['docs', 'project-files'] })
+    }
+    window.addEventListener('ihui:project-files-changed', onChanged)
+    return () => window.removeEventListener('ihui:project-files-changed', onChanged)
+  }, [queryClient])
   const { data, isLoading } = useQuery({
     queryKey: ['docs', 'project-files'],
     queryFn: fetchProjectFiles,
@@ -136,6 +146,8 @@ export function ProjectFilesSection() {
                     name: file.name,
                     src: `/api/workspace/files/${file.id}`,
                     subtitle: `${file.projectName} · ${formatSize(file.size)}`,
+                    projectId: file.projectId,
+                    fileId: file.id,
                   })
                 }
               >

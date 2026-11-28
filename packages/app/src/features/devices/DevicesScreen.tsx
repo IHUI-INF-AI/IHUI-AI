@@ -1,5 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * 设备管理共享屏 —— 手机派单的唯一实现(2026-11-26 从 RN 独占屏下沉到 packages/app)。
@@ -54,7 +55,7 @@ import {
 
 import { BackChevron } from '../../components/BackChevron'
 import { assertRequiredPort } from '../../host/ports'
-import type { OnToast } from '@ihui/types'
+import type { DeviceTaskExecutionPayload, DeviceTaskFileDiff, OnToast } from '@ihui/types'
 import { getTokens, type AppThemeMode } from '../../theme/tokens'
 import { createStyles } from './devices-styles'
 
@@ -142,6 +143,15 @@ export function DevicesScreen({
   const [delegating, setDelegating] = useState<string | null>(null)
   const [delegatePrompt, setDelegatePrompt] = useState('')
   const [promptFocused, setPromptFocused] = useState(false)
+  // G4:改动先审(执行端跑完把文件级 diff 推上来,逐文件收下/回退)
+  const [reviewDiff, setReviewDiff] = useState(false)
+  const [review, setReview] = useState<{
+    taskId: string
+    files: DeviceTaskFileDiff[]
+    truncated: boolean
+    selected: Record<string, boolean>
+    expanded: string | null
+  } | null>(null)
   // 同一屏三条异步链路共用一个请求序号,后到的旧响应一律丢弃(与 RN 旧屏同法)
   const reqSeqRef = useRef(0)
 
@@ -244,12 +254,13 @@ export function DevicesScreen({
   const onDelegate = async (conversationId: string, deviceId: string, deviceName: string) => {
     setDelegating(conversationId)
     try {
-      // 指令留空 = 服务端取该会话最后一条 user 消息;填了就以这句为准
-      const res = await delegateSession(
-        conversationId,
-        deviceId,
-        delegatePrompt.trim() ? { prompt: delegatePrompt.trim(), mode: 'execute' } : undefined,
-      )
+      // 载荷显式带 mode;reviewDiff 只对 execute 生效(plan 的审批位留给批方案)
+      const payload: Partial<DeviceTaskExecutionPayload> = {
+        mode: 'execute',
+        ...(delegatePrompt.trim() ? { prompt: delegatePrompt.trim() } : {}),
+        ...(reviewDiff ? { reviewDiff: true } : {}),
+      }
+      const res = await delegateSession(conversationId, deviceId, payload)
       if (!res.success) {
         onToast(res.error || t('devices.delegateFailed'))
         return
@@ -286,28 +297,51 @@ export function DevicesScreen({
   }
 
   /**
-   * plan 档审批。不传 decision = 只看计划(正文从会话消息现读,取不到退回摘要);
-   * 传 decision = 真的批准/拒绝 —— 先看后批,按钮与正文分开两个动作,避免误触。
+   * 审批(G3 plan / G4 diff)。
+   * 不传 decision = 先看:plan 弹正文;diff 展开文件表(默认全勾)。
+   * 传 decision = 真的收下/退回;diff 的「收下选中」把勾选清单一起交服务端,
+   * 未勾选且可回退的文件由执行端回退。
    */
-  const onApproval = async (task: DeviceTaskRow, decision?: 'approved' | 'rejected') => {
+  const onApproval = async (
+    task: DeviceTaskRow,
+    decision?: 'approved' | 'rejected',
+    acceptedPaths?: string[],
+  ) => {
     const deviceId = tasksFor
     if (!deviceId) return
     setTaskBusy(task.id)
     try {
       if (!decision) {
         const res = await getDeviceTaskApproval(task.id)
-        const plan =
-          (res.success ? res.data?.plan : null) ??
-          task.approvalRequest?.preview ??
-          t('devices.approvalEmpty')
+        if (!res.success) {
+          onToast(res.error || t('devices.tasksFailed'))
+          return
+        }
+        const request = res.data?.request
+        if (request?.kind === 'diff' && request.diff) {
+          const files = request.diff.files
+          setReview({
+            taskId: task.id,
+            files,
+            truncated: request.diff.truncated,
+            selected: Object.fromEntries(files.map((f) => [f.path, true])) as Record<
+              string,
+              boolean
+            >,
+            expanded: null,
+          })
+          return
+        }
+        const plan = res.data?.plan ?? task.approvalRequest?.preview ?? t('devices.approvalEmpty')
         onToast(`${t('devices.approvalTitle')}\n${plan}`)
         return
       }
-      const res = await decideDeviceTaskApproval(task.id, decision)
+      const res = await decideDeviceTaskApproval(task.id, decision, acceptedPaths)
       if (!res.success) {
         onToast(res.error || t('devices.tasksFailed'))
         return
       }
+      setReview(null)
       const refreshed = await getDeviceTasks(deviceId)
       if (refreshed.success) setTasks(refreshed.data ?? [])
     } catch {
@@ -491,6 +525,20 @@ export function DevicesScreen({
                         autoCapitalize="none"
                         autoCorrect={false}
                       />
+                      {/* G4:改动先审 —— 执行端跑完把文件级 diff 推上来,人逐文件收下/回退 */}
+                      <TouchableOpacity
+                        style={styles.checkRow}
+                        activeOpacity={0.7}
+                        onPress={() => setReviewDiff((v) => !v)}
+                      >
+                        <View style={[styles.checkBox, reviewDiff ? styles.checkBoxOn : null]}>
+                          {reviewDiff ? <Check size={12} color={tk.brand.ctaForeground} /> : null}
+                        </View>
+                        <View style={styles.checkTextWrap}>
+                          <Text style={styles.checkLabel}>{t('devices.reviewDiffToggle')}</Text>
+                          <Text style={styles.meta}>{t('devices.reviewDiffHint')}</Text>
+                        </View>
+                      </TouchableOpacity>
                       {convLoading ? (
                         <Text style={styles.muted}>{t('devices.delegateLoading')}</Text>
                       ) : conversations.length === 0 ? (
@@ -556,35 +604,168 @@ export function DevicesScreen({
                             {task.error ? <Text style={styles.error}>{task.error}</Text> : null}
                             {taskBusy === task.id ? null : task.progress?.stage ===
                               'awaiting_approval' ? (
-                              <View style={styles.actionRow}>
-                                <TouchableOpacity
-                                  onPress={() => void onApproval(task)}
-                                  activeOpacity={0.7}
-                                >
-                                  <View style={styles.actionRow}>
-                                    <ClipboardList size={13} color={tk.text.primary} />
-                                    <Text style={styles.link}>{t('devices.approvalView')}</Text>
+                              task.approvalRequest?.kind === 'diff' ? (
+                                review && review.taskId === task.id ? (
+                                  <View style={styles.reviewPanel}>
+                                    <Text style={styles.panelTitle}>{t('devices.diffTitle')}</Text>
+                                    <Text style={styles.muted}>{t('devices.diffHint')}</Text>
+                                    {review.truncated ? (
+                                      <Text style={styles.muted}>{t('devices.diffTruncated')}</Text>
+                                    ) : null}
+                                    {review.files.map((file) => {
+                                      const checked = review.selected[file.path] === true
+                                      const open = review.expanded === file.path
+                                      return (
+                                        <View key={file.path} style={styles.diffFile}>
+                                          <TouchableOpacity
+                                            style={styles.diffFileHead}
+                                            activeOpacity={0.7}
+                                            onPress={() =>
+                                              setReview((prev) =>
+                                                prev && prev.taskId === task.id
+                                                  ? {
+                                                      ...prev,
+                                                      selected: {
+                                                        ...prev.selected,
+                                                        [file.path]: !checked,
+                                                      },
+                                                    }
+                                                  : prev,
+                                              )
+                                            }
+                                          >
+                                            <View
+                                              style={[
+                                                styles.checkBox,
+                                                checked ? styles.checkBoxOn : null,
+                                              ]}
+                                            >
+                                              {checked ? (
+                                                <Check size={12} color={tk.brand.ctaForeground} />
+                                              ) : null}
+                                            </View>
+                                            <View style={styles.diffFileMeta}>
+                                              <Text style={styles.diffPath} numberOfLines={1}>
+                                                {file.path}
+                                              </Text>
+                                              <Text style={styles.meta}>
+                                                {t(`devices.diffStatus_${file.status}`)} · +
+                                                {file.additions} −{file.deletions}
+                                                {file.revertable
+                                                  ? ''
+                                                  : ` · ${t('devices.diffNotRevertable')}`}
+                                              </Text>
+                                            </View>
+                                          </TouchableOpacity>
+                                          {file.patch ? (
+                                            <TouchableOpacity
+                                              activeOpacity={0.7}
+                                              onPress={() =>
+                                                setReview((prev) =>
+                                                  prev && prev.taskId === task.id
+                                                    ? {
+                                                        ...prev,
+                                                        expanded: open ? null : file.path,
+                                                      }
+                                                    : prev,
+                                                )
+                                              }
+                                            >
+                                              <Text style={styles.link}>
+                                                {open
+                                                  ? t('devices.diffHidePatch')
+                                                  : t('devices.diffShowPatch')}
+                                              </Text>
+                                            </TouchableOpacity>
+                                          ) : null}
+                                          {open && file.patch ? (
+                                            <ScrollView horizontal style={styles.patchScroll}>
+                                              <Text style={styles.patchText} selectable>
+                                                {file.patch}
+                                              </Text>
+                                            </ScrollView>
+                                          ) : null}
+                                        </View>
+                                      )
+                                    })}
+                                    <View style={styles.actions}>
+                                      <TouchableOpacity
+                                        activeOpacity={0.7}
+                                        onPress={() => {
+                                          const paths = review.files
+                                            .filter((f) => review.selected[f.path])
+                                            .map((f) => f.path)
+                                          void onApproval(task, 'approved', paths)
+                                        }}
+                                      >
+                                        <View style={styles.actionRow}>
+                                          <Check size={13} color={tk.text.primary} />
+                                          <Text style={styles.link}>
+                                            {t('devices.diffAcceptSelected', {
+                                              count: review.files.filter(
+                                                (f) => review.selected[f.path],
+                                              ).length,
+                                            })}
+                                          </Text>
+                                        </View>
+                                      </TouchableOpacity>
+                                      <TouchableOpacity
+                                        activeOpacity={0.7}
+                                        onPress={() => void onApproval(task, 'rejected')}
+                                      >
+                                        <View style={styles.actionRow}>
+                                          <XCircle size={13} color={tk.danger.deepText} />
+                                          <Text style={styles.dangerLink}>
+                                            {t('devices.diffRejectAll')}
+                                          </Text>
+                                        </View>
+                                      </TouchableOpacity>
+                                    </View>
                                   </View>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                  onPress={() => void onApproval(task, 'approved')}
-                                  activeOpacity={0.7}
-                                >
-                                  <View style={styles.actionRow}>
-                                    <Check size={13} color={tk.text.primary} />
-                                    <Text style={styles.link}>{t('devices.approvalApprove')}</Text>
-                                  </View>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                  onPress={() => void onApproval(task, 'rejected')}
-                                  activeOpacity={0.7}
-                                >
-                                  <View style={styles.actionRow}>
-                                    <XCircle size={13} color={tk.text.primary} />
-                                    <Text style={styles.link}>{t('devices.approvalReject')}</Text>
-                                  </View>
-                                </TouchableOpacity>
-                              </View>
+                                ) : (
+                                  <TouchableOpacity
+                                    onPress={() => void onApproval(task)}
+                                    activeOpacity={0.7}
+                                  >
+                                    <View style={styles.actionRow}>
+                                      <ClipboardList size={13} color={tk.text.primary} />
+                                      <Text style={styles.link}>{t('devices.diffReviewOpen')}</Text>
+                                    </View>
+                                  </TouchableOpacity>
+                                )
+                              ) : (
+                                <View style={styles.actionRow}>
+                                  <TouchableOpacity
+                                    onPress={() => void onApproval(task)}
+                                    activeOpacity={0.7}
+                                  >
+                                    <View style={styles.actionRow}>
+                                      <ClipboardList size={13} color={tk.text.primary} />
+                                      <Text style={styles.link}>{t('devices.approvalView')}</Text>
+                                    </View>
+                                  </TouchableOpacity>
+                                  <TouchableOpacity
+                                    onPress={() => void onApproval(task, 'approved')}
+                                    activeOpacity={0.7}
+                                  >
+                                    <View style={styles.actionRow}>
+                                      <Check size={13} color={tk.text.primary} />
+                                      <Text style={styles.link}>
+                                        {t('devices.approvalApprove')}
+                                      </Text>
+                                    </View>
+                                  </TouchableOpacity>
+                                  <TouchableOpacity
+                                    onPress={() => void onApproval(task, 'rejected')}
+                                    activeOpacity={0.7}
+                                  >
+                                    <View style={styles.actionRow}>
+                                      <XCircle size={13} color={tk.text.primary} />
+                                      <Text style={styles.link}>{t('devices.approvalReject')}</Text>
+                                    </View>
+                                  </TouchableOpacity>
+                                </View>
+                              )
                             ) : task.status === 'queued' ||
                               task.status === 'claimed' ||
                               task.status === 'running' ? (
@@ -628,3 +809,4 @@ export default DevicesScreen
 /** 供宿主壳复用的样式构造(小程序壳里若需覆盖个别档位) */
 export { createStyles as createDevicesStyles }
 export type { DevicesStyles } from './devices-styles'
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

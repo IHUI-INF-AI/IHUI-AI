@@ -1,16 +1,19 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * W4-14:run_code 工具与纯 PTC 只读执行器。
+ * W4-14:run_code 工具与纯 PTC 执行器。
  *
- * 两种接入面共用同一组只读绑定:
+ * 两种接入面共用同一套绑定哲学:
  * - env `IHUI_PTC_TOOL=1`:混合面,原工具仍可直接调,run_code 只是多一条程序化入口;
  * - `--tool-executor ptc`:纯面,广告面只留 run_code,其余原生工具仅供绑定调用。
  *
- * 绑定只暴露四个显式只读工具,且每次 binding 仍走 `executeToolCall` 的
- * 权限/hook/审计;程序本身的任意 Node 能力由 `dangerLevel: 'dangerous'`
- * 的确认闸兜住,但确认不等于 OS 沙箱。
+ * 缺省绑定只暴露四个显式只读工具;显式传 `PTC_DEFAULT_BINDING_TOOL_NAMES` 才把
+ * write_file/edit_file/run_tests 放进程序,且可写绑定每次都必须过宿主审批
+ * (没有审批器 = 一律拒绝)。run_command 不在默认面,防止默认值放出任意 shell。
+ * 每次 binding 仍走 `executeToolCall` 的权限/hook/审计;程序本身的任意 Node 能力由
+ * `dangerLevel: 'dangerous'` 的确认闸兜住,但确认不等于 OS 沙箱。
  */
 
 import { NodePtcRuntime, NodeReplRuntime, PTC_MAX_BINDING_TIMEOUT_MS } from '@ihui/ptc-runtime'
@@ -38,11 +41,27 @@ export const PTC_TOOL_ENV = 'IHUI_PTC_TOOL'
 /** 只暴露明确只读的工具;不把注册表全量塞进程序。 */
 export const PTC_READ_ONLY_TOOL_NAMES = ['read_file', 'list_dir', 'grep', 'glob'] as const
 
+/**
+ * 默认绑定面:只读四枚 + 三枚可写/验证类。`run_command` 故意不在默认面 ——
+ * 它等价于任意 shell,扩面应先走显式 `bindingTools` 白名单,不能靠默认值放出去。
+ */
+export const PTC_DEFAULT_BINDING_TOOL_NAMES = [
+  ...PTC_READ_ONLY_TOOL_NAMES,
+  'write_file',
+  'edit_file',
+  'run_tests',
+] as const
+
 export interface CreateRunCodeToolOptions {
   /** 绑定调用必须仍走完整工具边界;缺省由宿主注入 executeToolCall。 */
   runner: NativeToolCallRunner
   /** 只读工具名白名单;缺省为 PTC_READ_ONLY_TOOL_NAMES。 */
   readOnlyTools?: readonly string[]
+  /**
+   * 程序内可调用的绑定面;缺省只读四枚。传 `PTC_DEFAULT_BINDING_TOOL_NAMES`
+   * 才把 write_file/edit_file/run_tests 放进程序,且可写绑定必须逐次过审批。
+   */
+  bindingTools?: readonly string[]
   /** 单次 run_code 的绑定调用总预算;缺省 1000,超限 abort。 */
   maxBindingCalls?: number
   /** 单次 run_code 同时在飞的绑定调用上限;缺省 10,超出排队。 */
@@ -85,11 +104,27 @@ export interface CreateRunCodeToolOptions {
 }
 
 /**
+ * 没有宿主审批器时的保底门：只读绑定直接放行，其余绑定一律拒绝。
+ * 这不是"可写绑定默认可用"，而是"没人批就不执行" —— 与危险档的确认语义一致。
+ */
+export function createPtcDefaultBindingApprover(
+  bindingTools: readonly string[],
+): PtcBindingApprover {
+  const readOnly = new Set<string>(PTC_READ_ONLY_TOOL_NAMES)
+  const declared = new Set<string>(bindingTools)
+  return (request) => declared.has(request.memberName) && readOnly.has(request.memberName)
+}
+
+/**
  * 纯 PTC 模式的执行器:每次 run_code 新建/释放 runtime,不把 runtime 泄漏到回合间;
- * 只接 run_code,绑定只含只读工具。原生工具仍留在注册表里供绑定调用,但不会广告给模型。
+ * 只接 run_code,绑定面由 `bindingTools` 决定(缺省只读四枚)。原生工具仍留在注册表里
+ * 供绑定调用,但不会广告给模型。
  */
 export function createPtcReadOnlyExecutor(options: CreateRunCodeToolOptions): ToolExecutor {
   const readOnlyTools = options.readOnlyTools ?? PTC_READ_ONLY_TOOL_NAMES
+  const bindingTools = options.bindingTools ?? readOnlyTools
+  const approveBinding =
+    options.approveBinding ?? createPtcDefaultBindingApprover(bindingTools)
   const totalBudget = options.maxBindingCalls ?? PTC_DEFAULT_MAX_BINDING_CALLS
   const pendingLimit =
     Number.isInteger(totalBudget) && totalBudget >= 1 && totalBudget <= PTC_MAX_BINDING_CALLS
@@ -146,7 +181,7 @@ export function createPtcReadOnlyExecutor(options: CreateRunCodeToolOptions): To
         const executor = createPtcToolExecutor({
           runtime,
           resolveBindings: () => [
-            createReadOnlyBindings(options.runner, ctx, readOnlyTools),
+            createReadOnlyBindings(options.runner, ctx, bindingTools),
           ],
           maxBindingCalls: options.maxBindingCalls,
           maxConcurrentBindingCalls: options.maxConcurrentBindingCalls,
@@ -155,7 +190,7 @@ export function createPtcReadOnlyExecutor(options: CreateRunCodeToolOptions): To
           priorityAging: options.priorityAging,
           turnBudget,
           turnConcurrency,
-          approveBinding: options.approveBinding,
+          approveBinding,
           typeCheck: options.typeCheck,
           ...(stateOwner === undefined ? {} : { stateOwner }),
         })
@@ -168,11 +203,13 @@ export function createPtcReadOnlyExecutor(options: CreateRunCodeToolOptions): To
 }
 
 export function createRunCodeTool(options: CreateRunCodeToolOptions): Tool {
-  const executor = createPtcReadOnlyExecutor(options)
+  const bindingTools = options.bindingTools ?? PTC_DEFAULT_BINDING_TOOL_NAMES
+  const executor = createPtcReadOnlyExecutor({ ...options, bindingTools })
+  const bindingLabel = bindingTools.join('/')
   return {
     name: PTC_RUN_CODE_TOOL_NAME,
     description:
-      '在 Node 子进程里执行一段 async TypeScript 函数体（只支持可擦除语法;类型标注、interface、type、as/satisfies 会被擦除,enum/namespace 等运行时代码会被拒绝;纯 JavaScript 也接受）。用 `await tools.<name>(args)` 调用只读宿主工具(read_file/list_dir/grep/glob),用 `return` 返回无损 JSON,`console.log` 捕获输出。程序默认跑在 Node permission-model 沙箱里:不能直接读写文件、创建子进程或工作线程(不拦网络),因此本工具仍按 dangerous 级别要求确认。',
+      `在 Node 子进程里执行一段 async TypeScript 函数体（只支持可擦除语法;类型标注、interface、type、as/satisfies 会被擦除,enum/namespace 等运行时代码会被拒绝;纯 JavaScript 也接受）。用 \`await tools.<name>(args)\` 调用宿主工具(${bindingLabel}),用 \`return\` 返回无损 JSON,\`console.log\` 捕获输出。只读绑定直接放行;可写绑定(write_file/edit_file/run_tests)每次调用前必须过宿主审批,没人批就不执行。程序默认跑在 Node permission-model 沙箱里:不能直接读写文件、创建子进程或工作线程(不拦网络),因此本工具仍按 dangerous 级别要求确认。`,
     parameters: {
       code: {
         type: 'string',
@@ -246,3 +283,4 @@ function createReadOnlyBindings(
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

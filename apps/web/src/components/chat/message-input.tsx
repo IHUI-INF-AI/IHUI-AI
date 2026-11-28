@@ -138,6 +138,8 @@ import {
 } from '@ihui/shared/chat/queue-interactions'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useFileHandoffStore } from '@/stores/file-handoff'
+import { useChatDocRevisionStore } from '@/stores/chat-doc-revision'
+import { ChatRevisionDialog } from '@/components/chat/chat-revision-dialog'
 import { getMessages } from '@ihui/api-client'
 import { MARKET_PLUGINS, PROJECT_PLUGINS, getPluginIntegration } from '@ihui/shared/plugins-data'
 
@@ -380,6 +382,7 @@ export function MessageInput({
     removeReference,
     resetReferences,
     detachReferences,
+    getPendingFile,
   } = useMessageReferences()
   // AI finding handoff: 引用 chip 落位后自动发送，避免“交给主 AI”只停在输入框。
   // 值放在 ref，等 references 真正更新后再提交，确保 submit 闭包拿到新增引用；同一事件只发一次。
@@ -413,6 +416,21 @@ export function MessageInput({
     removeReference(last.id)
     return true
   }, [references, removeReference])
+  /**
+   * 对话 → 文档修订(2026-11-28 立):附件卡上的「AI 修订」。
+   * 指令取输入区当次正文(用户正在写的"把付款条款改成 30 天"这句话),
+   * 空则交给修订面板用默认指令;原始 File 从引用 hook 的 pendingFiles 取,
+   * 上传失败/未上传也照样能修订(不依赖 serverUrl)。
+   */
+  const handleReviseReference = React.useCallback(
+    (id: string) => {
+      const file = getPendingFile(id)
+      if (!file) return
+      useChatDocRevisionStore.getState().open(file, value)
+    },
+    [getPendingFile, value],
+  )
+  const chatRevisionRequest = useChatDocRevisionStore((s) => s.request)
 
   // D124:位图标注目标(按 id 跟随 references,附件被移除时对话框自动关闭)
   const [annotateTargetId, setAnnotateTargetId] = React.useState<string | null>(null)
@@ -1311,6 +1329,7 @@ export function MessageInput({
           onRemoveReference={handleRemoveReference}
           onRetryReference={retryReference}
           onAnnotateReference={setAnnotateTargetId}
+          onReviseReference={handleReviseReference}
           tools={selectedToolItems}
           onRemoveTool={removeSelectedTool}
           quoted={quotedMessage}
@@ -1332,6 +1351,12 @@ export function MessageInput({
           imageUrl={annotateTarget?.thumbnail ?? null}
           onClose={() => setAnnotateTargetId(null)}
           onApply={handleApplyAnnotation}
+        />
+        {/* 对话侧「AI 修订」对话框:附件卡点魔棒 → 带输入区正文自动出一版修订稿,
+            双栏 diff / 逐处接受驳回 / 导出都复用文档中心那一份 AiRevisionPanel */}
+        <ChatRevisionDialog
+          request={chatRevisionRequest}
+          onClose={() => useChatDocRevisionStore.getState().close()}
         />
         {/* D166 链接预览卡(2026-10-02 接线):粘贴 URL 的可达性三态提示 —— 竞品
             previewLoading / previewUnavailable 之外补"未判定"态(需登录/超时/内网,

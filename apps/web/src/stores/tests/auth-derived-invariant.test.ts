@@ -52,7 +52,8 @@ beforeEach(() => {
 
 describe('夹具身份自证(路径读歪就等于锁空转)', () => {
   it('两个被锁的文件各自含有只有它自己才有的标识', () => {
-    expect(read(storeFile)).toMatch(/export const useAuthStore = create<AuthState>/)
+    expect(read(storeFile)).toMatch(/return create<AuthState>\(\)/)
+    expect(read(storeFile)).toMatch(/export const useAuthStore: AuthStoreHook/)
     expect(read(bootstrapFile)).toMatch(/export function useAuthBootstrap/)
   })
 })

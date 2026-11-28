@@ -23,6 +23,7 @@ export const METRIC_DIRECTIONS: Record<string, MetricDirection> = {
   'tool-call.executed_calls': 'exact',
   'tool-call.workspace_state_correct': 'exact',
   'tool-call.stop_reason': 'exact',
+  'protocol.native_tool_result_pairing': 'exact',
 
   // ── 上下文压缩保真 ────────────────────────────────────────────────
   'compaction.retained_facts': 'higher-better',

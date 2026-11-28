@@ -169,7 +169,7 @@ function createStyles(tk: AppThemeTokens) {
     msgUser: { alignSelf: 'flex-end', backgroundColor: tk.brand.cta },
     msgAssistant: { alignSelf: 'flex-start', backgroundColor: tk.surface.card },
     msgText: { fontSize: rnType.title.size },
-    msgTextUser: { color: tk.surface.light },
+    msgTextUser: { color: tk.brand.ctaForeground },
     msgTextAssistant: { color: tk.text.primary },
     inputRow: {
       flexDirection: 'row',
@@ -205,7 +205,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    sendBtnText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
+    sendBtnText: { color: tk.brand.ctaForeground, fontSize: rnType.title.size, fontWeight: '600' },
     /** 停止钮底是 surface.muted(不是 brand.cta):共用 sendBtnText 会让白字压浅灰/同深灰,故单列一档。 */
     stopBtnText: { color: tk.text.primary, fontSize: rnType.title.size, fontWeight: '600' },
     sendError: {

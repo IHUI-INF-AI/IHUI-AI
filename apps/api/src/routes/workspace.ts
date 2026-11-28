@@ -46,6 +46,9 @@ import {
   batchRestore,
   findFileOwnershipBatch,
   findFileVersions,
+  getLatestVersion,
+  createFileVersion,
+  updateFileStorage,
 } from '../db/workspace-queries.js'
 import { success, error } from '../utils/response.js'
 // 批量写的 affected 一律由库确认集合经唯一出口推出,不得由请求侧自算(2026-09-26 静默失真修复)
@@ -596,6 +599,128 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ version: serializeFileVersion(version) }))
   })
 
+  // GET /files/:id/versions/:version/content - 下载特定版本(2026-11-28 版本链)
+  // 与 /files/:id 同一鉴权口径:先定位文件 → 判属主/成员 → 再按版本行取旧 blob。
+  server.get('/files/:id/versions/:version/content', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const params = z
+      .object({ id: z.uuid(), version: z.coerce.number().int().min(1) })
+      .safeParse(request.params)
+    if (!params.success) {
+      return reply.status(400).send(error(400, params.error.issues[0]?.message ?? '参数错误'))
+    }
+    const file = await findFileById(params.data.id)
+    if (!file) return reply.status(404).send(error(404, '文件不存在'))
+    if (!(await canAccessFile(request.userId, file))) {
+      return reply.status(403).send(error(403, '无权访问该文件'))
+    }
+    const versions = await findFileVersions(params.data.id)
+    const version = versions.find((v) => v.version === params.data.version)
+    if (!version) return reply.status(404).send(error(404, '版本不存在'))
+    if (!existsSync(version.path)) {
+      return reply.status(404).send(error(404, '版本文件已丢失'))
+    }
+    return reply.type(file.mimeType).send(createReadStream(version.path))
+  })
+
+  // POST /files/:id/versions - 上传新版本(2026-11-28 立)
+  // 语义:同一个文件行 → 新 blob + file_versions 追加一行,路径指针指向新版本;
+  // 旧 blob **不删除**(版本历史要能回读),文档中心仍是一条文件记录。
+  // multipart 约定:`changeLog` 字段必须排在 file 之前(@fastify/multipart 读到文件即停止解析字段)。
+  server.post('/files/:id/versions', { bodyLimit: 21 * 1024 * 1024 }, async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
+
+    const { id } = idParam.parse(request.params)
+    const file = await findFileById(id)
+    if (!file) return reply.status(404).send(error(404, '文件不存在'))
+    if (!(await canAccessFile(userId, file))) {
+      return reply.status(403).send(error(403, '无权访问该文件'))
+    }
+
+    try {
+      return await getBulkhead('file-upload', 3, 10).execute(async () => {
+        const data = await request.file()
+        if (!data) return reply.status(400).send(error(400, '未检测到上传文件'))
+
+        const fields = (data.fields ?? {}) as unknown as Record<string, { value?: unknown }>
+        const rawChangeLog = fields.changeLog?.value
+        const changeLog =
+          typeof rawChangeLog === 'string' && rawChangeLog.trim()
+            ? rawChangeLog.trim().slice(0, 200)
+            : undefined
+
+        ensureUploadDir()
+        const PROJECT_FILE_MAX_SIZE = 20 * 1024 * 1024
+        const buffer = await data.toBuffer()
+        const valid = validateUploadFile(buffer, file.name, data.mimetype, PROJECT_FILE_MAX_SIZE)
+        if (!valid.ok) return reply.status(400).send(error(400, valid.reason))
+
+        const blobId = randomUUID()
+        const tmpPath = join(UPLOAD_DIR, `${blobId}.tmp`)
+        const finalPath = join(UPLOAD_DIR, blobId)
+        try {
+          await pipeline(Readable.from(buffer), createWriteStream(tmpPath))
+          renameSync(tmpPath, finalPath)
+        } catch (err) {
+          try {
+            if (existsSync(tmpPath)) unlinkSync(tmpPath)
+          } catch {
+            // ignore
+          }
+          request.log.error({ err }, '新版本落盘失败')
+          return reply.status(500).send(error(500, '新版本保存失败'))
+        }
+
+        // 第一次上传新版本时补一条 v1 基线(原文件),版本历史才完整;
+        // 之后 latest+1。并发双传由 (file_id, version) 唯一约束兜底 → 409。
+        let latest = await getLatestVersion(id)
+        if (latest === 0) {
+          await createFileVersion({
+            fileId: id,
+            version: 1,
+            size: Number(file.size),
+            path: file.path,
+            uploadedBy: file.uploadedBy ?? userId,
+          })
+          latest = 1
+        }
+        const versionNo = latest + 1
+        const version = await createFileVersion({
+          fileId: id,
+          version: versionNo,
+          size: buffer.length,
+          path: finalPath,
+          uploadedBy: userId,
+          ...(changeLog ? { changeLog } : {}),
+        })
+        const updated = await updateFileStorage(id, {
+          path: finalPath,
+          size: buffer.length,
+          mimeType: data.mimetype,
+        })
+        return reply
+          .status(201)
+          .send(success({ file: serializeFile(updated), version: serializeFileVersion(version) }))
+      })
+    } catch (err) {
+      if ((err as { code?: string }).code === '23505') {
+        return reply.status(409).send(error(409, '该文件正被并发保存,请稍后重试'))
+      }
+      const attribution = attributeError(err)
+      if (
+        attribution.errorSource === 'capacity' &&
+        attribution.failureReason === 'concurrency-limit'
+      ) {
+        return reply.status(503).send(error(503, '文件上传并发数已达上限,请稍后重试'))
+      }
+      throw err
+    }
+  })
+
   // GET /files/:id - 下载文件
   server.get(
     '/files/:id',
@@ -798,7 +923,11 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
   /** 文件系统根(盘符根 / POSIX 根 / 323 UNC 共享根)——不是工作区 */
   const isFilesystemRoot = (p: string): boolean => {
     const normalized = p.replace(/\\/g, '/')
-    return /^[A-Za-z]:\/?$/.test(normalized) || normalized === '/' || /^\/\/[^/]+\/[^/]+$/.test(normalized)
+    return (
+      /^[A-Za-z]:\/?$/.test(normalized) ||
+      normalized === '/' ||
+      /^\/\/[^/]+\/[^/]+$/.test(normalized)
+    )
   }
 
   const resolveAcpWorkspaceRoot = async (
@@ -808,7 +937,11 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
     const trimmed = raw.trim()
     if (!trimmed) return { ok: false, status: 400, message: 'workspaceRoot 不能为空' }
     if (isFilesystemRoot(trimmed)) {
-      return { ok: false, status: 400, message: 'workspaceRoot 不能是文件系统根(工作区必须是具体目录)' }
+      return {
+        ok: false,
+        status: 400,
+        message: 'workspaceRoot 不能是文件系统根(工作区必须是具体目录)',
+      }
     }
     if (!isAbsolute(trimmed)) {
       return { ok: false, status: 400, message: 'workspaceRoot 必须是绝对路径' }
@@ -870,7 +1003,11 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
     }
 
     // 跨界前归一:CreateSessionData.mode 只允许 wire 拼写,camel 入参不得原样泄进下游
-    const data: CreateSessionData = { ...parsed.data, mode: modeWire, workspaceRoot: rootCheck.path }
+    const data: CreateSessionData = {
+      ...parsed.data,
+      mode: modeWire,
+      workspaceRoot: rootCheck.path,
+    }
     const sessionId = randomUUID()
     const now = Date.now()
 
@@ -937,8 +1074,12 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '会话不存在或无权限'))
     }
     // 会话登记的工作区与本次声明不一致 ⇒ 400(两段上下文不能拼在一张会话上)
-    const declaredRoot = typeof body.workspaceRoot === 'string' ? body.workspaceRoot.trim() : undefined
-    if (declaredRoot !== undefined && realpathOrResolve(declaredRoot) !== realpathOrResolve(session.workspaceRoot)) {
+    const declaredRoot =
+      typeof body.workspaceRoot === 'string' ? body.workspaceRoot.trim() : undefined
+    if (
+      declaredRoot !== undefined &&
+      realpathOrResolve(declaredRoot) !== realpathOrResolve(session.workspaceRoot)
+    ) {
       return reply.status(400).send(error(400, 'workspaceRoot 与会话登记的工作区不一致'))
     }
     // 跨界前归一:BeginPromptData.mode 只允许 wire 拼写,camel 入参不得原样泄进日志
