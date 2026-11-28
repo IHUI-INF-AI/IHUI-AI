@@ -401,6 +401,7 @@ function collectCandidates(opts: LoadPluginsOptions): RawScan {
         file,
         definition.name,
         takenNames,
+        definition.capability?.permissions ?? null,
       );
       for (const tool of compiled.tools) takenNames.add(tool.name);
       diagnostics.push(...compiled.diagnostics);

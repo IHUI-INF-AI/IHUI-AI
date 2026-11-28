@@ -37,6 +37,10 @@ import { assertSafeFetchUrl, formatSsrfRejection, type SelfHostedTrust } from '@
 import { sanitizeEvidenceText } from '@ihui/shared/utils/redact';
 import { loadMcpConfig, listProjectMcpConfigSources, type McpServer, type McpStdioFraming } from '../commands/mcp-config.js';
 import { createStdioFrameDecoder, encodeContentLength, encodeNdjson } from './mcp-stdio-framing.js';
+import {
+  openMcpOnToolHost,
+  shouldUseToolHostForMcp,
+} from '../sandbox/tool-host.js';
 // G-690:进程树回收的**制造者**已经存在于 util/spawn-isolated.ts(机制 + export 都在那里,
 // 且它的注释就点名了"调用端配合条件:detached 只在 Unix 侧有意义")。
 // 这里只做**装车**:不另抄一份 taskkill/kill(-pid) 逻辑 —— 两处算同一件事必漂移。
@@ -1035,18 +1039,36 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
   try {
     if (transport === 'stdio') {
       if (!server.command) throw new Error('stdio transport 需要 command');
-      const proc = spawn(server.command, server.args ?? [], {
-        cwd: server.cwd,
-        stdio: ['pipe', 'pipe', 'pipe'],
-        // 票B:白名单基底 + server.env 显式声明(单键重注)—— 新增密钥名默认不可达,
-        // 只有写在该 server 配置 env 里的键才进第三方子进程(过滤与声明的构造在 buildMcpChildEnv)
-        env: buildMcpChildEnv(server.env),
-        windowsHide: true,
-        // G-690:`killProcessTree` 的调用端配合条件 —— Unix 侧靠 `kill(-pid)` 打整个进程组,
-        // 而进程组只在 child 自成组leader(`detached: true`)时存在;Windows 没有进程组概念,
-        // 回收走 `taskkill /T`,此时 detached 只会多分配一个控制台窗口 ⇒ 两边分档。
-        detached: process.platform !== 'win32',
-      });
+      const viaToolHost = shouldUseToolHostForMcp();
+      const stdioEnv = buildMcpChildEnv(server.env);
+      let proc: ChildProcess;
+      if (viaToolHost) {
+        // W4-06 MCP migration:子进程归 tool-host；CLI 仍用本文件的 framing/分发器，
+        // 宿主只做 raw relay，不解析 MCP 帧，因此 notification/并发 id 语义不降级。
+        const hostEnv: Record<string, string> = {};
+        for (const [key, value] of Object.entries(stdioEnv)) {
+          if (value !== undefined) hostEnv[key] = value;
+        }
+        proc = await openMcpOnToolHost({
+          command: server.command,
+          args: server.args ?? [],
+          ...(server.cwd === undefined ? {} : { cwd: server.cwd }),
+          env: hostEnv,
+        }) as unknown as ChildProcess;
+      } else {
+        proc = spawn(server.command, server.args ?? [], {
+          cwd: server.cwd,
+          stdio: ['pipe', 'pipe', 'pipe'],
+          // 票B:白名单基底 + server.env 显式声明(单键重注)—— 新增密钥名默认不可达,
+          // 只有写在该 server 配置 env 里的键才进第三方子进程(过滤与声明的构造在 buildMcpChildEnv)
+          env: stdioEnv,
+          windowsHide: true,
+          // G-690:`killProcessTree` 的调用端配合条件 —— Unix 侧靠 `kill(-pid)` 打整个进程组,
+          // 而进程组只在 child 自成组leader(`detached: true`)时存在;Windows 没有进程组概念,
+          // 回收走 `taskkill /T`,此时 detached 只会多分配一个控制台窗口 ⇒ 两边分档。
+          detached: process.platform !== 'win32',
+        });
+      }
       // G-689:stderr 不再整块丢弃 —— 挂有界尾缓冲 + error/exit 监听(ENOENT 这类异步
       // 失败从此有真因可报,而不是等满 10s 计时器报"请求超时")。
       ensureStdioDiagnostics(proc);
@@ -1055,7 +1077,8 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
       // util/parent-bound.ts ⇒ spawn-isolated 同一份(身份复核 + PID 复用防误认,零复制)。
       // 一切失败(含身份采集失败)折成显式降级,永不阻断连接主线;G-690 的 detached 分档
       // 与 disconnectMcpServer 的断连回收腿(G-690 killProcessTree + G-692 补刀)均不因此改动。
-      if (proc.pid) {
+      // 宿主托管时 pid=0,且 MCP 子进程属于 tool-host,CLI 不得再挂第二个父进程看门狗。
+      if (!viaToolHost && proc.pid) {
         void spawnParentWatchdog(proc, { label: `mcp-stdio:${server.name}` });
       }
       stdioFraming.set(proc, server.framing === 'content-length' ? 'content-length' : 'ndjson');
@@ -1542,6 +1565,25 @@ function warnSkippedProjectMcpServers(ctx: ToolContext): void {
     );
   } catch {
     // 提示失败不影响主流程
+  }
+}
+
+/**
+ * 列出本次信任策略下会参与连接的 MCP server 名称。
+ *
+ * 只读配置并做同一层 includeProject 过滤,不建立连接、不触发工具注册;
+ * 供 ACP 能力快照等「只读事实面」使用,避免 UI 为了显示 server 名而重连一遍。
+ */
+export function listConfiguredMcpServerNames(
+  ctx: ToolContext,
+  opts: McpProjectTrustOptions = {},
+): string[] {
+  try {
+    const allowProject = opts.allowProjectServers === true;
+    const config = loadMcpConfig(ctx.workspacePath, { includeProject: allowProject });
+    return (config.servers ?? []).map((server) => server.name).filter((name) => name.length > 0);
+  } catch {
+    return [];
   }
 }
 

@@ -13,11 +13,19 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import {
+  SESSION_FORMAT_CURRENT_VERSION,
+  SESSION_FORMAT_V0,
+  createSessionFormatRegistry,
+} from '@ihui/agent-sdk';
 import { repairMessages, type RepairableMessage, type ChatMessage } from '@ihui/types';
 import { tryParseJson, isRecord } from '../util/json.js';
 import { writeFileAtomicSync } from '../util/atomic-write.js';
 import { assertPathInside, segmentFilePathInside } from '../util/path-guard.js';
 export type { ChatMessage };
+
+/** W4-13:会话格式迁移注册表(v0 历史文件 → v1 现行)。 */
+const SESSION_FORMATS = createSessionFormatRegistry();
 
 export interface Session {
   id: string;
@@ -26,6 +34,10 @@ export interface Session {
   workspacePath: string;
   modelId: string;
   history: ChatMessage[];
+  /** 落盘格式版本;旧文件缺省按 v0 读入,保存时盖成当前版 */
+  formatVersion?: number;
+  /** 有损迁移标记:由注册表按迁移链的 lossy 声明写入 */
+  formatLossy?: boolean;
 }
 
 export function getSessionsDir(): string {
@@ -59,7 +71,15 @@ export function createSession(workspacePath: string, modelId: string): Session {
   ensureSessionsDir();
   const id = `sess_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const now = new Date().toISOString();
-  return { id, createdAt: now, updatedAt: now, workspacePath, modelId, history: [] };
+  return {
+    id,
+    createdAt: now,
+    updatedAt: now,
+    workspacePath,
+    modelId,
+    history: [],
+    formatVersion: SESSION_FORMAT_CURRENT_VERSION,
+  };
 }
 
 export function saveSession(session: Session): void {
@@ -74,12 +94,97 @@ export function saveSession(session: Session): void {
       throw new Error(`会话读不到,不能把它覆盖成新会话 (${code})`);
     }
   }
-  if (raw !== null && raw.trim() !== '' && !isRecord(tryParseJson(raw))) {
-    throw new Error('会话读不到,不能把它覆盖成新会话 (corrupt)');
+  if (raw !== null && raw.trim() !== '') {
+    const existing = tryParseJson(raw);
+    if (!isRecord(existing)) {
+      throw new Error('会话读不到,不能把它覆盖成新会话 (corrupt)');
+    }
+    // W4-13:已存文件的版本必须先认得,否则一次保存就会把未来格式静默压平。
+    const migrated = SESSION_FORMATS.migrate(existing);
+    if (!migrated.ok) throw new Error(`已存会话格式不能覆盖: ${migrated.message}`);
   }
   ensureSessionsDir();
   session.updatedAt = new Date().toISOString();
-  writeFileAtomicSync(filePath, JSON.stringify(session, null, 2), { mode: 0o600 });
+  // W4-13:写侧也过注册表 —— 旧形状不能靠“字段碰巧还在”直接落盘。
+  const formatted = SESSION_FORMATS.migrate(session);
+  if (!formatted.ok) throw new Error(`会话格式不能写入: ${formatted.message}`);
+  const toWrite = formatted.value as unknown as Session;
+  toWrite.updatedAt = session.updatedAt;
+  writeFileAtomicSync(filePath, JSON.stringify(toWrite, null, 2), { mode: 0o600 });
+}
+
+/**
+ * W4-13:读侧唯一迁移入口。
+ * 未知/非法版本返回 null 并留下 warn(不猜、不覆盖);调用方仍按“读不到这场会话”处理。
+ * 发生真实迁移时通过 `onMigrated` 交给写回路径（备份后再落新格式）。
+ */
+function migrateLoadedSession(
+  parsed: unknown,
+  source: string,
+  onMigrated?: (fromVersion: number, value: Session) => void,
+): Session | null {
+  if (!isRecord(parsed)) return null;
+  const migrated = SESSION_FORMATS.migrate(parsed);
+  if (!migrated.ok) {
+    console.warn(`[session-format] ${source} 无法读取: ${migrated.message}`);
+    return null;
+  }
+  const session = migrated.value as unknown as Session;
+  if (migrated.migrated) onMigrated?.(migrated.fromVersion, session);
+  return session;
+}
+
+/** 备份文件路径；与主文件同目录、同 id 段，后缀不是 `.json`，listSessions 不会把它当会话。 */
+export function sessionBackupPath(id: string, fromVersion: number): string {
+  return `${sessionFilePath(id)}.v${fromVersion}.bak`;
+}
+
+/**
+ * 读迁移写回：先原样备份源文件（只备份一次，不覆盖已有备份），再原子写新格式。
+ * 写回失败只 warn，读结果仍按内存迁移值返回 —— 不能因为磁盘只读就让旧会话打不开。
+ */
+function persistMigratedSession(
+  id: string,
+  sourceRaw: string,
+  fromVersion: number,
+  session: Session,
+): void {
+  const target = sessionFilePath(id);
+  const backup = sessionBackupPath(id, fromVersion);
+  try {
+    if (!fs.existsSync(backup)) {
+      writeFileAtomicSync(backup, sourceRaw, { mode: 0o600 });
+    }
+    writeFileAtomicSync(target, JSON.stringify(session, null, 2), { mode: 0o600 });
+  } catch (error) {
+    console.warn(
+      `[session-format] ${target} 迁移写回失败(读结果仍可用): ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
+/**
+ * 回滚：把备份的原格式文件原子写回主文件。备份不存在/内容非法 ⇒ false，不猜。
+ * 回滚本身不删除备份，允许再次前滚/回滚。
+ */
+export function rollbackSession(id: string, fromVersion: number = SESSION_FORMAT_V0): boolean {
+  const backup = sessionBackupPath(id, fromVersion);
+  let raw: string;
+  try {
+    raw = fs.readFileSync(backup, 'utf-8');
+  } catch {
+    return false;
+  }
+  const parsed = tryParseJson(raw);
+  if (!isRecord(parsed)) return false;
+  const checked = SESSION_FORMATS.parse(parsed);
+  if (!checked.ok || checked.version !== fromVersion) return false;
+  try {
+    writeFileAtomicSync(sessionFilePath(id), raw, { mode: 0o600 });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function loadSession(id: string): Session | null {
@@ -93,8 +198,9 @@ export function loadSession(id: string): Session | null {
     throw new Error(`会话读不到,不能把它说成没有这场会话 (${code})`);
   }
   const parsed = tryParseJson(raw);
-  // 非对象内容视为损坏文件
-  return isRecord(parsed) ? (parsed as unknown as Session) : null;
+  return migrateLoadedSession(parsed, filePath, (fromVersion, session) => {
+    persistMigratedSession(id, raw, fromVersion, session);
+  });
 }
 
 export function listSessions(): Session[] {
@@ -119,8 +225,9 @@ export function listSessions(): Session[] {
       throw new Error(`会话读不到,不能把它说成没有这场会话 (${code})`);
     }
     const parsed = tryParseJson(raw);
-    // 跳过损坏 / 非对象文件
-    if (isRecord(parsed)) sessions.push(parsed as unknown as Session);
+    // 跳过损坏 / 非对象 / 未知格式文件,但不把旧格式当成读不到
+    const session = migrateLoadedSession(parsed, filePath);
+    if (session) sessions.push(session);
   }
   return sessions.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 }

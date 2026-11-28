@@ -38,6 +38,8 @@ export {
 
 import { estimateMessagesTokens, estimateTokens } from './token-estimate.js'
 import { SUMMARY_MARKER, isSummaryMessage } from './markers.js'
+import { foldToolPairing } from './tool-output.js'
+import { materializeCompactionLayout, recompactWithSummary } from './compaction-surface.js'
 import type { ChatMessage } from './types.js'
 
 export { SUMMARY_MARKER, isSummaryMessage } from './markers.js'
@@ -47,6 +49,71 @@ export {
   ENVELOPE_PREVIEW_FOOTER,
   isEnvelopeContent,
 } from './markers.js'
+
+// 工具输出治理 + 会话面投影(2026-11-26 新增;纯函数,影子模式用)
+export {
+  TOOL_OUTPUT_PRUNE_MARKER,
+  DEFAULT_TOOL_OUTPUT_BUDGET,
+  countCodePoints,
+  resolveToolOutputBudget,
+  pruneToolResultText,
+  retainText,
+  formatRetentionNotice,
+  foldToolPairing,
+  lastBalancedCut,
+} from './tool-output.js'
+export type {
+  ToolOutputBudget,
+  ToolOutputPruneResult,
+  RetentionKind,
+  RetentionOptions,
+  RetentionResult,
+  ToolPairingFold,
+} from './tool-output.js'
+export {
+  projectSurface,
+  applyReplaceOps,
+  surfaceToMessages,
+  reconcileSurface,
+} from './session-surface.js'
+export { measureSurface, measureReplacement } from './surface-metrics.js'
+export {
+  TokenMeter,
+  measureSessionTokens,
+  measureMessageListTokens,
+  tokenAnchorOf,
+  tokenRevision,
+} from './token-meter.js'
+export {
+  assertTokenAnchor,
+  canonicalJson,
+  estimateNodePrice,
+  requestEnvelopeFingerprint,
+  resolveProviderUsage,
+  stableDigest,
+} from './token-usage.js'
+export type {
+  ProviderUsageResolution,
+  ProviderUsageSample,
+  ProviderUsageStatus,
+  TokenAnchor,
+  TokenMeterOptionsBase,
+  TokenPrice,
+  TokenPricer,
+  TokenRequestEnvelope,
+} from './token-usage.js'
+export type { TokenMeasurement, TokenMeterNode, TokenMeterOptions } from './token-meter.js'
+export type {
+  SessionEvent,
+  ReplaceOp,
+  SurfaceNode,
+  SurfaceDivergence,
+} from './session-surface.js'
+export type { SurfaceMeasurement, ReplacementMeasurement } from './surface-metrics.js'
+
+// 压缩结果的会话面物化(2026-11-26 第五轮):输出不再手拼数组,统一走投影契约。
+export { materializeCompactionLayout, replaceCompactionSummary, recompactWithSummary } from './compaction-surface.js'
+export type { CompactionLayout, MaterializedCompaction, RecompactInput } from './compaction-surface.js'
 
 // ==================== 跨端统一常量 ====================
 
@@ -138,6 +205,7 @@ export function effectiveContextWindow(opts: EffectiveContextWindowOptions): num
  *   - `sampler-failed`    摘要请求本身失败(瞬态耗尽 / 4xx),含退化摘要
  *   - `incompressible`    压到地板仍超触发线(system 本身巨大),返回原消息防循环
  *   - `truncated`         常规摘要压不动,已改走内容截断降级
+ *   - `tool-pairing-unbalanced` 会话面的工具调用/结果不闭合(孤儿结果),压缩前即拒绝
  */
 export const COMPACTION_DECISION_REASONS = [
   'disabled',
@@ -149,6 +217,7 @@ export const COMPACTION_DECISION_REASONS = [
   'sampler-failed',
   'incompressible',
   'truncated',
+  'tool-pairing-unbalanced',
 ] as const
 
 export type CompactionDecisionReason = (typeof COMPACTION_DECISION_REASONS)[number]
@@ -256,6 +325,25 @@ export interface CompactionHooks {
 }
 
 // ==================== tool_calls 配对组切分 ====================
+
+/**
+ * 压缩前置守卫:会话面必须"调用/结果闭合"。
+ *
+ * 立因(2026-11-26 四程序对标 W4-10 / P0-A):`splitPairGroups` 只能保证"不把配对组拆开",
+ * 它挡不住**本来就非法**的会话面 —— 一条 `tool` 结果如果没有对应的 `tool_calls`,
+ * 任何压缩方案都救不回来,压完仍然是非法序列,上游照样 400。
+ *
+ * 这里只拒"结构性已坏"(孤儿结果);"调用尚未返回结果"属于进行中的回合,
+ * `foldToolPairing` 不抛错,压缩仍可按组边界正常进行。
+ */
+function hasBrokenToolPairing(messages: readonly ChatMessage[]): boolean {
+  try {
+    foldToolPairing(messages)
+    return false
+  } catch {
+    return true
+  }
+}
 
 /**
  * 把 non-system 消息切成"配对组":assistant(tool_calls) 与其后续匹配的 tool 结果消息
@@ -672,6 +760,19 @@ export function compressContext(
     }
   }
 
+  // 会话面已坏(孤儿工具结果)⇒ 压缩救不了,直接拒绝并给可审计原因
+  if (hasBrokenToolPairing(messages)) {
+    return {
+      messages,
+      compressed: false,
+      originalTokens,
+      compressedTokens: originalTokens,
+      removedCount: 0,
+      trigger: 'none',
+      reason: 'tool-pairing-unbalanced',
+    }
+  }
+
   const systemMsgs = messages.filter((m) => m.role === 'system')
   const nonSystem = messages.filter((m) => m.role !== 'system')
   const keepCount = Math.min(keepRecent, nonSystem.length)
@@ -715,8 +816,25 @@ export function compressContext(
   const anchorMsgs = anchors.flatMap((a) => a.group)
   const summaryMsg = buildSummaryMessage(toCompress)
 
-  // system + 锚点原文 + 摘要 + 尾部保留(锚点都早于被摘要区间,时序正确)
-  const result = [...systemMsgs, ...anchorMsgs, summaryMsg, ...toKeep]
+  // 2026-11-26 第八轮:toCompress 里已有历史摘要 ⇒ 旧摘要节点原地换正文,
+  // 不再“丢掉旧摘要 + 在锚点后新插一条”。只有恰好一条历史摘要时才走增量;
+  // 多条摘要(病态输入)仍交给物化布局,由 buildSummaryMessage 的防嵌套逻辑兜底。
+  const existingSummary = toCompress.find((m) => isSummaryMessage(m))
+  const summaryCount = messages.filter((m) => isSummaryMessage(m)).length
+  const result =
+    existingSummary !== undefined && summaryCount === 1
+      ? recompactWithSummary({
+          messages,
+          summary: summaryMsg,
+          remove: toCompress.filter((m) => m !== existingSummary),
+          opId: 'v1-recompact',
+        }).messages
+      : materializeCompactionLayout({
+          system: systemMsgs,
+          anchors: anchorMsgs,
+          summary: summaryMsg,
+          keep: toKeep,
+        }).messages
   const compressedTokens = estimateMessagesTokens(result)
 
   return {
@@ -774,6 +892,20 @@ export function compressContextIfNeeded(
       removedCount: 0,
       trigger: 'none',
       usageRatio,
+    }
+  }
+
+  // 同上:结构性已坏的会话面不进压缩,避免"压完仍然非法"
+  if (hasBrokenToolPairing(messages)) {
+    return {
+      messages,
+      compressed: false,
+      originalTokens,
+      compressedTokens: originalTokens,
+      removedCount: 0,
+      trigger: 'none',
+      usageRatio,
+      reason: 'tool-pairing-unbalanced',
     }
   }
 

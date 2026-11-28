@@ -39,6 +39,9 @@ import {
   reclaimStaleToolResults,
   // P1:压缩分母的唯一出口(共享窗口必须先扣输出预留),不在端内自拼第二份算式
   effectiveContextWindow,
+  isSummaryMessage,
+  materializeCompactionLayout,
+  recompactWithSummary,
   type CompactionDecisionReason,
   type ReclaimResult,
 } from '@ihui/context-compaction';
@@ -546,7 +549,29 @@ export async function compressContextV2(
     role: 'user',
     content: `[上下文摘要 — 之前 ${headNonSystem.length} 条消息已压缩]\n${cleaned}`,
   };
-  const result = [...systemMsgs, summaryMsg, ...tailNonSystem];
+  // 2026-11-26 第七轮增补:cachedSummary 命中且历史里已有摘要 ⇒ 增量路径:
+  // 旧摘要节点原地换正文(seq/nodeId 保留),只对压缩区其余消息追加 remove;
+  // 没有旧摘要或实时生成 ⇒ 走会话面物化,不再手拼数组。
+  const previousSummary = hasCachedSummary ? messages.find((m) => isSummaryMessage(m)) : undefined;
+  let result: ChatMessage[];
+  let removedCount = headNonSystem.length;
+  if (previousSummary !== undefined && headNonSystem.includes(previousSummary)) {
+    const remove = headNonSystem.filter((m) => m !== previousSummary);
+    result = recompactWithSummary({
+      messages,
+      summary: summaryMsg,
+      remove,
+      opId: `v2-${startTime}-${headNonSystem.length}`,
+    }).messages;
+    removedCount = remove.length;
+  } else {
+    result = materializeCompactionLayout({
+      system: systemMsgs,
+      anchors: [],
+      summary: summaryMsg,
+      keep: tailNonSystem,
+    }).messages;
+  }
   const compressedTokens = estimateMessagesTokens(result);
 
   // 10. reduction guard
@@ -571,7 +596,7 @@ export async function compressContextV2(
     compressed: true,
     originalTokens,
     compressedTokens,
-    removedCount: headNonSystem.length,
+    removedCount,
     trigger: trigger.trigger,
     reason: 'above-threshold',
     usageRatio: contextLimit > 0 ? originalTokens / contextLimit : 0,

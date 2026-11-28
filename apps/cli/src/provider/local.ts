@@ -192,9 +192,16 @@ export async function streamOpenAiCompatible(
     if (opts.temperature !== undefined) body.temperature = opts.temperature;
     if (opts.maxTokens !== undefined) body.max_tokens = opts.maxTokens;
 
+    // 2026-11-27:本地 provider 原先不带鉴权头,只能连无鉴权的 Ollama。号池 relay 的
+    // OpenAI 兼容端点要求 Bearer(ihui_xxx.sk_xxx 单凭据),故按 IHUI_API_KEY 注入。
+    const apiKey = process.env.IHUI_API_KEY?.trim();
     const resp = await fetch(opts.url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+      },
       body: JSON.stringify(body),
       signal: controller.signal,
     });

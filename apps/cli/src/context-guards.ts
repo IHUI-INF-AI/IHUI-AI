@@ -69,6 +69,8 @@ export interface GuardedCompaction {
   userDiagnostic: string | null;
   /** 熔断器当前连续计数(诊断/日志用) */
   consecutiveQuickRefills: number;
+  /** 决策闭集原因;熔断挂起时固定为 circuit-breaker,正常轮沿用压缩结果的 reason */
+  reason: CompressionResult['reason'] | 'circuit-breaker' | null;
   /** 原始压缩结果(取 compressedTokens 做真值复测的估算基准;挂起/未压为 null) */
   compression: CompressionResult | null;
 }
@@ -159,6 +161,7 @@ export class ContextGuards {
         // 挂起期间每轮都要让用户知道"为什么不再压了",否则表现为静默不响应
         userDiagnostic: this.diagnosticMessage,
         consecutiveQuickRefills: this.breaker.consecutiveQuickRefills,
+        reason: 'circuit-breaker',
         compression: null,
       };
     }
@@ -171,6 +174,7 @@ export class ContextGuards {
       reverified: null,
       userDiagnostic: null,
       consecutiveQuickRefills: 0,
+      reason: result.reason ?? null,
       compression: result,
     };
 
@@ -182,6 +186,7 @@ export class ContextGuards {
         this._suspended = true;
         this._diagnosticEmitted = true;
         out.suspended = true;
+        out.reason = 'circuit-breaker';
         out.userDiagnostic = observation.diagnostic ?? this.breaker.diagnosticMessage();
       }
       this._pendingVerify = true;

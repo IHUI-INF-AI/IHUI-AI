@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { Stats } from 'node:fs';
+import type { CapabilityManifest } from '@ihui/agent-sdk';
 
 /**
  * Plugins 系统 — 类型定义。
@@ -73,6 +74,11 @@ export interface PluginManifest {
   turnInputContributors?: string[];
   /** commandContributors:在 turnEnd 时贡献命令执行的扩展名(如自动 lint/test/notify) */
   commandContributors?: string[];
+  /**
+   * 旁挂 `capability.json` 的解析结果(2026-11-26 W4-01/P0-B)。
+   * 缺席 = 老插件(零诊断);在场且通过预检才带此字段 —— 坏清单整份被拒,不会出现"半份能力"。
+   */
+  capability?: CapabilityManifest;
 }
 
 /** 完整插件定义 — 清单 + 可选生命周期回调 */
@@ -208,6 +214,13 @@ export const PLUGIN_DIAGNOSTIC_CODES = [
   'manifest-version-missing',
   /** 同目录内被高优先级清单压掉的那一份(plugin.config.json vs plugin.json) */
   'manifest-shadowed-by-priority',
+  /**
+   * 旁挂 `capability.json` 未通过 fail-closed 预检(2026-11-26 W4-01/P0-B):
+   * 形状不合规 / 权限未登记 / 贡献落点未知 / `main` 越界或缺失 / name 与 plugin.json 不一致。
+   * 与清单级 `manifest-*` 码**语义不同、文案不得复用** —— 那几条判的是 plugin.json 本身,
+   * 这一条判的是它声明能力面的那份附件;两者都是"整份不装载"(error),不降级加载一半。
+   */
+  'plugin-capability-rejected',
   /** 同名歧义:多份清单(不同 rootPath)声明同一个 name ⇒ 全部不装载(G-684/G-658) */
   'plugin_ambiguous_name',
   /** 兜底:未预期的抛点,一律编码成诊断而不让单点失败抛穿整次装载 */

@@ -23,7 +23,8 @@ import { Readable, Writable } from 'node:stream';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import * as acp from '@agentclientprotocol/sdk';
-import { setBaseUrl, type ToolDeltaEvent } from '@ihui/api-client';
+import { setBaseUrl, getModelContextCapacity, type ToolDeltaEvent } from '@ihui/api-client';
+import { measureMessageListTokens, SUMMARY_MARKER, TokenMeter } from '@ihui/context-compaction';
 // L14:ACP 方法名取 sdk 契约,不在 CLI 本地写第二份字面量
 import { ACP_METHODS } from '@ihui/agent-sdk';
 import { registerCliTokenProvider } from '../lib/auth-refresh.js';
@@ -53,6 +54,15 @@ import {
   projectMcpServerStatus,
   type McpStatusProjection,
 } from './mcp-status-projection.js';
+import {
+  buildAgentSnapshot,
+  type AgentSnapshot,
+} from './agent-snapshot.js';
+import {
+  TurnPayloadBuffer,
+  cleanupTurnPayloads,
+  type TurnPayloadReplay,
+} from './turn-payload-buffer.js';
 import {
   applyTurnTransition,
   createTurnRecord,
@@ -521,6 +531,50 @@ interface AcpSessionState {
   planMachine: PlanMachine | undefined;
   /** ACP 会话模式(plan/build/review);undefined = 未显式设置过 */
   modeId?: PlanBuildMode;
+  /** 当前在飞回合的载荷缓冲;断线重连按 turnId + afterSeq 续传 */
+  activeTurnBuffer?: { turnId: string; buffer: TurnPayloadBuffer };
+  /** 最近一个已结束回合的缓冲(供回合结束后短窗口内补帧) */
+  lastTurnBuffer?: { turnId: string; buffer: TurnPayloadBuffer };
+  /** 初始化后从 setupAgentTools 结果上行的能力事实,供 `x.ai/session/snapshot` 消费 */
+  capabilityFacts?: {
+    skills: readonly string[];
+    plugins: readonly string[];
+    mcpServers: readonly string[];
+  };
+  /** W4-11:本会话增量 token 游标；只吃历史新增，不重算全量 */
+  tokenMeter?: TokenMeter;
+  /** 已同步进 tokenMeter 的消息条数（seq 从 1 起） */
+  tokenMeterSeq?: number;
+}
+
+/**
+ * 给 ACP 上下文套一层"会话更新录制":`notify` 先把 `update` 记进缓冲再发,
+ * 这样客户端即使当场断线,帧也能在重连后补发。录制失败(缓冲满/落盘错)
+ * 不得影响已经发出的通知 —— 旁路永远不能反噬主链路。
+ */
+function withTurnPayloadCapture(
+  cx: acp.AgentContext,
+  buffer: TurnPayloadBuffer,
+): acp.AgentContext {
+  return new Proxy(cx, {
+    get(target, prop, receiver) {
+      if (prop === 'notify') {
+        return async (method: string, payload: unknown): Promise<void> => {
+          if (method === acp.methods.client.session.update && typeof payload === 'object' && payload !== null) {
+            try {
+              // 先记账再发:客户端此刻可能已经断线,帧仍要能在重连后补发。
+              buffer.append((payload as { update?: unknown }).update)
+            } catch {
+              // 载荷缓冲是旁路:录制失败不改变主链路的通知结果
+            }
+          }
+          await (target.notify as (m: string, p: unknown) => Promise<void>)(method, payload)
+        }
+      }
+      const value = Reflect.get(target, prop, receiver)
+      return typeof value === 'function' ? value.bind(target) : value
+    },
+  })
 }
 
 /** P0-2 `x.ai/session/repair` 请求参数 */
@@ -632,6 +686,12 @@ export class IhuiAcpAgent {
   }
 
   async initialize(_params: acp.InitializeRequest): Promise<acp.InitializeResponse> {
+    // W4-04:进程启动即回收过期/超全局额度的回合载荷；失败不影响协议握手。
+    try {
+      cleanupTurnPayloads();
+    } catch {
+      // 旁路清理失败不得把 ACP 初始化拖红。
+    }
     return {
       protocolVersion: acp.PROTOCOL_VERSION,
       agentCapabilities: {
@@ -822,12 +882,29 @@ export class IhuiAcpAgent {
       }
       state.systemPrompt = outcome.value.systemPrompt;
       state.ctx = outcome.value.ctx;
+      state.capabilityFacts = {
+        skills: (outcome.value.skills ?? []).map((skill) => skill.name),
+        plugins: outcome.value.pluginRegistry?.list().map((plugin) => plugin.name) ?? [],
+        mcpServers: outcome.value.mcpServers ?? [],
+      };
       state.agentReady = true;
     }
 
     state.pendingAbort?.abort();
     const abort = new AbortController();
     state.pendingAbort = abort;
+
+    // W4-04:从本回合第一帧起就录载荷。必须在任何 notify 之前建好,
+    // 否则断线重连会漏掉开头(开头恰恰是最难重放的部分)。
+    const turnId = randomUUID();
+    const turnBuffer = new TurnPayloadBuffer({ sessionId: params.sessionId, turnId });
+    state.activeTurnBuffer = { turnId, buffer: turnBuffer };
+    cx = withTurnPayloadCapture(cx, turnBuffer);
+    const finalizeTurnBuffer = (stopReason: string): void => {
+      turnBuffer.complete(stopReason);
+      state.lastTurnBuffer = { turnId, buffer: turnBuffer };
+      if (state.activeTurnBuffer?.turnId === turnId) state.activeTurnBuffer = undefined;
+    };
 
     const userText = extractTextFromPrompt(params.prompt);
     state.session.history.push({ id: randomUUID(), role: 'user', content: userText });
@@ -857,6 +934,7 @@ export class IhuiAcpAgent {
         modelId: this.opts.modelId,
         messages,
         ctx: state.ctx!,
+        sessionId: params.sessionId,
         maxIterations: this.opts.maxIterations,
         signal: abort.signal,
         // P0-C plan 审批门:planFirst 开启时,LLM 提出 plan 块须经 IDE 审批才能执行工具
@@ -1035,8 +1113,44 @@ export class IhuiAcpAgent {
           },
         });
       }
+      // W4-11:会话历史增量喂给 TokenMeter，按 seq 游标只算新增；结构化成独立通知，
+      // 不把计量塞进正文（正文是给人看的，计量是给 IDE/遥测消费的）。
+      {
+        const history = state.session.history;
+        const fromSeq = state.tokenMeterSeq ?? 0;
+        if (history.length > fromSeq) {
+          state.tokenMeter ??= new TokenMeter();
+          state.tokenMeter.sync(
+            history.slice(fromSeq).map((message, index) => ({
+              seq: fromSeq + index + 1,
+              type: 'message.added' as const,
+              message,
+            })),
+          );
+          state.tokenMeterSeq = history.length;
+        }
+        if (state.tokenMeter !== undefined) {
+          const measurement = state.tokenMeter.measure();
+          try {
+            await cx.notify('x.ai/session/tokens', {
+              sessionId: params.sessionId,
+              revisionSeq: state.tokenMeter.revisionSeq,
+              revision: measurement.revision,
+              totalTokens: measurement.totalTokens,
+              surfaceTokens: measurement.surfaceTokens,
+              heuristicTokens: measurement.heuristicTokens,
+              anchorDelta: measurement.anchorDelta,
+              providerUsage: measurement.providerUsage,
+            });
+          } catch {
+            // 计量是旁路遥测：IDE 不支持/渲染失败不得中断已完成回合。
+          }
+        }
+      }
       saveSession(state.session);
-      return { stopReason: toAcpStopReason(result.stopReason) };
+      const stopReason = toAcpStopReason(result.stopReason);
+      finalizeTurnBuffer(stopReason);
+      return { stopReason };
     } catch (err) {
       // D113:流中断/报错 ⇒ 本端预览账全部作废。completed/failed 这类**结果性**
       // 终态依然不写(调用结果此刻确实未知,写 completed/failed 是伪造);但
@@ -1061,10 +1175,13 @@ export class IhuiAcpAgent {
           await emitCancelledToolCallFrames(cx, params.sessionId, toolCallIdQueue);
           toolCallIdQueue.length = 0;
         }
+        finalizeTurnBuffer('cancelled');
         return { stopReason: 'cancelled' };
       }
+      finalizeTurnBuffer('failed');
       throw err;
     } finally {
+      if (!turnBuffer.isComplete) finalizeTurnBuffer('failed');
       if (state.pendingAbort === abort) {
         state.pendingAbort = null;
       }
@@ -1346,6 +1463,113 @@ export class IhuiAcpAgent {
         },
       ],
     };
+  }
+
+  /**
+   * `x.ai/session/snapshot` — 取当前会话的 Agent 运行态快照。
+   *
+   * 所有字段都从会话事实现算,不维护第二份状态;`revision` 是快照内容的
+   * SHA-256 前 16 位(见 `agent-snapshot.ts`),因此同一状态重复取不会产生
+   * "新版本"。传 `ifRevision` 且与当前一致时返回 `notModified`,客户端可
+   * 用它做低成本的界面轮询。
+   *
+   * 上下文占用是启发式估算(`estimate:'heuristic'`),不是 provider 账单;
+   * 超过窗口时 `overLimit: true` 明确暴露,不把超额压成 0。
+   */
+  async getSessionSnapshot(params: {
+    sessionId: string;
+    ifRevision?: string;
+    now?: number;
+  }): Promise<{ agentSnapshot: AgentSnapshot } | { notModified: true; revision: string }> {
+    const state = this.requireOrAdoptSession(params.sessionId);
+    const session = state.session;
+    const model = session.modelId || this.opts.modelId;
+    const messages = session.history.map((m) => ({
+      role: m.role,
+      content: typeof m.content === 'string' ? m.content : '',
+    }));
+    const summaryMessages = session.history.filter(
+      (m) => typeof m.content === 'string' && m.content.startsWith(SUMMARY_MARKER),
+    ).length;
+    const snapshot = buildAgentSnapshot({
+      ...(params.now !== undefined ? { now: params.now } : {}),
+      sessionId: session.id,
+      agent: { id: 'ihui-cli', name: 'IHUI Agent', model },
+      runtime: {
+        // 未显式切过模式时:planFirst 会话按 plan 起步,其余如实标 unknown,
+        // 不把"没设置"猜成 build —— 猜错会让 UI 显示与实际执行不一致。
+        mode: state.modeId ?? (this.opts.planFirst ? 'plan' : 'unknown'),
+        permissionMode: this.opts.allowDangerous ? 'allow-dangerous' : 'default',
+        planFirst: this.opts.planFirst === true,
+        autoApprovePlan: this.opts.autoApprovePlan === true,
+        planApproved: state.planApproved,
+        maxIterations: this.opts.maxIterations,
+      },
+      context: {
+        historyMessages: session.history.length,
+        usedTokens: measureMessageListTokens(messages).totalTokens,
+        limitTokens: getModelContextCapacity(model),
+        summaryMessages,
+      },
+      capabilities: {
+        // 已接入 server 即 mcpEnabled；显式开启但一个都没接上时仍按真实事实报 false。
+        mcpEnabled:
+          this.opts.enableMcp === true || (state.capabilityFacts?.mcpServers.length ?? 0) > 0,
+        skills: state.capabilityFacts?.skills ?? [],
+        plugins: state.capabilityFacts?.plugins ?? [],
+        mcpServers: state.capabilityFacts?.mcpServers ?? [],
+      },
+    });
+    if (params.ifRevision !== undefined && params.ifRevision === snapshot.revision) {
+      return { notModified: true, revision: snapshot.revision };
+    }
+    return { agentSnapshot: snapshot };
+  }
+
+  /**
+   * `x.ai/turn/payload` — 按回合游标补发已缓冲的流式帧。
+   *
+   * 断线重连时客户端拿 `afterSeq` 来追平;`nextCursor` 是最后一条已缓冲帧的 seq,
+   * `hasMore=false` 表示已追平当前流。回合未结束(`complete=false`)但已追平时,
+   * 客户端应继续保持连接,而不是把空页当成"回合结束"。
+   *
+   * 不传 `turnId` 时优先取在飞回合,其次取最近结束回合;都没有时 `found=false`,
+   * 不伪造一个空回合。
+   */
+  async getTurnPayload(params: {
+    sessionId: string;
+    turnId?: string;
+    afterSeq?: number;
+    limit?: number;
+  }): Promise<TurnPayloadReplay> {
+    if (params.afterSeq !== undefined && (!Number.isFinite(params.afterSeq) || params.afterSeq < 0)) {
+      throw new Error('afterSeq 必须是非负有限数');
+    }
+    if (params.limit !== undefined && (!Number.isFinite(params.limit) || params.limit <= 0)) {
+      throw new Error('limit 必须是正有限数');
+    }
+    const state = this.requireOrAdoptSession(params.sessionId);
+    const wanted = typeof params.turnId === 'string' && params.turnId.length > 0 ? params.turnId : undefined;
+    let buffer: TurnPayloadBuffer | undefined;
+    if (wanted !== undefined) {
+      if (state.activeTurnBuffer?.turnId === wanted) buffer = state.activeTurnBuffer.buffer;
+      else if (state.lastTurnBuffer?.turnId === wanted) buffer = state.lastTurnBuffer.buffer;
+      else buffer = TurnPayloadBuffer.read(params.sessionId, wanted) ?? undefined;
+    } else {
+      buffer = state.activeTurnBuffer?.buffer ?? state.lastTurnBuffer?.buffer;
+    }
+    if (!buffer) {
+      return {
+        found: false,
+        turnId: null,
+        frames: [],
+        nextCursor: Math.max(0, Math.floor(params.afterSeq ?? 0)),
+        hasMore: false,
+        complete: false,
+        truncated: false,
+      };
+    }
+    return buffer.replay(params.afterSeq ?? 0, params.limit ?? 200);
   }
 
   /** 取会话的检查点管理器;会话不在内存态时按 id 反查落盘会话再建。 */
@@ -1970,6 +2194,29 @@ export function buildAcpAgentApp(opts: AcpServerOptions): acp.AgentApp {
         rpcMethod((p: acp.SetSessionConfigOptionRequest) => agent.setSessionConfigOption(p))(
           ctx.params,
         ),
+    )
+    .onRequest<
+      { sessionId: string; ifRevision?: string; now?: number },
+      { agentSnapshot: AgentSnapshot } | { notModified: true; revision: string }
+    >(
+      'x.ai/session/snapshot',
+      castParams<{ sessionId: string; ifRevision?: string; now?: number }>(),
+      (ctx) =>
+        rpcMethod((p: { sessionId: string; ifRevision?: string; now?: number }) =>
+          agent.getSessionSnapshot(p),
+        )(ctx.params),
+    )
+    .onRequest<
+      { sessionId: string; turnId?: string; afterSeq?: number; limit?: number },
+      TurnPayloadReplay
+    >(
+      'x.ai/turn/payload',
+      castParams<{ sessionId: string; turnId?: string; afterSeq?: number; limit?: number }>(),
+      (ctx) =>
+        rpcMethod(
+          (p: { sessionId: string; turnId?: string; afterSeq?: number; limit?: number }) =>
+            agent.getTurnPayload(p),
+        )(ctx.params),
     )
     // ACP checkpoint 通道(标准 ACP 无此方法,沿用本仓 x.ai/* 私有命名空间)
     .onRequest<{ sessionId: string }, { checkpoints: CheckpointSummary[] }>(

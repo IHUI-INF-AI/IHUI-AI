@@ -383,7 +383,7 @@ export function probePortOpen(host: string, port: number, timeoutMs = 1_000): Pr
     if (!Number.isInteger(port) || port < 1 || port > 65535) return resolve(null)
 
     let settled = false
-    let socket: net.Socket
+    const socket = net.connect(port, host)
     const finish = (value: boolean | null): void => {
       if (settled) return
       settled = true
@@ -391,7 +391,6 @@ export function probePortOpen(host: string, port: number, timeoutMs = 1_000): Pr
       resolve(value)
     }
 
-    socket = net.connect(port, host)
     socket.setTimeout(timeoutMs)
     socket.once('connect', () => finish(true))
     socket.once('timeout', () => finish(null))

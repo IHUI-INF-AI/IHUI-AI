@@ -316,12 +316,16 @@ function readHead(filePath: string, capBytes: number): { text: string; truncated
  * 输入 = runPostToolCall 的 output 载荷({ path, ... })。
  * 拿不到路径 / 读不了盘 ⇒ 未判定并点名;本函数自身不抛。
  */
-export function scanEditedFile(output: unknown): SecretScanOutcome {
+export function scanEditedFile(output: unknown, baseDir?: string): SecretScanOutcome {
   if (typeof output !== 'object' || output === null || typeof (output as { path?: unknown }).path !== 'string' || (output as { path: string }).path === '') {
     return undetermined(['tool-output-file-path-missing']);
   }
   const rawPath = (output as { path: string }).path;
-  const resolved = path.resolve(rawPath);
+  // 工具输出里的 path 是相对工作区根的原始参数；扫描必须和工具实际落盘用同一个根，
+  // 不能拿 CLI 进程 cwd 顶替。--workspace / --task-workspace 下两者本来就不是一个目录。
+  const resolved = path.isAbsolute(rawPath)
+    ? path.resolve(rawPath)
+    : path.resolve(baseDir ?? process.cwd(), rawPath);
   const read = readHead(resolved, MAX_SCAN_BYTES_PER_FILE);
   if (read === null) {
     return undetermined([`file-not-readable(path=${rawPath})`]);

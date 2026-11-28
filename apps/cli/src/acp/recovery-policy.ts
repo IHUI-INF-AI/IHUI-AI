@@ -103,6 +103,8 @@ const REGISTRY: Readonly<Record<string, RecoveryKind>> = Object.freeze({
   'x.ai/rewind/points': 'read',
   'x.ai/mcp/listServers': 'read',
   'x.ai/mcp/serverStatus': 'read',
+  'x.ai/session/snapshot': 'read',
+  'x.ai/turn/payload': 'read',
   // 2026-11-20:三个只读方法此前只实现未注册(登记表按"真实存在"原则补齐)
   'x.ai/turn/parked': 'read',
   'x.ai/turn/chronicle': 'read',

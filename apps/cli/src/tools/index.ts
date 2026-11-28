@@ -936,7 +936,9 @@ export interface ParsedToolCall {
   id?: string;
 }
 
-const TOOL_CALL_REGEX = /```tool_call\s*\n([\s\S]*?)```/g;
+// 2026-11-27: 部分模型会在 ``` 与 tool_call 之间插入换行(输出形如 "```\ntool_call\n{...}```"),
+// 原正则要求紧邻导致解析不到、工具不执行、回合直接 end_turn。这里放宽为允许任意空白。
+const TOOL_CALL_REGEX = /```\s*tool_call\s*\n([\s\S]*?)```/g;
 
 export function parseToolCalls(text: string): ParsedToolCall[] {
   const calls: ParsedToolCall[] = [];

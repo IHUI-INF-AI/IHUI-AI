@@ -46,6 +46,8 @@ export interface ParsedEnvelope {
   budgetChars: number;
   previewChars: number;
   preview: string;
+  /** W4-12:信封明示的产物有效期（epoch ms）；旧信封/未设 TTL 时缺席。 */
+  expiresAt?: number;
 }
 
 /** 一段文本里出现了几次信封起始标记(>1 即说明发生了重复封装,应视为缺陷) */
@@ -77,6 +79,8 @@ export function buildEnvelope(opts: {
   preview: string;
   /** 该输出对应的源文件(能取到就写,取不到省略这一行) */
   sourcePath?: string | null;
+  /** W4-12:产物有效期；hello future 时写进信封，模型可自行判断“过期后不要回读”。 */
+  expiresAt?: number;
 }): string {
   // 预览压缩空行(含首尾换行):reclaim(@ihui/context-compaction)对内嵌形态
   // `[工具结果 ✓] name\n正文` 按 '\n\n' 分段,段级保护 isEnvelopeResult 要求 body
@@ -92,6 +96,7 @@ export function buildEnvelope(opts: {
     `工具: ${opts.toolName}`,
     ...(opts.sourcePath ? [`源文件: ${opts.sourcePath}`] : []),
     `完整输出: ${opts.artifact.relativePath} (共 ${opts.artifact.chars} 字符 / ${opts.totalLines} 行,上下文预算 ${opts.budgetChars} 字符)`,
+    ...(opts.expiresAt === undefined ? [] : [`有效期至: ${new Date(opts.expiresAt).toISOString()}`]),
     `预览(前 ${preview.length} 字符):`,
   ].join('\n');
   const tail = [
@@ -121,6 +126,8 @@ export function parseEnvelope(text: string): ParsedEnvelope | null {
   const charsMatch = /共\s*(\d+)\s*字符/.exec(metaLine);
   const linesMatch = /\/\s*(\d+)\s*行/.exec(metaLine);
   const budgetMatch = /预算\s*(\d+)\s*字符/.exec(metaLine);
+  const expiryText = /^有效期至:\s*(.+)$/m.exec(block)?.[1]?.trim() ?? '';
+  const expiresAt = expiryText === '' ? undefined : Date.parse(expiryText);
   const artifactPath = pathMatch?.[1] ?? '';
   const totalChars = Number.parseInt(charsMatch?.[1] ?? '', 10);
   if (!artifactPath || !Number.isFinite(totalChars)) return null;
@@ -140,6 +147,7 @@ export function parseEnvelope(text: string): ParsedEnvelope | null {
     budgetChars: Number.parseInt(budgetMatch?.[1] ?? '', 10) || 0,
     previewChars: preview.length,
     preview,
+    ...(expiresAt === undefined || !Number.isFinite(expiresAt) ? {} : { expiresAt }),
   };
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

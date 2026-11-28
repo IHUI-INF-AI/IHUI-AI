@@ -939,6 +939,16 @@ export interface ParallelExecutionResult {
 }
 
 /** CLI 子进程 spawn 请求(cli 端 SubagentSpawnRequest) */
+/** 子进程 spawn 可携带的资源预算（与 dispatch_subagent 的 budget 同形）。 */
+export interface SubagentSpawnBudget {
+  /** 最大回合数（落到子进程 maxIterations） */
+  maxTurns?: number
+  /** 采样 token 上限（回合末事后结算；spawn 路径在子进程退出前复核） */
+  maxTokens?: number
+  /** 工具调用上限（子进程每次工具调用前扣减） */
+  maxToolCalls?: number
+}
+
 export interface SubagentSpawnRequest {
   /** 子 agent 角色(researcher/coder/reviewer/planner/general) */
   persona: SubagentPersona
@@ -956,6 +966,10 @@ export interface SubagentSpawnRequest {
   maxIterations?: number
   /** 超时秒数(默认 300) */
   timeoutSeconds?: number
+  /** W4-09:本子代理独立资源预算；不传 = 沿用父级历史默认 */
+  budget?: SubagentSpawnBudget
+  /** W4-09:权限档；`inherit` 表示沿用父会话(默认继承,不静默放宽) */
+  permissionMode?: PermissionMode | 'inherit'
 }
 
 /** CLI 子进程 spawn 响应 */
