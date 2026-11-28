@@ -1077,6 +1077,14 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     // 实现),不编号、不进回放缓冲,重连重放语义零变化;断线期间 registry 自动跳过,
     // 接管换绑后新连接继续收拍。必须在 finally 停止,否则会话结束后仍会写已关闭连接。
     const stopHeartbeat = startHeartbeat(session)
+    // 2026-11-28:首个周期心跳要等满一个 interval(15s),与 EdgeOne 免费版的
+    // 首包超时同值,慢模型时会在起跑线上撞 524。开流后立即补一帧注释心跳,
+    // 把首包压到毫秒级;后续周期仍由 startHeartbeat 负责。
+    try {
+      raw.write(': ping\n\n')
+    } catch {
+      /* 写失败交给周期心跳兜底 */
+    }
 
     // ── 批次 3 账本采集(2026-11-06)──────────────────────────────────────────
     // 只在命名帧转发路径上旁路采集:不改帧字节、不改顺序、不改编号;写入全 fire-and-forget,

@@ -21,6 +21,7 @@ import { env } from 'node:process'
 import { readFileSync } from 'node:fs'
 import { createPrivateKey, randomUUID, type KeyObject } from 'node:crypto'
 import { SignJWT } from 'jose'
+import { COZE_INTEGRATION_ENABLED } from '../lib/coze-integration.js'
 
 const TOKEN_TTL = 86399 // 24h - 1s, 与 Coze JWT 流程一致
 
@@ -120,6 +121,7 @@ function normalizeCozeAud(value: string | undefined): string {
 
 /** 加载 Coze OAuth 配置（环境变量优先） */
 export function loadCozeOAuthConfig(): CozeOAuthConfig | null {
+  if (!COZE_INTEGRATION_ENABLED) return null
   const clientId = env.COZE_OAUTH_APP_ID
   const publicKeyId = env.COZE_PUBLIC_KEY_ID
   const privateKey = resolveCozePrivateKey()
@@ -177,6 +179,7 @@ export async function getCozeAccessToken(
     scope?: string | null
   } = {},
 ): Promise<string | null> {
+  if (!COZE_INTEGRATION_ENABLED) return null
   const {
     userUuid = null,
     privateKey: pkOverride = null,

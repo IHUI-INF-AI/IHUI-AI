@@ -101,6 +101,7 @@ import { cozeRoutes } from './coze.js'
 import { cozeEcosystemRoutes } from './coze-ecosystem.js'
 import { cozeTestRoutes } from './coze-test.js'
 import { cozeOauthRoutes } from './coze-oauth.js'
+import { COZE_INTEGRATION_ENABLED } from '../lib/coze-integration.js'
 import { knowledgeRagRoutes } from './knowledge-rag.js'
 import { crewRoutes } from './crew.js'
 import { agenticServiceRoutes } from './agentic-service.js'
@@ -776,15 +777,19 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(plazaRoutes, { prefix: '/api/plaza' })
   server.register(shareFirstRoutes, { prefix: '/api' })
   server.register(cozeVariablesRoutes, { prefix: '/api/coze/variables' })
-  // Coze 平台集成:apps/audio/chat-audio/conversations/datasets/files/review/templates/workflows/workspaces/bot
-  server.register(cozeRoutes, { prefix: '/api/coze' })
-  // Coze 生态全量接口(R74 审计 P2 补建):REST 风格 apps/datasets/audio/files 端点
-  server.register(cozeEcosystemRoutes, { prefix: '/api/coze' })
-  // Coze 平台连接性测试:/api/coze/test/pat /api-key /workflow/:id /bot/:id /knowledge/:id
-  server.register(cozeTestRoutes, { prefix: '/api' })
-  // Coze OAuth client (项目作为 Coze OAuth client 调用 Coze 平台):
-  // /api/coze/oauth/authorize /token /refresh /jwt /config (4 模式: device/web/pkce/jwt)
-  server.register(cozeOauthRoutes, { prefix: '/api/coze/oauth' })
+  // 2026-11-28:Coze 平台停运,以下平台集成路由永久停用(不再注册)。
+  // 本地智能体链路走 /api/agents、/ws/coze/chat,与 Coze 无关,不受影响。
+  if (COZE_INTEGRATION_ENABLED) {
+    // Coze 平台集成:apps/audio/chat-audio/conversations/datasets/files/review/templates/workflows/workspaces/bot
+    server.register(cozeRoutes, { prefix: '/api/coze' })
+    // Coze 生态全量接口(R74 审计 P2 补建):REST 风格 apps/datasets/audio/files 端点
+    server.register(cozeEcosystemRoutes, { prefix: '/api/coze' })
+    // Coze 平台连接性测试:/api/coze/test/pat /api-key /workflow/:id /bot/:id /knowledge/:id
+    server.register(cozeTestRoutes, { prefix: '/api' })
+    // Coze OAuth client (项目作为 Coze OAuth client 调用 Coze 平台):
+    // /api/coze/oauth/authorize /token /refresh /jwt /config (4 模式: device/web/pkce/jwt)
+    server.register(cozeOauthRoutes, { prefix: '/api/coze/oauth' })
+  }
   // 知识库 RAG:/api/knowledge/health /ingest /search /rag-context /docs /docs/:id /docs/:id/chunks /docs/:id (DELETE) /docs/batch-delete
   server.register(knowledgeRagRoutes, { prefix: '/api/knowledge' })
   // 多智能体 Crew: 13 端点 (会话/任务/消息/Runs流式/Artifacts) + AgentRegistry 5 角色
