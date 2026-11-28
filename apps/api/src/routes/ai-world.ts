@@ -27,6 +27,11 @@ import {
   syncTrendingMetrics,
   getSourceStats,
 } from '../jobs/ai-world-sync.js'
+import {
+  getAuthoritativeLeaderboard,
+  getAuthoritativeRefreshState,
+  runAuthoritativeRefresh,
+} from '../jobs/authoritative-leaderboard.js'
 import { success, error } from '../utils/response.js'
 import { requireAdmin, requireAuth } from '../plugins/require-permission.js'
 
@@ -307,6 +312,52 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
     ])
     return reply.send(success({ items, total, limit, offset }))
   })
+
+  // ===== 权威榜(2026-11-28 立):服务端每 6 小时刷新,页面读最新快照 =====
+
+  // GET /ai-world/authoritative-leaderboard — 三榜聚合最新快照(公开)
+  server.get('/ai-world/authoritative-leaderboard', async (_request, reply) => {
+    const snapshot = await getAuthoritativeLeaderboard(server.redis)
+    if (!snapshot) {
+      return reply.status(503).send(error(503, '权威榜快照尚未就绪'))
+    }
+    reply.header('cache-control', 'public, max-age=60, s-maxage=60, stale-while-revalidate=300')
+    return reply.send(success(snapshot))
+  })
+
+  // GET /ai-world/authoritative-leaderboard/status — 最近一次自动刷新状态(公开只暴露运行状态)
+  server.get('/ai-world/authoritative-leaderboard/status', async (_request, reply) => {
+    const [state, snapshot] = await Promise.all([
+      getAuthoritativeRefreshState(server.redis),
+      getAuthoritativeLeaderboard(server.redis),
+    ])
+    return reply.send(
+      success({
+        state,
+        snapshot: snapshot
+          ? {
+              generatedAt: snapshot.generatedAt,
+              lastSuccessAt: snapshot.refresh.lastSuccessAt,
+              stale: snapshot.refresh.stale,
+              mode: snapshot.refresh.mode,
+              schedule: snapshot.refresh.schedule,
+            }
+          : null,
+      }),
+    )
+  })
+
+  // POST /ai-world/authoritative-leaderboard/refresh — 管理员手动触发
+  server.post(
+    '/ai-world/authoritative-leaderboard/refresh',
+    { preHandler: [requireAdmin] },
+    async (_request, reply) => {
+      void runAuthoritativeRefresh(server.redis, server.log, 'manual').catch((err) => {
+        server.log.error({ err }, 'ai-world authoritative leaderboard manual refresh failed')
+      })
+      return reply.status(202).send(success({ accepted: true, trigger: 'manual' }))
+    },
+  )
 
   // ===== 热度排行端点(2026-07-22 新增) =====
 
