@@ -470,7 +470,55 @@ function scoreTool(tool: Pick<Tool, 'name' | 'description' | 'parameters'>, quer
   return score + aliasNameBonus + hintBonus + Math.min(paramScore, PARAM_SCORE_CAP);
 }
 
-/** 相关性下限:低于 本次最高分 × 该比例 的**查询命中**不进结果。
+/**
+ * BM25 词法支路：与手工词法/概念桥并列，作为"混合检索"的第二路信号。
+ *
+ * 立因（2026-11-28）：纯子串+分词在"描述很长、关键词只出现一次"的工具上会
+ * 被短描述工具压过；BM25 的 tf 饱和 + 文档长度归一 + 逆文档频率正好补这一格。
+ * 权重刻意压到 1.0：它只改近分排序，不让长描述靠词频翻盘名字/概念桥的强命中。
+ */
+const BM25_K1 = 1.2
+const BM25_B = 0.75
+const BM25_WEIGHT = 1.0
+
+function bm25Scores(
+  tools: readonly Pick<Tool, 'name' | 'description' | 'parameters'>[],
+  query: string,
+): Map<string, number> {
+  const tokens = Array.from(new Set(tokenizeQuery(query.toLowerCase())))
+  const docs = tools.map((tool) =>
+    `${tool.name} ${tool.description} ${parameterText(tool)}`.toLowerCase(),
+  )
+  const avgLength = docs.reduce((sum, doc) => sum + doc.length, 0) / Math.max(docs.length, 1)
+  const documentFrequency = new Map<string, number>()
+  for (const token of tokens) {
+    let df = 0
+    for (const doc of docs) if (doc.includes(token)) df += 1
+    documentFrequency.set(token, df)
+  }
+  const scores = new Map<string, number>()
+  for (let i = 0; i < tools.length; i++) {
+    const doc = docs[i]!
+    let score = 0
+    for (const token of tokens) {
+      let tf = 0
+      let index = doc.indexOf(token)
+      while (index !== -1) {
+        tf += 1
+        index = doc.indexOf(token, index + token.length)
+      }
+      if (tf === 0) continue
+      const df = documentFrequency.get(token) ?? 0
+      const idf = Math.log(1 + (tools.length - df + 0.5) / (df + 0.5))
+      const lengthNorm = 1 - BM25_B + BM25_B * (doc.length / Math.max(avgLength, 1))
+      score += (idf * tf * (BM25_K1 + 1)) / (tf + BM25_K1 * lengthNorm)
+    }
+    if (score > 0) scores.set(tools[i]!.name, score * BM25_WEIGHT)
+  }
+  return scores
+}
+/**
+ * 相关性下限:低于 本次最高分 × 该比例 的**查询命中**不进结果。
  *
  * 立因(2026-11-28):49 条 golden 查询里,期望工具的分/最高分最低 0.65、中位 1.00 ——
  * 真正对口的工具从不会靠零散词垫底。而 top_k=5 会被"列表/list"这类泛词匹配的
@@ -498,6 +546,7 @@ export function searchTools(
     if (prev.score < score) prev.score = score;
     if (viaName) prev.viaName = true;
   };
+  const bm25ByQuery = queries.map((query) => bm25Scores(tools, query));
   for (const tool of tools) {
     const name = tool.name.toLowerCase();
     for (const rawName of toolNames) {
@@ -506,8 +555,8 @@ export function searchTools(
       if (name === wanted) pick(tool, NAME_EXACT_SCORE, true);
       else if (name.startsWith(wanted)) pick(tool, NAME_SUBSTRING_SCORE, true);
     }
-    for (const query of queries) {
-      const score = scoreTool(tool, query);
+    for (let i = 0; i < queries.length; i++) {
+      const score = scoreTool(tool, queries[i]!) + (bm25ByQuery[i]!.get(tool.name) ?? 0);
       if (score > 0) pick(tool, score);
     }
   }
