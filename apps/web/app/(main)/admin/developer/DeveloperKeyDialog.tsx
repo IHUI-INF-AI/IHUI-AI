@@ -72,7 +72,6 @@ const PERMISSION_LABELS: Record<ApiKeyPermission, string> = {
   'codebase:read': 'apiKeyPerms.codebaseRead',
   'codebase:write': 'apiKeyPerms.codebaseWrite',
   'diff:apply': 'apiKeyPerms.diffApply',
-  'publish:submit': 'apiKeyPerms.publishSubmit',
   'sandbox:run': 'apiKeyPerms.sandboxRun',
   'browser:operate': 'apiKeyPerms.browserOperate',
   'computer:operate': 'apiKeyPerms.computerOperate',

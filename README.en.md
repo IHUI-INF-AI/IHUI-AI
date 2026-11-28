@@ -99,6 +99,8 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-28**
+- 📚 Docs:同步 README 提交记录 (3a988cc196)
+- 🔧 Chore/Other:合流后补回水印头(29 路径),与工作树逐字节一致 (c12bd162e0)
 - 🐞 Fix:面板改用 WS 短期票并透传上游失败原因 (c843cdcfc4)
 - 🐞 Fix:显式声明 tslib，修复 echarts-for-react 构建解析 (d7854a60d5)
 - 🚀 Feature/Improvement:每30分钟自动补采指标，失败不写0快照 (f0f741406b)

@@ -84,6 +84,8 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 ## Recent updates (auto-maintained)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-28**
+- 📚 文档:同步 README 提交记录 (3a988cc196)
+- 🔧 工程/其他:合流后补回水印头(29 路径),与工作树逐字节一致 (c12bd162e0)
 - 🐞 修复:面板改用 WS 短期票并透传上游失败原因 (c843cdcfc4)
 - 🐞 修复:显式声明 tslib，修复 echarts-for-react 构建解析 (d7854a60d5)
 - 🚀 新功能/改进:每30分钟自动补采指标，失败不写0快照 (f0f741406b)

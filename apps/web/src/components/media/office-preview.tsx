@@ -9,19 +9,14 @@ import { useTranslations } from 'next-intl'
 import { ExternalLink, Loader2, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
-  buildAiAllHandoffSummary,
-  AI_ALL_HANDOFF_PROMPT,
-  fetchDocumentAnnotations,
   reviewDocumentBlocks,
   saveAiFindings,
   type AiReviewBlock,
   type AiReviewFinding,
-  type DocumentAnnotationRecord,
   type PreviewAnnotationPin,
 } from '@/lib/document-annotations'
 import { toast } from '@/components/common'
-import { AnnotationAnchorCapture, emitAnchorReference } from '@/components/chat/annotation-anchor'
-import { useOptionalPaneId } from '@/stores/chat-pane-context'
+import { AnnotationAnchorCapture } from '@/components/chat/annotation-anchor'
 import {
   PreviewSourceText,
   PreviewViewSwitch,
@@ -165,10 +160,9 @@ const OFFICE_REVIEW_MAX_BLOCK_PARAGRAPHS = 8
  * DOCX 段落 → 可定位 block。docx-preview 没有页码,段落序号就是它与正文、pin 的唯一共同坐标。
  * 相邻短段落合并成一个 block,避免 30 段小标题把 20 个 block 名额吃光;anchor 记录首尾段。
  */
-export function buildDocxReviewBlocks(paragraphs: readonly string[]): {
-  blocks: AiReviewBlock[]
-  truncated: boolean
-} {
+export function buildDocxReviewBlocks(
+  paragraphs: readonly string[],
+): { blocks: AiReviewBlock[]; truncated: boolean } {
   const blocks: AiReviewBlock[] = []
   let start = 0
   let buffer: string[] = []
@@ -245,9 +239,7 @@ export function buildXlsxReviewBlocks(
   const flush = (): void => {
     const text = buffer.join('\n').trim()
     if (text.length >= 10 && sheet) {
-      const lastCol = xlsxColumnRef(
-        Math.max(0, ...buffer.map((line) => line.split(' | ').length - 1)),
-      )
+      const lastCol = xlsxColumnRef(Math.max(0, ...buffer.map((line) => line.split(' | ').length - 1)))
       blocks.push({
         anchor: {
           kind: 'xlsx',
@@ -283,9 +275,7 @@ export function buildXlsxReviewBlocks(
     }
   }
   if (buffer.length) flush()
-  const coveredEnd = Number(
-    /([1-9]\d*)$/.exec(String(blocks[blocks.length - 1]?.anchor.range ?? ''))?.[1] ?? 0,
-  )
+  const coveredEnd = Number(/([1-9]\d*)$/.exec(String(blocks[blocks.length - 1]?.anchor.range ?? ''))?.[1] ?? 0)
   let truncated =
     stoppedEarly ||
     (lastNonEmptyRow >= 0 && coveredEnd < lastNonEmptyRow + 1) ||
@@ -314,10 +304,9 @@ export interface XlsxReviewSheet {
  * 工作簿 → 跨 sheet 的预审 blocks。AI 必须知道每个结论落在哪张表哪段行,
  * 所以这里按 sheet 分块,而不是把多张表拼成一段无坐标的文本。
  */
-export function buildXlsxWorkbookReviewBlocks(sheets: readonly XlsxReviewSheet[]): {
-  blocks: AiReviewBlock[]
-  truncated: boolean
-} {
+export function buildXlsxWorkbookReviewBlocks(
+  sheets: readonly XlsxReviewSheet[],
+): { blocks: AiReviewBlock[]; truncated: boolean } {
   const blocks: AiReviewBlock[] = []
   let truncated = false
   let totalChars = 0
@@ -971,7 +960,6 @@ export function OfficePreview({
   onAnnotationsMutated,
 }: OfficePreviewProps) {
   const t = useTranslations('chat')
-  const paneId = useOptionalPaneId()
   const kind = ext.toLowerCase().replace(/^\./, '')
   const [status, setStatus] = React.useState<OfficePreviewStatus>(() =>
     SUPPORTED_EXTS.has(kind) ? 'probing' : 'unsupported',
@@ -1091,100 +1079,59 @@ export function OfficePreview({
     return { blocks: [] as AiReviewBlock[], truncated: false }
   }, [docxParagraphs, kind, xlsxSheets])
 
-  const runOfficeFullReview = React.useCallback(
-    async (options?: { handoff?: boolean }) => {
-      if (!documentId || aiReviewBusy || reviewPayload.blocks.length === 0) return
-      if (kind !== 'docx' && kind !== 'xlsx' && kind !== 'xls') return
-      const reviewKind = kind === 'docx' ? 'docx' : 'xlsx'
-      setAiReviewBusy(true)
-      try {
-        const findings = await reviewDocumentBlocks({
-          title: documentName || (reviewKind === 'docx' ? 'Word 文档' : 'Excel 工作簿'),
-          blocks: reviewPayload.blocks,
-        })
-        if (findings.length === 0) {
-          toast.success(
-            `AI 已通读 ${reviewPayload.blocks.length} 个位置：没有发现需要标注的问题${
-              reviewPayload.truncated ? '（文档过长，仅审阅前段）' : ''
-            }`,
-          )
-          return
-        }
-        const groups = new Map<number, AiReviewFinding[]>()
-        for (const finding of findings) {
-          const blockNumber = finding.block
-          if (!blockNumber || blockNumber < 1 || blockNumber > reviewPayload.blocks.length) continue
-          const group = groups.get(blockNumber) ?? []
-          group.push(finding)
-          groups.set(blockNumber, group)
-        }
-        let created = 0
-        const createdRecords: DocumentAnnotationRecord[] = []
-        for (const [blockNumber, group] of groups) {
-          const block = reviewPayload.blocks[blockNumber - 1]
-          if (!block) continue
-          const saved = await saveAiFindings({
-            documentId,
-            label: officeReviewLabel(reviewKind, block),
-            anchorKind: reviewKind,
-            anchor: block.anchor,
-            findings: group.slice(0, 5),
-          })
-          created += saved.created.length
-          createdRecords.push(...saved.created)
-        }
-        onAnnotationsMutated?.()
-        let handoffRecords = createdRecords
-        if (options?.handoff) {
-          try {
-            handoffRecords = await fetchDocumentAnnotations(documentId)
-          } catch {
-            // 拉全量失败时退回本轮新建记录，至少不让已生成结论断在浏览器里。
-            handoffRecords = createdRecords
-          }
-        }
-        let handoff = options?.handoff
-          ? buildAiAllHandoffSummary(handoffRecords, documentName)
-          : null
-        if (options?.handoff && !handoff && createdRecords.length > 0) {
-          // 端点若暂时没回 origin 字段，至少用本轮新建记录兜底，保证一键链不断。
-          handoff = buildAiAllHandoffSummary(createdRecords, documentName)
-        }
-        if (handoff) {
-          emitAnchorReference({
-            text: handoff.text,
-            anchor: handoff.anchor,
-            source: 'ai-finding',
-            paneId,
-            page: handoff.page,
-            slide: handoff.slide,
-            element: handoff.element,
-            paragraph: handoff.paragraph,
-            sheet: handoff.sheet,
-            range: handoff.range,
-            excerpt: handoff.excerpt,
-            note: handoff.note,
-            autoSend: true,
-            autoSendPrompt: AI_ALL_HANDOFF_PROMPT,
-          })
-        }
+  const runOfficeFullReview = React.useCallback(async () => {
+    if (!documentId || aiReviewBusy || reviewPayload.blocks.length === 0) return
+    if (kind !== 'docx' && kind !== 'xlsx' && kind !== 'xls') return
+    const reviewKind = kind === 'docx' ? 'docx' : 'xlsx'
+    setAiReviewBusy(true)
+    try {
+      const findings = await reviewDocumentBlocks({
+        title: documentName || (reviewKind === 'docx' ? 'Word 文档' : 'Excel 工作簿'),
+        blocks: reviewPayload.blocks,
+      })
+      if (findings.length === 0) {
         toast.success(
-          handoff
-            ? `AI 已完成全文预审${created > 0 ? `，新增 ${created} 条` : '，复用已有结论'}，已交给主 AI 生成修订计划`
-            : created > 0
-              ? `AI 已通读 ${reviewPayload.blocks.length} 个位置，发现 ${created} 条新意见${
-                  reviewPayload.truncated ? '（文档过长，仅审阅前段）' : ''
-                }`
-              : 'AI 已通读全文：同一位置的意见已存在',
+          `AI 已通读 ${reviewPayload.blocks.length} 个位置：没有发现需要标注的问题${
+            reviewPayload.truncated ? '（文档过长，仅审阅前段）' : ''
+          }`,
         )
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'AI 全文预审失败，请稍后重试')
-      } finally {
-        setAiReviewBusy(false)
+        return
       }
-    },
-    [aiReviewBusy, documentId, documentName, kind, onAnnotationsMutated, paneId, reviewPayload],
-  )
+      const groups = new Map<number, AiReviewFinding[]>()
+      for (const finding of findings) {
+        const blockNumber = finding.block
+        if (!blockNumber || blockNumber < 1 || blockNumber > reviewPayload.blocks.length) continue
+        const group = groups.get(blockNumber) ?? []
+        group.push(finding)
+        groups.set(blockNumber, group)
+      }
+      let created = 0
+      for (const [blockNumber, group] of groups) {
+        const block = reviewPayload.blocks[blockNumber - 1]
+        if (!block) continue
+        const saved = await saveAiFindings({
+          documentId,
+          label: officeReviewLabel(reviewKind, block),
+          anchorKind: reviewKind,
+          anchor: block.anchor,
+          findings: group.slice(0, 5),
+        })
+        created += saved.created.length
+      }
+      onAnnotationsMutated?.()
+      toast.success(
+        created > 0
+          ? `AI 已通读 ${reviewPayload.blocks.length} 个位置，发现 ${created} 条新意见${
+              reviewPayload.truncated ? '（文档过长，仅审阅前段）' : ''
+            }`
+          : 'AI 已通读全文：同一位置的意见已存在',
+      )
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'AI 全文预审失败，请稍后重试')
+    } finally {
+      setAiReviewBusy(false)
+    }
+  }, [aiReviewBusy, documentId, documentName, kind, onAnnotationsMutated, reviewPayload])
 
   return (
     <div
@@ -1200,44 +1147,26 @@ export function OfficePreview({
         </span>
         <span className="flex shrink-0 items-center gap-2">
           {documentId && (kind === 'docx' || kind === 'xlsx' || kind === 'xls') ? (
-            <React.Fragment>
-              <button
-                type="button"
-                data-testid="office-ai-full-review"
-                onClick={() => void runOfficeFullReview()}
-                disabled={aiReviewBusy || reviewPayload.blocks.length === 0}
-                aria-label="AI 全文预审"
-                title={
-                  reviewPayload.truncated
-                    ? 'AI 通读全文并把结论落到段落/单元格；文档过长时只审阅前段'
-                    : 'AI 通读全文并把结论落到段落/单元格'
-                }
-                className="flex items-center gap-1 rounded-md border border-violet-300 px-2 py-1 text-[11px] font-medium text-violet-700 transition-colors hover:bg-violet-50 disabled:opacity-60 dark:border-violet-800 dark:text-violet-300 dark:hover:bg-violet-950/40"
-              >
-                {aiReviewBusy ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Sparkles className="h-3.5 w-3.5" />
-                )}
-                <span>AI 全文预审</span>
-              </button>
-              <button
-                type="button"
-                data-testid="office-ai-review-handoff"
-                onClick={() => void runOfficeFullReview({ handoff: true })}
-                disabled={aiReviewBusy || reviewPayload.blocks.length === 0}
-                aria-label="AI 预审并交给主 AI"
-                title="AI 通读全文、落到段落/单元格，并把全部结论一次交给主 AI 生成可执行修订计划"
-                className="flex items-center gap-1 rounded-md border border-violet-400 bg-violet-600 px-2 py-1 text-[11px] font-medium text-white transition-colors hover:bg-violet-700 disabled:opacity-60 dark:border-violet-500 dark:bg-violet-600 dark:hover:bg-violet-500"
-              >
-                {aiReviewBusy ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Sparkles className="h-3.5 w-3.5" />
-                )}
-                <span>预审并行动</span>
-              </button>
-            </React.Fragment>
+            <button
+              type="button"
+              data-testid="office-ai-full-review"
+              onClick={() => void runOfficeFullReview()}
+              disabled={aiReviewBusy || reviewPayload.blocks.length === 0}
+              aria-label="AI 全文预审"
+              title={
+                reviewPayload.truncated
+                  ? 'AI 通读全文并把结论落到段落/单元格；文档过长时只审阅前段'
+                  : 'AI 通读全文并把结论落到段落/单元格'
+              }
+              className="flex items-center gap-1 rounded-md border border-violet-300 px-2 py-1 text-[11px] font-medium text-violet-700 transition-colors hover:bg-violet-50 disabled:opacity-60 dark:border-violet-800 dark:text-violet-300 dark:hover:bg-violet-950/40"
+            >
+              {aiReviewBusy ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="h-3.5 w-3.5" />
+              )}
+              <span>AI 全文预审</span>
+            </button>
           ) : null}
           <PreviewViewSwitch mode={view} onModeChange={setView} source={sourceAvailability} />
           <a

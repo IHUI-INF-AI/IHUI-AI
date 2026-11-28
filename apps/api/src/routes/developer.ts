@@ -28,6 +28,7 @@ import {
 } from '@ihui/database'
 import { requireAuth } from '../plugins/require-permission.js'
 import { requireStepUpForTwoFactorUser } from '../services/two-factor-step-up-store.js'
+import { getPublishUsage } from '../services/publish-usage-service.js'
 import { success, error } from '../utils/response.js'
 import { bizDayKey } from '../utils/biz-day.js'
 import { db } from '../db/index.js'
@@ -606,6 +607,33 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
         callCount: usage.callCount,
         lastUsedAt: usage.lastUsedAt,
         topEndpoints: usage.topEndpoints,
+      }),
+    )
+  })
+
+  // GET /api-keys/:id/publish-usage — 发布 API 独立计费账本（按 Key 归属校验）
+  server.get('/api-keys/:id/publish-usage', async (request, reply) => {
+    const userId = request.userId!
+    const idParsed = idParamSchema.safeParse(request.params)
+    if (!idParsed.success) {
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const query = request.query as { limit?: string }
+    const limitNum = Number(query.limit ?? '20')
+    const usage = await getPublishUsage(
+      idParsed.data.id,
+      userId,
+      Number.isFinite(limitNum) ? limitNum : 20,
+    )
+    if (!usage) return reply.status(404).send(error(404, 'API 密钥不存在或无权查看'))
+    return reply.send(
+      success({
+        keyId: idParsed.data.id,
+        capability: 'publish:submit',
+        units: usage.units,
+        records: usage.records,
+        lastUsedAt: usage.lastUsedAt,
+        items: usage.items,
       }),
     )
   })

@@ -9,8 +9,6 @@ import { Check, Loader2, MessageSquare, RefreshCw, RotateCcw, Send, Sparkles, Tr
 import { Button } from '@ihui/ui-react'
 
 import {
-  AI_ALL_HANDOFF_PROMPT,
-  buildAiAllHandoffSummary,
   createDocumentAnnotation,
   deleteDocumentAnnotation,
   fetchDocumentAnnotations,
@@ -205,23 +203,29 @@ export function DocumentAnnotationsPanel({
    * 主 AI 才能按优先级给出一份可执行修订计划,而不是泛泛建议。
    */
   const handoffAllAi = () => {
-    const summary = buildAiAllHandoffSummary(items, documentTitle)
-    if (!summary) return
+    const first = aiRoots[0]
+    if (!first?.anchor) return
+    const rawAnchor = first.anchor as Record<string, unknown>
+    const lines = aiRoots.map(
+      (root, index) =>
+        `${index + 1}. [${root.label || 'AI 预审'}] ${root.body.slice(0, 1000)}`,
+    )
     emitAnchorReference({
-      text: summary.text,
-      anchor: summary.anchor,
+      text: [
+        `【${documentTitle || '文档'} · AI 全文预审，共 ${aiRoots.length} 条】`,
+        ...lines,
+        '请基于以上全部 AI 预审结论，按优先级给出可执行的修订计划，并逐项标注对应的段落/单元格；同时列出需要补充的证据和复核动作。',
+      ].join('\n\n'),
+      anchor: first.anchor as unknown as AnnotationAnchor,
       source: 'ai-finding',
       paneId,
-      page: summary.page,
-      slide: summary.slide,
-      element: summary.element,
-      paragraph: summary.paragraph,
-      sheet: summary.sheet,
-      range: summary.range,
-      excerpt: summary.excerpt,
-      note: summary.note,
+      page: typeof rawAnchor.page === 'number' ? rawAnchor.page : undefined,
+      slide: typeof rawAnchor.slide === 'number' ? rawAnchor.slide : undefined,
+      element: typeof rawAnchor.element === 'string' ? rawAnchor.element : undefined,
+      excerpt: first.excerpt ?? undefined,
+      note: `全部 AI 预审结论 ${aiRoots.length} 条`,
       autoSend: true,
-      autoSendPrompt: AI_ALL_HANDOFF_PROMPT,
+      autoSendPrompt: '请基于这份文档的全部 AI 预审结论，按优先级给出可执行的修订计划，并逐项标注对应的段落/单元格。',
     })
   }
 
@@ -253,9 +257,9 @@ export function DocumentAnnotationsPanel({
           {aiRoots.length > 0 ? (
             <Button
               variant="ghost"
-              size="sm"
+              size="xs"
               onClick={handoffAllAi}
-              className="h-7 gap-1 px-1.5 text-[10px] text-violet-700 hover:bg-violet-50 dark:text-violet-300 dark:hover:bg-violet-950/40"
+              className="gap-1 px-1.5 text-[10px] text-violet-700 hover:bg-violet-50 dark:text-violet-300 dark:hover:bg-violet-950/40"
               title="把全部 AI 预审结论一次带回主 AI 对话"
               data-testid="annotation-ai-handoff-all"
             >
@@ -301,10 +305,10 @@ export function DocumentAnnotationsPanel({
         <div className="flex items-center justify-between gap-2">
           <span className="text-[10px] text-muted-foreground">选中正文后“添加到任务”会自动存为锚点批注</span>
           <Button
-            size="sm"
+            size="xs"
             onClick={() => void submitRoot()}
             disabled={!composer.trim() || submitting}
-            className="h-7 gap-1 px-2 text-[11px]"
+            className="gap-1 px-2 text-[11px]"
           >
             {submitting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
             发表批注
