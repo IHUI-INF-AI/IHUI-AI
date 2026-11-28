@@ -40,7 +40,10 @@ import { PromptQueue } from '../src/prompt-queue.js';
 import { NEUTRALIZED_MARKER } from '../src/utils/prompt-boundary.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
-const TMP = fs.mkdtempSync(path.join(ROOT, '.ihui-agent', 'tmp', 'hook-async-rewake-'));
+// 干净 checkout/临时 worktree 里 .ihui-agent/tmp 可能还不存在；mkdtemp 不会替你建父目录。
+const TMP_ROOT = path.join(ROOT, '.ihui-agent', 'tmp');
+fs.mkdirSync(TMP_ROOT, { recursive: true });
+const TMP = fs.mkdtempSync(path.join(TMP_ROOT, 'hook-async-rewake-'));
 const CONFIG = path.join(TMP, 'hooks.json');
 
 /** 写一份单事件单条目配置(条目字段按用例给),返回条目名。 */
