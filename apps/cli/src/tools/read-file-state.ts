@@ -35,6 +35,13 @@ export interface ReadFileStateEntry {
   limit?: number;
   /** true = 模型看到的是被工具截断的视图;此类条目永不短路 */
   isPartialView: boolean;
+  /**
+   * true = 这条状态由 write_file/edit_file 成功后登记，不是模型真读过。
+   * file_unchanged 短路不能拿它当“模型已经看过新内容”的证据：
+   * 写入后第一次 read_file 必须回真实正文（让模型核对落盘结果），
+   * 但写后写校验仍可用它免去“自己刚写过还要重读”。
+   */
+  writtenByTool?: boolean;
   mtimeMs?: number;
   sizeBytes?: number;
   /** F-126:ctime(POSIX 元数据变更时刻;Windows 为创建时刻,tmp+rename 替换会变) */
@@ -95,13 +102,45 @@ export function isCachedReadFresh(
 
 /** context → read-file 状态(WeakMap:ctx 被回收,状态跟着走) */
 const perContextStates = new WeakMap<object, ReadFileStateMap>();
+/**
+ * 同一个会话的工具执行上下文会被 `{...ctx, signal}` 复制后再传给工具
+ * （tools/index.ts 的 executeWithinExecBudget），对象身份逐次变化；
+ * 若只按 WeakMap 对象键存状态，read_file 登记的“已读”在 write_file 里永远看不到，
+ * 读后写校验会变成结构性死锁（真实模型表现为反复 FILE_NOT_READ）。
+ * 因此再按稳定作用域（sessionId 优先，其次任务工作区/工作区路径）挂一份。
+ */
+const PER_SCOPE_STATE_LIMIT = 500;
+const perScopeStates = new Map<string, ReadFileStateMap>();
+
+function readStateScope(context: object): string | undefined {
+  const c = context as {
+    readFileStateKey?: string;
+    sessionId?: string;
+    taskWorkspaceId?: string;
+  };
+  if (c.readFileStateKey) return `run:${c.readFileStateKey}`;
+  if (c.sessionId) return `session:${c.sessionId}`;
+  if (c.taskWorkspaceId) return `task:${c.taskWorkspaceId}`;
+  return undefined;
+}
 
 export function getReadFileStateMap(context: object): ReadFileStateMap {
-  let state = perContextStates.get(context);
+  const exact = perContextStates.get(context);
+  if (exact) return exact;
+  const scope = readStateScope(context);
+  let state = scope === undefined ? undefined : perScopeStates.get(scope);
   if (!state) {
     state = new Map();
-    perContextStates.set(context, state);
+    if (scope !== undefined) {
+      // 长驻 CLI/守护进程会跨很多会话；只做 FIFO 上限，避免作用域 Map 无界增长。
+      if (perScopeStates.size >= PER_SCOPE_STATE_LIMIT) {
+        const oldest = perScopeStates.keys().next().value;
+        if (oldest !== undefined) perScopeStates.delete(oldest);
+      }
+      perScopeStates.set(scope, state);
+    }
   }
+  perContextStates.set(context, state);
   return state;
 }
 

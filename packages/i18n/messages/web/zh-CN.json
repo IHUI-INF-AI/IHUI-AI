@@ -15794,16 +15794,7 @@
   },
   "eduCoursesPage": {
     "subtitle": "管理已报名的全部课程",
-    "title": "我的课程",
-    "empty": "暂无课程",
-    "loading": "加载中",
-    "progress": "进度 {n}%",
-    "searchAriaLabel": "搜索课程",
-    "searchPlaceholder": "搜索课程",
-    "statusCompleted": "已完成",
-    "statusInProgress": "进行中",
-    "statusNotStarted": "未开始",
-    "total": "共 {n} 个"
+    "title": "我的课程"
   },
   "eduDashboardPage": {
     "coursesCard": {
@@ -23951,7 +23942,17 @@
     "usageTitle": "用量统计",
     "devices": {
       "navTitle": "设备管理",
-      "navDesc": "查看已登录的设备并管理会话"
+      "navDesc": "查看已登录的设备并管理会话",
+      "reviewDiffToggle": "执行前查看文件差异",
+      "reviewDiffHint": "写入或修改文件前，先展示逐文件 diff 供你确认。",
+      "diffTitle": "文件变更确认",
+      "diffHint": "确认要应用的变更；未勾选的文件不会写入。",
+      "diffNotRevertable": "不可回退",
+      "diffHidePatch": "收起 diff",
+      "diffShowPatch": "查看 diff",
+      "diffTruncated": "变更内容较大，仅展示前一部分。",
+      "diffAcceptSelected": "应用所选 {count} 项",
+      "diffRejectAll": "全部拒绝"
     },
     "ringtonePreview": "试听",
     "ringtoneNames": {

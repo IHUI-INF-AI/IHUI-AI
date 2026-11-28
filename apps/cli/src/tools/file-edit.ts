@@ -188,6 +188,7 @@ function recordWriteState(ctx: ToolContext, abs: string): void {
       mtimeMs: stat.mtimeMs,
       sizeBytes: stat.size,
       recordedAt: Date.now(),
+      writtenByTool: true,
     });
   } catch {
     // 记录失败不阻塞写入

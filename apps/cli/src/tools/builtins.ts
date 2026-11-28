@@ -734,7 +734,7 @@ export const read_file: Tool = {
     const readState = getReadFileStateMap(ctx);
     const cacheKey = createReadFileStateKey(abs, offset, limit);
     const cached = readState.get(cacheKey);
-    if (cached && isCachedReadFresh(cached, stat)) {
+    if (cached && !cached.writtenByTool && isCachedReadFresh(cached, stat)) {
       return { success: true, output: FILE_UNCHANGED_STUB };
     }
 

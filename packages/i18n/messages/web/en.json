@@ -15784,16 +15784,7 @@
   },
   "eduCoursesPage": {
     "subtitle": "Manage all enrolled courses",
-    "title": "My Courses",
-    "empty": "No courses",
-    "loading": "Loading...",
-    "progress": "Progress {n}%",
-    "searchAriaLabel": "Search courses",
-    "searchPlaceholder": "Search courses...",
-    "statusCompleted": "Completed",
-    "statusInProgress": "In Progress",
-    "statusNotStarted": "Not Started",
-    "total": "{n} total"
+    "title": "My Courses"
   },
   "eduDashboardPage": {
     "coursesCard": {
@@ -23790,7 +23781,17 @@
     "usageTitle": "Usage",
     "devices": {
       "navTitle": "Devices",
-      "navDesc": "Review signed-in devices and manage their sessions"
+      "navDesc": "Review signed-in devices and manage their sessions",
+      "reviewDiffToggle": "Review file diff before running",
+      "reviewDiffHint": "Show a per-file diff for confirmation before writing or modifying files.",
+      "diffTitle": "Review file changes",
+      "diffHint": "Confirm the changes to apply; unchecked files are left untouched.",
+      "diffNotRevertable": "Not revertable",
+      "diffHidePatch": "Hide diff",
+      "diffShowPatch": "Show diff",
+      "diffTruncated": "Changes are large; only the first part is shown.",
+      "diffAcceptSelected": "Apply selected ({count})",
+      "diffRejectAll": "Reject all"
     },
     "ringtonePreview": "Preview",
     "ringtoneNames": {

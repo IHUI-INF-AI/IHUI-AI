@@ -66,6 +66,27 @@ describe('MCP 2026-07-28 stateless HTTP request', () => {
     })
   })
 
+  it('server/discover 是 2026 的 MUST，请求不带 Mcp-Name', () => {
+    const built = buildStatelessMcpHttpRequest(
+      'server/discover',
+      {},
+      MCP_STATELESS_PROTOCOL_VERSION,
+      clientInfo,
+      { extensions: { 'io.modelcontextprotocol/enterprise-managed-authorization': {} } },
+    )
+    expect(built.headers).toEqual({
+      'MCP-Protocol-Version': '2026-07-28',
+      'Mcp-Method': 'server/discover',
+    })
+    expect(built.params._meta).toMatchObject({
+      'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+      'io.modelcontextprotocol/clientInfo': clientInfo,
+      'io.modelcontextprotocol/clientCapabilities': {
+        extensions: { 'io.modelcontextprotocol/enterprise-managed-authorization': {} },
+      },
+    })
+  })
+
   it('非法工具名不进 HTTP 头，避免头注入/代理路由歧义', () => {
     const built = buildStatelessMcpHttpRequest(
       'tools/call',

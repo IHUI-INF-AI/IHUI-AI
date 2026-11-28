@@ -15784,16 +15784,7 @@
   },
   "eduCoursesPage": {
     "subtitle": "管理已報名的全部課程",
-    "title": "我的課程",
-    "empty": "尚無課程",
-    "loading": "載入中...",
-    "progress": "進度 {n}%",
-    "searchAriaLabel": "搜尋課程",
-    "searchPlaceholder": "搜尋課程...",
-    "statusCompleted": "已完成",
-    "statusInProgress": "進行中",
-    "statusNotStarted": "未開始",
-    "total": "共 {n} 門"
+    "title": "我的課程"
   },
   "eduDashboardPage": {
     "coursesCard": {
@@ -23941,7 +23932,17 @@
     "usageTitle": "用量統計",
     "devices": {
       "navTitle": "裝置管理",
-      "navDesc": "查看已登入的裝置並管理工作階段"
+      "navDesc": "查看已登入的裝置並管理工作階段",
+      "reviewDiffToggle": "執行前查看檔案差異",
+      "reviewDiffHint": "寫入或修改檔案前，先顯示逐檔 diff 供你確認。",
+      "diffTitle": "檔案變更確認",
+      "diffHint": "確認要套用的變更；未勾選的檔案不會寫入。",
+      "diffNotRevertable": "不可回溯",
+      "diffHidePatch": "收合 diff",
+      "diffShowPatch": "查看 diff",
+      "diffTruncated": "變更內容較大，僅顯示前一部分。",
+      "diffAcceptSelected": "套用所選 {count} 項",
+      "diffRejectAll": "全部拒絕"
     },
     "ringtonePreview": "試聽",
     "ringtoneNames": {

@@ -135,12 +135,43 @@ export interface ToolSchema {
   };
 }
 
+/**
+ * 工具结果的一小段结构化内容。`text` 是常规正文；
+ * 媒体段优先给 `path`/`url`，`data` 只作为服务端原始 base64 的暂存，
+ * 执行器可以在落盘后清掉它，避免 base64 进上下文。
+ */
+export type ToolContentBlock =
+  | { type: 'text'; text: string }
+  | { type: 'image'; mimeType?: string; data?: string; path?: string; url?: string; alt?: string }
+  | { type: 'audio'; mimeType?: string; data?: string; path?: string; url?: string }
+  | {
+      type: 'document';
+      mimeType?: string;
+      data?: string;
+      path?: string;
+      url?: string;
+      name?: string;
+    }
+  | {
+      type: 'resource_link';
+      uri: string;
+      name?: string;
+      mimeType?: string;
+      description?: string;
+    };
+
 export interface ToolResult {
   success: boolean;
   output: string;
   error?: string;
   /** P1-4 错误类型分级,供调用方/LLM 判断是否需要重试 */
   errorType?: string;
+  /**
+   * 结构化多段内容（MCP 2026 / 多模态工具）：text 已并入 output；
+   * image/audio/document/resource_link 让宿主能落盘、预览或直接渲染，
+   * 不把 base64 整块塞进 provider 文本。
+   */
+  content?: ToolContentBlock[];
   /**
    * 「无活动空闲超时」的结构化 context(G-426,只由执行器边界在 budget 代结算时产出):
    * 上游 subagent/runner 的 reportActivity 语义 —— 墙钟改成"每次活动重排"后,错误必须
@@ -630,6 +661,15 @@ export interface ToolContext {
    * 不伪造一个看似真实的会话号。
    */
   sessionId?: string;
+  /**
+   * 同一工具循环内稳定的已读状态作用域名。
+   *
+   * `executeWithinExecBudget` 会把 ctx 浅拷贝后再交给工具（加 signal / 活动上报口），
+   * 对象身份逐次变化；read_file 的已读状态若只按对象存 WeakMap，write_file 的读后写
+   * 校验将永远看不到“刚读过”。由 runToolLoop 每次 run 注入一个稳定值（sessionId 或
+   * 随机 run id），嵌入式调用可自填；缺省时退化为按 ctx 对象隔离。
+   */
+  readFileStateKey?: string;
   /**
    * 当前 agent 回合 id（W4-06 幂等双键之一）。由 `runToolLoop` 从 turnTrace 注入；
    * 嵌入式调用缺省时消费方退化为进程级稳定值，绝不每次随机。

@@ -4593,6 +4593,86 @@
       "keys": ["ringtoneNames.dingdong", "ringtoneNames.tritone", "ringtoneNames.waterdrop", "ringtoneNames.doublebell", "ringtoneNames.bubble", "ringtoneNames.marimba", "ringtoneNames.chime", "ringtoneNames.knock"],
       "reason": "ringtoneNames.* 顶层副本是孤儿键：通知设置页实际走 useTranslations('settings') 读取 settings.ringtoneNames.*，根级同名对象自引入起零消费。2026-11-28 删除根级 8 键、保留 settings.ringtoneNames 五语正文，消除 JSON 同名双份与 parity 噪声。回潮判据：若将来确有页面改为根级 t('ringtoneNames.*')，应先改消费点并同步五语，不得只补根级副本。",
       "until": "2027-11-28"
+    },
+    {
+      "file": "packages/i18n/messages/web/zh-CN.json",
+      "keys": [
+        "empty",
+        "loading",
+        "progress",
+        "searchAriaLabel",
+        "searchPlaceholder",
+        "statusCompleted",
+        "statusInProgress",
+        "statusNotStarted",
+        "total"
+      ],
+      "reason": "eduCoursesPage 仅 learn 页消费 title/subtitle 两键；empty/loading/progress/searchAriaLabel/searchPlaceholder/statusCompleted/statusInProgress/statusNotStarted/total 自旧课程列表布局退场后全仓零引用，family-i18n-contract 判为孤儿。回潮判据：恢复课程搜索或进度列表时按新 UI 重新设计词条并同批接引用，不得只补回旧键。",
+      "until": "2027-11-28"
+    },
+    {
+      "file": "packages/i18n/messages/web/en.json",
+      "keys": [
+        "empty",
+        "loading",
+        "progress",
+        "searchAriaLabel",
+        "searchPlaceholder",
+        "statusCompleted",
+        "statusInProgress",
+        "statusNotStarted",
+        "total"
+      ],
+      "reason": "Only title/subtitle are consumed by the learn page; the other nine eduCoursesPage keys became orphaned after the old course-list layout was removed and are flagged by family-i18n-contract. Backflow: reintroducing course search or progress lists requires new wording wired to the new UI, not restoring the old keys alone.",
+      "until": "2027-11-28"
+    },
+    {
+      "file": "packages/i18n/messages/web/ja.json",
+      "keys": [
+        "empty",
+        "loading",
+        "progress",
+        "searchAriaLabel",
+        "searchPlaceholder",
+        "statusCompleted",
+        "statusInProgress",
+        "statusNotStarted",
+        "total"
+      ],
+      "reason": "learn ページは title/subtitle のみ参照。旧課程一覧レイアウトの撤去後、残り9キーは全倉参照ゼロとなり family-i18n-contract が孤児と判定。回帰条件:課程検索や進捗一覧を復活する場合は新 UI に合わせて語句を再設計し、旧キーのみを戻さないこと。",
+      "until": "2027-11-28"
+    },
+    {
+      "file": "packages/i18n/messages/web/ko.json",
+      "keys": [
+        "empty",
+        "loading",
+        "progress",
+        "searchAriaLabel",
+        "searchPlaceholder",
+        "statusCompleted",
+        "statusInProgress",
+        "statusNotStarted",
+        "total"
+      ],
+      "reason": "learn 페이지는 title/subtitle만 사용합니다. 이전 강좌 목록 레이아웃 제거 후 나머지 9개 키는 전 저장소 참조가 0이 되어 family-i18n-contract가 고아 키로 판정했습니다. 재유입 조건: 강좌 검색이나 진행 목록을 되살릴 때 새 UI에 맞춰 문구를 다시 설계하고 기존 키만 복원하지 말 것.",
+      "until": "2027-11-28"
+    },
+    {
+      "file": "packages/i18n/messages/web/zh-TW.json",
+      "keys": [
+        "empty",
+        "loading",
+        "progress",
+        "searchAriaLabel",
+        "searchPlaceholder",
+        "statusCompleted",
+        "statusInProgress",
+        "statusNotStarted",
+        "total"
+      ],
+      "reason": "eduCoursesPage 僅 learn 頁消費 title/subtitle 兩鍵；其餘 9 鍵自舊課程列表版型退場後全倉零引用，family-i18n-contract 判為孤兒。回潮判據：恢復課程搜尋或進度列表時按新 UI 重新設計詞條並同批接引用，不得只補回舊鍵。",
+      "until": "2027-11-28"
     }
   ]
 }

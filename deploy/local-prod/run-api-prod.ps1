@@ -21,6 +21,13 @@ try {
 } catch { }
 
 $Root = 'C:\IHUI-AI'
+$ApiRoot = if ($env:IHUI_API_ROOT) {
+  $env:IHUI_API_ROOT
+} elseif (Test-Path -LiteralPath 'C:\IHUI-AI\.tmp\prod-api-wt\apps\api\src\index.ts') {
+  'C:\IHUI-AI\.tmp\prod-api-wt\apps\api'
+} else {
+  Join-Path $Root 'apps\api'
+}
 $Node = 'C:\Users\Administrator\.workbuddy\binaries\node\versions\22.22.2-6\node.exe'
 if (-not (Test-Path -LiteralPath $Node)) {
   $Node = 'C:\Program Files\nodejs\node.exe'
@@ -29,7 +36,7 @@ if (-not (Test-Path -LiteralPath $Node)) {
   throw "run-api-prod.ps1: Node 未找到"
 }
 
-$envFile = Join-Path $Root 'apps\api\.env.production.local'
+$envFile = Join-Path $ApiRoot '.env.production.local'
 if (Test-Path -LiteralPath $envFile) {
   Get-Content -LiteralPath $envFile | ForEach-Object {
     $line = $_.Trim()
@@ -47,7 +54,7 @@ $env:ZCODE_RUNTIME_ENV = 'production'
 $port = if ($env:IHUI_API_PORT) { [int]$env:IHUI_API_PORT } else { 8802 }
 $env:PORT = "$port"
 
-Set-Location (Join-Path $Root 'apps\api')
+Set-Location $ApiRoot
 Write-Host "[IHUI-API] production start port=$port node=$Node"
 & $Node --import tsx src/index.ts
 exit $LASTEXITCODE

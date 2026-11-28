@@ -36,6 +36,7 @@ import { assertSafeFetchUrl, formatSsrfRejection, type SelfHostedTrust } from '@
 // 对端 stderr 是任意内容,原样拼进 error.message 就等于把它泄进日志/上报链路。
 import { sanitizeEvidenceText } from '@ihui/shared/utils/redact';
 import { loadMcpConfig, listProjectMcpConfigSources, type McpServer, type McpStdioFraming } from '../commands/mcp-config.js';
+import { isRecord } from '../util/json.js';
 import { createStdioFrameDecoder, encodeContentLength, encodeNdjson } from './mcp-stdio-framing.js';
 import {
   openMcpOnToolHost,
@@ -51,9 +52,10 @@ import { killProcessTree } from '../util/spawn-isolated.js';
 // docs/benchmark-evidence/2026-11/qoder-trae-workbuddy-rea-20261105/)。
 import { spawnParentWatchdog } from '../util/parent-bound.js';
 import { readCliPackage } from '../util/pkg-version.js';
-import type { Tool, ToolResult, ToolContext, ToolParameter } from './index.js';
+import type { Tool, ToolResult, ToolContext, ToolParameter, ToolContentBlock } from './index.js';
 import { getCredential, isExpired, setCredential } from './mcp-credentials.js';
-import { startOAuthFlow, refreshAccessToken, type OAuthConfig } from './mcp-oauth.js';
+import { startOAuthFlow, refreshAccessToken, startEnterpriseManagedOAuthFlow, startClientCredentialsOAuthFlow, type OAuthConfig } from './mcp-oauth.js';
+import { discoverAuthorizationServer, resolveClientRegistration } from './mcp-auth-discovery.js';
 
 export interface McpToolDef {
   name: string;
@@ -80,6 +82,15 @@ export interface McpToolDef {
     idempotentHint?: boolean;
     /** 人类可读标题，原样保留。 */
     title?: string;
+  };
+  /** MCP Apps：工具与 UI 模板的关联（SEP-1865）。 */
+  _meta?: {
+    ui?: {
+      resourceUri?: string;
+      visibility?: Array<'model' | 'app'>;
+    };
+    /** @deprecated 旧扁平字段；读取时兼容，写入一律用 _meta.ui.resourceUri。 */
+    'ui/resourceUri'?: string;
   };
 }
 
@@ -113,6 +124,65 @@ export interface McpPromptResult {
   messages: McpPromptMessage[];
 }
 
+/**
+ * MCP 2026-07-28 MRTR / Tasks 的待答请求。
+ * 形状与规范 InputRequests 一致：key 由服务端分配，value 是一条
+ * `elicitation/create` / `sampling/createMessage` / `roots/list` 请求。
+ */
+export interface McpInputRequest {
+  method: string;
+  params?: Record<string, unknown>;
+}
+export type McpInputRequests = Record<string, McpInputRequest>;
+export type McpInputResponses = Record<string, unknown>;
+export type McpInputHandler = (
+  requests: McpInputRequests,
+  context: { taskId?: string; statusMessage?: string },
+) => Promise<McpInputResponses>;
+
+/**
+ * 服务端要求补充输入，但宿主没有接 inputHandler。
+ * 错误本身携带原始请求，调用方可以渲染表单后显式重试，不会把
+ * “缺输入”伪装成工具业务失败。
+ */
+export class McpInputRequiredError extends Error {
+  readonly code = 'MCP_INPUT_REQUIRED';
+  constructor(
+    message: string,
+    readonly inputRequests: McpInputRequests,
+    readonly requestState?: string,
+    readonly taskId?: string,
+  ) {
+    super(message);
+    this.name = 'McpInputRequiredError';
+  }
+}
+
+/** 任务以 cancelled 终态收口。 */
+export class McpTaskCancelledError extends Error {
+  readonly code = 'MCP_TASK_CANCELLED';
+  constructor(
+    message: string,
+    readonly taskId: string,
+  ) {
+    super(message);
+    this.name = 'McpTaskCancelledError';
+  }
+}
+
+/** 任务以 failed 终态收口；`error` 是服务端原始 JSON-RPC error。 */
+export class McpTaskFailedError extends Error {
+  readonly code = 'MCP_TASK_FAILED';
+  constructor(
+    message: string,
+    readonly taskId: string,
+    readonly rpcError: unknown,
+  ) {
+    super(message);
+    this.name = 'McpTaskFailedError';
+  }
+}
+
 export interface McpConnection {
   server: McpServer;
   tools: McpToolDef[];
@@ -134,6 +204,17 @@ export interface McpConnection {
   protocolVersion?: string;
   /** 无状态请求的 `_meta.io.modelcontextprotocol/clientCapabilities`。 */
   clientCapabilities?: Record<string, unknown>;
+  /** `server/discover` 返回的服务器能力（2026-07-28；旧握手连接为 undefined）。 */
+  serverCapabilities?: Record<string, unknown>;
+  /** `server/discover` 返回的 serverInfo（仅用于展示/诊断，不参与安全判定）。 */
+  serverInfo?: { name?: string; version?: string };
+  /** `server/discover` 返回的 instructions（服务器自述用法）。 */
+  serverInstructions?: string;
+  /**
+   * 2026-07-28 MRTR / Tasks input_required 的宿主应答器。
+   * 缺席时 callMcpServer 抛 McpInputRequiredError，绝不静默替用户答“同意”。
+   */
+  inputHandler?: McpInputHandler;
   /** sse 专用:长连接 abort 控制器 */
   sseAbortController?: AbortController;
   /** sse 专用:POST 目标 URL(endpoint 事件推送) */
@@ -146,6 +227,8 @@ export interface McpConnection {
   resources?: McpResource[];
   /** prompts/list 预加载结果(不支持 prompts 的 server 为空数组) */
   prompts?: McpPrompt[];
+  /** MCP Apps：ui:// 模板按 URI 缓存，避免每次工具调用重复 resources/read。 */
+  uiResourceCache?: Map<string, McpResourceContent[]>;
 }
 
 let _nextId = 1;
@@ -597,12 +680,21 @@ export function buildStatelessMcpHttpRequest(
       ? (params._meta as Record<string, unknown>)
       : {}
   const toolName = method === 'tools/call' && typeof params.name === 'string' ? params.name : undefined
+  // 2026-07-28 Tasks：tasks/get|update|cancel 的路由键是 params.taskId（SEP-2663）。
+  const taskId =
+    (method === 'tasks/get' || method === 'tasks/update' || method === 'tasks/cancel') &&
+    typeof params.taskId === 'string'
+      ? params.taskId
+      : undefined
+  const routeName = toolName ?? taskId
   return {
     headers: {
       'MCP-Protocol-Version': protocolVersion,
       'Mcp-Method': method,
-      // 头值必须能安全穿过代理；不合法工具名不写头（body 仍带 name，语义不变）。
-      ...(toolName !== undefined && /^[A-Za-z0-9._-]+$/.test(toolName) ? { 'Mcp-Name': toolName } : {}),
+      // 头值必须能安全穿过代理；不合法名字不写头（body 仍带原值，语义不变）。
+      ...(routeName !== undefined && /^[A-Za-z0-9._-]+$/.test(routeName)
+        ? { 'Mcp-Name': routeName }
+        : {}),
     },
     params: {
       ...params,
@@ -881,6 +973,71 @@ function readMcpRefreshKind(err: unknown): McpRefreshFailureKind | undefined {
 }
 
 /**
+ * 解析 MCP OAuth 配置：静态端点，或 MCP 2026 discovery + 客户端身份注册。
+ *
+ * 顺序固定：metadata 发现（校验 issuer）→ 预注册 > CIMD > DCR。
+ * CIMD 只返回 client_id URL，不发起注册；DCR 会真的 POST 一次。
+ */
+export async function resolveMcpOAuthConfig(server: McpServer): Promise<OAuthConfig> {
+  const oauth = server.oauth;
+  if (!oauth) throw new Error(`MCP server "${server.name}" 声明了 oauth 但没有 oauth 配置`);
+  let authorizationEndpoint = oauth.authorizationEndpoint;
+  let tokenEndpoint = oauth.tokenEndpoint;
+  let clientId = oauth.clientId;
+  let clientSecret = oauth.clientSecret;
+  let issuer = oauth.issuer;
+
+  if (oauth.discovery) {
+    const metadata = await discoverAuthorizationServer(oauth.discovery.issuer);
+    const registration = await resolveClientRegistration({
+      metadata,
+      redirectUri: oauth.redirectUri,
+      ...(clientId ? { preRegisteredClientId: clientId } : {}),
+      ...(clientSecret ? { preRegisteredClientSecret: clientSecret } : {}),
+      ...(oauth.discovery.clientMetadataDocumentUrl
+        ? { clientMetadataDocumentUrl: oauth.discovery.clientMetadataDocumentUrl }
+        : {}),
+      ...(oauth.discovery.clientName ? { clientName: oauth.discovery.clientName } : {}),
+      ...(oauth.discovery.applicationType ? { applicationType: oauth.discovery.applicationType } : {}),
+    });
+    authorizationEndpoint ??= metadata.authorization_endpoint;
+    tokenEndpoint ??= metadata.token_endpoint;
+    clientId = registration.clientId;
+    clientSecret ??= registration.clientSecret;
+    issuer ??= metadata.issuer;
+  }
+
+  if (!authorizationEndpoint || !tokenEndpoint || !clientId) {
+    throw new Error(
+      `MCP server "${server.name}" 的 oauth 配置不完整：需要 authorizationEndpoint/tokenEndpoint/clientId，` +
+        '或提供 discovery 让 CLI 自动发现并注册客户端',
+    );
+  }
+
+  return {
+    authorizationEndpoint,
+    tokenEndpoint,
+    clientId,
+    ...(clientSecret ? { clientSecret } : {}),
+    redirectUri: oauth.redirectUri,
+    scope: oauth.scope,
+    ...(issuer ? { issuer } : {}),
+    ...(oauth.requireIssuer !== undefined ? { requireIssuer: oauth.requireIssuer } : {}),
+    serverUrl: server.url!,
+    // D-1:这份 tokenEndpoint 出自用户自己写的配置（或用户配置的 discovery 结果），
+    // 由真正读出它的这一层声明；远端直接下发的端点走不到这里（无声明 ⇒ 默认档）。
+    tokenEndpointTrust: {
+      source: 'user-settings',
+      settingsKey: oauth.discovery
+        ? 'mcpServers[].oauth.discovery'
+        : 'mcpServers[].auth.oauth.tokenEndpoint',
+      configuredEndpoint: tokenEndpoint,
+    },
+    refreshSingleFlight: true,
+  };
+}
+
+/**
  * 解析 MCP server 的认证 headers。
  *
  * 三条路径(按优先级):
@@ -912,29 +1069,91 @@ export async function resolveMcpAuthHeaders(server: McpServer): Promise<Record<s
     return headers;
   }
 
-  // 2. OAuth 路径:仅当显式声明 auth.type === 'oauth' 且提供 oauth 元数据时启用
+  // 2. EMA（SEP-990）:企业 IdP 签 ID-JAG，再换 MCP AS token；没有浏览器同意页。
+  //    没有 refresh_token：过期就重新要一枚 ID-JAG，撤销权留在 IdP。
+  if (server.auth?.type === 'enterprise-managed' && server.enterpriseManaged && server.url) {
+    const ema = server.enterpriseManaged;
+    try {
+      const cred = await getCredential(server.url);
+      if (cred?.accessToken && !(await isExpired(cred))) {
+        headers['Authorization'] = `Bearer ${cred.accessToken}`;
+        return headers;
+      }
+      const result = await startEnterpriseManagedOAuthFlow({
+        serverUrl: server.url,
+        idpTokenEndpoint: ema.idpTokenEndpoint,
+        idpClientId: ema.idpClientId,
+        ...(ema.idpClientSecret ? { idpClientSecret: ema.idpClientSecret } : {}),
+        identityAssertion: ema.identityAssertion,
+        ...(ema.subjectTokenType ? { subjectTokenType: ema.subjectTokenType } : {}),
+        authorizationServerIssuer: ema.authorizationServerIssuer,
+        ...(ema.resource ? { resource: ema.resource } : {}),
+        ...(ema.scope ? { scope: ema.scope } : {}),
+        tokenEndpoint: ema.tokenEndpoint,
+        clientId: ema.clientId,
+        ...(ema.clientSecret ? { clientSecret: ema.clientSecret } : {}),
+        ...(ema.tokenEndpointAuthMethod ? { tokenEndpointAuthMethod: ema.tokenEndpointAuthMethod } : {}),
+        ...(ema.idpTokenEndpointAuthMethod ? { idpTokenEndpointAuthMethod: ema.idpTokenEndpointAuthMethod } : {}),
+        // 两个端点都来自用户自己写的 mcpServers 配置；远端下发的端点不得带信任声明。
+        idpTokenEndpointTrust: {
+          source: 'user-settings',
+          settingsKey: 'mcpServers[].enterpriseManaged.idpTokenEndpoint',
+          configuredEndpoint: ema.idpTokenEndpoint,
+        },
+        tokenEndpointTrust: {
+          source: 'user-settings',
+          settingsKey: 'mcpServers[].enterpriseManaged.tokenEndpoint',
+          configuredEndpoint: ema.tokenEndpoint,
+        },
+      });
+      headers['Authorization'] = `Bearer ${result.accessToken}`;
+      return headers;
+    } catch (err) {
+      throw new Error(
+        `MCP server "${server.name}" 企业托管授权（EMA/ID-JAG）失败: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  // 2b. OAuth Client Credentials（MCP 稳定授权扩展）:机器对机器，无浏览器同意页。
+  if (
+    server.auth?.type === 'oauth-client-credentials' &&
+    server.oauthClientCredentials &&
+    server.url
+  ) {
+    const cc = server.oauthClientCredentials;
+    try {
+      const cred = await getCredential(server.url);
+      if (cred?.accessToken && !(await isExpired(cred))) {
+        headers['Authorization'] = `Bearer ${cred.accessToken}`;
+        return headers;
+      }
+      const result = await startClientCredentialsOAuthFlow({
+        serverUrl: server.url,
+        tokenEndpoint: cc.tokenEndpoint,
+        clientId: cc.clientId,
+        ...(cc.clientSecret ? { clientSecret: cc.clientSecret } : {}),
+        ...(cc.scope ? { scope: cc.scope } : {}),
+        ...(cc.resource ? { resource: cc.resource } : {}),
+        ...(cc.tokenEndpointAuthMethod ? { tokenEndpointAuthMethod: cc.tokenEndpointAuthMethod } : {}),
+        tokenEndpointTrust: {
+          source: 'user-settings',
+          settingsKey: 'mcpServers[].oauthClientCredentials.tokenEndpoint',
+          configuredEndpoint: cc.tokenEndpoint,
+        },
+      });
+      headers['Authorization'] = `Bearer ${result.accessToken}`;
+      return headers;
+    } catch (err) {
+      throw new Error(
+        `MCP server "${server.name}" OAuth Client Credentials 取 token 失败: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  // 3. OAuth 路径:仅当显式声明 auth.type === 'oauth' 且提供 oauth 元数据时启用
   if (server.auth?.type === 'oauth' && server.oauth && server.url) {
-    const oauthConfig: OAuthConfig = {
-      authorizationEndpoint: server.oauth.authorizationEndpoint,
-      tokenEndpoint: server.oauth.tokenEndpoint,
-      clientId: server.oauth.clientId,
-      clientSecret: server.oauth.clientSecret,
-      redirectUri: server.oauth.redirectUri,
-      scope: server.oauth.scope,
-      serverUrl: server.url,
-      // D-1:这份 tokenEndpoint 出自用户自己写的 mcpServers 配置,所以把基准交给
-      // 真正读出它的这一层声明;oauth 元数据/远端下发的端点走不到这里(无声明 ⇒ 默认档)。
-      tokenEndpointTrust: {
-        source: 'user-settings',
-        settingsKey: 'mcpServers[].auth.oauth.tokenEndpoint',
-        configuredEndpoint: server.oauth.tokenEndpoint,
-      },
-      // 票A(2026-09-28):生产刷新路径必须走"跨进程单飞锁 + 代次 CAS + 失败三分"。
-      // 上一版这里是一次裸 refreshAccessToken —— 两个进程用同一 refresh_token 并发刷新
-      // 会撞授权服务器的 rotation reuse-detection,整个 token family 被撤销,
-      // 用户侧表现就是"突然要重新授权"。协议本体在 mcp-oauth.ts 的 refreshAccessToken 里。
-      refreshSingleFlight: true,
-    };
+    const oauthConfig = await resolveMcpOAuthConfig(server);
 
     try {
       // 2a. 读 credentials store
@@ -1174,7 +1393,15 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
         // 2026-07-28:无握手、无会话。先声明版本，后续 tools/list 与 tools/call
         // 每个请求都由 sendHttpRpc 补 `_meta` + Mcp-Method/Mcp-Name。
         conn.protocolVersion = MCP_STATELESS_PROTOCOL_VERSION;
-        conn.clientCapabilities = {};
+        conn.clientCapabilities = {
+          extensions: {
+            // 本客户端已实现：Tasks（长任务）、MCP Apps（ui:// 模板）、EMA（ID-JAG）。
+            'io.modelcontextprotocol/tasks': {},
+            'io.modelcontextprotocol/ui': { mimeTypes: ['text/html;profile=mcp-app'] },
+            'io.modelcontextprotocol/enterprise-managed-authorization': {},
+            'io.modelcontextprotocol/oauth-client-credentials': {},
+          },
+        };
       } else {
         await sendHttpRpc(server.url, 'initialize', {
           protocolVersion: DEFAULT_PROTOCOL_VERSION,
@@ -1263,6 +1490,49 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
       });
     }
 
+    // 2026-07-28:server/discover 是服务器的 MUST；客户端可选调用。
+    // 这里先探一次，拿到 capabilities/serverInfo/instructions，同时校验版本协商；
+    // 旧实现/不合规服务器返回 method not found 时只告警，不阻断 tools/list（兼容优先）。
+    if (conn.protocolVersion === MCP_STATELESS_PROTOCOL_VERSION) {
+      try {
+        const discovered = (await callMcpServer(conn, 'server/discover', {})) as {
+          supportedVersions?: unknown;
+          capabilities?: Record<string, unknown>;
+          instructions?: string;
+          _meta?: { 'io.modelcontextprotocol/serverInfo'?: { name?: string; version?: string } };
+        } | null;
+        const versions = Array.isArray(discovered?.supportedVersions)
+          ? discovered.supportedVersions.filter((v): v is string => typeof v === 'string')
+          : [];
+        if (versions.length > 0 && !versions.includes(MCP_STATELESS_PROTOCOL_VERSION)) {
+          throw new Error(
+            `server/discover 不支持 ${MCP_STATELESS_PROTOCOL_VERSION}（服务器声明: ${versions.join(', ')}）`,
+          );
+        }
+        if (discovered?.capabilities && isRecord(discovered.capabilities)) {
+          conn.serverCapabilities = discovered.capabilities;
+        }
+        const serverInfo = discovered?._meta?.['io.modelcontextprotocol/serverInfo'];
+        if (serverInfo && isRecord(serverInfo)) {
+          conn.serverInfo = {
+            ...(typeof serverInfo.name === 'string' ? { name: serverInfo.name } : {}),
+            ...(typeof serverInfo.version === 'string' ? { version: serverInfo.version } : {}),
+          };
+        }
+        if (typeof discovered?.instructions === 'string') {
+          conn.serverInstructions = discovered.instructions;
+        }
+      } catch (err) {
+        if (/method not found|-32601/i.test(err instanceof Error ? err.message : String(err))) {
+          console.warn(
+            `[mcp-runtime] server=${server.name} 未实现 server/discover（2026-07-28 的 MUST），按兼容路径继续 tools/list`,
+          );
+        } else {
+          throw err;
+        }
+      }
+    }
+
     const toolsResult = await callMcpServer(conn, 'tools/list', {}) as { tools?: McpToolDef[] } | null;
     conn.tools = toolsResult?.tools ?? [];
     conn.connected = true;
@@ -1319,15 +1589,237 @@ async function sendRpc(
   }
 }
 
+export interface McpCallOptions {
+  /** MRTR / Tasks 的人工补答；由工具层从保留参数取出后传入。 */
+  inputResponses?: McpInputResponses;
+  requestState?: string;
+}
+
 // P1-5 hub mcp-adapter:导出供 adapter 转发 tools/call 调用(零行为变更,仅加 export)
 export async function callMcpServer(
   conn: McpConnection,
   method: string,
   params: Record<string, unknown>,
+  options: McpCallOptions = {},
 ): Promise<unknown> {
-  const resp = await sendRpc(conn, method, params);
-  return resp.result;
+  const initialParams: Record<string, unknown> = {
+    ...params,
+    ...(options.inputResponses ? { inputResponses: options.inputResponses } : {}),
+    ...(options.requestState ? { requestState: options.requestState } : {}),
+  };
+  const resp = await sendRpc(conn, method, initialParams);
+  const result = resp.result;
+  // 2026-07-28 的 Tasks / MRTR 只对 tools/call 生效；其它方法原样返回。
+  if (
+    method === 'tools/call' &&
+    conn.protocolVersion === MCP_STATELESS_PROTOCOL_VERSION
+  ) {
+    return driveMcpToolResult(result, initialParams, {
+      retryCall: (nextParams) => sendRpc(conn, 'tools/call', nextParams).then((r) => r.result),
+      taskCall: (taskMethod, taskParams) =>
+        sendRpc(conn, taskMethod, taskParams).then((r) => r.result),
+    }, {
+      inputHandler: conn.inputHandler,
+      maxTaskWaitMs: mcpTaskMaxWaitMs(conn),
+    });
+  }
+  return result;
 }
+
+/** 任务轮询的总墙钟上限；默认 30 分钟，可由 server.requestTimeoutMs 放大或环境变量收紧。 */
+function mcpTaskMaxWaitMs(conn: McpConnection): number {
+  const env = Number(process.env.IHUI_MCP_TASK_MAX_WAIT_MS);
+  if (Number.isFinite(env) && env > 0) return env;
+  const requestTimeout = conn.server.requestTimeoutMs;
+  if (typeof requestTimeout === 'number' && requestTimeout > 30 * 60_000) {
+    return requestTimeout;
+  }
+  return 30 * 60_000;
+}
+
+export interface McpToolResultDriverDeps {
+  /** 重发原 tools/call（MRTR 用）。 */
+  retryCall: (params: Record<string, unknown>) => Promise<unknown>;
+  /** 发 tasks/get | tasks/update | tasks/cancel。 */
+  taskCall: (method: 'tasks/get' | 'tasks/update' | 'tasks/cancel', params: Record<string, unknown>) => Promise<unknown>;
+}
+
+export interface McpToolResultDriverOptions {
+  inputHandler?: McpInputHandler;
+  /** MRTR 最多重试轮数；对齐主流 SDK 的 10 轮。 */
+  maxMrtrRounds?: number;
+  /** 任务轮询总墙钟上限（毫秒）。 */
+  maxTaskWaitMs?: number;
+  /** 测试注入时钟/睡眠；生产缺省走真实定时器。 */
+  now?: () => number;
+  sleep?: (ms: number) => Promise<void>;
+}
+
+const MCP_MRTR_MAX_ROUNDS = 10;
+const MCP_TASK_POLL_DEFAULT_MS = 1_000;
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+function normalizeInputRequests(value: unknown): McpInputRequests {
+  const record = asRecord(value);
+  if (!record) throw new Error('MCP 返回 input_required 但 inputRequests 不是对象');
+  const out: McpInputRequests = {};
+  for (const [key, request] of Object.entries(record)) {
+    const req = asRecord(request);
+    if (!req || typeof req.method !== 'string') {
+      throw new Error(`MCP inputRequest ${key} 缺少 method`);
+    }
+    out[key] = {
+      method: req.method,
+      ...(asRecord(req.params) ? { params: req.params as Record<string, unknown> } : {}),
+    };
+  }
+  return out;
+}
+
+/**
+ * 2026-07-28 多程请求驱动器：
+ * - `resultType: "input_required"`：答完 inputRequests 后重发原 tools/call（MRTR）；
+ * - `resultType: "task"`：按 pollIntervalMs 轮询 tasks/get，input_required 时走 tasks/update；
+ * - 没有 inputHandler 时抛 McpInputRequiredError，绝不静默替用户做决定。
+ *
+ * 纯函数 + 注入 deps/clock，测试不碰网络。
+ */
+export async function driveMcpToolResult(
+  first: unknown,
+  originalParams: Record<string, unknown>,
+  deps: McpToolResultDriverDeps,
+  options: McpToolResultDriverOptions = {},
+): Promise<unknown> {
+  const now = options.now ?? (() => Date.now());
+  const sleep = options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+  const maxRounds = options.maxMrtrRounds ?? MCP_MRTR_MAX_ROUNDS;
+
+  let current = first;
+  for (let round = 0; round <= maxRounds; round += 1) {
+    const record = asRecord(current);
+    if (!record) return current;
+    const resultType = record.resultType;
+    if (resultType === undefined || resultType === 'complete') return current;
+
+    if (resultType === 'task') {
+      return pollMcpTask(record, deps, { ...options, now, sleep });
+    }
+
+    if (resultType === 'input_required') {
+      if (round === maxRounds) {
+        throw new Error(`MCP MRTR 超过 ${maxRounds} 轮仍未完成`);
+      }
+      const inputRequests = normalizeInputRequests(record.inputRequests);
+      if (!options.inputHandler) {
+        throw new McpInputRequiredError(
+          `MCP 请求需要补充输入（${Object.keys(inputRequests).join(', ')}），但宿主未接 inputHandler`,
+          inputRequests,
+          typeof record.requestState === 'string' ? record.requestState : undefined,
+        );
+      }
+      const inputResponses = await options.inputHandler(inputRequests, {
+        ...(typeof record.statusMessage === 'string' ? { statusMessage: record.statusMessage } : {}),
+      });
+      current = await deps.retryCall({
+        ...originalParams,
+        inputResponses,
+        ...(typeof record.requestState === 'string' ? { requestState: record.requestState } : {}),
+      });
+      continue;
+    }
+
+    throw new Error(`MCP 返回了未知 resultType: ${String(resultType)}`);
+  }
+  throw new Error(`MCP MRTR 超过 ${maxRounds} 轮仍未完成`);
+}
+
+async function pollMcpTask(
+  seed: Record<string, unknown>,
+  deps: McpToolResultDriverDeps,
+  options: Required<Pick<McpToolResultDriverOptions, 'now' | 'sleep'>> & McpToolResultDriverOptions,
+): Promise<unknown> {
+  const taskId = seed.taskId;
+  if (typeof taskId !== 'string' || taskId.length === 0) {
+    throw new Error('MCP 返回 task 结果但缺少 taskId');
+  }
+  const maxWaitMs = options.maxTaskWaitMs ?? 30 * 60_000;
+  const deadline = options.now() + maxWaitMs;
+  let pollInterval = taskPollInterval(seed.pollIntervalMs);
+
+  const finish = (task: Record<string, unknown>): unknown => {
+    const status = task.status;
+    if (status === 'completed') return task.result ?? {};
+    if (status === 'failed') {
+      throw new McpTaskFailedError(
+        typeof task.statusMessage === 'string' ? task.statusMessage : `MCP task ${taskId} 失败`,
+        taskId,
+        task.error,
+      );
+    }
+    if (status === 'cancelled') {
+      throw new McpTaskCancelledError(`MCP task ${taskId} 已取消`, taskId);
+    }
+    throw new Error(`MCP task ${taskId} 未知终态: ${String(status)}`);
+  };
+
+  const seedStatus = seed.status;
+  if (seedStatus === 'completed' || seedStatus === 'failed' || seedStatus === 'cancelled') {
+    return finish(seed);
+  }
+
+  for (;;) {
+    if (options.now() >= deadline) {
+      try {
+        await deps.taskCall('tasks/cancel', { taskId });
+      } catch {
+        // 取消失败不掩盖超时真因
+      }
+      throw new Error(`MCP task ${taskId} 轮询超时（${maxWaitMs}ms）`);
+    }
+    await options.sleep(pollInterval);
+    const task = asRecord(await deps.taskCall('tasks/get', { taskId }));
+    if (!task) throw new Error(`MCP tasks/get 返回非对象（task ${taskId}）`);
+    if (task.taskId !== taskId) {
+      throw new Error(`MCP tasks/get 返回了不匹配的 taskId: ${String(task.taskId)}`);
+    }
+    pollInterval = taskPollInterval(task.pollIntervalMs, pollInterval);
+
+    const status = task.status;
+    if (status === 'working') continue;
+    if (status === 'completed' || status === 'failed' || status === 'cancelled') {
+      return finish(task);
+    }
+    if (status === 'input_required') {
+      const inputRequests = normalizeInputRequests(task.inputRequests);
+      if (!options.inputHandler) {
+        throw new McpInputRequiredError(
+          `MCP task ${taskId} 需要补充输入（${Object.keys(inputRequests).join(', ')}），但宿主未接 inputHandler`,
+          inputRequests,
+          undefined,
+          taskId,
+        );
+      }
+      const inputResponses = await options.inputHandler(inputRequests, {
+        taskId,
+        ...(typeof task.statusMessage === 'string' ? { statusMessage: task.statusMessage } : {}),
+      });
+      await deps.taskCall('tasks/update', { taskId, inputResponses });
+      continue;
+    }
+    throw new Error(`MCP task ${taskId} 未知状态: ${String(status)}`);
+  }
+}
+
+function taskPollInterval(value: unknown, fallback = MCP_TASK_POLL_DEFAULT_MS): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return fallback;
+  return Math.min(value, 60_000);
+}
+
 
 export function parseMcpResourcesResponse(resp: unknown): McpResource[] {
   if (!resp || typeof resp !== 'object') return [];
@@ -1550,6 +2042,81 @@ export function interpretMcpToolCallResult(
 }
 
 /**
+ * MCP `CallToolResult.content` → 本仓多段内容块。
+ * 只搬运规范字段，不猜未知类型；`data` 保留给执行器落盘后清理。
+ */
+export function mcpContentToToolContent(raw: unknown): ToolContentBlock[] | undefined {
+  const content = (raw as { content?: unknown } | null)?.content;
+  if (!Array.isArray(content)) return undefined;
+  const blocks: ToolContentBlock[] = [];
+  for (const item of content) {
+    if (item === null || typeof item !== 'object') continue;
+    const c = item as Record<string, unknown>;
+    if (c.type === 'text' && typeof c.text === 'string') {
+      blocks.push({ type: 'text', text: c.text });
+      continue;
+    }
+    if ((c.type === 'image' || c.type === 'audio') && typeof c.data === 'string') {
+      blocks.push({
+        type: c.type,
+        data: c.data,
+        ...(typeof c.mimeType === 'string' ? { mimeType: c.mimeType } : {}),
+      });
+      continue;
+    }
+    if (c.type === 'resource') {
+      const resource = c.resource;
+      if (resource !== null && typeof resource === 'object') {
+        const r = resource as Record<string, unknown>;
+        const uri = typeof r.uri === 'string' ? r.uri : undefined;
+        if (typeof r.text === 'string') {
+          blocks.push({ type: 'text', text: r.text });
+        } else if (typeof r.blob === 'string' && uri) {
+          blocks.push({
+            type: 'document',
+            data: r.blob,
+            name: uri,
+            ...(typeof r.mimeType === 'string' ? { mimeType: r.mimeType } : {}),
+          });
+        } else if (uri) {
+          blocks.push({
+            type: 'resource_link',
+            uri,
+            ...(typeof r.mimeType === 'string' ? { mimeType: r.mimeType } : {}),
+          });
+        }
+      }
+      continue;
+    }
+    if (c.type === 'resource_link' && typeof c.uri === 'string') {
+      blocks.push({
+        type: 'resource_link',
+        uri: c.uri,
+        ...(typeof c.name === 'string' ? { name: c.name } : {}),
+        ...(typeof c.mimeType === 'string' ? { mimeType: c.mimeType } : {}),
+        ...(typeof c.description === 'string' ? { description: c.description } : {}),
+      });
+    }
+  }
+  return blocks.length > 0 ? blocks : undefined;
+}
+
+/**
+ * MCP `CallToolResult` 的文本投影应当补上非文本段说明；
+ * 否则只有图片/文档的结果会被模型误读成“没有输出”。
+ */
+export function describeMcpNonTextContent(blocks: ToolContentBlock[] | undefined): string {
+  if (!blocks) return '';
+  const counts = new Map<string, number>();
+  for (const block of blocks) {
+    if (block.type === 'text') continue;
+    counts.set(block.type, (counts.get(block.type) ?? 0) + 1);
+  }
+  if (counts.size === 0) return '';
+  return `[非文本内容: ${[...counts.entries()].map(([type, n]) => `${type}×${n}`).join(', ')}]`;
+}
+
+/**
  * 生产包装:在判据本体之上补 `toolName` 语境与 ToolResult 形状。
  * 失败档的 `errorType` 恒为 `'mcp_tool_error'` —— 刻意**不是**
  * network/timeout/rate_limited 那三档:业务失败被自动重试等于把同一个错
@@ -1558,12 +2125,25 @@ export function interpretMcpToolCallResult(
 export function mcpToolResultToToolResult(
   raw: unknown,
   toolName: string,
-): Pick<ToolResult, 'success' | 'output'> & { error?: string; errorType?: string } {
+): Pick<ToolResult, 'success' | 'output' | 'content'> & { error?: string; errorType?: string } {
   const r = interpretMcpToolCallResult(raw, toolName);
+  const content = mcpContentToToolContent(raw);
+  const nonText = describeMcpNonTextContent(content);
+  const output = nonText && r.output === '(无文本输出)' ? `${r.output} ${nonText}` : r.output;
   if (r.ok) {
-    return { success: true, output: r.output };
+    return {
+      success: true,
+      output,
+      ...(content ? { content } : {}),
+    };
   }
-  return { success: false, output: r.output, error: r.error, errorType: 'mcp_tool_error' };
+  return {
+    success: false,
+    output,
+    error: r.error,
+    errorType: 'mcp_tool_error',
+    ...(content ? { content } : {}),
+  };
 }
 
 /**
@@ -1579,10 +2159,46 @@ export function mcpToolName(serverName: string, toolName: string): string {
   return `mcp__${serverName}__${toolName}`;
 }
 
+/** MCP Apps：工具关联的 ui:// 模板 URI（新嵌套字段优先，兼容旧扁平字段）。 */
+export function mcpToolUiResourceUri(tool: McpToolDef): string | undefined {
+  const nested = tool._meta?.ui?.resourceUri;
+  if (typeof nested === 'string' && nested.startsWith('ui://')) return nested;
+  const legacy = tool._meta?.['ui/resourceUri'];
+  return typeof legacy === 'string' && legacy.startsWith('ui://') ? legacy : undefined;
+}
+
+/**
+ * SEP-1865：visibility 缺省为 ["model","app"]；app-only 工具不能进模型工具面，
+ * 否则模型会直接调用本该由 UI 内部触发的工具。
+ */
+export function isMcpToolVisibleToModel(tool: McpToolDef): boolean {
+  const visibility = tool._meta?.ui?.visibility;
+  if (!Array.isArray(visibility) || visibility.length === 0) return true;
+  return visibility.includes('model');
+}
+
 export function mcpToolToTool(conn: McpConnection, mcpTool: McpToolDef): Tool {
   const params = convertSchema(mcpTool.inputSchema);
   const required = mcpTool.inputSchema.required ?? [];
   const serverName = conn.server.name;
+  // 2026-07-28 的 MRTR/Tasks 人工补答面：模型先用 ask_user 收集，再把答案放回
+  // 这两个保留参数重调本工具。只在 2026 连接上暴露，旧协议不多长两只脚。
+  const parameters =
+    conn.protocolVersion === MCP_STATELESS_PROTOCOL_VERSION
+      ? {
+          ...params,
+          _mcp_input_responses: {
+            type: 'object' as const,
+            description:
+              '可选。MCP 服务端返回 input_required 后，把 ask_user 收集到的答案按 inputRequests 的 key 原样放回这里。',
+            additionalProperties: true,
+          },
+          _mcp_request_state: {
+            type: 'string' as const,
+            description: '可选。服务端 input_required 结果里的 requestState，重调时原样回传。',
+          },
+        }
+      : params;
 
   return {
     name: mcpToolName(serverName, mcpTool.name),
@@ -1593,7 +2209,7 @@ export function mcpToolToTool(conn: McpConnection, mcpTool: McpToolDef): Tool {
     // 注册归属:同名冲突时要点名"是哪一台服务器"(见 tools/index.ts 的 registrationOwner)
     registrationOwner: `mcp:${serverName}`,
     description: mcpTool.description ?? `MCP 工具 (${serverName})`,
-    parameters: params,
+    parameters,
     required,
     // 破坏性注解是**硬否决**：即使服务端同时自报 readOnlyHint=true，也按 dangerous 走确认。
     ...(mcpTool.annotations?.destructiveHint === true ? { dangerLevel: 'dangerous' as const } : {}),
@@ -1610,15 +2226,43 @@ export function mcpToolToTool(conn: McpConnection, mcpTool: McpToolDef): Tool {
       closedWorldAxis: mcpTool.annotations?.openWorldHint === false,
     },
     async execute(args): Promise<ToolResult> {
+      const {
+        _mcp_input_responses: rawInputResponses,
+        _mcp_request_state: rawRequestState,
+        ...toolArgs
+      } = args as Record<string, unknown>;
+      const inputResponses = asRecord(rawInputResponses);
+      const requestState = typeof rawRequestState === 'string' ? rawRequestState : undefined;
       try {
         const raw = await callMcpServer(conn, 'tools/call', {
           name: mcpTool.name,
-          arguments: args,
+          arguments: toolArgs,
+        }, {
+          ...(inputResponses ? { inputResponses } : {}),
+          ...(requestState ? { requestState } : {}),
         });
         // G-691:isError 的判定与出口都在纯函数里(见mcpToolResultToToolResult 的
         // 判据说明),此处只做转发 —— 两处算同一件事必漂移。
-        return mcpToolResultToToolResult(raw, mcpTool.name);
+        return withMcpUiBlocks(conn, mcpTool, mcpToolResultToToolResult(raw, mcpTool.name));
       } catch (err) {
+        if (err instanceof McpInputRequiredError) {
+          // 不把“缺输入”折成 mcp_tool_error：后者会被自动重试，同一个请求只会再撞一次墙。
+          // 把 inputRequests 原样交给模型，模型用 ask_user 收答案后带保留参数重调。
+          return {
+            success: false,
+            output: JSON.stringify({
+              code: err.code,
+              message: err.message,
+              inputRequests: err.inputRequests,
+              ...(err.requestState ? { requestState: err.requestState } : {}),
+              ...(err.taskId ? { taskId: err.taskId } : {}),
+              retryHint:
+                '用 ask_user 按 inputRequests 的 key 收集答案，然后带 _mcp_input_responses（对象）与 _mcp_request_state（如有）重新调用本工具。',
+            }, null, 2),
+            error: err.message,
+            errorType: 'mcp_input_required',
+          };
+        }
         return {
           success: false,
           output: '',
@@ -1626,6 +2270,67 @@ export function mcpToolToTool(conn: McpConnection, mcpTool: McpToolDef): Tool {
         };
       }
     },
+  };
+}
+
+/**
+ * MCP Apps 的**无头宿主**落点：不渲染交互 iframe，但把工具关联的 ui:// 模板
+ * 原样交给 ToolResult.content（resource_link + 已取回的 HTML document）。
+ * 这样 CLI / ACP / 网页宿主都能决定“预览/下载/忽略”，模型只看到一条短说明。
+ */
+async function withMcpUiBlocks(
+  conn: McpConnection,
+  mcpTool: McpToolDef,
+  result: ReturnType<typeof mcpToolResultToToolResult>,
+): Promise<ToolResult> {
+  const uri = mcpToolUiResourceUri(mcpTool);
+  if (!uri) return result;
+
+  const link: ToolContentBlock = {
+    type: 'resource_link',
+    uri,
+    name: mcpTool.name,
+    mimeType: 'text/html;profile=mcp-app',
+  };
+  const blocks: ToolContentBlock[] = [...(result.content ?? [])];
+  if (!blocks.some((b) => b.type === 'resource_link' && b.uri === uri)) blocks.push(link);
+  let note = '';
+  try {
+    let contents = conn.uiResourceCache?.get(uri);
+    if (!contents) {
+      contents = await readMcpResource(conn, uri);
+      conn.uiResourceCache ??= new Map();
+      conn.uiResourceCache.set(uri, contents);
+    }
+    const html = contents.find(
+      (c) => c.mimeType === 'text/html;profile=mcp-app' || c.mimeType === 'text/html',
+    );
+    if (html?.text !== undefined) {
+      blocks.push({
+        type: 'document',
+        name: uri,
+        mimeType: html.mimeType ?? 'text/html;profile=mcp-app',
+        data: Buffer.from(html.text, 'utf8').toString('base64'),
+      });
+      note = `\n[UI 模板: ${uri}（已作为 document 附在结果里；宿主可预览/下载）]`;
+    } else if (html?.blob) {
+      blocks.push({
+        type: 'document',
+        name: uri,
+        mimeType: html.mimeType ?? 'text/html;profile=mcp-app',
+        data: html.blob,
+      });
+      note = `\n[UI 模板: ${uri}（已作为 document 附在结果里；宿主可预览/下载）]`;
+    } else {
+      note = `\n[UI 模板: ${uri}（仅 resource_link，宿主可自行读取）]`;
+    }
+  } catch (err) {
+    note = `\n[UI 模板: ${uri}（读取失败: ${err instanceof Error ? err.message : String(err)}）]`;
+  }
+  return {
+    ...result,
+    output: result.output + note,
+    content: blocks,
   };
 }
 
@@ -1687,6 +2392,7 @@ export async function loadMcpTools(
       try {
         const conn = await connectMcpServer({ ...server, cwd: ctx.workspacePath });
         for (const mcpTool of conn.tools) {
+          if (!isMcpToolVisibleToModel(mcpTool)) continue;
           allTools.push(mcpToolToTool(conn, mcpTool));
         }
       } catch (err) {
