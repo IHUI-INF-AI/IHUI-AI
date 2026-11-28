@@ -139,6 +139,18 @@ export interface SkillPurchaseResponse {
   installCount: number
 }
 
+/** 管理员退款购买记录后的响应。 */
+export interface SkillPurchaseRefundResponse {
+  purchaseId: string
+  skillName: string
+  buyerUserId: string
+  alreadyRefunded: boolean
+  refundedAmountCents: number
+  /** 从卖家余额实际扣回的分成；余额不足时小于原分成，差额由平台承担。 */
+  sellerClawbackCents: number
+  buyerBalanceAfter: number | null
+}
+
 /** 作者收益汇总(GET /skills/market/earnings)。 */
 export interface SkillEarningsResponse {
   totalAuthorShareCents: number

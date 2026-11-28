@@ -13,7 +13,7 @@ import { orders } from './billing.js'
  * - beneficiaryId = 获佣人（推荐人，佣金计入此账户，可空：用户删除时保留佣金凭证，beneficiaryId 置 NULL）
  * - invitedUserId = 下单人（被邀请人，产生订单的用户）
  * - orderId = 关联订单
- * type: 0=regular 1=vip 2=trader(祖父级)
+ * type: 0=regular 1=vip 2=trader(祖父级) 3=skill market author share(技能市场作者分成)
  * status: 0=invalid 1=active
  * G10:补 updatedAt + updatedBy 字段(原表只有 createdAt,补齐后支持审计追溯)
  * G13:补 createdBy 字段(创建者审计,系统自动分佣时为 null)

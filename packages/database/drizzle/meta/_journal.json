@@ -3404,6 +3404,13 @@
       "when": 1795840800000,
       "tag": "20261128140000_skill_market_purchases",
       "breakpoints": true
+    },
+    {
+      "idx": 496,
+      "version": "7",
+      "when": 1795845600000,
+      "tag": "20261128160000_skill_market_refund",
+      "breakpoints": true
     }
   ]
 }

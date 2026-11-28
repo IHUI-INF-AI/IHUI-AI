@@ -298,6 +298,49 @@ foreach ($o in @($nonProdOwners)) {
   if (-not $script:Dry) { Stop-Process -Id $o -Force -ErrorAction SilentlyContinue }
 }
 
+# --- 8b. 僵尸临时服务：uvicorn 起过却没占住端口的孤儿 ---
+# 验收桩常拿 88xx 临时端口另起一份 ai-service；绑定失败、端口被抢、或起完忘了关，
+# 都会剩一个「不监听任何端口、父进程已死」的 python —— 它不再提供任何服务，只是占内存。
+# 判据只认 -m uvicorn 这一类，且必须无监听、无子、无连接、父死、超 30 分钟；
+# pytest / vitest 一律不碰（那是别人会话的结果，杀了就是丢结果）。
+foreach ($p in $all) {
+  if (-not ($p.CommandLine -and $p.CommandLine -like '*-m uvicorn*')) { continue }
+  if ($protected.Contains([int]$p.ProcessId)) { continue }
+  if (@($listen | Where-Object { [int]$_.OwningProcess -eq [int]$p.ProcessId }).Count -gt 0) { continue }
+  if (@($all | Where-Object { $_.ParentProcessId -eq $p.ProcessId }).Count -gt 0) { continue }
+  if (@(Get-NetTCPConnection -OwningProcess $p.ProcessId -State Established -ErrorAction SilentlyContinue).Count -gt 0) { continue }
+  $ageSec = ($now - $p.CreationDate).TotalSeconds
+  # pythonw 没有有效的 stderr，uvicorn 绑端口失败（端口被契约实例占了）时异常无处可写，
+  # 进程会被静默挂住：既不监听也不退出，父进程还活着就一直挂着。所以父活也不能一律豁免 ——
+  # 十分钟还没占住端口，说明它永远起不来了；父已死的仍按三十分钟的宽限走。
+  if ($live.ContainsKey([int]$p.ParentProcessId)) {
+    if ($ageSec -lt 600) { continue }
+  } elseif ($ageSec -lt 1800) { continue }
+  Note ('REAP 僵尸服务 {0} pid={1}（uvicorn 未占端口、已 {2:N0}s）' -f $p.Name, $p.ProcessId, $ageSec)
+  if (-not $script:Dry) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue }
+}
+
+# --- 9. 卡死的 pytest 僵尸 ---
+# 父会话退出后 pytest 卡在等锁 / 等网络：CPU 恒为 0、没有任何输出、junit 文件也不产出。
+# 它不是「在跑」，只是占着内存和句柄。判据要求 CPU 在 1.2 秒窗口内增量 ≤ 0.1s ——
+# 真在跑的测试一定会有计算量，绝不会中招；父进程还活着的也一律跳过。
+foreach ($p in $all) {
+  if (-not ($p.CommandLine -and $p.CommandLine -like '*-m pytest*')) { continue }
+  if ($protected.Contains([int]$p.ProcessId)) { continue }
+  if ($live.ContainsKey([int]$p.ParentProcessId)) { continue }
+  if (($now - $p.CreationDate).TotalSeconds -lt 1800) { continue }
+  if (@($listen | Where-Object { [int]$_.OwningProcess -eq [int]$p.ProcessId }).Count -gt 0) { continue }
+  if (@($all | Where-Object { $_.ParentProcessId -eq $p.ProcessId }).Count -gt 0) { continue }
+  $c1 = (Get-Process -Id $p.ProcessId -ErrorAction SilentlyContinue).CPU
+  if ($null -eq $c1) { continue }
+  Start-Sleep -Milliseconds 1200
+  $c2 = (Get-Process -Id $p.ProcessId -ErrorAction SilentlyContinue).CPU
+  if ($null -eq $c2) { continue }
+  if (($c2 - $c1) -gt 0.1) { continue }
+  Note ('REAP 卡死测试 {0} pid={1}（pytest 零 CPU、父已死，已 {2:N0}s）' -f $p.Name, $p.ProcessId, ($now - $p.CreationDate).TotalSeconds)
+  if (-not $script:Dry) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue }
+}
+
 Note ('DONE 回收结束（候选 {0}，隐藏窗口 {1}，模式 {2}）' -f $cands.Count, $script:HidCount, $(if ($script:Dry) { 'dry-run' } else { 'apply' }))
 exit 0
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
