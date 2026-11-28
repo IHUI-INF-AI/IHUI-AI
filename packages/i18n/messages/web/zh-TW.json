@@ -16342,7 +16342,10 @@
       "signIn": "簽到",
       "signedIn": "已簽到",
       "welcome": "Hi，歡迎來到學習平臺"
-    },
+    ,
+      "usageLoadFailed": "用量資料載入失敗：{message}",
+      "usageUnavailable": "暫不可用",
+      "usageFailedAttempts": "失敗 {count} 次"},
     "moduleSection": {
       "noData": "暫無數據",
       "viewMore": "查看更多"
@@ -24506,7 +24509,15 @@
     "totalRecharge": "累計儲值",
     "totalWithdraw": "累計提現",
     "loadFailed": "錢包載入失敗"
-  },
+  ,
+    "loginRequired": "請先登入後查看錢包",
+    "convertTitle": "錢包餘額兌換 AI 積分",
+    "convertRule": "1 分 = 1 積分，兌換後不可逆",
+    "convertBelowMin": "最低兌換 100 積分（¥1）",
+    "convertMinHint": "最低 100 積分（¥1）",
+    "convertAlreadyDone": "該兌換請求已處理過，未重複扣款",
+    "convertSuccess": "已兌換 {points} AI 積分，當前積分餘額 {balance}",
+    "convertFailed": "兌換失敗，請稍後重試"},
   "withdrawals": {
     "allStatus": "全部狀態",
     "create": "新增",

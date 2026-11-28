@@ -16596,7 +16596,10 @@
       "signIn": "출석",
       "signedIn": "출석 완료",
       "welcome": "Hi, 학습 플랫폼에 오신 것을 환영합니다"
-    },
+    ,
+      "usageLoadFailed": "사용량 데이터 로드 실패: {message}",
+      "usageUnavailable": "일시적으로 사용 불가",
+      "usageFailedAttempts": "{count}회 실패"},
     "moduleSection": {
       "noData": "데이터 없음",
       "viewMore": "더 보기"
@@ -24599,7 +24602,15 @@
     "totalRecharge": "누적 충전",
     "totalWithdraw": "누적 출금",
     "loadFailed": "지갑 로딩 실패"
-  },
+  ,
+    "loginRequired": "로그인 후 지갑을 확인하세요",
+    "convertTitle": "지갑 잔액을 AI 포인트로 교환",
+    "convertRule": "1분 = 1포인트, 교환 후 되돌릴 수 없습니다",
+    "convertBelowMin": "최소 교환 수량은 100포인트(¥1)입니다",
+    "convertMinHint": "최소 100포인트(¥1)",
+    "convertAlreadyDone": "해당 교환 요청은 이미 처리되어 중복 차감되지 않았습니다",
+    "convertSuccess": "{points} AI포인트를 교환했습니다. 현재 포인트 잔액: {balance}",
+    "convertFailed": "교환에 실패했습니다. 잠시 후 다시 시도하세요"},
   "withdrawals": {
     "allStatus": "모든 상태",
     "create": "생성",

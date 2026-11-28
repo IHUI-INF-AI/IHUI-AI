@@ -67,6 +67,9 @@ export function HomeBanner() {
         {SLIDES.map((slide, idx) => (
           <div
             key={idx}
+            // 2026-11-28:非当前张加 inert(参照 HeroCarousel.tsx:97 同型修法)——
+            // 否则 opacity-0 的堆叠层仍接收指针事件,末张 CTA 会劫持前两张的点击跳转。
+            inert={idx !== current}
             className={`absolute top-2 bottom-2 left-2 right-2 flex flex-col justify-center bg-gradient-to-br ${slide.gradient} px-5 min-[768px]:px-8 transition-opacity duration-500 ${
               idx === current ? 'opacity-100' : 'opacity-0'
             }`}

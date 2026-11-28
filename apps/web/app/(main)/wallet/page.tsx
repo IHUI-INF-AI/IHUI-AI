@@ -100,7 +100,7 @@ export default function WalletPage() {
   const onConvertToPoints = async () => {
     const amount = Number.parseInt(convertAmount, 10)
     if (!Number.isFinite(amount) || amount < 100) {
-      setConvertMessage('最低兑换 100 积分(¥1)')
+      setConvertMessage(t('convertBelowMin'))
       return
     }
     setConverting(true)
@@ -120,12 +120,12 @@ export default function WalletPage() {
       })
       setConvertMessage(
         result.alreadyExchanged
-          ? '该兑换请求已处理过，未重复扣款'
-          : `已兑换 ${result.points} AI 积分，当前积分余额 ${result.pointsBalance}`,
+          ? t('convertAlreadyDone')
+          : t('convertSuccess', { points: result.points, balance: result.pointsBalance }),
       )
       await queryClient.invalidateQueries({ queryKey: ['wallet'] })
     } catch (e) {
-      setConvertMessage((e as Error).message || '兑换失败，请稍后重试')
+      setConvertMessage((e as Error).message || t('convertFailed'))
     } finally {
       setConverting(false)
     }
@@ -143,7 +143,7 @@ export default function WalletPage() {
 
       {/* 2026-09-30 登录态门 */}
       {!allow ? (
-        <AuthGatePrompt message="请先登录后查看钱包" />
+        <AuthGatePrompt message={t('loginRequired')} />
       ) : balanceQ.error ? (
         <div className="rounded-lg border bg-destructive/10 p-3 text-body text-destructive">
           {(balanceQ.error as Error).message}
@@ -203,9 +203,9 @@ export default function WalletPage() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <ArrowRightLeft className="h-4 w-4 text-primary" />
-              <span className="text-body font-semibold">钱包余额兑换 AI 积分</span>
+              <span className="text-body font-semibold">{t('convertTitle')}</span>
             </div>
-            <span className="text-label text-muted-foreground">1 分 = 1 积分，兑换后不可逆</span>
+            <span className="text-label text-muted-foreground">{t('convertRule')}</span>
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Input
@@ -221,7 +221,7 @@ export default function WalletPage() {
               {converting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               兑换
             </Button>
-            <span className="text-label text-muted-foreground">最低 100 积分(¥1)</span>
+            <span className="text-label text-muted-foreground">{t('convertMinHint')}</span>
           </div>
           {convertMessage ? (
             <p className="mt-2 text-label text-muted-foreground">{convertMessage}</p>

@@ -16596,7 +16596,10 @@
       "signIn": "チェックイン",
       "signedIn": "チェックイン済み",
       "welcome": "Hi、学習プラットフォームへようこそ"
-    },
+    ,
+      "usageLoadFailed": "使用量データの読み込みに失敗しました：{message}",
+      "usageUnavailable": "一時利用不可",
+      "usageFailedAttempts": "{count}回失敗"},
     "moduleSection": {
       "noData": "データがありません",
       "viewMore": "もっと見る"
@@ -24599,7 +24602,15 @@
     "totalRecharge": "累計チャージ",
     "totalWithdraw": "累計出金",
     "loadFailed": "ウォレットの読み込みに失敗しました"
-  },
+  ,
+    "loginRequired": "ログインしてウォレットを表示してください",
+    "convertTitle": "ウォレット残高をAIポイントに交換",
+    "convertRule": "1分=1ポイント、交換後は取り消せません",
+    "convertBelowMin": "最低交換数は100ポイント（¥1）です",
+    "convertMinHint": "最小 100ポイント（¥1）",
+    "convertAlreadyDone": "この交換リクエストは処理済みです（重複請求なし）",
+    "convertSuccess": "{points} AIポイントを交換しました。現在のポイント残高: {balance}",
+    "convertFailed": "交換に失敗しました。後ほど再度お試しください"},
   "withdrawals": {
     "allStatus": "すべてのステータス",
     "create": "新規作成",

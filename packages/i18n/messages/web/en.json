@@ -16333,7 +16333,10 @@
       "signIn": "Check in",
       "signedIn": "Checked in",
       "welcome": "Hi, welcome to the learning platform"
-    },
+    ,
+      "usageLoadFailed": "Failed to load usage data: {message}",
+      "usageUnavailable": "Unavailable",
+      "usageFailedAttempts": "{count} failed attempts"},
     "moduleSection": {
       "noData": "No data",
       "viewMore": "View more"
@@ -24346,7 +24349,15 @@
     "totalRecharge": "Total recharged",
     "totalWithdraw": "Total withdrawn",
     "loadFailed": "Failed to load wallet"
-  },
+  ,
+    "loginRequired": "Please log in to view your wallet",
+    "convertTitle": "Convert wallet balance to AI points",
+    "convertRule": "¥0.01 = 1 point, conversion is irreversible",
+    "convertBelowMin": "Minimum conversion is 100 points (¥1)",
+    "convertMinHint": "Minimum 100 points (¥1)",
+    "convertAlreadyDone": "This conversion request was already processed; no duplicate charge was made",
+    "convertSuccess": "Converted to {points} AI points; current point balance {balance}",
+    "convertFailed": "Conversion failed, please try again later"},
   "withdrawals": {
     "allStatus": "All Status",
     "create": "Create",

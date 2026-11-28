@@ -133,12 +133,12 @@ export function HeroCarousel({
             key={idx}
             onClick={() => setCurrent(idx)}
             aria-label={t('switchTo', { index: idx + 1 })}
-            className={`group relative flex h-10 w-2.5 items-center transition-all ${
+            className={`group relative flex items-center transition-all ${
               idx === current ? 'h-10 w-2.5' : 'h-2.5 w-2.5'
             }`}
           >
             <span
-              className={`block w-full rounded-md transition-all ${
+              className={`block h-full w-full rounded-md transition-all ${
                 idx === current ? 'bg-card' : 'bg-card/40 hover:bg-card/70'
               }`}
             />

@@ -16611,7 +16611,10 @@
       "signIn": "签到",
       "signedIn": "已签到",
       "welcome": "Hi，欢迎来到学习平台"
-    },
+    ,
+      "usageLoadFailed": "用量数据加载失败：{message}",
+      "usageUnavailable": "暂不可用",
+      "usageFailedAttempts": "失败 {count} 次"},
     "moduleSection": {
       "noData": "暂无数据",
       "viewMore": "查看更多"
@@ -24979,7 +24982,15 @@
     "totalRecharge": "累计充值",
     "totalWithdraw": "累计提现",
     "loadFailed": "钱包加载失败"
-  },
+  ,
+    "loginRequired": "请先登录后查看钱包",
+    "convertTitle": "钱包余额兑换 AI 积分",
+    "convertRule": "1 分 = 1 积分，兑换后不可逆",
+    "convertBelowMin": "最低兑换 100 积分（¥1）",
+    "convertMinHint": "最低 100 积分（¥1）",
+    "convertAlreadyDone": "该兑换请求已处理过，未重复扣款",
+    "convertSuccess": "已兑换 {points} AI 积分，当前积分余额 {balance}",
+    "convertFailed": "兑换失败，请稍后重试"},
   "withdrawals": {
     "allStatus": "全部状态",
     "create": "新建",

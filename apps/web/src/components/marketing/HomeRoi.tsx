@@ -171,7 +171,7 @@ export function HomeRoi() {
         </p>
       </RevealOnView>
 
-      <div className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[768px]:gap-4 tablet-min-[1024px]:grid-cols-4">
+      <div className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[768px]:gap-4 tablet-lg:grid-cols-4">
         {rois.map(
           (
             { icon: Icon, title, value, description, calculation, numericValue, prefix, suffix },
