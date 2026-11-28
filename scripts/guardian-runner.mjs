@@ -6808,6 +6808,22 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 🧭 跨端路由契约(blocking,932 条 Web 路由逐条归到唯一承载体;真缺口必须为 0)(1 项,blocking)---
+  {
+    id: '329',
+    label:
+      '🧭 跨端路由契约(blocking,932 条 Web 路由逐条归到唯一承载体;真缺口必须为 0)',
+    script: 'check-cross-end-route-contract.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_CROSS_END_ROUTE_CONTRACT',
+    stagedTriggers: ['**/*'],
+    onFailHint: [
+      '',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
