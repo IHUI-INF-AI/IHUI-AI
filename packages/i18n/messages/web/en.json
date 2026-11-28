@@ -28864,6 +28864,7 @@
     "diffApply": "Apply patches to disk",
     "sandboxRun": "Run sandbox commands",
     "browserOperate": "Automate the browser",
+    "publishSubmit": "Submit publish tasks",
     "computerOperate": "Control local GUI",
     "webFetch": "Fetch URLs",
     "searchWeb": "Search and crawl the web",

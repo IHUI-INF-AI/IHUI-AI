@@ -29161,6 +29161,7 @@
     "diffApply": "パッチのディスク適用",
     "sandboxRun": "サンドボックスコマンド実行",
     "browserOperate": "ブラウザ自動化",
+    "publishSubmit": "投稿タスクを送信",
     "computerOperate": "ローカル GUI 制御",
     "webFetch": "URL 取得",
     "searchWeb": "ウェブ検索/クロール",

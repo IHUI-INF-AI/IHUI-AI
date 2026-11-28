@@ -1114,10 +1114,12 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     domain: 'platform',
     dataClass: 'scoped-write',
     risk: 'high',
-    billable: false,
+    // 发布任务会占用账号池与平台配额，按“成功创建任务”计量；免费期价格为 0，
+    // 但计费标记必须先为 true，否则审计流水永远记 capabilityBillable=false。
+    billable: true,
     thirdPartyEligible: true,
     idempotencyRequired: true,
-    description: '以 API Key 归属人的自有账号提交发布任务;只返回任务状态,不暴露账号凭据',
+    description: '以 API Key 归属人的自有账号提交发布任务;只返回任务状态,不暴露账号凭据;按任务创建次数计量',
     routes: ['POST /api/publish/tasks', 'GET /api/publish/tasks/:taskId'],
     tools: [],
   }),

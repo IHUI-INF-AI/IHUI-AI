@@ -29531,6 +29531,7 @@
     "diffApply": "补丁落盘",
     "sandboxRun": "沙箱命令执行",
     "browserOperate": "浏览器自动化",
+    "publishSubmit": "提交发布任务",
     "computerOperate": "本机 GUI 控制",
     "webFetch": "URL 抓取",
     "searchWeb": "网页搜索/爬取",
