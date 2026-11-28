@@ -134,6 +134,12 @@ async def collect_metrics(
         except Exception as e:
             logger.exception("[metrics] weibo collect failed content_id=%s", content_id)
             metrics["source"]["error"] = f"{type(e).__name__}: {e}"
+    elif platform == "wechat":
+        try:
+            await _collect_wechat(task_id, credentials, metrics, db_account_id)
+        except Exception as e:
+            logger.exception("[metrics] wechat collect failed task_id=%s", task_id)
+            metrics["source"]["error"] = f"{type(e).__name__}: {e}"
     elif platform in ("douyin", "baijiahao", "xiaohongshu"):
         try:
             await _collect_creator_dom(
@@ -339,6 +345,81 @@ async def _collect_weibo(
             await close_stealth_context(browser, context)
 
 
+async def _collect_wechat(
+    task_id: str,
+    credentials: dict[str, Any],
+    metrics: dict[str, Any],
+    db_account_id: int | str | None = None,
+) -> None:
+    """公众号:从后台"发表记录"页按标题取每篇阅读/点赞/评论/分享。
+
+    公众号 API 需要 IP 白名单,网页后台不需要;发表记录页第一行即
+    `标题 阅读 点赞 × × ...`,用标题定位后取紧跟的 4 个整数。
+    """
+    if not _HAS_PLAYWRIGHT:
+        metrics["source"]["error"] = "Playwright not installed"
+        return
+    title = await _load_task_title(task_id, "wechat")
+    if not title:
+        metrics["source"]["error"] = "title not found in publish_history"
+        return
+    needle = title[:12]
+
+    from app.services.publish.anti_risk import create_stealth_browser_context
+    from app.services.publish.anti_risk.browser_factory import close_stealth_context
+
+    async with async_playwright() as p:
+        browser, context = await create_stealth_browser_context(
+            account_id=_account_id(credentials, db_account_id),
+            platform="wechat",
+            playwright_instance=p,
+            headless=True,
+        )
+        try:
+            await context.add_cookies(_all_cookies(credentials))
+            page = await context.new_page()
+            await page.goto("https://mp.weixin.qq.com/", wait_until="domcontentloaded", timeout=60000)
+            await page.wait_for_timeout(4000)
+            token_match = re.search(r"token=(\d+)", page.url)
+            if not token_match:
+                token_match = re.search(r"token=(\d+)", await page.content())
+            if not token_match:
+                metrics["source"]["error"] = f"wechat token not found (url={page.url})"
+                return
+            token = token_match.group(1)
+            url = (
+                "https://mp.weixin.qq.com/cgi-bin/appmsgpublish"
+                f"?sub=list&begin=0&count=10&token={token}&lang=zh_CN"
+            )
+            await page.goto(url, wait_until="domcontentloaded", timeout=60000)
+            await page.wait_for_timeout(7000)
+            body = await page.inner_text("body")
+            if needle not in body:
+                metrics["source"]["error"] = f"title not found in publish list (url={page.url})"
+                return
+            idx = body.find(needle)
+            window = body[idx: idx + 800]
+            m = re.search(
+                r"(?:原创\s*)?(\d{1,9})\s+(\d{1,9})\s+(\d{1,9})\s+(\d{1,9})", window
+            )
+            if not m:
+                metrics["source"]["error"] = "publish-list counts not parsable"
+                return
+            metrics["views"] = int(m.group(1))
+            metrics["likes"] = int(m.group(2))
+            metrics["comments"] = int(m.group(3))
+            metrics["shares"] = int(m.group(4))
+            metrics["source"].update(
+                page=url,
+                views="appmsgpublish:col1",
+                likes="appmsgpublish:col2",
+                comments="appmsgpublish:col3",
+                shares="appmsgpublish:col4",
+            )
+        finally:
+            await close_stealth_context(browser, context)
+
+
 _COUNT_RE = r"([0-9]+(?:\.[0-9]+)?\s*(?:亿|万|w|k)?)"
 
 
@@ -448,11 +529,26 @@ async def _collect_creator_dom(
                 return
             idx = body.find(needle)
             window = body[idx: idx + 900]
-            for field, label in cfg["labels"].items():
-                m = re.search(rf"{label}\s*[：:|]?\s*{_COUNT_RE}", window)
+            if platform == "xiaohongshu":
+                # 小红书笔记卡片没有文字标签:标题后跟"日期 时间"再跟 5 个裸数字,
+                # 依次为 观看/点赞/收藏/评论/分享。
+                m = re.search(
+                    r"\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}((?:\s+\d+){1,6})", window
+                )
                 if m:
-                    metrics[field] = _parse_num(m.group(1))
-                    metrics["source"][field] = f"creator-dom:{label}"
+                    nums = [int(x) for x in re.findall(r"\d+", m.group(1))]
+                    for field, pos in (
+                        ("views", 0), ("likes", 1), ("comments", 3), ("shares", 4)
+                    ):
+                        if pos < len(nums):
+                            metrics[field] = nums[pos]
+                            metrics["source"][field] = f"creator-dom:note-card#{pos + 1}"
+            else:
+                for field, label in cfg["labels"].items():
+                    m = re.search(rf"{label}\s*[：:|]?\s*{_COUNT_RE}", window)
+                    if m:
+                        metrics[field] = _parse_num(m.group(1))
+                        metrics["source"][field] = f"creator-dom:{label}"
         finally:
             await close_stealth_context(browser, context)
 
