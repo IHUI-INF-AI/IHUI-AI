@@ -406,6 +406,12 @@ const nextConfig: NextConfig = {
         // 后端 FILE_CDN_BASE 要给客户端一个绝对 URL,而快臂上只有经 web 代理才拿得到。
         // 2026-11-28:总管固定人格对话。浏览器带 auth_token cookie 同源请求,
         // ai-service JWT 中间件已支持 cookie 兜底;必须放在 /api/:path* 之前。
+        // 2026-11-28:总管运行控制显式 HTTP 面（pause/resume/talk/stop），
+        // 与 /api/master/chat 同源，浏览器带 auth_token cookie 直达 ai-service。
+        {
+          source: '/api/master/runs/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/v1/ai/master/runs/:path*`,
+        },
         {
           source: '/api/master/chat',
           destination: `${IHUI_AI_PROXY_TARGET}/api/v1/ai/master/chat`,

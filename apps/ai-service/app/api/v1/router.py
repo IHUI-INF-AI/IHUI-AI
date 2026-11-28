@@ -19,6 +19,7 @@ from . import (
     knowledge_graph,
     knowledge_write,
     master_chat,
+    master_runs,
     rag,
     sag2_lexical,
 )
@@ -27,6 +28,8 @@ api_v1_router = APIRouter()
 api_v1_router.include_router(chat.router, prefix="/ai", tags=["v1-chat"])
 # 总管人格固定三工具；普通 chat 不受影响（2026-11-28，P3-01/P3-02）
 api_v1_router.include_router(master_chat.router, prefix="/ai/master", tags=["v1-master-chat"])
+# 总管运行控制显式 HTTP 面：pause/resume/talk/stop 直接操作已知 runId
+api_v1_router.include_router(master_runs.router, prefix="/ai/master", tags=["v1-master-runs"])
 api_v1_router.include_router(agent.router, prefix="/ai", tags=["v1-agent"])
 api_v1_router.include_router(rag.router, prefix="/ai", tags=["v1-rag"])
 # 知识图谱(G5 - 2026-07-21)
