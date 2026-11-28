@@ -4,7 +4,7 @@
 
 import { useMemo } from 'react'
 import { FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { Download, Star, Wand2 } from 'lucide-react-native'
+import { Download, ShoppingBag, Star, Wand2 } from 'lucide-react-native'
 import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { SkillMarketEntryView, SkillMarketListScreenProps } from '@ihui/types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
@@ -50,6 +50,7 @@ export function SkillMarketListScreen({
   onTagChange,
   onPageChange,
   onSelect,
+  onOpenPurchases,
   onBack,
   onRetry,
   colorScheme = 'light',
@@ -69,6 +70,16 @@ export function SkillMarketListScreen({
           <View style={styles.countBadge}>
             <Text style={styles.countText}>{t('skillsMarket.count', { count: total })}</Text>
           </View>
+        ) : null}
+        {onOpenPurchases ? (
+          <TouchableOpacity
+            style={styles.purchasesLink}
+            onPress={onOpenPurchases}
+            accessibilityRole="button"
+          >
+            <ShoppingBag size={13} color={tk.brandAccent.deep} strokeWidth={2} />
+            <Text style={styles.purchasesLinkText}>{t('skillsMarket.myPurchases')}</Text>
+          </TouchableOpacity>
         ) : null}
       </View>
       <Text style={styles.subtitle}>{t('skillsMarket.subtitle')}</Text>
@@ -280,6 +291,22 @@ function createStyles(tk: AppThemeTokens) {
     },
     countText: {
       fontSize: rnType.caption.size,
+      color: tk.brandAccent.deep,
+    },
+    purchasesLink: {
+      marginLeft: 'auto',
+      flexShrink: 0,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.xs,
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing['2xs'],
+      borderRadius: rnRadiusFor.chip,
+      backgroundColor: tk.brandAccent.light,
+    },
+    purchasesLinkText: {
+      fontSize: rnType.caption.size,
+      fontWeight: '600',
       color: tk.brandAccent.deep,
     },
     subtitle: {
