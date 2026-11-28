@@ -52,20 +52,28 @@ export const CODE_MODES: Readonly<Record<CodeModeId, CodeModeSpec>> = {
     description: '只读:能读文件、搜索、检索代码,不能写/改/删/执行',
     allow: [
       'read_file',
-      'view_file',
       'list_dir',
       'glob',
       'grep',
-      'search_codebase',
       'codegraph',
       'get_diagnostics',
-      'lsp',
+      // 2026-11-28 白名单审计:以下三个旧名在注册表里**不存在**,会让承诺的能力落空 ——
+      // `view_file`/`search_codebase` 已被 read_file/grep/codegraph 取代(直接删);
+      // `web_fetch` 的真实名是 `fetch_url`(修正,否则只读档联网检索但不能取正文)。
+      'fetch_url',
+      // LSP:白名单必须写**真实工具名**。此前这里写的是族名 `lsp`,而注册表里没有
+      // 名为 `lsp` 的工具(真实名是 lsp_goto_definition 等),结果整族被静默挡在门外。
+      // 只列只读成员:lsp_rename_symbol / lsp_code_actions 会改文件,不进只读面。
+      'lsp_goto_definition',
+      'lsp_find_references',
+      'lsp_diagnostics',
+      'lsp_hover',
+      'lsp_server_status',
+      'lsp_workspace_symbol',
+      'tool_search',
       'web_search',
-      'web_fetch',
       'todo_write',
       'ask_user_question',
-      'skill',
-      'skill_read',
     ],
   },
   'no-shell': {
@@ -81,18 +89,21 @@ export const CODE_MODES: Readonly<Record<CodeModeId, CodeModeSpec>> = {
     description: '审阅:只读 + 诊断 + 讨论,不能改代码、不能执行',
     allow: [
       'read_file',
-      'view_file',
       'list_dir',
       'glob',
       'grep',
-      'search_codebase',
       'codegraph',
       'get_diagnostics',
-      'lsp',
+      // 与 read-only 同一份只读 LSP 清单,理由见上。
+      'lsp_goto_definition',
+      'lsp_find_references',
+      'lsp_diagnostics',
+      'lsp_hover',
+      'lsp_server_status',
+      'lsp_workspace_symbol',
+      'tool_search',
       'todo_write',
       'ask_user_question',
-      'skill',
-      'skill_read',
     ],
   },
   full: {
@@ -102,17 +113,39 @@ export const CODE_MODES: Readonly<Record<CodeModeId, CodeModeSpec>> = {
   },
 };
 
-/** no-shell 的显式排除表(与白名单策略互补)。 */
-const NO_SHELL_DENY: ReadonlySet<string> = new Set([
+/**
+ * no-shell 的显式排除表(与白名单策略互补)。
+ *
+ * 2026-11-28 修边界:`terminal` / `git` / `git_advanced` 这些名字在注册表里**不存在**
+ * (真实名是 terminal_open… / git_merge…),旧表按精确名匹配 ⇒ 整族漏禁,
+ * no-shell 的名义面与实际面几乎一样大(实测只差 527B)。改成"精确名 + 前缀"混合表:
+ * 末尾 `*` 表示前缀匹配,其余按精确名。
+ */
+const NO_SHELL_DENY: readonly string[] = [
   'run_command',
   'bash',
   'shell',
-  'terminal',
   'exec',
   'run_tests',
+  'run_code',
+  'terminal_*',
+  'git_*',
   'git',
-  'git_advanced',
-]);
+  'debug_launch',
+  'debug_attach',
+  'debug_eval',
+  // 派生子代理会带出自己的工具集(general 默认 capabilityMode='all' 含 run_command),
+  // 等于绕过 no-shell;严格档宁可先不给这条腿。
+  'dispatch_subagent',
+  'spawn_parallel',
+];
+
+/** 排除表匹配:末尾 `*` 为前缀,其余精确。 */
+function isNoShellDenied(toolName: string): boolean {
+  return NO_SHELL_DENY.some((entry) =>
+    entry.endsWith('*') ? toolName.startsWith(entry.slice(0, -1)) : toolName === entry,
+  );
+}
 
 export class CodeModeError extends Error {
   constructor(message: string) {
@@ -138,7 +171,7 @@ export function resolveCodeMode(id: string | undefined | null): CodeModeSpec {
 export function isToolAllowed(spec: CodeModeSpec, toolName: string): boolean {
   if (spec.allow === '*') {
     // no-shell 例外:显式排除表优先
-    if (spec.id === 'no-shell' && NO_SHELL_DENY.has(toolName)) return false;
+    if (spec.id === 'no-shell' && isNoShellDenied(toolName)) return false;
     return true;
   }
   return spec.allow.includes(toolName);
@@ -168,7 +201,7 @@ export function applyCodeMode(
 export function describeCodeMode(spec: CodeModeSpec): string {
   if (spec.allow === '*') {
     return spec.id === 'no-shell'
-      ? `模式 ${spec.id}:${spec.description}(排除 ${NO_SHELL_DENY.size} 个执行类工具)`
+      ? `模式 ${spec.id}:${spec.description}(排除 ${NO_SHELL_DENY.length} 条执行类模式)`
       : `模式 ${spec.id}:不限制工具`;
   }
   return `模式 ${spec.id}:仅 ${spec.allow.length} 个工具可用(${spec.description})`;

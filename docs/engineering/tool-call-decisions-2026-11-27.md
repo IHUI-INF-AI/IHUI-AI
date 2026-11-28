@@ -542,4 +542,38 @@ n/a 唯一一条是 B3-10（硬件专用键盘钩子），取证文档自己写�
 
 **诚实说明**:这是离线检索算法读数,不是真模型效果;查询集是"用户会怎么问"的固定样本,动作词别名是通用语言知识而非逐例调参,但仍存在把这 49 条拟合得更好的可能——所以棘轮只钉下限 40,不钉 41。
 
+
+## 二十三、受限模式的边界修复:白名单死名、no-shell 漏禁、检索越界
+
+**怎么发现的**:上一节在量"检索面"时顺手量了受限档的系统提示体量,三组数字对不上承诺。用真实注册表(151 枚)逐条比对白名单后,逮到三类边界问题,都不是"少给能力"而是**给了假能力**或**该挡没挡**。
+
+**问题一:白名单写的是"族名",注册表里没这个名字。** `read-only` 的 `allow` 里有 `lsp`、`view_file`、`search_codebase`、`web_fetch`、`skill`、`skill_read`,而真实工具名是 `lsp_goto_definition` 等 / `read_file` / `fetch_url` / `Skill`。精确匹配下 read-only 有 **5 条死条目**、review 有 **4 条**,整族 LSP 被挡在门外,只读档承诺"能检索代码"却没有 LSP,联网也只搜索不取正文。
+
+**问题二:no-shell 的排除表同样按不存在的名字匹配。** 表里写的是 `terminal`、`git`、`git_advanced`,真实工具是 `terminal_open` / `git_merge` 等带后缀的名字。实测 no-shell 面 **42,851B**,全量 43,378B,只差 **527B(1.2%)**;`terminal_open`、`git_merge`、`debug_launch` 全在面上。另有两条不经过排除表的执行腿:PTC 的 `run_code`,以及 `dispatch_subagent`(general 默认 `capabilityMode='all'`,子代理自带 `run_command`)。
+
+**问题三:检索源没随模式收窄。** `tool_search` 的工厂默认 `tools = listTools`(全量)。一旦为了让受限档能揭示被延迟成员而放行 `tool_search`,只读档就能通过检索拿到 `write_file` / `git_merge` 的完整 schema —— 条款上仍不可执行,但"看不到"的边界已经被捅破。
+
+**改动**
+- `read-only` / `review` 的 `allow` 改成真实工具名:删 `view_file`/`search_codebase`/`web_fetch`/`skill`/`skill_read`,加 `fetch_url`、6 枚只读 LSP(`lsp_goto_definition`/`find_references`/`diagnostics`/`hover`/`server_status`/`workspace_symbol`)、`tool_search`;`lsp_rename_symbol` / `lsp_code_actions` 会改文件,明确不进只读面。
+- `no-shell` 排除表改成"精确名 + 前缀"混合,末尾 `*` 为前缀:`terminal_*`、`git_*`、`run_code`、`debug_launch`/`debug_attach`/`debug_eval`、`dispatch_subagent`/`spawn_parallel`,原有 `run_command`/`bash`/`run_tests` 保留。`browser_*` 不挡:它不开宿主 shell,挡掉会把"不上命令行"扩成"不能用浏览器"。
+- `setupAgentTools` 里 `tool_search` 的检索源改为 `() => applyCodeMode(listTools(), opts.codeMode).allowed`,受限档只能揭示本模式白名单内的工具。
+
+**读数**(真实装配,`setupAgentTools`,`silent`)
+
+```text
+read-only  3,108B → 3,879B(+24.8%)  白名单死条目 5 → 0;LSP 6 枚 + fetch_url + tool_search 可用
+review     2,963B → 3,616B(+22.0%)  白名单死条目 4 → 0
+no-shell  42,851B → 38,856B(-9.3%)  terminal_open / git_merge / debug_launch 出现次数 1/1/2 → 0/0/0
+full      43,378B(不变)
+```
+
+**一次试过又撤掉的替换**:`Skill` 是真名,顺手加进 read-only/review 后,`formatSkillsForPrompt` 的广告门控被打开 —— 整个技能目录被注入,read-only 从 3,879B 涨到 **30,881B**。只读档不是技能工作台,这笔 27KB 换不来对应收益,撤掉 `Skill` 只留"删死名"。这条留在账上,避免下次有人再把 `Skill` 当无成本别名加回来。
+
+**验证**:新增 `tests/code-mode-boundary.test.ts`(9 例)钉三件事:白名单每条落到真实工具、no-shell 按族禁执行、tool_search 在另三种模式下吐不出被挡工具(并留 full 模式正对照);`tests/code-mode-wiring.test.ts` 加两例,断言 read-only 面里真有 `lsp_goto_definition`/`tool_search`,`no-shell` 面里 terminal/git/debug 全消失。类型检查 `tsc --noEmit` rc=0;12 个测试文件 **125 例全过**。
+
+**诚实说明**
+- code-mode 仍是**提示面边界**:主会话注册表是全量的,模型若凭空报出被挡工具名,执行层仍会按权限链判定,不会因为"没看见"就拒绝。本轮修的是"看不见/看得见"的准确性,不是执行期硬闸。
+- `no-shell` 挡 `dispatch_subagent` 是折中:真正干净的做法是把父 `codeMode` 透传给子代理装配,但那要动子代理的父选项链;先把会带出 `run_command` 的那条腿关掉,比留一个已知绕过口更稳。
+- `view_file`/`search_codebase` 直接删而不是造别名:它们对应的能力已由 `read_file` / `grep` / `codegraph` 覆盖,再造同义工具只会把工具面撑大。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

@@ -693,7 +693,13 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   // revealed 必须是**会话局部**:tool_search 命中后写入,新会话重新开始,且不落盘。
   // 放模块级 Set 会让同进程两个会话互相污染工具面。
   const revealedTools = new Set<string>();
-  registerTools([createToolSearchTool({ revealed: revealedTools })]);
+  registerTools([createToolSearchTool({
+    revealed: revealedTools,
+    // 受限模式也要能"按需揭示",但只能揭示**本模式白名单内**的工具:
+    // 直接把全量 listTools 当检索源,会让只读档通过检索拿到 write_file/run_command 的 schema
+    // (条款上仍不可执行,但"看不到"的边界已经被捅破)。
+    tools: () => applyCodeMode(listTools(), opts.codeMode).allowed,
+  })]);
   // 会话级 worktree 隔离(enter_worktree / exit_worktree):与子代理隔离腿同一套创建/回收实现。
   // 无条件注册:是否真的需要隔离由模型按任务决定,注册面不能替它预判(与 git 族同档)。
   registerTools(WORKTREE_TOOLS);

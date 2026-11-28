@@ -69,6 +69,21 @@ describe('setupAgentTools 真的按 codeMode 裁剪', () => {
     expect(r.systemPrompt).toContain('write_file');
   });
 
+  it('read-only 放行真实 LSP 成员并保留检索开口', async () => {
+    const r = await build('read-only')
+    // 白名单此前写的是族名 `lsp`,注册表里没有这个名字,整族被静默挡掉。
+    expect(r.systemPrompt).toContain('lsp_goto_definition')
+    expect(r.systemPrompt).toContain('tool_search')
+  })
+
+  it('no-shell 时终端族 / git 族 / 调试期启动都不在面上', async () => {
+    const r = await build('no-shell')
+    expect(r.systemPrompt).not.toContain('terminal_open')
+    expect(r.systemPrompt).not.toContain('terminal_exec_sandboxed')
+    expect(r.systemPrompt).not.toContain('git_merge')
+    expect(r.systemPrompt).not.toContain('debug_launch')
+  })
+
   it('拼错的模式名抛错(不静默回退全量)', async () => {
     await expect(build('read_only_typo')).rejects.toThrow(/code mode/);
   });
