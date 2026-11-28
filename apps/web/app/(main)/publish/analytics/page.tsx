@@ -24,7 +24,11 @@ import {
   type AnalyticsMetricsSummary,
   type AccountHealth,
 } from '@/components/publish/AnalyticsDashboard'
-import { rankTopContent, type ContentPerformance } from '@/lib/publish/top-content'
+import {
+  dedupeContent,
+  rankTopContent,
+  type ContentPerformance,
+} from '@/lib/publish/top-content'
 
 interface OverviewResponse {
   totalPublished: number
@@ -86,7 +90,7 @@ function buildTopContent(
       publishedAt: item.finished_at ?? item.created_at,
       publishedUrl: item.published_url,
     }))
-  return rankTopContent(candidates, 5)
+  return rankTopContent(dedupeContent(candidates), 5)
 }
 
 export default function AnalyticsPage() {
