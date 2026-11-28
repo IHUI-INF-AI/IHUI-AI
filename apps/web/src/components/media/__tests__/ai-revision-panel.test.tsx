@@ -151,6 +151,8 @@ describe('AiRevisionPanel', () => {
     fireEvent.click(screen.getByText('reviseRun'))
     await expectBodyContains('第一条 甲方应在五个工作日内付款。')
 
+    const onFilesChanged = vi.fn()
+    window.addEventListener('ihui:project-files-changed', onFilesChanged)
     fireEvent.click(screen.getByText('reviseSaveToDocs'))
     await waitFor(() => expect(fetchApiMock).toHaveBeenCalledTimes(1))
     const [url, init] = fetchApiMock.mock.calls[0] as [string, RequestInit]
@@ -159,6 +161,8 @@ describe('AiRevisionPanel', () => {
     expect(sent.name).toBe('合同-修订稿.txt')
     expect(await sent.text()).toContain('第一条 甲方应在五个工作日内付款。')
     expect(sent.name).not.toBe('合同.txt')
+    await waitFor(() => expect(onFilesChanged).toHaveBeenCalledTimes(1))
+    window.removeEventListener('ihui:project-files-changed', onFilesChanged)
   })
 
   it('对话附件无项目归属:先选项目再保存,上传到所选项目', async () => {

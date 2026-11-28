@@ -387,6 +387,10 @@ export function AiRevisionPanel({
       )
       if (!res.success) throw new Error(res.error || 'SAVE_FAILED')
       toast.success(t('reviseSavedToDocs', { name: exported.filename }))
+      // 文档中心「我的项目文件」订阅此事件即时刷新,用户不用等 60s staleTime 才看到新稿。
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('ihui:project-files-changed'))
+      }
       setPickerOpen(false)
     } catch {
       toast.error(t('reviseSaveToDocsFailed'))
