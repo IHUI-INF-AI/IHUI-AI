@@ -19,8 +19,10 @@ import { parquetReadObjects } from 'hyparquet'
 import { fetch as undiciFetch, ProxyAgent, type RequestInit as UndiciRequestInit } from 'undici'
 import type {
   AiWorldAuthoritativeLeaderboard,
+  AiWorldLeaderboardAaBenchmark,
   AiWorldLeaderboardAaRow,
   AiWorldLeaderboardCrossRow,
+  AiWorldLeaderboardLmCategory,
   AiWorldLeaderboardLmRow,
   AiWorldLeaderboardOrRow,
   AiWorldLeaderboardRefresh,
@@ -39,6 +41,83 @@ const OPENROUTER_BOARD_SIZE = 50
 export const AUTHORITATIVE_REFRESH_CRON =
   process.env.AUTHORITATIVE_LEADERBOARD_CRON || '17 */6 * * *'
 export const AUTHORITATIVE_REFRESH_TIMEZONE = 'Asia/Shanghai'
+export const AUTHORITATIVE_LEADERBOARD_SCHEMA_VERSION = 2
+
+/** LMArena 官方分类的展示名；键顺序即页面下拉顺序。 */
+const LMARENA_CATEGORY_LABELS: Record<string, string> = {
+  overall: '总榜',
+  chinese: '中文',
+  english: '英文',
+  coding: '编程',
+  math: '数学',
+  creative_writing: '创意写作',
+  instruction_following: '指令遵循',
+  hard_prompts: '高难题',
+  hard_prompts_english: '英文高难题',
+  multi_turn: '多轮对话',
+  longer_query: '长查询',
+  expert: '专家',
+  non_english: '非英文',
+  russian: '俄语',
+  german: '德语',
+  spanish: '西班牙语',
+  french: '法语',
+  korean: '韩语',
+  japanese: '日语',
+  polish: '波兰语',
+  industry_software_and_it_services: '软件与 IT 服务',
+  industry_writing_and_literature_and_language: '写作、文学与语言',
+  industry_entertainment_and_sports_and_media: '娱乐、体育与媒体',
+  industry_life_and_physical_and_social_science: '生命、物理与社会科学',
+  industry_business_and_management_and_financial_operations: '商业、管理与金融',
+  industry_mathematical: '数学行业',
+  industry_legal_and_government: '法律与政府',
+  industry_medicine_and_healthcare: '医疗健康',
+  exclude_ties: '总榜（不计平局）',
+}
+
+/** AA 官方评测项展示名；未列出的键自动从 key 生成可读名。 */
+const AA_BENCHMARK_LABELS: Record<string, string> = {
+  'aa-briefcase': 'AA Briefcase',
+  'aa-analyst-agent': 'AA Analyst Agent',
+  'aa-3d': 'AA 3D',
+  'apex-agents-aa': 'Apex Agents AA',
+  'artificial-analysis-long-context-reasoning': 'AA 长上下文推理',
+  'automationbench-aa': 'AutomationBench AA',
+  'aime-2025': 'AIME 2025',
+  'code2video-aa': 'Code2Video AA',
+  critpt: 'CritPT',
+  'critpt-v2-hard': 'CritPT v2 Hard',
+  'enterprise-ops-gym-aa': 'Enterprise Ops Gym AA',
+  'frontiercode': 'FrontierCode',
+  'frontiercode-2-0': 'FrontierCode 2.0',
+  frontierphysics: 'FrontierPhysics',
+  'gdp-pdf': 'GDP-PDF',
+  'gdpval-aa-normalized': 'GDPval AA',
+  'gpqa-diamond': 'GPQA Diamond',
+  'harvey-lab-aa': 'Harvey Lab AA',
+  healthbench: 'HealthBench',
+  'healthbench-professional': 'HealthBench Professional',
+  'hle-diamond': 'HLE Diamond',
+  "humanitys-last-exam": "Humanity's Last Exam",
+  ifbench: 'IFBench',
+  'itbench-aa': 'ITBench AA',
+  'livecodebench': 'LiveCodeBench',
+  mka: 'MKA',
+  'mlcr-aa': 'MLCR AA',
+  'mmmu-pro': 'MMMU-Pro',
+  'omniscience-accuracy': '通识准确率',
+  'omniscience-non-hallucination': '通识不幻觉',
+  scicode: 'SciCode',
+  'tau2-bench': 'τ²-Bench',
+  'tau3-banking': 'τ³-Banking',
+  'terminal-bench-science': 'Terminal-Bench Science',
+  'terminalbench-2-1': 'Terminal-Bench 2.1',
+  'terminalbench-4-0': 'Terminal-Bench 4.0',
+  'terminalbench-4-1': 'Terminal-Bench 4.1',
+  'terminalbench-hard': 'Terminal-Bench Hard',
+  'vials-aa': 'Vials AA',
+}
 
 interface LmarenaParquetRow {
   model_name?: string
@@ -48,6 +127,7 @@ interface LmarenaParquetRow {
   rating?: number
   rating_lower?: number
   rating_upper?: number
+  variance?: number
   vote_count?: number
   rank?: number
   category?: string
@@ -63,6 +143,19 @@ export interface LmarenaEntry {
   license: string
   open: boolean
   rank: number
+  ciLow: number
+  ciHigh: number
+  variance: number
+  category: string
+  date: string
+}
+
+export interface LmarenaCategoryData {
+  id: string
+  label: string
+  rows: LmarenaEntry[]
+  votes: number
+  count: number
 }
 
 export interface LmarenaSourceData {
@@ -73,15 +166,31 @@ export interface LmarenaSourceData {
   chineseVotes: number
   overallCount: number
   chineseCount: number
+  categories: LmarenaCategoryData[]
 }
 
 export interface AaRawModel {
   name?: string
   modelCreatorName?: string
   intelligenceIndex?: number | null
+  omniscience?: number | null
   isOpenWeights?: boolean
+  isReasoning?: boolean
   deprecated?: boolean
+  contextWindowTokens?: number | null
+  price1mInputTokens?: number | null
+  price1mOutputTokens?: number | null
+  cacheHitPrice?: number | null
+  cacheWritePrice?: number | null
+  outputSpeed?: number | null
+  timeToFirstToken?: number | null
+  timeToFirstAnswerToken?: number | null
+  intelligenceIndexCostPerTask?: number | null
+  intelligenceIndexTimePerTask?: number | null
+  paramClass?: string | null
+  priceClass?: string | null
   release?: { slug?: string; name?: string }
+  scores?: Record<string, number | null>
 }
 
 export interface AaSourceData {
@@ -290,7 +399,7 @@ function round4(n: number): number {
 }
 
 export function parseLmarenaRows(rawRows: unknown[]): LmarenaSourceData {
-  const rows: Array<LmarenaEntry & { category: string; date: string }> = []
+  const rows: LmarenaEntry[] = []
   for (const raw of rawRows) {
     const r = raw as LmarenaParquetRow
     const model = (r.model_name || r.model || '').trim()
@@ -301,12 +410,15 @@ export function parseLmarenaRows(rawRows: unknown[]): LmarenaSourceData {
     const rank = Number(r.rank)
     const score = Number(r.rating)
     const votes = Number(r.vote_count)
-    if (!model || !date || !Number.isFinite(rank) || rank <= 0) continue
-    if (category !== 'overall' && category !== 'chinese') continue
+    if (!model || !date || !category || !Number.isFinite(rank) || rank <= 0) continue
     if (!Number.isFinite(score) || !Number.isFinite(votes)) continue
     const license = String(r.license ?? 'Unknown')
+    const lower = Number(r.rating_lower)
     const upper = Number(r.rating_upper)
-    const ci = Number.isFinite(upper) ? Math.max(0, upper - score) : 0
+    const variance = Number(r.variance)
+    const ciLow = Number.isFinite(lower) ? lower : score
+    const ciHigh = Number.isFinite(upper) ? upper : score
+    const ci = Math.max(0, (ciHigh - ciLow) / 2)
     rows.push({
       model,
       vendor: vendorLabel(r.organization),
@@ -315,20 +427,44 @@ export function parseLmarenaRows(rawRows: unknown[]): LmarenaSourceData {
       votes,
       license,
       open: license !== 'Proprietary' && license !== 'Unknown',
+      rank,
+      ciLow,
+      ciHigh,
+      variance: Number.isFinite(variance) ? variance : 0,
       category,
       date,
-      rank,
     })
   }
   const latestDate = rows.reduce((max, row) => (row.date > max ? row.date : max), '')
   if (!latestDate) throw new Error('LMArena 数据集没有可用的发布日期')
 
-  const overall = rows
-    .filter((row) => row.date === latestDate && row.category === 'overall')
-    .sort((a, b) => a.rank - b.rank)
-  const chinese = rows
-    .filter((row) => row.date === latestDate && row.category === 'chinese')
-    .sort((a, b) => a.rank - b.rank)
+  const grouped = new Map<string, LmarenaEntry[]>()
+  for (const row of rows) {
+    if (row.date !== latestDate) continue
+    const list = grouped.get(row.category) ?? []
+    list.push(row)
+    grouped.set(row.category, list)
+  }
+  const categories: LmarenaCategoryData[] = [...grouped.entries()]
+    .map(([id, list]) => ({
+      id,
+      label: LMARENA_CATEGORY_LABELS[id] ?? id.replace(/_/g, ' '),
+      rows: list.sort((a, b) => a.rank - b.rank),
+      votes: list.reduce((sum, row) => sum + row.votes, 0),
+      count: list.length,
+    }))
+    .sort((a, b) => {
+      const order = Object.keys(LMARENA_CATEGORY_LABELS)
+      const ai = order.indexOf(a.id)
+      const bi = order.indexOf(b.id)
+      if (ai >= 0 && bi >= 0) return ai - bi
+      if (ai >= 0) return -1
+      if (bi >= 0) return 1
+      return a.id.localeCompare(b.id)
+    })
+
+  const overall = categories.find((c) => c.id === 'overall')?.rows ?? []
+  const chinese = categories.find((c) => c.id === 'chinese')?.rows ?? []
   if (overall.length < 100) throw new Error(`LMArena 总榜行数异常: ${overall.length}`)
 
   return {
@@ -339,6 +475,7 @@ export function parseLmarenaRows(rawRows: unknown[]): LmarenaSourceData {
     chineseVotes: chinese.reduce((sum, row) => sum + row.votes, 0),
     overallCount: overall.length,
     chineseCount: chinese.length,
+    categories,
   }
 }
 
@@ -593,20 +730,53 @@ interface AaFamily {
   score: number
   openWeights: boolean
   cn: boolean
+  reasoning: boolean
+  contextWindow: number | null
+  inputPrice: number | null
+  outputPrice: number | null
+  cacheHitPrice: number | null
+  cacheWritePrice: number | null
+  outputSpeed: number | null
+  ttft: number | null
+  ttfa: number | null
+  omniscience: number | null
+  costPerTask: number | null
+  timePerTask: number | null
+  paramClass: string | null
+  priceClass: string | null
+  release: string | null
+  benchmarks: AiWorldLeaderboardAaBenchmark[]
 }
 
-interface LmFamily {
-  rank: number
-  sourceRank: number
-  model: string
-  vendor: string
-  vendorKey: string
-  score: number
-  ci: number
-  votes: number
-  license: string
-  open: boolean
-  cn: boolean
+function finiteOrNull(value: unknown): number | null {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : null
+}
+
+function aaBenchmarkLabel(key: string): string {
+  return (
+    AA_BENCHMARK_LABELS[key] ??
+    key.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+  )
+}
+
+function toAaBenchmarks(scores: AaRawModel['scores']): AiWorldLeaderboardAaBenchmark[] {
+  if (!scores) return []
+  return Object.entries(scores)
+    .filter(([, value]) => Number.isFinite(Number(value)))
+    .map(([key, value]) => {
+      const raw = Number(value)
+      // AA 官方单项分大多数是 0-1；AA Briefcase / GDPval / AA-3D 等是 Elo 原始分。
+      // 不能把 1623 Elo 也乘 100；只对 0-1 的分数归一到百分比。
+      const normalized = raw <= 1 ? raw * 100 : raw
+      return {
+        key,
+        label: aaBenchmarkLabel(key),
+        score: round1(normalized),
+        unit: raw <= 1 ? ('percent' as const) : ('raw' as const),
+      }
+    })
+    .sort((a, b) => b.score - a.score)
 }
 
 function buildAaFamilies(models: AaRawModel[]): AaFamily[] {
@@ -629,13 +799,47 @@ function buildAaFamilies(models: AaRawModel[]): AaFamily[] {
       score: round1(score),
       openWeights: Boolean(raw.isOpenWeights),
       cn: isCnVendor(vKey),
+      reasoning: Boolean(raw.isReasoning),
+      contextWindow: finiteOrNull(raw.contextWindowTokens),
+      inputPrice: finiteOrNull(raw.price1mInputTokens),
+      outputPrice: finiteOrNull(raw.price1mOutputTokens),
+      cacheHitPrice: finiteOrNull(raw.cacheHitPrice),
+      cacheWritePrice: finiteOrNull(raw.cacheWritePrice),
+      outputSpeed: finiteOrNull(raw.outputSpeed),
+      ttft: finiteOrNull(raw.timeToFirstToken),
+      ttfa: finiteOrNull(raw.timeToFirstAnswerToken),
+      omniscience: finiteOrNull(raw.omniscience),
+      costPerTask: finiteOrNull(raw.intelligenceIndexCostPerTask),
+      timePerTask: finiteOrNull(raw.intelligenceIndexTimePerTask),
+      paramClass: raw.paramClass ?? null,
+      priceClass: raw.priceClass ?? null,
+      release: raw.release?.slug ?? null,
+      benchmarks: toAaBenchmarks(raw.scores),
     }
     const existing = map.get(key)
+    // 同一模型家族保留智能指数最高的一档，所有附属字段都来自这一档，避免混档。
     if (!existing || candidate.score > existing.score) map.set(key, candidate)
   }
   return [...map.values()]
     .sort((a, b) => b.score - a.score)
     .map((row, index) => ({ ...row, rank: index + 1 }))
+}
+
+interface LmFamily {
+  rank: number
+  sourceRank: number
+  model: string
+  vendor: string
+  vendorKey: string
+  score: number
+  ci: number
+  ciLow: number
+  ciHigh: number
+  variance: number
+  votes: number
+  license: string
+  open: boolean
+  cn: boolean
 }
 
 function buildLmFamilies(rows: LmarenaEntry[]): {
@@ -655,6 +859,9 @@ function buildLmFamilies(rows: LmarenaEntry[]): {
       vendorKey: vKey,
       score: round1(raw.score),
       ci: round2(raw.ci),
+      ciLow: round1(raw.ciLow),
+      ciHigh: round1(raw.ciHigh),
+      variance: round1(raw.variance),
       votes: raw.votes,
       license: raw.license,
       open: raw.open,
@@ -674,6 +881,9 @@ function buildLmFamilies(rows: LmarenaEntry[]): {
       vendor: row.vendor,
       score: row.score,
       ci: row.ci,
+      ciLow: row.ciLow,
+      ciHigh: row.ciHigh,
+      variance: row.variance,
       votes: row.votes,
       license: row.license,
       open: row.open,
@@ -695,6 +905,22 @@ export function buildAuthoritativeLeaderboard(
     score: row.score,
     openWeights: row.openWeights,
     cn: row.cn,
+    reasoning: row.reasoning,
+    contextWindow: row.contextWindow,
+    inputPrice: row.inputPrice,
+    outputPrice: row.outputPrice,
+    cacheHitPrice: row.cacheHitPrice,
+    cacheWritePrice: row.cacheWritePrice,
+    outputSpeed: row.outputSpeed,
+    ttft: row.ttft,
+    ttfa: row.ttfa,
+    omniscience: row.omniscience,
+    costPerTask: row.costPerTask,
+    timePerTask: row.timePerTask,
+    paramClass: row.paramClass,
+    priceClass: row.priceClass,
+    release: row.release,
+    benchmarks: row.benchmarks,
   }))
 
   const lmOverall = buildLmFamilies(bundle.lmarena.overall)
@@ -702,15 +928,25 @@ export function buildAuthoritativeLeaderboard(
   if (lmOverall.rows.length < 20)
     throw new Error(`LMArena 总榜有效模型不足: ${lmOverall.rows.length}`)
 
+  const lmCategories: AiWorldLeaderboardLmCategory[] = bundle.lmarena.categories.map((cat) => {
+    const built = buildLmFamilies(cat.rows)
+    return {
+      id: cat.id,
+      label: cat.label,
+      count: cat.count,
+      votes: cat.votes,
+      rows: built.rows.slice(0, 50),
+    }
+  })
+
   const lmByKey = new Map(lmOverall.families.map((row) => [normalizeModel(row.model), row]))
   const aaByKey = new Map(aaFamilies.map((row) => [normalizeModel(row.model), row]))
   const orByKey = new Map(bundle.openrouter.rows.map((row) => [normalizeModel(row.model), row]))
 
   const candidateKeys = new Set<string>()
-  for (const row of aaList.slice(0, 30)) candidateKeys.add(normalizeModel(row.model))
-  for (const row of lmOverall.rows.slice(0, 30)) candidateKeys.add(normalizeModel(row.model))
-  for (const row of bundle.openrouter.rows.slice(0, 30))
-    candidateKeys.add(normalizeModel(row.model))
+  for (const row of aaList) candidateKeys.add(normalizeModel(row.model))
+  for (const row of lmOverall.rows.slice(0, 50)) candidateKeys.add(normalizeModel(row.model))
+  for (const row of bundle.openrouter.rows) candidateKeys.add(normalizeModel(row.model))
 
   const cross: AiWorldLeaderboardCrossRow[] = []
   for (const key of candidateKeys) {
@@ -752,7 +988,7 @@ export function buildAuthoritativeLeaderboard(
     row.rank = index + 1
   })
 
-  const orRows = bundle.openrouter.rows.slice(0, 15)
+  const orRows = bundle.openrouter.rows.slice(0, OPENROUTER_BOARD_SIZE)
   const sources: AiWorldLeaderboardSource[] = [
     {
       id: 'aa',
@@ -761,7 +997,7 @@ export function buildAuthoritativeLeaderboard(
       url: AA_URL,
       asOf: bundle.aa.asOf,
       boardSize: aaList.length,
-      note: `读取官方榜单页面内嵌数据；同一模型家族取最高档位，去重后 ${aaList.length} 个模型。指数由 AA-Briefcase、Terminal-Bench 4.1、FrontierCode-AA 2.0、HLE-Diamond 等多项评测合成。`,
+      note: `读取官方榜单页面内嵌数据；同一模型家族取最高档位，去重后 ${aaList.length} 个模型。指数由 AA-Briefcase、Terminal-Bench 4.1、FrontierCode-AA 2.0、HLE-Diamond 等多项评测合成。页面详情同时展示上下文、输入/输出价格、缓存价、输出速度、TTFT、单任务成本与全部单项分；AA 公开数据只提供 small/medium/large 参数档位，没有逐模型精确参数量，本站不编造。`,
     },
     {
       id: 'lmarena',
@@ -771,7 +1007,7 @@ export function buildAuthoritativeLeaderboard(
       dataset: 'https://huggingface.co/datasets/lmarena-ai/leaderboard-dataset',
       asOf: bundle.lmarena.asOf,
       boardSize: bundle.lmarena.overallCount,
-      note: `官方 HuggingFace 数据集 text/latest，发布日期 ${bundle.lmarena.asOf}。总榜 ${bundle.lmarena.overallCount} 个模型、${formatWan(bundle.lmarena.overallVotes)}票；中文榜 ${bundle.lmarena.chineseCount} 个模型、${formatWan(bundle.lmarena.chineseVotes)}票。Arena Score 为盲测人类偏好分，不是正确率。`,
+      note: `官方 HuggingFace 数据集 text/latest，发布日期 ${bundle.lmarena.asOf}。已接入全部 ${bundle.lmarena.categories.length} 个分类榜：总榜 ${bundle.lmarena.overallCount} 个模型、${formatWan(bundle.lmarena.overallVotes)}票；中文榜 ${bundle.lmarena.chineseCount} 个模型、${formatWan(bundle.lmarena.chineseVotes)}票；每个分类页展示前 50 名并保留全量模型数/票数。Arena Score 为盲测人类偏好分，不是正确率。`,
     },
     {
       id: 'openrouter',
@@ -786,22 +1022,23 @@ export function buildAuthoritativeLeaderboard(
   ]
 
   return {
-    schemaVersion: 1,
+    schemaVersion: AUTHORITATIVE_LEADERBOARD_SCHEMA_VERSION,
     generatedAt,
     title: '全球模型权威榜',
     subtitle: 'LMArena · Artificial Analysis · OpenRouter 三榜聚合，不做自建评测',
     sources,
     methodology:
-      '综合位次先按覆盖榜单数（3/3 优先于 2/3），再按各榜百分位均值降序；百分位 = 1 - (名次-1)/(该榜模型数-1)。只展示覆盖至少两个榜单的模型。同名模型不同档位/构建在各榜分别取最佳名次，因此是模型家族级对照，不是同配置横评。',
-    cross: ranked.slice(0, 20),
-    aa: aaList.slice(0, 20),
+      '综合位次先按覆盖榜单数（3/3 优先于 2/3），再按各榜百分位均值降序；百分位 = 1 - (名次-1)/(该榜模型数-1)。只展示覆盖至少两个榜单的模型。同名模型不同档位/构建在各榜分别取最佳名次，因此是模型家族级对照，不是同配置横评。AA 详情里的单项评测来自官方原始分，归一到 0-100；LMArena 按官方 29 个分类分榜展示，每榜页显示前 50 名；OpenRouter 日榜只有日期、模型、名次、tokens、占比五列，没有价格和上下文，不能凭空补。',
+    cross: ranked,
+    aa: aaList,
     lmarena: {
-      overall: lmOverall.rows.slice(0, 20),
-      chinese: lmChinese.rows.slice(0, 15),
+      overall: lmOverall.rows.slice(0, 100),
+      chinese: lmChinese.rows.slice(0, 50),
       overallVotes: bundle.lmarena.overallVotes,
       chineseVotes: bundle.lmarena.chineseVotes,
       overallCount: bundle.lmarena.overallCount,
       chineseCount: bundle.lmarena.chineseCount,
+      categories: lmCategories,
     },
     openrouter: orRows,
     refresh: options.refresh ?? {

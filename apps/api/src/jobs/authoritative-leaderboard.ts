@@ -10,6 +10,7 @@ import type { AiWorldAuthoritativeLeaderboard, AiWorldLeaderboardRefresh } from 
 import { DistributedLock } from '../utils/distributed-lock.js'
 import { logger } from '../utils/logger.js'
 import {
+  AUTHORITATIVE_LEADERBOARD_SCHEMA_VERSION,
   AUTHORITATIVE_REFRESH_CRON,
   AUTHORITATIVE_REFRESH_TIMEZONE,
   buildAuthoritativeLeaderboard,
@@ -89,7 +90,13 @@ function readFallback(): AiWorldAuthoritativeLeaderboard | null {
       'utf8',
     )
     const parsed = JSON.parse(raw) as AiWorldAuthoritativeLeaderboard
-    if (parsed?.schemaVersion !== 1 || !Array.isArray(parsed.cross)) {
+    // 内置底稿允许旧版本：页面用可选字段兜底；Redis 快照必须是当前版本，
+    // 否则启动补跑会重新抓一份完整快照，避免旧字段半残地挂在线上。
+    if (
+      (parsed?.schemaVersion !== 1 &&
+        parsed?.schemaVersion !== AUTHORITATIVE_LEADERBOARD_SCHEMA_VERSION) ||
+      !Array.isArray(parsed?.cross)
+    ) {
       fallbackCache = null
       return null
     }
@@ -148,10 +155,13 @@ export async function getAuthoritativeLeaderboard(
       const raw = await redis.get(SNAPSHOT_KEY)
       if (raw) {
         const parsed = JSON.parse(raw) as AiWorldAuthoritativeLeaderboard
-        if (parsed?.schemaVersion === 1 && Array.isArray(parsed.cross)) {
+        if (
+          parsed?.schemaVersion === AUTHORITATIVE_LEADERBOARD_SCHEMA_VERSION &&
+          Array.isArray(parsed.cross)
+        ) {
           return { ...parsed, refresh: normalizeRefresh(parsed, state, 'auto') }
         }
-        logger.warn('[authoritative-leaderboard] Redis 快照结构异常，回退内置底稿')
+        logger.warn('[authoritative-leaderboard] Redis 快照版本过旧，等待启动补跑重抓')
       }
     } catch (err) {
       logger.warn('[authoritative-leaderboard] Redis 快照读取失败，回退内置底稿', { err })
