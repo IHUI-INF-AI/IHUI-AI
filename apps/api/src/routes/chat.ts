@@ -5,7 +5,7 @@
 import { randomUUID } from 'node:crypto'
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
-import { sql, and, eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 // D153(2026-09-29 立):会话元数据变更的 per-user 下行广播。
 // 事件形态与构造的唯一出口在 @ihui/types(三个消费面共用一份描述),
 // 路由内不得手拼 `{event,data}` 字面量,也不得把"哪些字段真的变了"照抄请求体键名。
@@ -118,6 +118,8 @@ import { resolveDefaultChatModel } from '../utils/retired-providers.js'
 import { findAgentByAgentId, findAgentByBotId } from '../db/agents-queries.js'
 import {
   DEFAULT_MAX_COMPLETION_TOKENS,
+  ensureLlmPointsBalance,
+  readMaxCompletionTokens,
   reserveLlmPoints,
   settleLlmPointsUsage,
 } from '../services/ai-points-billing.js'
@@ -137,11 +139,6 @@ import {
   persistMessageArchive,
 } from '../utils/conversation-archive.js'
 import { aiServiceFetch, aiServiceFetchStream } from '../utils/ai-service-fetch.js'
-import {
-  ensureLlmPointsBalance,
-  readMaxCompletionTokens,
-  settleLlmPointsUsage,
-} from '../services/ai-points-billing.js'
 import { releasePointsHold } from '../services/points-service.js'
 import {
   USER_PREFERENCE_GROUPS,
@@ -2667,7 +2664,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
             )
           } else if (ev.type === 'done') {
             if (typeof ev.usage === 'object' && ev.usage !== null) {
-              usage = ev.usage as typeof usage
+              usage = ev.usage as { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number }
             }
           } else if (ev.type === 'error') {
             reply.raw.write(
