@@ -423,11 +423,11 @@ export async function getUsage(
     .from(auditLogs)
     .where(sql`${auditLogs.details}->>'apiKeyId' = ${id}`)
 
-  const auditLastUsedAt = auditAgg?.lastUsedAt ?? null
-  const llmLastUsedAt = lastRow?.lastUsedAt ?? null
+  const auditLastUsedAt = auditAgg?.lastUsedAt ? new Date(auditAgg.lastUsedAt) : null
+  const llmLastUsedAt = lastRow?.lastUsedAt ? new Date(lastRow.lastUsedAt) : null
   const lastUsedAt =
     auditLastUsedAt && llmLastUsedAt
-      ? auditLastUsedAt > llmLastUsedAt
+      ? auditLastUsedAt.getTime() > llmLastUsedAt.getTime()
         ? auditLastUsedAt
         : llmLastUsedAt
       : auditLastUsedAt ?? llmLastUsedAt ?? existing.lastUsedAt
