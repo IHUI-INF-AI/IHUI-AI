@@ -346,7 +346,11 @@ n/a 唯一一条是 B3-10（硬件专用键盘钩子），取证文档自己写�
 - token 只统计非零样本：golden/stub 的 0 值不进均值，否则 p50 会变成"每任务 0 token"的笑话。
 - `golden` 档工具调用恒 0，失败只归检查面；否则每道 golden 题都会被误判成"模型没动手"。
 
-**未闭环（本轮报白）**：真模型读数（`loop_v2` + 可用配额）仍空白 —— 三家 provider 均被上游挡住（429 / 402 / key 未接受），41 任务全量档因此只能记"环境受限"，不能记能力。30 条对话黄金题集未接指标面读数。这两条要等可用配额，不能用 stub 数字冒充。
+**一致性读数进 CI（2026-11-28 补）**：`gates-full.yml` 的全仓面步骤里加了一行 `node scripts/tool-contract-conformance.mjs` —— 只有 `ok` 才算绿，`not-ok` / `unknown` 都非零。**为什么不注册成 pre-commit 门**：conformance 判的是"门体与被判修订"两代，门体文件自己一改就必然自成两代 ⇒ 那道门会恒红（这正是上一节踩过的死锁）。干净 checkout 只有一个修订，不存在跨代，所以 CI 才是它该待的地方 —— 契约轴至此补上"必须绿"这一环，此前只是"能跑"。
+
+**30 条对话黄金题集已接指标面（2026-11-28）**：`--tasks-file tasks_convo_golden.json` 跑 golden 档 **30/30**（`bench/reports/metrics-convo-golden-2026-11-28.*`），三层 E2E 断言 golden / review / checkpoint 各 **30/30**（`bench/reports/metrics-convo-golden-e2e-2026-11-28.json`）。两份都是评分链路自洽的证明，不是模型能力读数。
+
+**未闭环（本轮报白）**：真模型读数（`loop_v2` + 可用配额）仍空白 —— 三家 provider 均被上游挡住（429 / 402 / key 未接受），41 任务全量档因此只能记"环境受限"，不能记能力。这一条要等可用配额，不能用 stub 数字冒充。
 
 **附带产出**：`python -m bench.metrics <report.json>` 只读重渲染 —— 归档报告不重跑就能补读；且对"同名不同义"的 `metrics`（检索报告的 recall@k 一族）**拒判 exit 2**，不猜、不重算成 0。这一点是踩出来的：拿 `id-native-sameindex-2026-11-01.json` 试跑，`metrics` 键里全是 recall@1/ndcg@3，若照单全收会把检索指标当能力指标渲染。
 
