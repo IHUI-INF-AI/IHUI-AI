@@ -37,6 +37,15 @@ const STATUS_CLASS: Record<string, string> = {
   never: 'text-muted-foreground',
 }
 
+const STATUS_LABEL_KEY: Record<string, string> = {
+  synced: 'status_synced',
+  partial: 'status_partial',
+  error: 'status_error',
+  not_found: 'status_not_found',
+  skipped_no_token: 'status_skipped_no_token',
+  never: 'status_never',
+}
+
 export function CozeCoverageDialog({ open, onClose }: CozeCoverageDialogProps) {
   const t = useTranslations('admin.agents.coze')
   const tc = useTranslations('common')
@@ -108,7 +117,7 @@ export function CozeCoverageDialog({ open, onClose }: CozeCoverageDialogProps) {
               {STATUS_ORDER.map((key) => (
                 <Metric
                   key={key}
-                  label={t(`status_${key}`)}
+                  label={t(STATUS_LABEL_KEY[key] ?? 'status_error')}
                   value={data.status[key]}
                   className={STATUS_CLASS[key]}
                 />

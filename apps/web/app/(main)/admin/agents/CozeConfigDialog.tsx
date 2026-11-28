@@ -33,6 +33,15 @@ const STATUS_CLASS: Record<string, string> = {
   never: 'bg-muted text-muted-foreground',
 }
 
+const STATUS_LABEL_KEY: Record<string, string> = {
+  synced: 'status_synced',
+  partial: 'status_partial',
+  not_found: 'status_not_found',
+  error: 'status_error',
+  skipped_no_token: 'status_skipped_no_token',
+  never: 'status_never',
+}
+
 const codeCls =
   'max-h-72 overflow-auto rounded-md border bg-muted/40 p-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap break-all'
 
@@ -134,7 +143,7 @@ export function CozeConfigDialog({ open, agentId, onClose }: CozeConfigDialogPro
               </span>
             ) : null}
             <span className={cn('rounded px-2 py-0.5 text-label font-medium', STATUS_CLASS[status])}>
-              {t(`status_${status}`)}
+              {t(STATUS_LABEL_KEY[status] ?? 'status_error')}
             </span>
           </DialogTitle>
         </DialogHeader>
