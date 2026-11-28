@@ -97,7 +97,8 @@ describe('DataTable labels 注入契约', () => {
     const hook = read('apps/web/src/hooks/use-data-table-labels.ts')
     const missing = keys
       .filter((k) => k !== 'sortDirections')
-      .filter((k) => !new RegExp(`${k}:\\s*t\\('${k}'\\)`).test(hook))
+      // 模板键必须 t.raw 取原文(next-intl 缺参会回落整条键路径),不能要求一律 t()。
+      .filter((k) => !new RegExp(`${k}:\\s*(?:String\\()?t(?:\\.raw)?\\('${k}'\\)`).test(hook))
     expect(missing, `hook 未注入:${missing.join(', ')}`).toEqual([])
     for (const d of ['asc', 'desc', 'none']) {
       expect(hook, `sortDirections.${d} 未注入`).toContain(
