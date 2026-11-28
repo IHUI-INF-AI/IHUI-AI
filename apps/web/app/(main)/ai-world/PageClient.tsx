@@ -8,18 +8,28 @@ import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { Wrench, AppWindow, Newspaper, FileText, Code, Sparkles, Trophy } from 'lucide-react'
+import {
+  Wrench,
+  AppWindow,
+  Newspaper,
+  FileText,
+  Code,
+  Sparkles,
+  Trophy,
+  FlaskConical,
+} from 'lucide-react'
 
 import { fetchAiWorld } from './helpers'
 import { ItemList } from './ItemList'
 import { CategorySidebar } from './CategorySidebar'
 import { HotAppsCard } from './HotAppsCard'
 import { RankingTable } from './RankingTable'
+import { BenchmarkTable } from './BenchmarkTable'
 import { BackButton } from '@/components/common'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import type { ItemKind } from './types'
 
-type TabKey = 'tools' | 'apps' | 'news' | 'papers' | 'projects' | 'rankings'
+type TabKey = 'tools' | 'apps' | 'news' | 'papers' | 'projects' | 'rankings' | 'benchmark'
 
 interface TabDef {
   key: TabKey
@@ -51,6 +61,7 @@ const TABS: TabDef[] = [
     hasSidebar: false,
   },
   { key: 'rankings', label: '模型排行', icon: Trophy, layout: 'list', hasSidebar: false },
+  { key: 'benchmark', label: '实测榜', icon: FlaskConical, layout: 'list', hasSidebar: false },
 ]
 
 // 白名单:仅允许 TABS 已声明的 key,防 XSS
@@ -133,6 +144,8 @@ export default function AiWorldPage() {
       {/* 主内容区 */}
       {activeTab === 'rankings' ? (
         <RankingTable />
+      ) : activeTab === 'benchmark' ? (
+        <BenchmarkTable />
       ) : activeTabDef.hasSidebar ? (
         <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-[200px_1fr]">
           <aside className="rounded-lg border bg-card p-2">

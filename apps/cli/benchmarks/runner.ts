@@ -68,28 +68,37 @@ export interface BenchSummary {
   passed: number;
   failed: number;
   passRate: number;
+  benchmark?: string;
+  generatedAt?: string;
   mode: 'mock' | 'cli';
+  /** 本次驱动基准的真实模型 id(single-shot 模式必填) */
+  model?: string | null;
+  /** true = 单发直答(模型只回完整文件,不跑工具循环) */
+  singleShot?: boolean;
   results: TaskResult[];
 }
 
-export type RunAgentFn = (prompt: string, task: BenchTask) => Promise<string>;
+export type RunAgentFn = (prompt: string, task: BenchTask, workspace: string) => Promise<string>;
 
 // ==================== Prompt & answer extraction ====================
 
-/** 组装发给 agent 的固定 prompt（要求只回一个代码块，便于确定性抽取）。 */
+/** 组装发给 agent 的 prompt：按 agent 的天然工作方式下指令 —— 在工作区落盘 + 跑校验命令。
+ * 2026-11-27:不再要求"只回一个代码块";实测那会把对话式模型带偏(直接拒答/回一段解释),
+ * 产物改为从磁盘取(pickSolution),文本代码块只作兜底。 */
 export function buildPrompt(task: BenchTask): string {
   const fileTree = Object.keys(task.files).sort().join(', ');
   return [
-    `You are a coding benchmark agent. Produce the final content of the single file \`${task.targetFile}\`.`,
+    `You are an autonomous coding agent working inside a task workspace.`,
     `Language: ${task.language}. Mode: ${task.style === 'fix' ? 'fix the existing buggy file' : 'write from scratch'}.`,
-    `Workspace already contains these files (do NOT modify tests): ${fileTree}.`,
-    `Validation command (must exit 0): ${task.verifyCmd}`,
     '',
     'Task:',
     task.prompt,
     '',
-    'Respond with EXACTLY ONE fenced code block containing the full final content of',
-    `\`${task.targetFile}\` and nothing else outside it.`,
+    `The workspace contains: ${fileTree}. Do not modify test files.`,
+    `Write the final code into \`${task.targetFile}\` with your file tools, then run the validation command until it exits 0:`,
+    task.verifyCmd,
+    '',
+    'Reply with a one-line summary when the validation command passes.',
   ].join('\n');
 }
 
@@ -113,6 +122,25 @@ export function extractCodeBlock(text: string): string {
 /** 评分判定：验证命令 exit 0 即 passed。 */
 export function scoreTask(exitCode: number | null): boolean {
   return exitCode === 0;
+}
+
+/**
+ * 取最终答案：优先用 agent 真正落在工作区的产物（agent 形态的本体），
+ * 只有在"文件不存在 / fix 任务原样没动"时才退回从自由文本抽代码块。
+ * 2026-11-27:此前只认文本代码块,agent 一旦走工具改文件就会被判成"无输出"。
+ */
+export function pickSolution(ws: string, task: BenchTask, answer: string): string {
+  const target = join(ws, task.targetFile);
+  if (existsSync(target)) {
+    const onDisk = readFileSync(target, 'utf8');
+    const seeded = task.files[task.targetFile];
+    if (task.style === 'fix') {
+      if (seeded === undefined || onDisk !== seeded) return onDisk;
+    } else if (onDisk.trim().length > 0) {
+      return onDisk;
+    }
+  }
+  return extractCodeBlock(answer);
 }
 
 // ==================== Workspace & verification ====================
@@ -244,6 +272,82 @@ export function makeMockAgent(): RunAgentFn {
 }
 
 /**
+ * 单发直答适配器(2026-11-28):给"只会聊天、不会调工具"的上游模型用。
+ * 把任务文件全文塞进一次请求,要求模型只回 JSON(files[].path/content);
+ * 回答直接落盘,不走 CLI agent 的多轮工具循环。
+ * 适用:号池里的 IDE-agent 上游(trae/qoder 等)会注入自己的 2 万 token 提示
+ * 并接管工具,客户端 tools 被丢弃 —— 这种链路只适合单发改文件。
+ */
+export function makeSingleShotAgent(): RunAgentFn {
+  const baseUrl = (process.env.IHUI_BENCH_BASE_URL ?? 'http://127.0.0.1:8813/v1').replace(/\/$/, '')
+  const model = process.env.IHUI_BENCH_MODEL ?? 'Doubao-Seed-2.1-Turbo'
+  const keyFile = resolve(HERE, '..', '.ihui-agent', 'tmp', 'relay-credential.txt')
+  const apiKey = process.env.IHUI_BENCH_API_KEY ?? (existsSync(keyFile) ? readFileSync(keyFile, 'utf8').trim() : '')
+  return async (_prompt: string, task: BenchTask, workspace: string) => {
+    const fileBlock = Object.entries(task.files)
+      .map(([p, c]) => `--- FILE: ${p} ---\n${c}`)
+      .join('\n\n')
+    const userPrompt = [
+      `任务:${task.prompt}`,
+      `目标文件:${task.targetFile}`,
+      '以下是工作区现有文件全文:',
+      fileBlock,
+      '',
+      '只输出一个 JSON 对象,不要解释、不要 markdown 围栏之外的其他文字:',
+      '{"files":[{"path":"' + task.targetFile + '","content":"完整文件内容"}]}',
+      '如果只需改一个文件,就只给这一个。content 必须是可直接写盘的完整文件。',
+    ].join('\n')
+    const resp = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: '你是代码修复助手,只输出合法 JSON,不调用任何工具。' },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.1,
+        max_tokens: 4096,
+      }),
+      signal: AbortSignal.timeout(Number(process.env.IHUI_BENCH_TIMEOUT_MS ?? 180_000)),
+    })
+    const text = await resp.text()
+    if (!resp.ok) throw new Error(`single-shot upstream ${resp.status}: ${text.slice(0, 300)}`)
+    type ChatCompletion = { choices?: Array<{ message?: { content?: string } }> }
+    let parsed: ChatCompletion
+    try {
+      parsed = JSON.parse(text)
+    } catch {
+      throw new Error(`single-shot non-JSON response: ${text.slice(0, 300)}`)
+    }
+    const answer: string = parsed.choices?.[0]?.message?.content ?? ''
+    // 回答里抓 JSON(模型常套 ```json 围栏或在前后加一句话)
+    const candidates: string[] = []
+    const fence = answer.match(/```(?:json)?\s*([\s\S]*?)```/i)
+    if (fence) candidates.push(fence[1])
+    const brace = answer.match(/\{[\s\S]*\}/)
+    if (brace) candidates.push(brace[0])
+    for (const c of candidates) {
+      try {
+        const obj = JSON.parse(c.trim())
+        const files = Array.isArray(obj.files) ? obj.files : []
+        for (const f of files) {
+          if (!f?.path || typeof f.content !== 'string') continue
+          const abs = resolve(workspace, f.path)
+          if (!abs.startsWith(resolve(workspace))) continue
+          mkdirSync(dirname(abs), { recursive: true })
+          writeFileSync(abs, f.content.endsWith('\n') ? f.content : f.content + '\n', 'utf8')
+        }
+        if (files.length > 0) return answer
+      } catch {
+        /* 试下一个候选 */
+      }
+    }
+    return answer
+  }
+}
+
+/**
  * CLI headless 适配器：调用本仓库 `ihui agent` 命令。
  * 通过 IHUI_BENCH_CLI 可覆盖入口（默认走 tsx 直跑 src/index.ts，无需先 build）。
  */
@@ -251,24 +355,28 @@ export function makeCliAgent(): RunAgentFn {
   const here = dirname(fileURLToPath(import.meta.url));
   const cliRoot = resolve(here, '..');
   const entry = process.env.IHUI_BENCH_CLI || '';
-  return async (prompt: string) => {
+  return async (prompt: string, _task: BenchTask, workspace: string) => {
     let cmd: string;
     let args: string[];
     if (entry) {
       cmd = entry;
-      args = ['agent', prompt, '--json', '--allow-dangerous', '--no-setup', '-w', cliRoot];
+      args = ['agent', prompt, '--json', '--allow-dangerous', '--no-setup', '-w', workspace];
     } else {
       cmd = process.execPath;
+      // 2026-11-27:改走 tsx 的 JS 入口(cli.mjs) —— `node .bin/tsx` 在 Windows 上会
+      // 把 POSIX sh 包装脚本当 JS 解析,直接 SyntaxError,bench 在 win 上永远跑不起来。
       args = [
-        resolve(cliRoot, 'node_modules/.bin/tsx'),
+        resolve(cliRoot, 'node_modules/tsx/dist/cli.mjs'),
         resolve(cliRoot, 'src/index.ts'),
-        'agent', prompt, '--json', '--allow-dangerous', '--no-setup', '-w', cliRoot,
+        'agent', prompt, '--json', '--allow-dangerous', '--no-setup', '-w', workspace,
       ];
     }
     const r = spawnSync(cmd, args, {
       // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
       stdio: ['ignore', 'pipe', 'pipe'],
-      cwd: cliRoot,
+      // 2026-11-27:工作目录必须落到任务工作区,否则 agent 会把整个 CLI 仓库当上下文,
+      // 既看不到测试文件也不会把产物写进被测目录(此前 8 例 0 分的直接原因之一)。
+      cwd: workspace,
       encoding: 'utf8',
       timeout: 600_000,
       maxBuffer: 32 * 1024 * 1024,
@@ -307,17 +415,28 @@ export interface RunOptions {
 export async function runBenchmark(opts: RunOptions = {}): Promise<BenchSummary> {
   const tasks: BenchTask[] = opts.tasks ?? JSON.parse(readFileSync(join(HERE, 'tasks.json'), 'utf8')).tasks;
   const useMock = opts.runAgent ? false : (process.env.IHUI_BENCH_MOCK !== '0');
-  const runAgent = opts.runAgent ?? (useMock ? makeMockAgent() : makeCliAgent());
+  const runAgent =
+    opts.runAgent ??
+    (useMock
+      ? makeMockAgent()
+      : process.env.IHUI_BENCH_MODE === 'single-shot'
+        ? makeSingleShotAgent()
+        : makeCliAgent());
   const outPath = opts.outPath ?? join(HERE, 'results', 'latest.json');
 
   const root = opts.workRoot ?? mkdtempSync(join(tmpdir(), 'ihui-bench-'));
   const results: TaskResult[] = [];
+  // 2026-11-27:免费档上游按分钟限流,连跑必然撞 RateLimitError。任务之间留间隔,
+  // 由 IHUI_BENCH_DELAY_MS 控制(默认 0,CI 里保持快跑)。
+  const delayMs = Number(process.env.IHUI_BENCH_DELAY_MS ?? 0);
 
-  for (const task of tasks) {
+  for (const [index, task] of tasks.entries()) {
+    if (index > 0 && delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
+    console.log(`[bench] (${index + 1}/${tasks.length}) start ${task.id}`);
     const ws = setupWorkspace(task, root);
     try {
-      const raw = await runAgent(buildPrompt(task), task);
-      const code = extractCodeBlock(raw);
+      const raw = await runAgent(buildPrompt(task), task, ws);
+      const code = pickSolution(ws, task, raw);
       writeSolution(ws, task, code);
       const v = verifyTask(ws, task);
       results.push({
@@ -350,7 +469,11 @@ export async function runBenchmark(opts: RunOptions = {}): Promise<BenchSummary>
     passed,
     failed: results.length - passed,
     passRate: results.length ? passed / results.length : 0,
+    benchmark: 'IHUI-8',
+    generatedAt: new Date().toISOString(),
     mode: useMock ? 'mock' : 'cli',
+    model: useMock ? undefined : (process.env.IHUI_BENCH_MODEL ?? null),
+    singleShot: !useMock && process.env.IHUI_BENCH_MODE === 'single-shot',
     results,
   };
 
@@ -370,8 +493,9 @@ function printSummary(s: BenchSummary, outPath: string): void {
 
 // 直接执行（tsx benchmarks/runner.ts）时才跑主流程；被 import（如 vitest）时无副作用。
 if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) {
-  const outPath = join(HERE, 'results', 'latest.json');
-  runBenchmark({ outPath })
+  const outPath = process.env.IHUI_BENCH_OUT
+    ? resolve(process.env.IHUI_BENCH_OUT)
+    : join(HERE, 'results', 'latest.json');  runBenchmark({ outPath })
     .then((s) => {
       printSummary(s, outPath);
       process.exit(s.failed === 0 ? 0 : 1);
