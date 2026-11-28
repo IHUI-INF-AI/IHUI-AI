@@ -21,6 +21,8 @@ import type {
   AiWorldAuthoritativeLeaderboard,
   AiWorldLeaderboardAaBenchmark,
   AiWorldLeaderboardAaRow,
+  AiWorldLeaderboardBoard,
+  AiWorldLeaderboardBoardRow,
   AiWorldLeaderboardCrossRow,
   AiWorldLeaderboardLmCategory,
   AiWorldLeaderboardLmRow,
@@ -37,7 +39,9 @@ const LMARENA_PARQUET_URLS = [
 ]
 const AA_URL = 'https://artificialanalysis.ai/leaderboards/models'
 const OPENROUTER_CSV_URL = 'https://openrouter.ai/api/v1/datasets/exports/rankings-daily/latest.csv'
-const OPENROUTER_BOARD_SIZE = 50
+const HELM_PAGE_URL = 'https://crfm.stanford.edu/helm/capabilities/latest/'
+const OPENCOMPASS_PAGE_URL = 'https://rank.opencompass.org.cn/?lang=zh-CN'
+const SWEBENCH_PAGE_URL = 'https://www.swebench.com/'
 export const AUTHORITATIVE_REFRESH_CRON =
   process.env.AUTHORITATIVE_LEADERBOARD_CRON || '17 */6 * * *'
 export const AUTHORITATIVE_REFRESH_TIMEZONE = 'Asia/Shanghai'
@@ -89,7 +93,7 @@ const AA_BENCHMARK_LABELS: Record<string, string> = {
   critpt: 'CritPT',
   'critpt-v2-hard': 'CritPT v2 Hard',
   'enterprise-ops-gym-aa': 'Enterprise Ops Gym AA',
-  'frontiercode': 'FrontierCode',
+  frontiercode: 'FrontierCode',
   'frontiercode-2-0': 'FrontierCode 2.0',
   frontierphysics: 'FrontierPhysics',
   'gdp-pdf': 'GDP-PDF',
@@ -99,10 +103,10 @@ const AA_BENCHMARK_LABELS: Record<string, string> = {
   healthbench: 'HealthBench',
   'healthbench-professional': 'HealthBench Professional',
   'hle-diamond': 'HLE Diamond',
-  "humanitys-last-exam": "Humanity's Last Exam",
+  'humanitys-last-exam': "Humanity's Last Exam",
   ifbench: 'IFBench',
   'itbench-aa': 'ITBench AA',
-  'livecodebench': 'LiveCodeBench',
+  livecodebench: 'LiveCodeBench',
   mka: 'MKA',
   'mlcr-aa': 'MLCR AA',
   'mmmu-pro': 'MMMU-Pro',
@@ -211,6 +215,8 @@ export interface AuthoritativeSourceBundle {
   lmarena: LmarenaSourceData
   aa: AaSourceData
   openrouter: OpenRouterSourceData
+  /** 新增平台全量榜；由 job 单独抓取后注入，失败不影响三家核心源。 */
+  boards?: AiWorldLeaderboardBoard[]
 }
 
 let syncProxyAgent: ProxyAgent | null | undefined
@@ -240,7 +246,7 @@ function getProxyDispatcher(url: string): ProxyAgent | null {
   return syncProxyAgent
 }
 
-async function fetchSource(url: string, timeoutMs: number): Promise<Response> {
+export async function fetchSource(url: string, timeoutMs: number): Promise<Response> {
   const init: UndiciRequestInit = {
     headers: {
       'user-agent': USER_AGENT,
@@ -524,12 +530,6 @@ function parseCsvLine(line: string): string[] {
   return values
 }
 
-function dateMinusDays(date: string, days: number): string {
-  const d = new Date(`${date}T00:00:00Z`)
-  d.setUTCDate(d.getUTCDate() - days)
-  return d.toISOString().slice(0, 10)
-}
-
 function prettySlug(value: string): string {
   const special: Record<string, string> = {
     gpt: 'GPT',
@@ -616,19 +616,19 @@ export function parseOpenRouterCsv(csv: string): OpenRouterSourceData {
   }
   if (!daily.length) throw new Error('OpenRouter CSV 没有可用数据')
   const endDate = daily.reduce((max, row) => (row.date > max ? row.date : max), '')
-  const startDate = dateMinusDays(endDate, 6)
-  const windowRows = daily.filter((row) => row.date >= startDate && row.date <= endDate)
+  const startDate = daily.reduce((min, row) => (row.date < min ? row.date : min), endDate)
+  // 官方 CSV 一次给完整 30 天日榜；全部窗口参与累计，避免只看最后 7 天把长尾模型漏掉。
+  const windowRows = daily
   const totalTokens = windowRows.reduce((sum, row) => sum + row.tokens, 0)
-  if (totalTokens <= 0) throw new Error('OpenRouter 近 7 天 tokens 为 0')
+  if (totalTokens <= 0) throw new Error('OpenRouter 全部窗口 tokens 为 0')
 
   const familyMap = new Map<
     string,
     {
       model: string
       vendor: string
-      key: string
       tokens: number
-      share: number
+      bestDaily: number
       slug: string
       build: string | null
       free: boolean
@@ -637,19 +637,24 @@ export function parseOpenRouterCsv(csv: string): OpenRouterSourceData {
   for (const row of windowRows) {
     const meta = openRouterMeta(row.slug)
     if (!meta) continue
-    const existing = familyMap.get(meta.key)
-    if (!existing || row.tokens > existing.tokens) {
-      familyMap.set(meta.key, {
-        ...meta,
+    const existing = familyMap.get(row.slug)
+    if (!existing) {
+      familyMap.set(row.slug, {
+        model: meta.model,
+        vendor: meta.vendor,
         tokens: row.tokens,
-        share: totalTokens > 0 ? row.tokens / totalTokens : 0,
+        bestDaily: row.tokens,
         slug: row.slug,
+        build: meta.build,
+        free: meta.free,
       })
+      continue
     }
+    existing.tokens += row.tokens
+    if (row.tokens > existing.bestDaily) existing.bestDaily = row.tokens
   }
   const rows = [...familyMap.values()]
     .sort((a, b) => b.tokens - a.tokens)
-    .slice(0, OPENROUTER_BOARD_SIZE)
     .map((row, index): AiWorldLeaderboardOrRow => ({
       rank: index + 1,
       model: row.model,
@@ -754,10 +759,7 @@ function finiteOrNull(value: unknown): number | null {
 }
 
 function aaBenchmarkLabel(key: string): string {
-  return (
-    AA_BENCHMARK_LABELS[key] ??
-    key.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-  )
+  return AA_BENCHMARK_LABELS[key] ?? key.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
 function toAaBenchmarks(scores: AaRawModel['scores']): AiWorldLeaderboardAaBenchmark[] {
@@ -891,6 +893,80 @@ function buildLmFamilies(rows: LmarenaEntry[]): {
   }
 }
 
+function buildAaVariantsBoard(models: AaRawModel[], asOf: string): AiWorldLeaderboardBoard {
+  const rows: AiWorldLeaderboardBoardRow[] = []
+  for (const raw of models) {
+    if (raw.deprecated) continue
+    const name = (raw.name || raw.release?.name || '').trim()
+    const score = finiteOrNull(raw.intelligenceIndex)
+    if (!name || score === null) continue
+    rows.push({
+      rank: 0,
+      model: name,
+      vendor: vendorLabel(raw.modelCreatorName),
+      openWeights: Boolean(raw.isOpenWeights),
+      cn: isCnVendor(vendorKey(raw.modelCreatorName)),
+      params: raw.paramClass ?? null,
+      score: round1(score),
+      values: {
+        intelligence: round1(score),
+        reasoning: raw.isReasoning ? 1 : 0,
+        benchmarkCount: Object.keys(raw.scores ?? {}).length,
+        omniscience: finiteOrNull(raw.omniscience),
+        contextWindow: finiteOrNull(raw.contextWindowTokens),
+        inputPrice: finiteOrNull(raw.price1mInputTokens),
+        outputPrice: finiteOrNull(raw.price1mOutputTokens),
+        cacheHitPrice: finiteOrNull(raw.cacheHitPrice),
+        cacheWritePrice: finiteOrNull(raw.cacheWritePrice),
+        outputSpeed: finiteOrNull(raw.outputSpeed),
+        ttft: finiteOrNull(raw.timeToFirstToken),
+        ttfa: finiteOrNull(raw.timeToFirstAnswerToken),
+        costPerTask: finiteOrNull(raw.intelligenceIndexCostPerTask),
+        timePerTask: finiteOrNull(raw.intelligenceIndexTimePerTask),
+        paramClass: raw.paramClass ?? null,
+        priceClass: raw.priceClass ?? null,
+      },
+    })
+  }
+  rows.sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+  rows.forEach((row, index) => {
+    row.rank = index + 1
+  })
+  return {
+    id: 'aa-variants',
+    sourceId: 'aa',
+    name: 'Artificial Analysis 全量档位',
+    shortName: 'AA 全档位',
+    metric: 'Intelligence Index（全部构建档位）',
+    description:
+      'AA 官方页面初始 JSON 里的全部模型档位，不做家族折叠；用于看同一模型不同推理档位、上下文版本、价格档位的差异。',
+    url: AA_URL,
+    asOf,
+    boardSize: rows.length,
+    live: true,
+    note: `官方页面内嵌 initialModels；${rows.length} 个原始档位全部列出。主榜“智能指数”按家族取最高档，本榜保留每个构建/档位，不做去重，避免把 Fast/High/Max 当成同一个模型。reasoning=1/0 表示官方 isReasoning 标记。`,
+    columns: [
+      { key: 'intelligence', label: '智能', kind: 'score' },
+      { key: 'reasoning', label: '推理档', kind: 'bool' },
+      { key: 'benchmarkCount', label: '单项评测数', kind: 'int' },
+      { key: 'omniscience', label: '通识', kind: 'score' },
+      { key: 'contextWindow', label: '上下文', kind: 'tokens' },
+      { key: 'inputPrice', label: '输入 $/M', kind: 'usd' },
+      { key: 'outputPrice', label: '输出 $/M', kind: 'usd' },
+      { key: 'cacheHitPrice', label: '缓存命中 $/M', kind: 'usd' },
+      { key: 'cacheWritePrice', label: '缓存写入 $/M', kind: 'usd' },
+      { key: 'outputSpeed', label: '输出 tok/s', kind: 'score' },
+      { key: 'ttft', label: '首 token s', kind: 'seconds' },
+      { key: 'ttfa', label: '首答案 s', kind: 'seconds' },
+      { key: 'costPerTask', label: '单任务 $', kind: 'usd' },
+      { key: 'timePerTask', label: '单任务 s', kind: 'seconds' },
+      { key: 'paramClass', label: '参数档', kind: 'text' },
+      { key: 'priceClass', label: '价格档', kind: 'text' },
+    ],
+    rows,
+  }
+}
+
 export function buildAuthoritativeLeaderboard(
   bundle: AuthoritativeSourceBundle,
   options: { generatedAt?: string; refresh?: AiWorldLeaderboardRefresh } = {},
@@ -923,21 +999,20 @@ export function buildAuthoritativeLeaderboard(
     benchmarks: row.benchmarks,
   }))
 
+  const aaVariants = buildAaVariantsBoard(bundle.aa.models, bundle.aa.asOf)
+  const extraBoards = [...(bundle.boards ?? []), aaVariants]
+
   const lmOverall = buildLmFamilies(bundle.lmarena.overall)
-  const lmChinese = buildLmFamilies(bundle.lmarena.chinese)
   if (lmOverall.rows.length < 20)
     throw new Error(`LMArena 总榜有效模型不足: ${lmOverall.rows.length}`)
 
-  const lmCategories: AiWorldLeaderboardLmCategory[] = bundle.lmarena.categories.map((cat) => {
-    const built = buildLmFamilies(cat.rows)
-    return {
-      id: cat.id,
-      label: cat.label,
-      count: cat.count,
-      votes: cat.votes,
-      rows: built.rows.slice(0, 50),
-    }
-  })
+  const lmCategories: AiWorldLeaderboardLmCategory[] = bundle.lmarena.categories.map((cat) => ({
+    id: cat.id,
+    label: cat.label,
+    count: cat.count,
+    votes: cat.votes,
+    rows: cat.rows,
+  }))
 
   const lmByKey = new Map(lmOverall.families.map((row) => [normalizeModel(row.model), row]))
   const aaByKey = new Map(aaFamilies.map((row) => [normalizeModel(row.model), row]))
@@ -978,7 +1053,7 @@ export function buildAuthoritativeLeaderboard(
       const vals = [
         row.aa ? percentile(row.aa.rank, aaList.length) : null,
         row.lm ? percentile(row.lm.rank, bundle.lmarena.overallCount) : null,
-        row.or ? percentile(row.or.rank, OPENROUTER_BOARD_SIZE) : null,
+        row.or ? percentile(row.or.rank, bundle.openrouter.rows.length) : null,
       ].filter((v): v is number => v !== null && v !== undefined)
       return vals.reduce((sum, v) => sum + v, 0) / vals.length
     }
@@ -988,7 +1063,29 @@ export function buildAuthoritativeLeaderboard(
     row.rank = index + 1
   })
 
-  const orRows = bundle.openrouter.rows.slice(0, OPENROUTER_BOARD_SIZE)
+  const orRows = bundle.openrouter.rows
+  const boardById = new Map(extraBoards.map((board) => [board.id, board]))
+  const extraSource = (
+    id: AiWorldLeaderboardSource['id'],
+    name: string,
+    metric: string,
+    url: string,
+    boardId: string,
+    note: string,
+    dataset?: string,
+  ): AiWorldLeaderboardSource => {
+    const board = boardById.get(boardId)
+    return {
+      id,
+      name,
+      metric,
+      url,
+      dataset,
+      asOf: board?.asOf ?? '',
+      boardSize: board?.boardSize ?? 0,
+      note,
+    }
+  }
   const sources: AiWorldLeaderboardSource[] = [
     {
       id: 'aa',
@@ -997,7 +1094,7 @@ export function buildAuthoritativeLeaderboard(
       url: AA_URL,
       asOf: bundle.aa.asOf,
       boardSize: aaList.length,
-      note: `读取官方榜单页面内嵌数据；同一模型家族取最高档位，去重后 ${aaList.length} 个模型。指数由 AA-Briefcase、Terminal-Bench 4.1、FrontierCode-AA 2.0、HLE-Diamond 等多项评测合成。页面详情同时展示上下文、输入/输出价格、缓存价、输出速度、TTFT、单任务成本与全部单项分；AA 公开数据只提供 small/medium/large 参数档位，没有逐模型精确参数量，本站不编造。`,
+      note: `读取官方榜单页面内嵌数据；主榜同一模型家族取最高档位，去重后 ${aaList.length} 个模型；全量 ${aaVariants.boardSize} 个原始档位在“AA 全档位”子榜完整列出。指数由 AA-Briefcase、Terminal-Bench 4.1、FrontierCode-AA 2.0、HLE-Diamond 等多项评测合成。页面详情同时展示上下文、输入/输出价格、缓存价、输出速度、TTFT、单任务成本与全部单项分；AA 公开数据只提供 small/medium/large 参数档位，没有逐模型精确参数量，本站不编造。`,
     },
     {
       id: 'lmarena',
@@ -1007,33 +1104,83 @@ export function buildAuthoritativeLeaderboard(
       dataset: 'https://huggingface.co/datasets/lmarena-ai/leaderboard-dataset',
       asOf: bundle.lmarena.asOf,
       boardSize: bundle.lmarena.overallCount,
-      note: `官方 HuggingFace 数据集 text/latest，发布日期 ${bundle.lmarena.asOf}。已接入全部 ${bundle.lmarena.categories.length} 个分类榜：总榜 ${bundle.lmarena.overallCount} 个模型、${formatWan(bundle.lmarena.overallVotes)}票；中文榜 ${bundle.lmarena.chineseCount} 个模型、${formatWan(bundle.lmarena.chineseVotes)}票；每个分类页展示前 50 名并保留全量模型数/票数。Arena Score 为盲测人类偏好分，不是正确率。`,
+      note: `官方 HuggingFace 数据集 text/latest，发布日期 ${bundle.lmarena.asOf}。已接入全部 ${bundle.lmarena.categories.length} 个分类榜：总榜 ${bundle.lmarena.overallCount} 个模型、${formatWan(bundle.lmarena.overallVotes)}票；中文榜 ${bundle.lmarena.chineseCount} 个模型、${formatWan(bundle.lmarena.chineseVotes)}票；每个分类榜保留全量行，页面按需加载，不再截前 50。Arena Score 为盲测人类偏好分，不是正确率。`,
     },
     {
       id: 'openrouter',
       name: 'OpenRouter',
-      metric: '周 tokens',
+      metric: '30 天 tokens',
       url: 'https://openrouter.ai/rankings',
       dataset: OPENROUTER_CSV_URL,
       asOf: bundle.openrouter.asOf,
-      boardSize: OPENROUTER_BOARD_SIZE,
-      note: `官方公开日榜 CSV，${bundle.openrouter.startDate} 至 ${bundle.openrouter.endDate} 七天累计，共 ${formatTokens(bundle.openrouter.totalTokens)} tokens；仅覆盖平台前 50 名，other 占 ${(bundle.openrouter.otherShare * 100).toFixed(1)}%。用量不等于能力。数据 CC BY 4.0，署名 OpenRouter。`,
+      boardSize: orRows.length,
+      note: `官方公开日榜 CSV，${bundle.openrouter.startDate} 至 ${bundle.openrouter.endDate} 全窗口累计，共 ${formatTokens(bundle.openrouter.totalTokens)} tokens；已去掉前 50 截断，输出全部 ${orRows.length} 个模型/构建，other 占 ${(bundle.openrouter.otherShare * 100).toFixed(1)}%。官方 CSV 只有日期、模型、名次、tokens、占比五列，没有价格和上下文；用量不等于能力。数据 CC BY 4.0，署名 OpenRouter。`,
     },
+    extraSource(
+      'helm',
+      'Stanford HELM',
+      'Capabilities Mean score',
+      HELM_PAGE_URL,
+      'helm',
+      'Stanford CRFM 官方 HELM Capabilities，68 个模型全量，含五个场景、耗时与 token 规模。',
+      'https://storage.googleapis.com/crfm-helm-public/capabilities/benchmark_output/',
+    ),
+    extraSource(
+      'opencompass',
+      'OpenCompass 司南',
+      '官方评测榜 V3.0',
+      OPENCOMPASS_PAGE_URL,
+      'opencompass',
+      '上海 AI Lab OpenCompass 官方榜单页面快照（2026-11-20）；官方公开接口只给前 10 名，页面可见 27 个模型，故本榜标为快照，不伪装自动刷新。',
+    ),
+    extraSource(
+      'superclue',
+      'SuperCLUE',
+      '中文通用大模型总分',
+      'https://www.superclueai.com/generalpage',
+      'superclue',
+      'SuperCLUE 官方 2026 年 11 月通用榜 Excel，21 个模型全量，含总/激活参数、五维分与开闭源。',
+    ),
+    extraSource(
+      'livebench',
+      'LiveBench 2.0',
+      '七类 Overall',
+      'https://livebench.ai/',
+      'livebench',
+      'LiveBench 2.0 官方 release 20261106，41 个模型全量，含七类分、平均 token 与单价。',
+    ),
+    extraSource(
+      'swebench',
+      'SWE-bench',
+      '% Resolved',
+      SWEBENCH_PAGE_URL,
+      'swebench',
+      'SWE-bench 官方 leaderboard-data，五个 subset 全部 323 行提交，含 agent、成本、调用数、日期。',
+    ),
+    extraSource(
+      'epoch',
+      'Epoch AI ECI',
+      'Epoch Capabilities Index',
+      'https://epoch.ai/eci',
+      'epoch',
+      'Epoch AI 官方 ECI 全量 263 个模型，含 90% CI、参数量、价格与训练算力。',
+    ),
   ]
 
   return {
     schemaVersion: AUTHORITATIVE_LEADERBOARD_SCHEMA_VERSION,
     generatedAt,
     title: '全球模型权威榜',
-    subtitle: 'LMArena · Artificial Analysis · OpenRouter 三榜聚合，不做自建评测',
+    subtitle:
+      '9 个官方榜单：AA · LMArena · OpenRouter · HELM · OpenCompass · SuperCLUE · LiveBench · SWE-bench · Epoch ECI，不做自建评测',
     sources,
     methodology:
-      '综合位次先按覆盖榜单数（3/3 优先于 2/3），再按各榜百分位均值降序；百分位 = 1 - (名次-1)/(该榜模型数-1)。只展示覆盖至少两个榜单的模型。同名模型不同档位/构建在各榜分别取最佳名次，因此是模型家族级对照，不是同配置横评。AA 详情里的单项评测来自官方原始分，归一到 0-100；LMArena 按官方 29 个分类分榜展示，每榜页显示前 50 名；OpenRouter 日榜只有日期、模型、名次、tokens、占比五列，没有价格和上下文，不能凭空补。',
+      '综合位次只覆盖 AA、LMArena、OpenRouter 三家可对齐的能力/偏好/用量榜：先按覆盖榜单数（3/3 优先于 2/3），再按各榜百分位均值降序；百分位 = 1 - (名次-1)/(该榜模型数-1)。只展示覆盖至少两个榜单的模型。新增平台各自量纲不同（HELM 0-1、OpenCompass/SuperCLUE/LiveBench 0-100、SWE-bench % resolved、Epoch ECI 抽象分），只做单榜全量展示，不拼进综合位次。AA 主榜按家族取最高档，另设“全档位”保留全部构建；LMArena 按官方 29 个分类分榜展示；OpenRouter 已输出全部模型家族；OpenRouter 官方 CSV 没有价格/上下文，不能凭空补。',
     cross: ranked,
     aa: aaList,
     lmarena: {
-      overall: lmOverall.rows.slice(0, 100),
-      chinese: lmChinese.rows.slice(0, 50),
+      overall: bundle.lmarena.overall,
+      chinese: bundle.lmarena.chinese,
       overallVotes: bundle.lmarena.overallVotes,
       chineseVotes: bundle.lmarena.chineseVotes,
       overallCount: bundle.lmarena.overallCount,
@@ -1041,6 +1188,7 @@ export function buildAuthoritativeLeaderboard(
       categories: lmCategories,
     },
     openrouter: orRows,
+    boards: extraBoards,
     refresh: options.refresh ?? {
       mode: 'auto',
       schedule: AUTHORITATIVE_REFRESH_CRON,

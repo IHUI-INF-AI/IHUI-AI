@@ -97,12 +97,12 @@ describe('parseOpenRouterCsv', () => {
       '2026-11-26,other,,3,0.5',
     ].join('\n')
     const parsed = parseOpenRouterCsv(csv)
-    expect(parsed.startDate).toBe('2026-11-20')
+    expect(parsed.startDate).toBe('2026-11-19')
     expect(parsed.endDate).toBe('2026-11-26')
-    expect(parsed.totalTokens).toBe(38)
-    expect(parsed.rows.map((row) => row.model)).toEqual(['Model A', 'Model B'])
-    expect(parsed.rows[0]?.tokens).toBe(20)
-    expect(parsed.otherShare).toBeCloseTo(3 / 38, 4)
+    expect(parsed.totalTokens).toBe(990038)
+    expect(parsed.rows.map((row) => row.model)).toEqual(['Old Model', 'Model A', 'Model B'])
+    expect(parsed.rows[1]?.tokens).toBe(30)
+    expect(parsed.otherShare).toBeCloseTo(3 / 990038, 4)
   })
 })
 
@@ -180,7 +180,7 @@ describe('buildAuthoritativeLeaderboard', () => {
     expect(payload.lmarena.overallCount).toBe(30)
     expect(payload.lmarena.chineseCount).toBe(5)
     expect(payload.sources.find((source) => source.id === 'aa')?.boardSize).toBe(30)
-    expect(payload.sources.find((source) => source.id === 'openrouter')?.boardSize).toBe(50)
+    expect(payload.sources.find((source) => source.id === 'openrouter')?.boardSize).toBe(30)
     expect(payload.refresh.schedule).toMatch(/^\d/)
     expect(payload.schemaVersion).toBe(2)
 
@@ -193,6 +193,9 @@ describe('buildAuthoritativeLeaderboard', () => {
     expect(payload.aa[0]?.benchmarks?.find((b) => b.key === 'gpqa-diamond')?.score).toBe(70)
     expect(payload.aa[0]?.benchmarks?.find((b) => b.key === 'aa-briefcase')?.unit).toBe('raw')
     expect(payload.lmarena.categories).toHaveLength(2)
+    expect(payload.openrouter).toHaveLength(30)
+    expect(payload.boards?.[0]?.id).toBe('aa-variants')
+    expect(payload.boards?.[0]?.boardSize).toBeGreaterThanOrEqual(30)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

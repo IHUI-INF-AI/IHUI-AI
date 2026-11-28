@@ -39,8 +39,58 @@ export interface AiWorldCategory {
   sort: number
 }
 
-/** 权威榜单榜来源 ID。 */
-export type AiWorldLeaderboardSourceId = 'aa' | 'lmarena' | 'openrouter'
+/** 权威榜单来源 ID。 */
+export type AiWorldLeaderboardSourceId =
+  | 'aa'
+  | 'lmarena'
+  | 'openrouter'
+  | 'helm'
+  | 'opencompass'
+  | 'superclue'
+  | 'livebench'
+  | 'swebench'
+  | 'epoch'
+
+/** 通用榜单列定义；用于承载不同平台的异构字段。 */
+export interface AiWorldLeaderboardBoardColumn {
+  key: string
+  label: string
+  /** score=0-100 分；percent=百分比；usd=美元；tokens=token 数；params=参数量；seconds=秒；date=日期；text=文本；int=整数；bool=布尔 */
+  kind?:
+    'score' | 'percent' | 'usd' | 'tokens' | 'params' | 'seconds' | 'date' | 'text' | 'int' | 'bool'
+}
+
+/** 通用榜单行：保留原始字段值，不同平台不强行统一量纲。 */
+export interface AiWorldLeaderboardBoardRow {
+  rank: number
+  model: string
+  vendor: string
+  openWeights?: boolean | null
+  cn?: boolean
+  params?: string | null
+  /** 该榜主指标，仅用于卡片/排序；完整字段仍在 values 里。 */
+  score?: number | null
+  values: Record<string, string | number | boolean | null>
+}
+
+/** 一个平台的完整榜单（全量行，不在聚合层截断）。 */
+export interface AiWorldLeaderboardBoard {
+  id: string
+  sourceId: AiWorldLeaderboardSourceId
+  name: string
+  shortName: string
+  metric: string
+  description: string
+  url: string
+  dataset?: string
+  asOf: string
+  boardSize: number
+  /** false 表示官方页面快照，暂无法自动刷新；true 表示官方接口/文件可刷新。 */
+  live: boolean
+  note: string
+  columns: AiWorldLeaderboardBoardColumn[]
+  rows: AiWorldLeaderboardBoardRow[]
+}
 
 /** 权威榜数据来源卡片。 */
 export interface AiWorldLeaderboardSource {
@@ -147,7 +197,7 @@ export interface AiWorldLeaderboardLmCategory {
   count: number
   /** 该分类全量票数 */
   votes: number
-  /** 该分类榜单行（当前截取前列） */
+  /** 该分类榜单全量行，不再截前 50 */
   rows: AiWorldLeaderboardLmRow[]
 }
 
@@ -200,6 +250,8 @@ export interface AiWorldAuthoritativeLeaderboard {
     categories?: AiWorldLeaderboardLmCategory[]
   }
   openrouter: AiWorldLeaderboardOrRow[]
+  /** 新增平台全量榜：HELM、OpenCompass、SuperCLUE、LiveBench、SWE-bench、Epoch ECI、AA 全量档位。 */
+  boards?: AiWorldLeaderboardBoard[]
   refresh: AiWorldLeaderboardRefresh
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

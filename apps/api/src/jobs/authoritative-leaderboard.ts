@@ -6,7 +6,11 @@ import { readFileSync } from 'node:fs'
 import cron, { type ScheduledTask } from 'node-cron'
 import type { FastifyBaseLogger } from 'fastify'
 import type { Redis } from 'ioredis'
-import type { AiWorldAuthoritativeLeaderboard, AiWorldLeaderboardRefresh } from '@ihui/types'
+import type {
+  AiWorldAuthoritativeLeaderboard,
+  AiWorldLeaderboardRefresh,
+  AiWorldLeaderboardSourceId,
+} from '@ihui/types'
 import { DistributedLock } from '../utils/distributed-lock.js'
 import { logger } from '../utils/logger.js'
 import {
@@ -16,6 +20,7 @@ import {
   buildAuthoritativeLeaderboard,
   fetchAuthoritativeSources,
 } from '../services/authoritative-leaderboard.js'
+import { fetchExtraBoards, type ExtraBoardsResult } from '../services/authoritative-extra-boards.js'
 
 const SNAPSHOT_KEY = 'ihui:ai-world:authoritative:v1'
 const STATE_KEY = 'ihui:ai-world:authoritative:state:v1'
@@ -35,7 +40,7 @@ export interface AuthoritativeRefreshState {
   durationMs: number | null
   lastSuccessAt: string | null
   lastError: string | null
-  sources: Record<'aa' | 'lmarena' | 'openrouter', 'ok' | 'failed' | 'unknown'>
+  sources: Record<AiWorldLeaderboardSourceId, 'ok' | 'failed' | 'unknown'>
 }
 
 const IDLE_STATE: AuthoritativeRefreshState = {
@@ -46,7 +51,17 @@ const IDLE_STATE: AuthoritativeRefreshState = {
   durationMs: null,
   lastSuccessAt: null,
   lastError: null,
-  sources: { aa: 'unknown', lmarena: 'unknown', openrouter: 'unknown' },
+  sources: {
+    aa: 'unknown',
+    lmarena: 'unknown',
+    openrouter: 'unknown',
+    helm: 'unknown',
+    opencompass: 'unknown',
+    superclue: 'unknown',
+    livebench: 'unknown',
+    swebench: 'unknown',
+    epoch: 'unknown',
+  },
 }
 
 let scheduledTask: ScheduledTask | null = null
@@ -159,6 +174,24 @@ export async function getAuthoritativeLeaderboard(
           parsed?.schemaVersion === AUTHORITATIVE_LEADERBOARD_SCHEMA_VERSION &&
           Array.isArray(parsed.cross)
         ) {
+          // 部署切换期 Redis 里可能还是旧三源快照；先用内置九源底稿补齐新增榜单和来源卡片，
+          // 避免“更多权威榜”在启动补跑完成前空白。抓取成功后整体覆盖。
+          if (
+            !parsed.boards?.length ||
+            !Array.isArray(parsed.sources) ||
+            parsed.sources.length < 9
+          ) {
+            const fallback = readFallback()
+            if (fallback?.boards?.length) parsed.boards = fallback.boards
+            if (fallback) {
+              const currentSources = Array.isArray(parsed.sources) ? parsed.sources : []
+              const ids = new Set(currentSources.map((source) => source.id))
+              parsed.sources = [
+                ...currentSources,
+                ...fallback.sources.filter((source) => !ids.has(source.id)),
+              ]
+            }
+          }
           return { ...parsed, refresh: normalizeRefresh(parsed, state, 'auto') }
         }
         logger.warn('[authoritative-leaderboard] Redis 快照版本过旧，等待启动补跑重抓')
@@ -195,24 +228,29 @@ async function performRefresh(
   await writeState(redis, runningState)
 
   try {
-    log.info({ trigger }, '[authoritative-leaderboard] 开始抓取三家官方源')
-    const bundle = await fetchAuthoritativeSources()
+    log.info({ trigger }, '[authoritative-leaderboard] 开始抓取九家官方源')
+    const [bundle, extra] = await Promise.all([fetchAuthoritativeSources(), fetchExtraBoards()])
     const generatedAt = nowIso()
-    const payload = buildAuthoritativeLeaderboard(bundle, {
-      generatedAt,
-      refresh: {
-        mode: 'auto',
-        schedule: AUTHORITATIVE_REFRESH_CRON,
-        timezone: AUTHORITATIVE_REFRESH_TIMEZONE,
-        lastSuccessAt: generatedAt,
-        lastAttemptAt: startedAt,
-        lastError: null,
-        stale: false,
+    const payload = buildAuthoritativeLeaderboard(
+      { ...bundle, boards: extra.boards },
+      {
+        generatedAt,
+        refresh: {
+          mode: 'auto',
+          schedule: AUTHORITATIVE_REFRESH_CRON,
+          timezone: AUTHORITATIVE_REFRESH_TIMEZONE,
+          lastSuccessAt: generatedAt,
+          lastAttemptAt: startedAt,
+          lastError: null,
+          stale: false,
+        },
       },
-    })
+    )
     if (!redis) throw new Error('Redis 不可用，无法持久化权威榜快照')
     await redis.set(SNAPSHOT_KEY, JSON.stringify(payload))
     const finishedAt = nowIso()
+    const sourceStatus = (id: keyof ExtraBoardsResult['status']): 'ok' | 'failed' =>
+      extra.status[id] ?? 'failed'
     const successState: AuthoritativeRefreshState = {
       status: 'success',
       trigger,
@@ -221,7 +259,17 @@ async function performRefresh(
       durationMs: Date.now() - startedMs,
       lastSuccessAt: generatedAt,
       lastError: null,
-      sources: { aa: 'ok', lmarena: 'ok', openrouter: 'ok' },
+      sources: {
+        aa: 'ok',
+        lmarena: 'ok',
+        openrouter: 'ok',
+        helm: sourceStatus('helm'),
+        opencompass: sourceStatus('opencompass'),
+        superclue: sourceStatus('superclue'),
+        livebench: sourceStatus('livebench'),
+        swebench: sourceStatus('swebench'),
+        epoch: sourceStatus('epoch'),
+      },
     }
     await writeState(redis, successState)
     log.info(
@@ -232,6 +280,7 @@ async function performRefresh(
         aa: payload.aa.length,
         lmarena: payload.lmarena.overallCount,
         openrouter: payload.openrouter.length,
+        boards: payload.boards?.map((board) => `${board.id}:${board.boardSize}`).join(','),
         lmarenaAsOf: bundle.lmarena.asOf,
         openrouterAsOf: bundle.openrouter.asOf,
       },
@@ -248,7 +297,17 @@ async function performRefresh(
       durationMs: Date.now() - startedMs,
       lastSuccessAt: runningState.lastSuccessAt,
       lastError: message,
-      sources: { aa: 'failed', lmarena: 'failed', openrouter: 'failed' },
+      sources: {
+        aa: 'failed',
+        lmarena: 'failed',
+        openrouter: 'failed',
+        helm: 'failed',
+        opencompass: 'failed',
+        superclue: 'failed',
+        livebench: 'failed',
+        swebench: 'failed',
+        epoch: 'failed',
+      },
     }
     await writeState(redis, failedState)
     log.error({ err, trigger }, '[authoritative-leaderboard] 刷新失败，保留上一份快照')

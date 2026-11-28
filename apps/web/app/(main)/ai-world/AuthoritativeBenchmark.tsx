@@ -12,6 +12,7 @@ import {
   ExternalLink,
   Globe2,
   Info,
+  Layers,
   RefreshCw,
   Sparkles,
   Trophy,
@@ -43,6 +44,7 @@ const VIEWS = [
   { key: 'aa' as const, label: '智能指数', icon: Sparkles },
   { key: 'lmarena' as const, label: '人类偏好', icon: Users },
   { key: 'openrouter' as const, label: '真实用量', icon: Activity },
+  { key: 'boards' as const, label: '更多权威榜', icon: Layers },
 ]
 
 function rankClass(rank: number): string {
@@ -151,7 +153,7 @@ function ModelCell({
 }: {
   model: string
   vendor: string
-  openWeights?: boolean
+  openWeights?: boolean | null
   cn?: boolean
   reasoning?: boolean
 }) {
@@ -428,8 +430,13 @@ function LmarenaTable({ data }: { data: Data }) {
           },
         ]
   const [scope, setScope] = React.useState(categories[0]?.id ?? 'overall')
+  const [visible, setVisible] = React.useState(100)
   const active = categories.find((c) => c.id === scope) ?? categories[0]
   const rows = active?.rows ?? []
+  const shown = rows.slice(0, visible)
+  React.useEffect(() => {
+    setVisible(100)
+  }, [scope])
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
@@ -446,13 +453,13 @@ function LmarenaTable({ data }: { data: Data }) {
           ))}
         </select>
         <span className="text-[11px] text-muted-foreground">
-          {active?.count ?? 0} 个模型 · {formatVotes(active?.votes ?? 0)} 票 · 本页前 {rows.length}{' '}
-          名
+          {active?.count ?? 0} 个模型 · {formatVotes(active?.votes ?? 0)} 票 · 官方全量{' '}
+          {active?.count ?? 0} 行，已载入 {rows.length} 行，已显示 {shown.length}
         </span>
       </div>
       <p className="text-label leading-relaxed text-muted-foreground">
         LMArena Text Arena 官方数据集，覆盖总榜、中文、编程、数学、创意写作、行业等全部分类。Elo
-        来自盲测两两对比的人类偏好，不是正确率；分类榜每榜只展示前 50 名。
+        来自盲测两两对比的人类偏好，不是正确率；所有分类均保留全量模型，页面按需加载，不截前 50。
       </p>
       <div className="relative overflow-x-auto">
         <Table>
@@ -468,7 +475,7 @@ function LmarenaTable({ data }: { data: Data }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((r) => (
+            {shown.map((r) => (
               <TableRow key={`${active?.id}-${r.rank}-${r.model}`} className="hover:bg-accent/40">
                 <TableCell>
                   <RankBadge rank={r.rank} />
@@ -502,6 +509,15 @@ function LmarenaTable({ data }: { data: Data }) {
           </TableBody>
         </Table>
       </div>
+      {visible < rows.length ? (
+        <button
+          type="button"
+          onClick={() => setVisible((value) => value + 100)}
+          className="rounded-md border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          加载更多（已显示 {shown.length} / {rows.length}）
+        </button>
+      ) : null}
     </div>
   )
 }
@@ -510,7 +526,7 @@ function OpenRouterTable({ data }: { data: Data }) {
   return (
     <div className="space-y-2">
       <p className="text-label leading-relaxed text-muted-foreground">
-        OpenRouter 官方公开日榜，近 7 天 tokens
+        OpenRouter 官方公开日榜，全部可用日期 tokens
         累计。这是真实调用量，不代表模型能力；同一模型不同构建分开统计。官方 CSV
         只有日期、模型、名次、tokens、占比五列，没有价格、上下文或参数量，这里不补假数据。
       </p>
@@ -520,7 +536,7 @@ function OpenRouterTable({ data }: { data: Data }) {
             <TableRow className="hover:bg-transparent">
               <TableHead className="w-12">位次</TableHead>
               <TableHead>模型</TableHead>
-              <TableHead className="w-24">7 天 tokens</TableHead>
+              <TableHead className="w-24">累计 tokens</TableHead>
               <TableHead className="w-20">占比</TableHead>
               <TableHead className="w-32">构建 / 计费</TableHead>
             </TableRow>
@@ -552,6 +568,187 @@ function OpenRouterTable({ data }: { data: Data }) {
   )
 }
 
+function BoardValue({ value, kind }: { value: unknown; kind?: string }) {
+  if (value === null || value === undefined || value === '') {
+    return <span className="text-muted-foreground">—</span>
+  }
+  if (kind === 'bool') {
+    return <span className="text-[11px] text-muted-foreground">{value ? '是' : '否'}</span>
+  }
+  if (typeof value === 'string') {
+    return <span className="text-xs text-muted-foreground">{value}</span>
+  }
+  if (typeof value === 'boolean') {
+    return <span className="text-[11px] text-muted-foreground">{value ? '是' : '否'}</span>
+  }
+  if (typeof value !== 'number') {
+    return <span className="text-xs text-muted-foreground">{String(value)}</span>
+  }
+  if (!Number.isFinite(value)) {
+    return <span className="text-muted-foreground">—</span>
+  }
+  if (kind === 'percent') {
+    return <span className="tabular-nums">{value.toFixed(1)}%</span>
+  }
+  if (kind === 'usd') {
+    return <span className="tabular-nums">${value.toFixed(2)}</span>
+  }
+  if (kind === 'tokens') {
+    return <span className="tabular-nums">{formatTokens(value)}</span>
+  }
+  if (kind === 'seconds') {
+    return <span className="tabular-nums">{value.toFixed(1)}s</span>
+  }
+  if (kind === 'int') {
+    return <span className="tabular-nums">{value.toLocaleString('zh-CN')}</span>
+  }
+  if (kind === 'score') {
+    return (
+      <span className="font-medium tabular-nums">
+        {Number.isInteger(value) ? value : value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')}
+      </span>
+    )
+  }
+  return <span className="tabular-nums">{value}</span>
+}
+
+function BoardsTable({ data }: { data: Data }) {
+  const boards = data.boards ?? []
+  const [boardId, setBoardId] = React.useState(boards[0]?.id ?? '')
+  const [query, setQuery] = React.useState('')
+  const [visible, setVisible] = React.useState(50)
+  const active = boards.find((board) => board.id === boardId) ?? boards[0]
+  React.useEffect(() => {
+    setVisible(50)
+    setQuery('')
+  }, [boardId])
+  if (!active) {
+    return (
+      <div className="rounded-md border bg-muted/20 px-3 py-4 text-xs text-muted-foreground">
+        新增平台快照尚未就绪；接口恢复后会自动出现。
+      </div>
+    )
+  }
+  const normalized = query.trim().toLowerCase()
+  const rows = normalized
+    ? active.rows.filter((row) => `${row.model} ${row.vendor}`.toLowerCase().includes(normalized))
+    : active.rows
+  const shown = rows.slice(0, visible)
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          value={active.id}
+          onChange={(event) => setBoardId(event.target.value)}
+          className="h-7 max-w-[260px] rounded-md border bg-card px-2 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring"
+          aria-label="更多权威榜选择"
+        >
+          {boards.map((board) => (
+            <option key={board.id} value={board.id}>
+              {board.shortName}（{board.boardSize}）
+            </option>
+          ))}
+        </select>
+        <span
+          className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium ${
+            active.live
+              ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+              : 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
+          }`}
+        >
+          {active.live ? '官方接口刷新' : '官方页面快照'}
+        </span>
+        <span className="text-[11px] text-muted-foreground">
+          数据日 {active.asOf || '—'} · 全量 {active.rows.length} 行
+        </span>
+        <a
+          href={active.url}
+          target="_blank"
+          rel="noreferrer"
+          className="ml-auto inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+        >
+          官方原榜 <ExternalLink className="h-3 w-3" />
+        </a>
+      </div>
+      <p className="text-label leading-relaxed text-muted-foreground">{active.description}</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value)
+            setVisible(50)
+          }}
+          placeholder="搜模型或厂商"
+          className="h-7 w-44 rounded-md border bg-card px-2 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
+        />
+        <span className="text-[11px] text-muted-foreground">
+          {rows.length === active.rows.length
+            ? `共 ${active.rows.length} 行，全部来自官方源`
+            : `匹配 ${rows.length} / ${active.rows.length} 行`}
+        </span>
+      </div>
+      <div className="relative overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="sticky left-0 z-10 w-12 bg-card">位次</TableHead>
+              <TableHead className="sticky left-12 z-10 min-w-52 bg-card">模型</TableHead>
+              {active.columns.map((column) => (
+                <TableHead key={column.key} className="whitespace-nowrap">
+                  {column.label}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {shown.map((row, index) => (
+              <TableRow key={`${active.id}-${row.model}-${index}`} className="hover:bg-accent/40">
+                <TableCell className="sticky left-0 z-10 bg-card">
+                  <RankBadge rank={row.rank} />
+                </TableCell>
+                <TableCell className="sticky left-12 z-10 bg-card">
+                  <ModelCell
+                    model={row.model}
+                    vendor={row.vendor}
+                    openWeights={row.openWeights}
+                    cn={row.cn}
+                  />
+                </TableCell>
+                {active.columns.map((column) => (
+                  <TableCell key={column.key} className="whitespace-nowrap">
+                    <BoardValue value={row.values[column.key]} kind={column.kind} />
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      {rows.length === 0 ? <p className="text-xs text-muted-foreground">没有匹配的模型。</p> : null}
+      {visible < rows.length ? (
+        <button
+          type="button"
+          onClick={() => setVisible((value) => value + 100)}
+          className="rounded-md border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          加载更多（已显示 {visible} / {rows.length}）
+        </button>
+      ) : null}
+      <p className="text-[10px] leading-relaxed text-muted-foreground">{active.note}</p>
+      {active.dataset ? (
+        <a
+          href={active.dataset}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"
+        >
+          官方数据集/接口 <ExternalLink className="h-3 w-3" />
+        </a>
+      ) : null}
+    </div>
+  )
+}
+
 function SourcesFooter({ data }: { data: Data }) {
   return (
     <div className="rounded-lg border bg-muted/20 p-3">
@@ -579,8 +776,9 @@ function SourcesFooter({ data }: { data: Data }) {
       </div>
       <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">{data.methodology}</p>
       <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-        服务端每 6
-        小时自动从三家官方源刷新一次快照；页面每次打开读取最新快照，不依赖重新构建。最近成功刷新{' '}
+        服务端每 6 小时自动从 AA、LMArena、OpenRouter、HELM、SuperCLUE、LiveBench、SWE-bench、Epoch
+        官方源刷新一次快照；OpenCompass
+        为官方页面快照并明确标注；页面每次打开读取最新快照，不依赖重新构建。最近成功刷新{' '}
         {data.refresh.lastSuccessAt.slice(0, 16).replace('T', ' ')} UTC。
       </p>
       <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
@@ -725,12 +923,14 @@ export function AuthoritativeBenchmark() {
         {view === 'aa' ? <AaTable data={data} /> : null}
         {view === 'lmarena' ? <LmarenaTable data={data} /> : null}
         {view === 'openrouter' ? <OpenRouterTable data={data} /> : null}
+        {view === 'boards' ? <BoardsTable data={data} /> : null}
 
         <div className="flex items-start gap-1.5 rounded-md bg-muted/40 px-2.5 py-2 text-[11px] leading-relaxed text-muted-foreground">
           <Globe2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
-            三个榜单回答三个不同问题：AA 看综合能力，LMArena 看人类偏好，OpenRouter
-            看真实用量。先看共识，再看单项，避免把一个榜单当成全部。
+            综合位次仍然只回答“三家可对齐榜单的交集”：AA 看综合能力，LMArena 看人类偏好，OpenRouter
+            看真实用量。HELM、OpenCompass、SuperCLUE、LiveBench、SWE-bench、Epoch
+            各有自己的量纲和评测集，放在“更多权威榜”里单榜全量看，不硬拼成一个总分。
           </span>
         </div>
 

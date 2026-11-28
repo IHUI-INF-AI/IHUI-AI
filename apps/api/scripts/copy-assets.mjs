@@ -19,6 +19,7 @@ const assets = [
   ['src/services/crew-roles.json', 'dist/services/crew-roles.json'],
   // 权威榜 Redis 不可用时的内置底稿；定时任务刷新成功后会写 Redis，不改这里。
   ['src/data/authoritative-leaderboard-fallback.json', 'dist/data/authoritative-leaderboard-fallback.json'],
+  ['src/data/opencompass-snapshot.json', 'dist/data/opencompass-snapshot.json'],
 ];
 
 for (const [src, dest] of assets) {

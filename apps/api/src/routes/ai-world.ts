@@ -325,6 +325,48 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(snapshot))
   })
 
+  // GET /ai-world/authoritative-leaderboard/boards — 新增平台榜单索引(不带 rows)
+  server.get('/ai-world/authoritative-leaderboard/boards', async (_request, reply) => {
+    const snapshot = await getAuthoritativeLeaderboard(server.redis)
+    if (!snapshot) return reply.status(503).send(error(503, '权威榜快照尚未就绪'))
+    const boards = (snapshot.boards ?? []).map(({ rows, ...board }) => ({
+      ...board,
+      totalRows: rows.length,
+    }))
+    reply.header('cache-control', 'public, max-age=60, s-maxage=60, stale-while-revalidate=300')
+    return reply.send(success(boards))
+  })
+
+  // GET /ai-world/authoritative-leaderboard/boards/:id — 单个平台全量/分页行
+  server.get('/ai-world/authoritative-leaderboard/boards/:id', async (request, reply) => {
+    const snapshot = await getAuthoritativeLeaderboard(server.redis)
+    if (!snapshot) return reply.status(503).send(error(503, '权威榜快照尚未就绪'))
+    const id = (request.params as { id?: string }).id ?? ''
+    const board = (snapshot.boards ?? []).find((item) => item.id === id)
+    if (!board) return reply.status(404).send(error(404, `榜单不存在: ${id}`))
+    const query = request.query as { limit?: string; offset?: string; q?: string }
+    const limitRaw = Number(query.limit ?? board.rows.length)
+    const offsetRaw = Number(query.offset ?? 0)
+    const limit = Number.isFinite(limitRaw)
+      ? Math.min(Math.max(Math.trunc(limitRaw), 1), 5000)
+      : board.rows.length
+    const offset = Number.isFinite(offsetRaw) ? Math.max(Math.trunc(offsetRaw), 0) : 0
+    const q = (query.q ?? '').trim().toLowerCase()
+    const filtered = q
+      ? board.rows.filter((row) => `${row.model} ${row.vendor}`.toLowerCase().includes(q))
+      : board.rows
+    reply.header('cache-control', 'public, max-age=60, s-maxage=60, stale-while-revalidate=300')
+    return reply.send(
+      success({
+        ...board,
+        totalRows: filtered.length,
+        limit,
+        offset,
+        rows: filtered.slice(offset, offset + limit),
+      }),
+    )
+  })
+
   // GET /ai-world/authoritative-leaderboard/status — 最近一次自动刷新状态(公开只暴露运行状态)
   server.get('/ai-world/authoritative-leaderboard/status', async (_request, reply) => {
     const [state, snapshot] = await Promise.all([
