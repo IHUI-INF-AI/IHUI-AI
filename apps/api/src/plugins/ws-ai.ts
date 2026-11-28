@@ -1396,6 +1396,8 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
 
           startHeartbeat()
 
+          // 计费引用必须在 try 外声明，catch 里的 releasePointsHold 才能拿到同一引用。
+          const billingReference = `ws-coze:${userId}:${randomUUID()}`
           try {
             // ============================================================
             // 2026-11-28 完全弃用 Coze：本地 LLM 执行。
@@ -1420,7 +1422,6 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
             const history = localChatHistories.get(historyKey) ?? []
             // 2026-11-28 完全弃用 Coze 后的本地计费：与 /chat/stream、WS capability 同口径预扣，
             // 避免 /ws/coze/chat 成为绕过计费的免费口子。
-            const billingReference = `ws-coze:${userId}:${randomUUID()}`
             // system 人格双写：messages[0] + system_prompt 字段（两条路都验证过 ai-service 生效），
             // 另打一条结构化日志便于线上核对 prompt 是否取到。
             const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = []
