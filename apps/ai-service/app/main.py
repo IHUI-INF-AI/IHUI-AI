@@ -960,6 +960,22 @@ async def lifespan(app: FastAPI) -> Any:
             logger.info("[connector] 启动注册连接器工具(2 读 + 2 写): %d 个", _n_conn)
     except Exception as e:
         logger.error("[connector] 启动注册异常(降级不阻断): %s", e)
+    # 运营内容工具(G-17,2026-11-28 立):公告/轮播 CRUD 接入对话 tool loop。
+    # 执行形态是浏览器委托(见 ops_content_tools.py 模块 docstring 的安全边界),
+    # 本地 handler 只是委托兜底态;审批由 llm.py::_TOOL_DANGER_LEVELS(high)承载。
+    try:
+        from app.services.ops_content_tools import setup_ops_content_tools
+
+        _n_ops = setup_ops_content_tools()
+        if _n_ops == 0:
+            logger.error(
+                "[ops-content] 运营内容 6 枚工具全部注册失败(0/6):本进程对话无运营内容能力; "
+                "服务降级但继续启动,请检查 register_external_tool 同名冲突或上方 warning"
+            )
+        else:
+            logger.info("[ops-content] 启动注册运营内容工具(2 读 + 4 写): %d 个", _n_ops)
+    except Exception as e:
+        logger.error("[ops-content] 启动注册异常(降级不阻断): %s", e)
     try:
         from app.services.ui_action_bridge import (
             register_app_ui_tools,

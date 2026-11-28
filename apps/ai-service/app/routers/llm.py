@@ -1462,6 +1462,13 @@ _TOOL_DANGER_LEVELS: dict[str, str] = {
     # 只读 connector_call_read 不在本表,免审批。connector_write_capabilities 仅列举,
     # 也不在本表。身份由服务端 principal 注入,confirm 由 handler 恒 True。
     "connector_call_write": "high",
+    # 运营内容写操作(G-17,2026-11-28):公告/轮播 CRUD 落库 = 全站用户可见的发布动作,
+    # 判 high ⇒ 委托执行前必弹 tool-approval;只读 announce_list / carousel_list
+    # 不在本表免审批(角色闸由 api 侧 requireAdmin 按用户本人 JWT 兜底)。
+    "announce_create": "high",
+    "announce_update": "high",
+    "carousel_create": "high",
+    "carousel_update": "high",
 }
 
 
@@ -1532,6 +1539,21 @@ _DELEGATE_ONLY_HINTS: dict[str, str] = {
     "create_file": "write_file(注意:它是覆盖写,覆盖语义由调用方保证)",
     "delete_file": "git_operations 或 run_command(需走命令审批)",
     "move_file": "git_operations 或 run_command(需走命令审批)",
+}
+
+# 运营内容委托集(G-17,2026-11-28):公告/轮播 CRUD 由浏览器端执行 —— admin 面
+# (requireAdmin)只认用户本人 JWT 且 includeInternalChannel:false(服务凭据不得
+# 继承管理员权限),所以本地直调永远过不了角色闸;真实执行链 = 本集合成员在
+# tool loop 被调时**无论有无 workspace_context** 都发 tool-delegate 帧,web 执行器
+# 用用户本人会话调既有 admin 端点,tool-result 回传。
+# 与 _FS_DEPENDENT_TOOLS 的关系:成员同在该集合(工具已注册进 _TOOLS,委托分支
+# 先于本地 call_tool 命中),但委托条件不要求 workspace_context —— 这是对 fs 类
+# "必须有工作区会话"语义的刻意豁免,勿合并两集合(语义不同,守门 J1 的取材面也只认 _FS 集合)。
+# 端侧配套:apps/web 执行器 case + 意图携带表(@ihui/shared/chat/ops-content-intent);
+# 非委托端(RN/桌面 Tauri)不宣告这些名字 ⇒ 模型根本看不到,不会产生 60s 挂等。
+_ADMIN_DELEGATE_TOOLS = {
+    "announce_list", "announce_create", "announce_update",
+    "carousel_list", "carousel_create", "carousel_update",
 }
 
 # 工具名别名归一表 `_TOOL_ALIASES` 自 2026-09-26(V3 #47 第三格)起**唯一定义在**
@@ -7097,7 +7119,12 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             # FileSystemDirectoryHandle 执行,通过 SSE tool-delegate 事件通知前端,
                             # 前端执行完通过 POST /llm/complete/stream/{session_id}/tool-result 回传结果。
                             # Tauri 桌面端走原有 _mcp.call_tool 逻辑(workspace_path 模式,ai-service 在本地)。
-                            if req.workspace_context and tool_name in _FS_DEPENDENT_TOOLS:
+                            # G-17(2026-11-28):运营内容工具(_ADMIN_DELEGATE_TOOLS)不要求
+                            # workspace_context —— 纯聊天(无工作区会话)也要能发公告/改轮播;
+                            # 执行者仍是浏览器端(用户本人会话过 admin 角色闸),不是服务端。
+                            if (
+                                req.workspace_context and tool_name in _FS_DEPENDENT_TOOLS
+                            ) or tool_name in _ADMIN_DELEGATE_TOOLS:
                                 if session_id is None:
                                     # 兜底:理论上 gen() 开始时已生成,此处防御
                                     session_id = str(uuid.uuid4())

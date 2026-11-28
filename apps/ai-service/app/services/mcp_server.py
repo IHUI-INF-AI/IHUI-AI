@@ -869,6 +869,11 @@ _ADMIN_ONLY_TOOLS: set[str] = {
     "file_edit",
     # 1-2(2026-09-08):resolve_conflict 也写盘(按块落盘解决结果),必须 admin
     "resolve_conflict",
+    # G-17(2026-11-28):运营内容工具(公告/轮播 CRUD)= admin 语义,连同只读一起收进
+    # 角色矩阵 defense-in-depth;真实执行链在浏览器委托面(api requireAdmin 按用户本人
+    # JWT 判),这里的本地 handler 只是委托兜底态,直调给 DELEGATE_REQUIRED。
+    "announce_list", "announce_create", "announce_update",
+    "carousel_list", "carousel_create", "carousel_update",
     # computer_* 系列:控制电脑是高危操作,需 admin
     "computer_screenshot_screen", "computer_mouse_move", "computer_mouse_click",
     "computer_keyboard_type", "computer_mouse_scroll", "computer_keyboard_press",

@@ -64,6 +64,57 @@ export interface AttributionTrace {
 
 const MAX_FILE_SIZE = 1024 * 1024 // 1MB
 const MAX_SEARCH_RESULTS = 50
+
+/**
+ * 运营内容工具(公告/轮播)的端侧操作面(G-17,2026-11-28)。
+ *
+ * 本文件刻意不含宿主专有 API,所以 admin 端点的 HTTP 调用由消费方注入:
+ * web 侧在 apps/web/src/lib/admin-content-ops.ts 用 @ihui/api-client 组装,
+ * RN/桌面将来接同一接口即可复用全部 case。函数返回统一 outcome,由
+ * toolAdminContent 转成 ToolExecutionResult(result=JSON 序列化的 data)。
+ */
+export interface AdminContentOpOutcome {
+  ok: boolean
+  data?: unknown
+  message?: string
+}
+
+/** 列表查询参数:全部是可上 query string 的原始值(与 api-client PageQuery 对齐)。 */
+export type AdminContentQuery = Record<string, string | number | boolean | undefined>
+
+export interface AdminContentOps {
+  listAnnouncements(query?: AdminContentQuery): Promise<AdminContentOpOutcome>
+  createAnnouncement(body: Record<string, unknown>): Promise<AdminContentOpOutcome>
+  updateAnnouncement(id: string, body: Record<string, unknown>): Promise<AdminContentOpOutcome>
+  listCarousels(query?: AdminContentQuery): Promise<AdminContentOpOutcome>
+  createCarousel(body: Record<string, unknown>): Promise<AdminContentOpOutcome>
+  updateCarousel(id: string, body: Record<string, unknown>): Promise<AdminContentOpOutcome>
+}
+
+/** 运营内容委托工具名(与 ai-service llm.py::_ADMIN_DELEGATE_TOOLS 同清单,守门对账)。 */
+export const ADMIN_CONTENT_TOOL_NAMES: readonly string[] = [
+  'announce_list',
+  'announce_create',
+  'announce_update',
+  'carousel_list',
+  'carousel_create',
+  'carousel_update',
+]
+
+function pickString(args: Record<string, unknown>, key: string): string | undefined {
+  const v = args[key]
+  return typeof v === 'string' && v.length > 0 ? v : undefined
+}
+
+function pickBoolean(args: Record<string, unknown>, key: string): boolean | undefined {
+  const v = args[key]
+  return typeof v === 'boolean' ? v : undefined
+}
+
+function pickNumber(args: Record<string, unknown>, key: string): number | undefined {
+  const v = args[key]
+  return typeof v === 'number' && Number.isFinite(v) ? v : undefined
+}
 const SKIP_DIRS = new Set([
   'node_modules',
   '.git',
@@ -119,6 +170,29 @@ export async function executeWorkspaceTool(
       default:
         return { result: null, error: `浏览器端不支持工具: ${toolName}` }
     }
+  } catch (err) {
+    return { result: null, error: (err as Error).message }
+  }
+}
+
+/**
+ * 运营内容工具的**唯一委托入口**(G-17,2026-11-28)。
+ *
+ * 与 executeWorkspaceTool 分立的原因:fs 类工具依赖 FileSystemDirectoryHandle
+ * (必须有活跃工作区),而运营内容工具走用户本人会话调 admin 端点,**不依赖工作区
+ * 句柄** —— llm.py 的 _ADMIN_DELEGATE_TOOLS 分支在纯聊天(无 workspace_context)
+ * 时也会发 tool-delegate。两族工具的执行前提不同,合用一个入口会把"无工作区"
+ * 错杀到运营内容工具上(web 调用点在无工作区时提前报错返回)。判据与
+ * executeWorkspaceTool 同一份文件、同一个单源纪律(镜像测试只锁 executeWorkspaceTool
+ * 恰好一次,本入口是第二工具族的并列单源,不复制其判据)。
+ */
+export async function executeAdminContentTool(
+  toolName: string,
+  args: Record<string, unknown>,
+  adminOps?: AdminContentOps,
+): Promise<ToolExecutionResult> {
+  try {
+    return await toolAdminContent(toolName, args, adminOps)
   } catch (err) {
     return { result: null, error: (err as Error).message }
   }
@@ -372,6 +446,124 @@ async function toolMoveFile(
     }
   }
   return { result: `已移动 ${source} → ${destination}`, error: null }
+}
+
+// =============================================================================
+// 运营内容工具(G-17,2026-11-28):公告/轮播 CRUD,经注入的 AdminContentOps 调
+// 既有 admin 端点(鉴权 = 用户本人会话过 requireAdmin;写操作另有 tool-approval 卡)。
+// =============================================================================
+
+async function toolAdminContent(
+  toolName: string,
+  args: Record<string, unknown>,
+  adminOps?: AdminContentOps,
+): Promise<ToolExecutionResult> {
+  if (!adminOps) {
+    return {
+      result: null,
+      error: `${toolName}: 运营内容工具由浏览器端以用户本人会话执行,当前端未接入执行面(仅 web 聊天可用)`,
+    }
+  }
+  let outcome: AdminContentOpOutcome
+  switch (toolName) {
+    case 'announce_list': {
+      const query: AdminContentQuery = {}
+      const page = pickNumber(args, 'page')
+      if (page !== undefined) query.page = page
+      const pageSize = pickNumber(args, 'pageSize')
+      if (pageSize !== undefined) query.pageSize = pageSize
+      const title = pickString(args, 'title')
+      if (title !== undefined) query.title = title
+      const isPublished = pickBoolean(args, 'isPublished')
+      if (isPublished !== undefined) query.isPublished = isPublished
+      outcome = await adminOps.listAnnouncements(query)
+      break
+    }
+    case 'announce_create': {
+      const title = pickString(args, 'title')
+      const content = args.content
+      if (!title) return { result: null, error: 'announce_create: title 参数缺失' }
+      if (typeof content !== 'string' || content.length === 0) {
+        return { result: null, error: 'announce_create: content 参数缺失' }
+      }
+      const body: Record<string, unknown> = { title, content }
+      const type = pickString(args, 'type')
+      if (type !== undefined) body.type = type
+      const isPinned = pickBoolean(args, 'isPinned')
+      if (isPinned !== undefined) body.isPinned = isPinned
+      const isPublished = pickBoolean(args, 'isPublished')
+      if (isPublished !== undefined) body.isPublished = isPublished
+      outcome = await adminOps.createAnnouncement(body)
+      break
+    }
+    case 'announce_update': {
+      const id = pickString(args, 'id')
+      if (!id) return { result: null, error: 'announce_update: id 参数缺失(先用 announce_list 查)' }
+      const body: Record<string, unknown> = {}
+      const title = pickString(args, 'title')
+      if (title !== undefined) body.title = title
+      if (typeof args.content === 'string' && args.content.length > 0) body.content = args.content
+      const type = pickString(args, 'type')
+      if (type !== undefined) body.type = type
+      const isPinned = pickBoolean(args, 'isPinned')
+      if (isPinned !== undefined) body.isPinned = isPinned
+      const isPublished = pickBoolean(args, 'isPublished')
+      if (isPublished !== undefined) body.isPublished = isPublished
+      if (Object.keys(body).length === 0) {
+        return { result: null, error: 'announce_update: 没有要更新的字段' }
+      }
+      outcome = await adminOps.updateAnnouncement(id, body)
+      break
+    }
+    case 'carousel_list': {
+      const query: AdminContentQuery = {}
+      const page = pickNumber(args, 'page')
+      if (page !== undefined) query.page = page
+      const pageSize = pickNumber(args, 'pageSize')
+      if (pageSize !== undefined) query.pageSize = pageSize
+      const search = pickString(args, 'search')
+      if (search !== undefined) query.search = search
+      outcome = await adminOps.listCarousels(query)
+      break
+    }
+    case 'carousel_create': {
+      const body: Record<string, unknown> = {}
+      for (const key of ['title', 'position', 'imageUrl', 'linkUrl', 'description'] as const) {
+        const v = pickString(args, key)
+        if (v !== undefined) body[key] = v
+      }
+      const sort = pickNumber(args, 'sort')
+      if (sort !== undefined) body.sort = sort
+      const status = pickNumber(args, 'status')
+      if (status !== undefined) body.status = status
+      outcome = await adminOps.createCarousel(body)
+      break
+    }
+    case 'carousel_update': {
+      const id = pickString(args, 'id')
+      if (!id) return { result: null, error: 'carousel_update: id 参数缺失(先用 carousel_list 查)' }
+      const body: Record<string, unknown> = {}
+      for (const key of ['title', 'position', 'imageUrl', 'linkUrl', 'description'] as const) {
+        const v = pickString(args, key)
+        if (v !== undefined) body[key] = v
+      }
+      const sort = pickNumber(args, 'sort')
+      if (sort !== undefined) body.sort = sort
+      const status = pickNumber(args, 'status')
+      if (status !== undefined) body.status = status
+      if (Object.keys(body).length === 0) {
+        return { result: null, error: 'carousel_update: 没有要更新的字段' }
+      }
+      outcome = await adminOps.updateCarousel(id, body)
+      break
+    }
+    default:
+      return { result: null, error: `浏览器端不支持工具: ${toolName}` }
+  }
+  if (!outcome.ok) {
+    return { result: null, error: `${toolName}: ${outcome.message ?? '后台请求失败'}` }
+  }
+  return { result: JSON.stringify(outcome.data ?? {}), error: null }
 }
 
 // =============================================================================

@@ -78,6 +78,14 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   team_task: 'toolTeamTask',
   schedule_task: 'toolScheduleTask',
   configure_automation_task: 'toolScheduleTask',
+  // G-17(2026-11-28):运营内容工具(公告/轮播 CRUD)—— 注册面走 register_external_tool
+  // (不在 _TOOLS 字面量,显示守门不强制),这里主动登记防界面退化成裸码名。
+  announce_list: 'toolAnnounceList',
+  announce_create: 'toolAnnounceCreate',
+  announce_update: 'toolAnnounceUpdate',
+  carousel_list: 'toolCarouselList',
+  carousel_create: 'toolCarouselCreate',
+  carousel_update: 'toolCarouselUpdate',
   bg_task_status: 'toolBgTaskStatus',
   // 端侧操控桥:固定动词表(与 apps/web tool-config 的 WEB_UI_CONTROL_TOOLS / API_CONTROL_TOOLS 对齐)
   web_ui_describe: 'toolUiDescribe',

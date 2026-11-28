@@ -499,6 +499,9 @@ export const uiControlToolsFor = createAppControlToolSelector({
 export { fileToolsFor } from '@ihui/shared/chat/file-tool-intent'
 // 媒体族同款:意图判据单一源在共享层(视频是计费工具,多端必须同一把尺子)
 export { videoToolsFor } from '@ihui/shared/chat/media-tool-intent'
+// 运营内容族同款(G-17,2026-11-28):公告/轮播意图判据单一源在共享层;
+// 仅 web 消费 —— 该族执行前提是端侧有委托执行面(见 ops-content-intent.ts 头注)。
+export { opsContentToolsFor } from '@ihui/shared/chat/ops-content-intent'
 
 /**
  * 文档修订意图 → 主 AI 主动修订所需的 UI 桥工具(2026-11-28 立)。

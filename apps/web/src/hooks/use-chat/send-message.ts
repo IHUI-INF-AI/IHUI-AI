@@ -89,7 +89,12 @@ import {
   isBrowserHandleWorkspaceKey,
 } from '@/lib/workspace-context-loader'
 import { isTauri } from '@/lib/tauri-bridge'
-import { executeWorkspaceTool } from '@/lib/workspace-tool-executor'
+import {
+  ADMIN_CONTENT_TOOL_NAMES,
+  executeAdminContentTool,
+  executeWorkspaceTool,
+} from '@/lib/workspace-tool-executor'
+import { createAdminContentOps } from '@/lib/admin-content-ops'
 import {
   filePathOfArgs,
   getFileAttribution,
@@ -114,6 +119,7 @@ import {
   financeToolsFor,
   hrToolsFor,
   mergeAgentTools,
+  opsContentToolsFor,
   uiControlToolsFor,
   videoToolsFor,
 } from './tool-config'
@@ -1687,6 +1693,24 @@ export function createSendMessage(
           // D151 前置:该帧的 session_id 与 llm.py 注入 terminal ctx 的是**同一个变量**,
           // 故在此登记 ⇒ 后续 terminal_interaction 帧(它自己不带 sessionId)才有地址可用。
           chatStore.getState().noteStreamSessionId(event.session_id)
+          // G-17(2026-11-28):运营内容工具(公告/轮播)不依赖工作区句柄 —— llm.py 的
+          // _ADMIN_DELEGATE_TOOLS 分支在纯聊天(无 workspace_context)时也发委托帧,
+          // 用用户本人会话调 admin 端点;必须在无工作区提前返回**之前**分流,否则纯聊天
+          // 场景会被"No active workspace"错杀。
+          if (ADMIN_CONTENT_TOOL_NAMES.includes(event.tool_name)) {
+            const adminResult = await executeAdminContentTool(
+              event.tool_name,
+              event.args,
+              createAdminContentOps(),
+            )
+            await postToolResult(
+              event.session_id,
+              event.tool_call_id,
+              adminResult.result,
+              adminResult.error,
+            )
+            return
+          }
           const ws = useAiPanelStore.getState().activeWorkspace
           if (!ws?.name) {
             notifyNoWorkspace('当前没有活跃工作区')
@@ -1806,6 +1830,9 @@ export function createSendMessage(
               ...videoToolsFor(content),
               ...financeToolsFor(content),
               ...hrToolsFor(content),
+              // G-17(2026-11-28):消息含运营内容意图(公告/轮播 + 动作词)时条件携带,
+              // 与 edu/ui-control/file 族同一范式;判据单源 @ihui/shared/chat/ops-content-intent
+              ...opsContentToolsFor(content),
             ]),
           ]
           return agentTools.length > 0 ? { agentTools } : {}

@@ -37,7 +37,12 @@ import { buildStreamErrorReport, reportStreamError } from './stream-error-report
 import { getModelContextCapacity } from '@/lib/model-context-capacity'
 import { isContextAtCompactionThreshold } from '@/lib/token-estimate'
 import { getBrowserWorkspaceHandle } from '@/lib/workspace-context-loader'
-import { executeWorkspaceTool } from '@/lib/workspace-tool-executor'
+import {
+  ADMIN_CONTENT_TOOL_NAMES,
+  executeAdminContentTool,
+  executeWorkspaceTool,
+} from '@/lib/workspace-tool-executor'
+import { createAdminContentOps } from '@/lib/admin-content-ops'
 import {
   filePathOfArgs,
   getFileAttribution,
@@ -56,6 +61,7 @@ import {
   financeToolsFor,
   hrToolsFor,
   mergeAgentTools,
+  opsContentToolsFor,
   videoToolsFor,
 } from './tool-config'
 // Runtime 插话能力声明落库口(与 send-message.ts 同一入口)
@@ -591,6 +597,22 @@ export function createSendAnswer(
         // tool-delegate 事件委托前端用 FileSystemDirectoryHandle 执行,通过 postToolResult 回传
         // 2026-08-07:与 sendMessage 对称,无工作区 toast 提示
         onToolDelegate: async (event: ToolDelegateEvent) => {
+          // G-17(2026-11-28):与 sendMessage 同口径 —— 运营内容工具不依赖工作区句柄,
+          // 在无工作区提前返回之前分流,纯聊天场景直接用用户本人会话执行。
+          if (ADMIN_CONTENT_TOOL_NAMES.includes(event.tool_name)) {
+            const adminResult = await executeAdminContentTool(
+              event.tool_name,
+              event.args,
+              createAdminContentOps(),
+            )
+            await postToolResult(
+              event.session_id,
+              event.tool_call_id,
+              adminResult.result,
+              adminResult.error,
+            )
+            return
+          }
           const ws = useAiPanelStore.getState().activeWorkspace
           if (!ws?.name) {
             notifyNoWorkspace('当前没有活跃工作区')
@@ -642,6 +664,8 @@ export function createSendAnswer(
               ...mergeAgentTools(chatStore, 'build'),
               ...eduToolsFor(answer),
               ...fileToolsFor(answer),
+              // G-17(2026-11-28):运营内容意图条件携带,与 sendMessage 同源同判据
+              ...opsContentToolsFor(answer),
               ...videoToolsFor(answer),
               ...financeToolsFor(answer),
               ...hrToolsFor(answer),
