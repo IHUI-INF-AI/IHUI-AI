@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 
 import { MasterChatPanel } from './MasterChatPanel'
+import { MasterIdentityHeader } from './MasterIdentityHeader'
 import { MasterRunControlPanel } from './MasterRunControlPanel'
 
 interface DefinitionView {
@@ -42,11 +43,25 @@ interface ApiBody<T> {
   data?: T
 }
 
+interface MasterProfileView {
+  displayName: string
+  defaultDisplayName?: string
+  maxLength?: number
+  isCustom?: boolean
+}
+
+const DEFAULT_MASTER_NAME = '总管'
+
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     ...init,
     credentials: 'include',
-    headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) },
+    headers: {
+      'content-type': 'application/json',
+      // cookie 鉴权下，API 的写方法要求这个头过 CSRF；Bearer 链路不受影响。
+      'X-Requested-With': 'XMLHttpRequest',
+      ...(init?.headers ?? {}),
+    },
   })
   const body = (await response.json()) as ApiBody<T>
   if (!response.ok || body.code !== 0) {
@@ -63,6 +78,8 @@ export function MasterRegistryConsole() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [masterName, setMasterName] = useState(DEFAULT_MASTER_NAME)
+  const [masterNameMax, setMasterNameMax] = useState(24)
   const [selected, setSelected] = useState<DefinitionView | null>(null)
   const [versions, setVersions] = useState<Array<Record<string, unknown>>>([])
   const [approval, setApproval] = useState<ApprovalView | null>(null)
@@ -104,6 +121,43 @@ export function MasterRegistryConsole() {
   useEffect(() => {
     void reload()
   }, [reload])
+
+  useEffect(() => {
+    let alive = true
+    void (async () => {
+      try {
+        const profile = await api<MasterProfileView>('/api/master/profile')
+        if (!alive) return
+        setMasterName(profile.displayName || DEFAULT_MASTER_NAME)
+        if (profile.maxLength) setMasterNameMax(profile.maxLength)
+      } catch {
+        // 未登录或接口暂不可用时保持默认名，不阻断注册表和对话。
+      }
+    })()
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  useEffect(() => {
+    document.title = `${masterName} · 智能体控制台`
+  }, [masterName])
+
+  async function renameMaster(next: string) {
+    const profile = await api<MasterProfileView>('/api/master/profile', {
+      method: 'PUT',
+      body: JSON.stringify({ displayName: next }),
+    })
+    setMasterName(profile.displayName || next)
+    setMasterNameMax(profile.maxLength || masterNameMax)
+    setNotice(`已改名为「${profile.displayName || next}」，下一轮对话会用它自称。`)
+  }
+
+  async function resetMaster() {
+    const profile = await api<MasterProfileView>('/api/master/profile', { method: 'DELETE' })
+    setMasterName(profile.displayName || DEFAULT_MASTER_NAME)
+    setNotice('已恢复默认名「总管」。')
+  }
 
   async function inspect(item: DefinitionView) {
     setSelected(item)
@@ -209,36 +263,32 @@ export function MasterRegistryConsole() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl p-6 text-slate-900 dark:text-slate-100">
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">总管 · 智能体控制台</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            一个注册表、一个运行账本、一层审批。删除只发起审批，不在这里直接抹掉。
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setShowCreate((value) => !value)}
-          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white dark:bg-white dark:text-slate-900"
-        >
-          {showCreate ? '收起' : '新建定义'}
-        </button>
-      </header>
+    <div className="mx-auto w-full min-w-0 max-w-7xl space-y-5 p-4 text-slate-900 dark:text-slate-100 sm:p-6">
+      <MasterIdentityHeader
+        name={masterName}
+        maxLength={masterNameMax}
+        definitionCount={items.length}
+        approvalCount={approvals.length}
+        loading={loading}
+        creating={showCreate}
+        onRename={renameMaster}
+        onReset={resetMaster}
+        onToggleCreate={() => setShowCreate((value) => !value)}
+      />
 
-      <div className="mb-6">
-        <MasterChatPanel />
+      <div className="rounded-[24px] border border-slate-200/80 bg-white/80 p-3 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/40">
+        <MasterChatPanel masterName={masterName} />
       </div>
 
-      <div className="mb-6">
-        <MasterRunControlPanel />
+      <div className="rounded-[24px] border border-slate-200/80 bg-white/80 p-3 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/40">
+        <MasterRunControlPanel masterName={masterName} />
       </div>
 
       {(error || notice) && (
-        <div className="mb-4 space-y-2">
-          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+        <div className="space-y-2">
+          {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
           {notice && (
-            <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{notice}</p>
+            <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{notice}</p>
           )}
         </div>
       )}
@@ -298,17 +348,29 @@ export function MasterRegistryConsole() {
         </form>
       )}
 
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-end justify-between gap-2 px-1">
+        <div>
+          <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-slate-400">
+            Agent registry
+          </p>
+          <h2 className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">
+            智能体注册表 <span className="text-sm font-normal text-slate-400">{items.length}</span>
+          </h2>
+        </div>
+        <p className="text-xs text-slate-500">删除只发起审批，不在这里直接抹掉。</p>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
         <input
           placeholder="搜索名称/描述"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          className="min-w-64 flex-1 rounded-lg border px-3 py-2 text-sm"
+          className="min-w-64 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
         />
         <select
           value={status}
           onChange={(event) => setStatus(event.target.value)}
-          className="rounded-lg border px-3 py-2 text-sm"
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
         >
           <option value="">全部状态</option>
           <option value="active">启用</option>
@@ -318,7 +380,7 @@ export function MasterRegistryConsole() {
         <button
           type="button"
           onClick={() => void reload()}
-          className="rounded-lg border px-4 py-2 text-sm"
+          className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
         >
           刷新
         </button>

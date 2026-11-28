@@ -36,7 +36,17 @@ const ACTION_LABELS: Record<Action, string> = {
   stop: '停止',
 }
 
-export function MasterRunControlPanel() {
+const ACTION_STYLES: Record<Action, string> = {
+  pause: 'border-amber-300 text-amber-800 hover:bg-amber-50',
+  resume: 'border-emerald-300 text-emerald-800 hover:bg-emerald-50',
+  stop: 'border-red-300 text-red-700 hover:bg-red-50',
+}
+
+interface MasterRunControlPanelProps {
+  masterName?: string
+}
+
+export function MasterRunControlPanel({ masterName = '总管' }: MasterRunControlPanelProps) {
   const [runId, setRunId] = useState('')
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState<Action | 'talk' | null>(null)
@@ -90,16 +100,19 @@ export function MasterRunControlPanel() {
     : ''
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <header className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+    <section className="rounded-2xl bg-white p-4 dark:bg-slate-900/60">
+      <header className="mb-3 flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h2 className="text-base font-semibold text-slate-900">按 runId 控制运行</h2>
-          <p className="mt-1 text-xs text-slate-500">
-            暂停、续跑、注入中途提示、停止。只作用于当前 AI 服务进程内的 single run；
+          <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-sky-600 dark:text-sky-400">
+            Run control
+          </p>
+          <h2 className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">运行控制</h2>
+          <p className="mt-1 text-xs leading-5 text-slate-500">
+            按 runId 暂停、续跑、注入中途提示、停止；只作用于{masterName}派发的当前进程内 single run。
             长任务可能在轮次边界前返回 pause_requested，需要继续查账本。
           </p>
         </div>
-        <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] text-slate-500">
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] text-slate-500 dark:border-slate-700 dark:bg-slate-800">
           显式 HTTP 控制面
         </span>
       </header>
@@ -110,7 +123,7 @@ export function MasterRunControlPanel() {
           onChange={(event) => setRunId(event.target.value)}
           placeholder="粘贴 runId"
           aria-label="runId"
-          className="min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm"
+          className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2 font-mono text-xs dark:border-slate-700 dark:bg-slate-900"
         />
         {(Object.keys(ACTION_LABELS) as Action[]).map((action) => (
           <button
@@ -118,7 +131,7 @@ export function MasterRunControlPanel() {
             type="button"
             disabled={!runId.trim() || busy !== null}
             onClick={() => void call(action)}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-800 disabled:opacity-40"
+            className={`rounded-xl border px-3 py-2 text-sm font-medium disabled:opacity-40 ${ACTION_STYLES[action]}`}
           >
             {busy === action ? '处理中' : ACTION_LABELS[action]}
           </button>
@@ -132,26 +145,26 @@ export function MasterRunControlPanel() {
           placeholder="给运行中的 run 注入一条中途提示"
           aria-label="中途提示"
           maxLength={8000}
-          className="min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm"
+          className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
         />
         <button
           type="submit"
           disabled={!runId.trim() || !message.trim() || busy !== null}
-          className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-40"
+          className="rounded-xl bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:opacity-40 dark:bg-white dark:text-slate-900"
         >
           {busy === 'talk' ? '注入中' : '注入提示'}
         </button>
       </form>
 
       {error && (
-        <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">{error}</p>
+        <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">{error}</p>
       )}
       {result && (
-        <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-700">
+        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200">
           <p data-testid="run-control-result" className="font-medium break-all">
             {summary || '控制请求已返回'}
           </p>
-          <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-all text-[11px] text-slate-500">
+          <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-all text-[11px] text-slate-500 dark:text-slate-400">
             {JSON.stringify(result, null, 2)}
           </pre>
         </div>

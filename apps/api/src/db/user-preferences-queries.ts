@@ -45,6 +45,9 @@ export const USER_PREFERENCE_GROUPS = {
   // 显式绑定的银行卡(2026-11-27 BankCard 写闭环):key=卡 id,value=AES-GCM 加密 JSON。
   // 历史提现投影仍是只读来源,两者在 GET /wallet/bank-cards 合并;不新开表/不迁移。
   bankCards: 'bank_cards',
+  // 总管显示名(2026-11-28):key='display_name',value=用户给总智能体起的名字。
+  // 只影响界面与自称,不改 master.md 的固定人格与工具边界。
+  masterProfile: 'master_profile',
 } as const
 
 export type UserPreferenceGroup =

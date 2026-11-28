@@ -147,16 +147,42 @@ checkpointId / detail`，不在前端伪造状态。
 页面仍有既有的 `missing ) after argument list` console error 与 `16 Issues` dev 浮层，
 本轮没有把它归因于运行控制面板；面板的输入、按钮、请求与错误展示已实际跑通。
 
+## 2026-11-28 产品化：总管身份头与用户自定义名字
+
+产品名固定为「总管」，但每个用户可以给自己的总智能体改名：
+
+- `GET/PUT/DELETE /api/master/profile`：登录用户读取、设置、恢复默认名。
+  存储复用 `user_preferences(group='master_profile', key='display_name')`，零新表。
+- 名字限制 24 字符，只收中英文、数字、空格、下划线、中间点；换行/引号等会被 400 拒绝，
+  避免名字拼进 system prompt 时形成指令分隔符。
+- `POST /api/v1/ai/master/chat` 新增可选 `master_name`；服务端只把它追加为“显示名”，
+  明确声明“不改变人格、工具边界或审批纪律”。三工具、`master.md` 人格仍由服务端固定。
+- Web 新组件 `MasterIdentityHeader`：深色渐变身份头、头像首字、在线状态、注册表/待审批统计、
+  内联重命名与恢复默认；名字写入后下一轮对话即用新名字自称。
+- `/master` 页按控制台语义重排：身份头 → 对话 → 运行控制 → 注册表；聊天增加空态建议词、
+  清空会话、彩色状态与更紧凑的 composer；运行控制按暂停/续跑/停止分色。
+- 浏览器不发送 `X-Tenant-Id`，`/api/master/profile` 与 `/api/agent-registry` 加入租户豁免；
+  两者都不在免登录清单，鉴权仍由路由自身强制。
+
+真实 Edge 验收 `ma-api-e2e/w3-master-redesign.py`：
+
+- 页面加载出身份头（默认「总管」）、对话、运行控制、注册表，注册表 15 条、待审批 1 条；
+- 点“重命名”输入「智汇总管」保存，页面立即换名；刷新后仍显示「智汇总管」，
+  证明名字来自 `/api/master/profile` 的持久化而不是前端内存；
+- 点“恢复默认「总管」”回到默认名；测试后数据库已复原为 `display_name=总管`；
+- 截图 `ma-api-e2e/master-redesign-hero-custom.png` / `master-redesign-full.png`。
+
 ## 测试门禁
 
-- 聚焦 Python 回归：`182 passed`（master 全套 + orchestrator + checkpoint + cancel bus，含新增 `test_master_runs.py` 3 项）。
+- 聚焦 Python 回归：`185 passed`（master 全套 + orchestrator + checkpoint + cancel bus，含 `test_master_runs.py` 3 项与自定义名 2 项）。
 - 既有 pause/runtime 回归：`147 passed`（`test_pause_resume_65` + `test_durable_resume_84` + runtime + runtime_router）。
 - 跨进程崩溃/回执恢复：`test_agent_crossprocess_resume.py` `10 passed`（子进程 stdin 置 DEVNULL，修掉 Windows 下 pytest 采集句柄失效）。
 - `test_llm_gateway.py`：`122 passed`。
 - ruff：本轮改动 Python 文件全过。
 - API `pnpm --filter @ihui/api typecheck`：通过。
+- API 总管名字路由测试：`master-profile.test.ts` `4 passed`（默认名 / PUT 持久化 / 注入形状拒绝 / DELETE 复位）。
 - Web 组件测试：`pnpm --filter @ihui/web exec vitest run src/components/master/__tests__`
-  `8 passed`（ChatPanel 2 + RunControlPanel 3 + RegistryConsole 3）。
+  `11 passed`（ChatPanel 2 + RunControlPanel 3 + RegistryConsole 3 + IdentityHeader 3）。
 - Web `pnpm --filter @ihui/web typecheck`：通过；新增组件 eslint 通过。
 - 真库注册表集成：`AGENT_REGISTRY_REAL_DB=1` 下 `7 passed`。
 - 真库 PostgreSQL 18：`ihui_agent_test_fresh`。

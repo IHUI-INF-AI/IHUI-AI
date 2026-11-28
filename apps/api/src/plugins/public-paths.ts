@@ -322,6 +322,12 @@ export const TENANT_BYPASS_PREFIX_PATHS: readonly string[] = [
   '/api/model-leaderboard',
   '/api/ai-feed/',
   '/api/live/',
+  // 总管显示名:浏览器端不携带 X-Tenant-Id,数据按 userId 隔离、路由对 tenantId 零引用;
+  // 免租户不免鉴权,GET/PUT/DELETE 均由 master-profile 的 requireAuth 钩子强制登录。
+  '/api/master/profile',
+  // 总管注册表/审批:第一方控制台直接调用,数据按 userId + scope 隔离;agent-registry.ts 对
+  // tenantId 零引用。免租户不免鉴权,每个路由自身校验登录/权限。
+  '/api/agent-registry',
   // 匿名埋点:未登录访客也要上报,和 AUTH_PUBLIC 同前缀登记(2026-11-23)
   '/api/analytics/track',
   '/api/visit-tracking/',

@@ -185,6 +185,7 @@ import { zhsOrganizationRoutes, adminZhsOrganizationRoutes } from './zhs-organiz
 // F-520(2026-11-13):organization.ts 此前是死文件,现补 requireAdmin 后正式注册
 import { organizationRoutes } from './organization.js'
 import { userAgentFreeTimesRoutes, adminUserAgentFreeTimesRoutes } from './user-agent-free-times.js'
+import { masterProfileRoutes } from './master-profile.js'
 import { serviceCatalogRoutes, adminServiceCatalogRoutes } from './service-catalog.js'
 import { serviceInquiryRoutes } from './service-inquiry.js'
 import { shareContentRoutes } from './share-content.js'
@@ -987,6 +988,8 @@ export function registerRoutes(server: FastifyInstance) {
   // 智能体免费试用次数：/api/agent-free-times/* + /api/admin/agent-free-times/*
   server.register(userAgentFreeTimesRoutes, { prefix: '/api/agent-free-times' })
   server.register(adminUserAgentFreeTimesRoutes, { prefix: '/api/admin/agent-free-times' })
+  // 总管显示名：/api/master/profile（不触碰 /api/master/chat 的 AI 代理）
+  server.register(masterProfileRoutes, { prefix: '/api/master' })
   // 服务注册发现：/api/service-catalog/* + /api/admin/service-catalog/*
   server.register(serviceCatalogRoutes, { prefix: '/api/service-catalog' })
   server.register(adminServiceCatalogRoutes, { prefix: '/api/admin/service-catalog' })

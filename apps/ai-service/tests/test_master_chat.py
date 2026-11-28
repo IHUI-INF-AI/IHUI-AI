@@ -79,6 +79,37 @@ async def test_master_chat_keeps_explicit_model(monkeypatch: pytest.MonkeyPatch)
 
 
 @pytest.mark.asyncio
+async def test_master_chat_applies_custom_display_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, Any] = {}
+
+    async def fake_require(_request: Request) -> str:
+        return "user-1"
+
+    async def fake_chat(**kwargs: Any) -> object:
+        captured.update(kwargs)
+        return object()
+
+    monkeypatch.setattr(module, "require_request_user_id", fake_require)
+    monkeypatch.setattr(module.conversation_service, "chat", fake_chat)
+    monkeypatch.setattr(
+        module.conversation_service,
+        "result_to_dict",
+        lambda _result: {"final_response": "好的", "trace": []},
+    )
+    monkeypatch.setattr(module, "scan_output", lambda _text: None)
+    monkeypatch.setattr(module, "annotate_ai_generated", lambda data: data)
+    monkeypatch.setattr(module, "default_chat_model", lambda: "agnes/master-default")
+
+    request = Request({"type": "http", "method": "POST", "path": "/api/v1/ai/master/chat"})
+    body = await master_chat(
+        MasterChatRequest(message="你是谁", master_name="小度"), request
+    )
+
+    assert "「小度」" in captured["system_prompt"]
+    assert body["data"]["display_name"] == "小度"
+
+
+@pytest.mark.asyncio
 async def test_master_chat_rejects_empty_message() -> None:
     with pytest.raises(ValueError):
         MasterChatRequest(message="")

@@ -17,7 +17,12 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from ...agents.master_profile import MASTER_SYSTEM_PROMPT, MASTER_TOOL_NAMES
+from ...agents.master_profile import (
+    MASTER_DISPLAY_NAME,
+    MASTER_TOOL_NAMES,
+    build_master_system_prompt,
+    normalize_master_display_name,
+)
 from ...core.default_model import default_chat_model
 from ...core.jwt_auth import DEV_ANONYMOUS_PRINCIPAL, require_request_user_id
 from ...middleware.output_safety import annotate_ai_generated, apply_disclaimers, scan_output
@@ -33,6 +38,11 @@ class MasterChatRequest(BaseModel):
     session_id: str | None = Field(None, description="会话 ID（空则新建）")
     model: str | None = Field(None, description="模型名称（空用默认）")
     max_iterations: int = Field(6, ge=1, le=12, description="工具循环最大轮次")
+    master_name: str | None = Field(
+        None,
+        max_length=24,
+        description="用户给总管起的显示名（只影响自称，不改人格/工具）",
+    )
 
 
 @router.post("/chat")
@@ -40,6 +50,7 @@ async def master_chat(req: MasterChatRequest, request: Request) -> dict[str, Any
     """总管对话：固定人格 + 固定三工具，仍是同一套 tool loop。"""
     principal = await require_request_user_id(request)
     user_id = None if principal == DEV_ANONYMOUS_PRINCIPAL else principal
+    display_name = normalize_master_display_name(req.master_name)
     try:
         result = await conversation_service.chat(
             user_input=req.message,
@@ -48,7 +59,7 @@ async def master_chat(req: MasterChatRequest, request: Request) -> dict[str, Any
             allowed_tools=list(MASTER_TOOL_NAMES),
             max_iterations=req.max_iterations,
             user_id=user_id,
-            system_prompt=MASTER_SYSTEM_PROMPT,
+            system_prompt=build_master_system_prompt(display_name),
         )
         data = conversation_service.result_to_dict(result)
         response_text = str(data.get("final_response", "") or "")
@@ -69,6 +80,8 @@ async def master_chat(req: MasterChatRequest, request: Request) -> dict[str, Any
                 }
         data = annotate_ai_generated(data)
         data["persona"] = "master"
+        data["display_name"] = display_name
+        data["default_display_name"] = MASTER_DISPLAY_NAME
         data["tools"] = list(MASTER_TOOL_NAMES)
         return {"code": 0, "message": "ok", "data": data}
     except SessionOwnershipError as exc:

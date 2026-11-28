@@ -275,6 +275,10 @@ describe('BUG-4 公开面单一真相源', () => {
         '/api/oauth-keys/list',
         '/api/admin/news/status',
         '/api/v1/codebase/search',
+        // 2026-11-28 总管产品化:名字与注册表均为第一方控制台直调,按 userId 隔离
+        '/api/master/profile',
+        '/api/agent-registry/definitions',
+        '/api/agent-registry/approvals',
       ]
       const PUBLIC_READ_ROUTES = [
         '/api/agents',
@@ -312,6 +316,8 @@ describe('BUG-4 公开面单一真相源', () => {
           '/api/oauth-keys',
           '/api/admin/news',
           '/api/v1/codebase/',
+          '/api/master/profile',
+          '/api/agent-registry',
         ]) {
           expect(AUTH_PUBLIC_PREFIX_PATHS).not.toContain(prefix)
         }
@@ -321,6 +327,8 @@ describe('BUG-4 公开面单一真相源', () => {
         expect(isTenantBypassPath('/api/chatXYZ')).toBe(false)
         expect(isTenantBypassPath('/api/usersXYZ')).toBe(false)
         expect(isTenantBypassPath('/api/workspaceXYZ')).toBe(false)
+        expect(isTenantBypassPath('/api/master/profileXYZ')).toBe(false)
+        expect(isTenantBypassPath('/api/agent-registryXYZ')).toBe(false)
       })
     })
 
