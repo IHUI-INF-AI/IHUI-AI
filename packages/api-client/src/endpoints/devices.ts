@@ -365,6 +365,13 @@ export async function deviceTaskStream(
     textDelta?: string
     content?: string
     progress?: DeviceTaskProgress
+    /**
+     * 执行面全量快照(工具卡/终端任务)。与正文并行上报:
+     * 设备端 AgentCore 的 tool_call/tool_result 折叠成卡片,服务端落 metadata 并广播给同账号三端。
+     * 缺省 = 本次没有执行面变化,服务端保留既有值。
+     */
+    toolCalls?: Array<Record<string, unknown>>
+    terminalTasks?: Array<Record<string, unknown>>
   },
 ): Promise<ApiResult<{ message_id: string; rev: number }>> {
   return fetchDeviceApi<{ message_id: string; rev: number }>(
@@ -377,6 +384,8 @@ export async function deviceTaskStream(
         ...(input.textDelta !== undefined ? { text_delta: input.textDelta } : {}),
         ...(input.content !== undefined ? { content: input.content } : {}),
         ...(input.progress ? { progress: input.progress } : {}),
+        ...(input.toolCalls ? { tool_calls: input.toolCalls } : {}),
+        ...(input.terminalTasks ? { terminal_tasks: input.terminalTasks } : {}),
       }),
     },
   )

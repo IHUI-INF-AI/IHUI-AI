@@ -145,6 +145,8 @@ export * from './chat-sync-snapshot'
 // 票 B02 / 票71 投影面:共享消息面 → 页面消息行的差异判据(同 id 覆盖 / 终态粘性 /
 // 回声不追加 / 零变化 null)。RN、小程序、扩展共用这一份,端内只留字段映射。
 export * from './chat-sync-surface'
+// 设备执行器 → 会话执行面折叠器(tool_call/tool_result → 工具卡/终端卡;CLI 与用例共用)
+export * from './device-execution'
 // D76 产物归属 turn 派生层(分型判据 + originating turn 序列 + 轮次序号 + 产物锚点→轮下标;
 // 纯函数零平台依赖,web 渲染层 artifact-turn-badge 原样 re-export,残余票 2026-09-25 自端内提取)
 export * from './artifact-turn'

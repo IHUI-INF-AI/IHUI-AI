@@ -24,6 +24,8 @@ import type {
   DeviceTaskApprovalRequest,
   DeviceTaskDiffSummary,
   DeviceTaskProgress,
+  TerminalTask,
+  ToolCall,
 } from '@ihui/types'
 import { isDeviceApprovalDecision, isDeviceTaskDiffSummary } from '@ihui/types'
 import { db } from '../db/index.js'
@@ -47,6 +49,9 @@ export interface TaskStreamFrame {
   kind: 'delta' | 'snapshot'
   content: string
   textDelta?: string
+  /** 执行面全量快照;缺省 = 本次上报没有执行面变化 */
+  toolCalls?: ToolCall[]
+  terminalTasks?: TerminalTask[]
 }
 
 interface TaskRow {
@@ -177,6 +182,9 @@ export async function appendTaskStream(
     textDelta?: string
     content?: string
     progress?: DeviceTaskProgress
+    /** 设备端折叠后的执行面(工具卡/终端卡);全量,不是增量 */
+    toolCalls?: ToolCall[]
+    terminalTasks?: TerminalTask[]
   },
 ): Promise<TaskStreamFrame> {
   const task = await loadTaskForDevice(deviceId, taskId)
@@ -202,10 +210,29 @@ export async function appendTaskStream(
   }
 
   const rows = await db
-    .select({ content: chatMessages.content })
+    .select({ content: chatMessages.content, metadata: chatMessages.metadata })
     .from(chatMessages)
     .where(eq(chatMessages.id, task.messageId))
     .limit(1)
+
+  // 执行面落 metadata(与 AI 回调同一落库面):历史重进/重连快照都从
+  // chat_messages.metadata.toolCalls/terminalTasks 还原,手机端不必再学第二套任务日志。
+  if (input.toolCalls !== undefined || input.terminalTasks !== undefined) {
+    const prevRaw = rows[0]?.metadata
+    const prev =
+      prevRaw && typeof prevRaw === 'object' && !Array.isArray(prevRaw)
+        ? (prevRaw as Record<string, unknown>)
+        : {}
+    const nextMetadata: Record<string, unknown> = {
+      ...prev,
+      ...(input.toolCalls !== undefined ? { toolCalls: input.toolCalls } : {}),
+      ...(input.terminalTasks !== undefined ? { terminalTasks: input.terminalTasks } : {}),
+    }
+    await db
+      .update(chatMessages)
+      .set({ metadata: nextMetadata })
+      .where(eq(chatMessages.id, task.messageId))
+  }
 
   await db
     .update(deviceTasks)
@@ -221,6 +248,8 @@ export async function appendTaskStream(
     messageId: task.messageId,
     kind: input.kind,
     content: rows[0]?.content ?? '',
+    ...(input.toolCalls !== undefined ? { toolCalls: input.toolCalls } : {}),
+    ...(input.terminalTasks !== undefined ? { terminalTasks: input.terminalTasks } : {}),
   }
   if (input.kind === 'delta') frame.textDelta = input.textDelta
   return frame
