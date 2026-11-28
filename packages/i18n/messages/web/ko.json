@@ -14972,7 +14972,11 @@
       "reviseContinueBase": "다음 라운드는 {round}라운드에서 수용한 수정고를 기준으로 이어집니다",
       "revisePrevHunk": "이전 변경",
       "reviseNextHunk": "다음 변경",
-      "reviseHunkPosition": "{total}개 중 {current}번째"
+      "reviseHunkPosition": "{total}개 중 {current}번째",
+      "reviseSaveToDocs": "문서 센터에 저장",
+      "reviseSavingToDocs": "저장 중…",
+      "reviseSavedToDocs": "문서 센터에 저장됨: {name}",
+      "reviseSaveToDocsFailed": "문서 센터 저장에 실패했습니다. 잠시 후 다시 시도하세요"
     }
   },
   "drama": {

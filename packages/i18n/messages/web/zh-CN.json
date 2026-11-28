@@ -14952,7 +14952,11 @@
       "reviseContinueBase": "下一轮将基于第 {round} 轮已接受的修订稿继续修改",
       "revisePrevHunk": "上一处",
       "reviseNextHunk": "下一处",
-      "reviseHunkPosition": "第 {current}/{total} 处"
+      "reviseHunkPosition": "第 {current}/{total} 处",
+      "reviseSaveToDocs": "保存到文档中心",
+      "reviseSavingToDocs": "保存中…",
+      "reviseSavedToDocs": "已保存到文档中心:{name}",
+      "reviseSaveToDocsFailed": "保存到文档中心失败,请稍后重试"
     }
   },
   "drama": {

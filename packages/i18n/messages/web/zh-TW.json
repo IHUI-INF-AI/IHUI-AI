@@ -14907,7 +14907,11 @@
       "reviseContinueBase": "下一輪將基於第 {round} 輪已接受的修訂稿繼續修改",
       "revisePrevHunk": "上一處",
       "reviseNextHunk": "下一處",
-      "reviseHunkPosition": "第 {current}/{total} 處"
+      "reviseHunkPosition": "第 {current}/{total} 處",
+      "reviseSaveToDocs": "儲存到文件中心",
+      "reviseSavingToDocs": "儲存中…",
+      "reviseSavedToDocs": "已儲存到文件中心:{name}",
+      "reviseSaveToDocsFailed": "儲存到文件中心失敗,請稍後重試"
     }
   },
   "drama": {

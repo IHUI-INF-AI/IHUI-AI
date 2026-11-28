@@ -14972,7 +14972,11 @@
       "reviseContinueBase": "次のラウンドは第 {round} ラウンドで採用した修正稿を元に続けます",
       "revisePrevHunk": "前の変更",
       "reviseNextHunk": "次の変更",
-      "reviseHunkPosition": "{total} 件中 {current} 件目"
+      "reviseHunkPosition": "{total} 件中 {current} 件目",
+      "reviseSaveToDocs": "ドキュメントに保存",
+      "reviseSavingToDocs": "保存中…",
+      "reviseSavedToDocs": "ドキュメントに保存しました:{name}",
+      "reviseSaveToDocsFailed": "ドキュメントへの保存に失敗しました。後でもう一度お試しください"
     }
   },
   "drama": {

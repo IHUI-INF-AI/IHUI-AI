@@ -14898,7 +14898,11 @@
       "reviseContinueBase": "Next round builds on the accepted draft from round {round}",
       "revisePrevHunk": "Previous change",
       "reviseNextHunk": "Next change",
-      "reviseHunkPosition": "Change {current} of {total}"
+      "reviseHunkPosition": "Change {current} of {total}",
+      "reviseSaveToDocs": "Save to docs",
+      "reviseSavingToDocs": "Saving…",
+      "reviseSavedToDocs": "Saved to docs: {name}",
+      "reviseSaveToDocsFailed": "Failed to save to docs, please retry later"
     }
   },
   "drama": {

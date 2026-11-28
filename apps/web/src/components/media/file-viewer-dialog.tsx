@@ -44,6 +44,8 @@ export interface FileViewerTarget {
   readonly load?: () => Promise<Blob>
   /** 标题下的附加说明(项目名 / 相对路径) */
   readonly subtitle?: string
+  /** 该文件所属项目(项目文件才有):修订稿「保存回文档中心」按此上传,未知则不显示。 */
+  readonly projectId?: string
 }
 
 interface Props {
@@ -265,6 +267,7 @@ export function FileViewerDialog({ target, onClose }: Props) {
           <AiRevisionPanel
             file={blob}
             name={target.name}
+            projectId={target.projectId}
             onClose={() => setPanel(null)}
             className="min-h-0"
           />

@@ -8,7 +8,7 @@
 // 与 src/assets/remote-locales/<locale>.b64.txt(CDN 部署),三者同批派生、同钉对账。
 // IHUI-GEN-PIN-BEGIN
 // generator: scripts/gen-i18n-compressed.mjs
-// sourceCommit: 942a24b64e9919d26ab54255b55aa99b3ebe3f54
+// sourceCommit: 60252895bafad4a2ca8573ec00b0c29cf3aa32bb
 // inputsSha256: f270f0ed0ad408435dbf82382151b5e6b26d42e241cf317785b772fe4b069930
 // input: packages/i18n/messages/miniapp-taro/en.json 5e08bc22eff12c70f3cecda98852afbd0fe036402bae1a7b4a2ec0c9abe3da13
 // input: packages/i18n/messages/miniapp-taro/ja.json 034e12b178d66f1759f709267c08d0af15da1addad69d17f49b03250c3e12290
@@ -24,7 +24,7 @@
 // input: packages/i18n/messages/shared/zh-TW.json 3a9b9c6bc81613997b030d222abdf8bd88ba2235949fb05a98a7d84628d5ebe7
 // carried: present
 // carriedKeys: en=993 ja=993 ko=993 zh-TW=993
-// generatedAt: 2026-11-28T06:47:36.805Z
+// generatedAt: 2026-11-28T07:05:44.357Z
 // IHUI-GEN-PIN-END
 export type RemoteLocale = 'en' | 'ja' | 'ko' | 'zh-TW'
 export const REMOTE_LOCALE_MANIFEST: Record<RemoteLocale, { version: string; bytes: number }> = {

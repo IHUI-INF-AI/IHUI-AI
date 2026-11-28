@@ -25,12 +25,13 @@ import {
   Loader2,
   RotateCcw,
   Rows2,
+  Save,
   Wand2,
   X,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
-import { getBaseUrl, getToken } from '@/lib/api'
+import { fetchApi, getBaseUrl, getToken } from '@/lib/api'
 import { toast } from '@/components/common'
 import {
   allHunkIds,
@@ -71,6 +72,8 @@ interface Props {
   initialInstruction?: string
   /** 挂载后自动按 initialInstruction 生成一次(对话侧"点一下就出稿"场景)。 */
   autoRun?: boolean
+  /** 所属项目 id:有值时提供「保存回文档中心」,按项目文件接口上传修订稿。 */
+  projectId?: string
 }
 
 async function requestRevision(options: {
@@ -136,6 +139,7 @@ export function AiRevisionPanel({
   onClose,
   initialInstruction,
   autoRun = false,
+  projectId,
 }: Props) {
   const t = useTranslations('docs.projectFiles')
   const ext = extOfRevisionName(name)
@@ -148,6 +152,7 @@ export function AiRevisionPanel({
   const [accepted, setAccepted] = React.useState<Set<number>>(new Set())
   const [viewMode, setViewMode] = React.useState<'split' | 'unified'>('split')
   const [exporting, setExporting] = React.useState(false)
+  const [saving, setSaving] = React.useState(false)
   const [copied, setCopied] = React.useState(false)
   // 多轮修订:baseText 非空 ⇒ 下一轮以"上一轮已接受的合并稿"为输入,而不是原文件;
   // rootOriginal 始终保留第一轮原文 —— docx 回写要靠它与原文件段落 1:1 对齐。
@@ -311,23 +316,33 @@ export function AiRevisionPanel({
     }
   }
 
+  /**
+   * 把当前"已接受的合并稿"按原格式落地(导出与保存共用同一份字节)。
+   * docx 才需要读原文件字节:段级回写要靠它与原段落 1:1 对齐。
+   */
+  const buildExport = async () => {
+    if (!result || !diff || accepted.size === 0) return null
+    let originalBytes: Uint8Array | null = null
+    if (ext === 'docx') {
+      if (!bytesRef.current) {
+        bytesRef.current = new Uint8Array(await file.arrayBuffer())
+      }
+      originalBytes = bytesRef.current
+    }
+    return exportRevision({
+      name,
+      originalText: rootOriginal ?? result.originalText,
+      mergedText,
+      originalBytes,
+    })
+  }
+
   const exportFile = async () => {
     if (!result || !diff || accepted.size === 0) return
     setExporting(true)
     try {
-      let originalBytes: Uint8Array | null = null
-      if (ext === 'docx') {
-        if (!bytesRef.current) {
-          bytesRef.current = new Uint8Array(await file.arrayBuffer())
-        }
-        originalBytes = bytesRef.current
-      }
-      const exported = await exportRevision({
-        name,
-        originalText: rootOriginal ?? result.originalText,
-        mergedText,
-        originalBytes,
-      })
+      const exported = await buildExport()
+      if (!exported) return
       downloadBlob(exported.blob, exported.filename)
       toast.success(t('reviseExportDone', { name: exported.filename }))
       if (exported.mode === 'markdown' && exported.fallbackReason) {
@@ -337,6 +352,36 @@ export function AiRevisionPanel({
       toast.error(t('reviseExportFailed'))
     } finally {
       setExporting(false)
+    }
+  }
+
+  /**
+   * 保存回文档中心(2026-11-28):修订稿不再只能下载到本地 —— 上传成当前项目的新文件,
+   * 文档中心「我的项目文件」立即可见。刻意不覆盖原文件:修订稿是**另一份**候选版本,
+   * 原文件保持可对照;等版本链落地后再改成同一文件的版本关系。
+   */
+  const saveToDocs = async () => {
+    if (!projectId || !result || !diff || accepted.size === 0) return
+    setSaving(true)
+    try {
+      const exported = await buildExport()
+      if (!exported) return
+      const form = new FormData()
+      // 用显式 File 而不是 append(blob, filename):部分环境忽略第三参,服务端会收到 "blob"
+      form.append(
+        'file',
+        new File([exported.blob], exported.filename, { type: exported.blob.type }),
+      )
+      const res = await fetchApi<{ file?: { id: string; name: string } }>(
+        `/api/workspace/projects/${encodeURIComponent(projectId)}/files`,
+        { method: 'POST', body: form },
+      )
+      if (!res.success) throw new Error(res.error || 'SAVE_FAILED')
+      toast.success(t('reviseSavedToDocs', { name: exported.filename }))
+    } catch {
+      toast.error(t('reviseSaveToDocsFailed'))
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -758,11 +803,29 @@ export function AiRevisionPanel({
                 {t('reviseContinue')}
               </button>
             ) : null}
+            {projectId && totalHunks > 0 ? (
+              <button
+                type="button"
+                onClick={() => void saveToDocs()}
+                disabled={accepted.size === 0 || saving || exporting}
+                className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-violet-300/70 px-3 py-1.5 text-[11px] font-medium text-violet-700 hover:bg-violet-50 disabled:opacity-50 dark:border-violet-800 dark:text-violet-300 dark:hover:bg-violet-950/40"
+              >
+                {saving ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Save className="h-3 w-3" />
+                )}
+                {saving ? t('reviseSavingToDocs') : t('reviseSaveToDocs')}
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => void exportFile()}
-              disabled={accepted.size === 0 || exporting}
-              className="ml-auto inline-flex items-center gap-1.5 rounded-md bg-violet-600 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+              disabled={accepted.size === 0 || exporting || saving}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-md bg-violet-600 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-violet-700 disabled:opacity-50',
+                !projectId && 'ml-auto',
+              )}
             >
               {exporting ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
