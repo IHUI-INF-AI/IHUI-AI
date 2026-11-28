@@ -24,6 +24,7 @@
 | `8da8b516` | 跨实例 steer/早停/默认模型/多模式边界记录 |
 | `84e58981` | PG async 分支用例固定 event loop 形态 |
 | `bcdf906c` | 显式 run pause/resume/talk/stop HTTP 控制面 + Next 同源 rewrite |
+| `05fa4f1a` | Web 总管控制台接入 run 暂停/续跑/停止/注入提示 |
 
 ## 真实运行证据
 
@@ -129,6 +130,23 @@ HTTP 连接会让服务端取消正在执行的派发 run，这是长请求的�
 截图 `ma-api-e2e/master-authenticated.png` 已刷新。页面仍带 Next dev 模式的 `16 Issues` 浮层，
 属于开发模式提示，不影响注册表数据加载。
 
+`05fa4f1a` 在同一页面加入 `MasterRunControlPanel`：粘贴 runId 后可暂停、续跑、停止，
+并可给运行中的 run 注入一条中途提示；结果区只显示后端返回的 `outcome / runStatus /
+checkpointId / detail`，不在前端伪造状态。
+
+真实 Edge 验收 `ma-api-e2e/w2-run-control-playwright.py`：
+
+- `/master` 200，面板可见；
+- 输入已完成 run `85ccf6f4-06f0-4c0c-863b-8cf8e35056ee` 点“停止”，
+  `POST /api/master/runs/{runId}/stop` 经 Next rewrite 返回
+  `200 / outcome=already_terminal / status=succeeded`，页面显示同一结果；
+- 同 run 点“暂停”，`POST /pause` 返回 `409 / AGENT_RUN_ALREADY_TERMINAL`，
+  页面显示错误码而不是成功；
+- 截图 `ma-api-e2e/master-run-control.png`。
+
+页面仍有既有的 `missing ) after argument list` console error 与 `16 Issues` dev 浮层，
+本轮没有把它归因于运行控制面板；面板的输入、按钮、请求与错误展示已实际跑通。
+
 ## 测试门禁
 
 - 聚焦 Python 回归：`182 passed`（master 全套 + orchestrator + checkpoint + cancel bus，含新增 `test_master_runs.py` 3 项）。
@@ -137,6 +155,9 @@ HTTP 连接会让服务端取消正在执行的派发 run，这是长请求的�
 - `test_llm_gateway.py`：`122 passed`。
 - ruff：本轮改动 Python 文件全过。
 - API `pnpm --filter @ihui/api typecheck`：通过。
+- Web 组件测试：`pnpm --filter @ihui/web exec vitest run src/components/master/__tests__`
+  `8 passed`（ChatPanel 2 + RunControlPanel 3 + RegistryConsole 3）。
+- Web `pnpm --filter @ihui/web typecheck`：通过；新增组件 eslint 通过。
 - 真库注册表集成：`AGENT_REGISTRY_REAL_DB=1` 下 `7 passed`。
 - 真库 PostgreSQL 18：`ihui_agent_test_fresh`。
 
