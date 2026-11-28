@@ -18,7 +18,8 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-const { setupAgentTools } = await import('../src/commands/agent.js');
+const { setupAgentTools } = await import('../src/commands/agent.js')
+const { executeToolCall } = await import('../src/tools/index.js');
 
 let dir = '';
 const saved: Record<string, string | undefined> = {};
@@ -82,6 +83,32 @@ describe('setupAgentTools 真的按 codeMode 裁剪', () => {
     expect(r.systemPrompt).not.toContain('terminal_exec_sandboxed')
     expect(r.systemPrompt).not.toContain('git_merge')
     expect(r.systemPrompt).not.toContain('debug_launch')
+  })
+
+  it('read-only 的执行面也拒绝写/命令(不只是提示面裁掉)', async () => {
+    const r = await build('read-only')
+    const write = await executeToolCall({ name: 'write_file', arguments: { path: 'blocked.txt', content: 'x' } }, r.ctx)
+    expect(write.success).toBe(false)
+    expect(write.errorType).toBe('permission_denied')
+    expect(write.error).toContain('当前能力模式')
+    // 包装名先归一成注册名,再被同一道闸挡下。
+    const wrapped = await executeToolCall({ name: 'functions.write_file', arguments: { path: 'blocked.txt', content: 'x' } }, r.ctx)
+    expect(wrapped.success).toBe(false)
+    const shell = await executeToolCall({ name: 'run_command', arguments: { command: 'echo hi' } }, r.ctx)
+    expect(shell.success).toBe(false)
+    // 白名单内的读类照常执行(证明不是一刀切)。
+    const glob = await executeToolCall({ name: 'glob', arguments: { pattern: '*' } }, r.ctx)
+    expect(glob.success).toBe(true)
+  })
+
+  it('no-shell 的执行面拒绝命令,但放行写文件', async () => {
+    const r = await build('no-shell')
+    const shell = await executeToolCall({ name: 'run_command', arguments: { command: 'echo hi' } }, r.ctx)
+    expect(shell.success).toBe(false)
+    expect(shell.errorType).toBe('permission_denied')
+    const write = await executeToolCall({ name: 'write_file', arguments: { path: 'ok.txt', content: 'ok' } }, r.ctx)
+    expect(write.success).toBe(true)
+    expect(fs.existsSync(path.join(dir, 'ok.txt'))).toBe(true)
   })
 
   it('拼错的模式名抛错(不静默回退全量)', async () => {

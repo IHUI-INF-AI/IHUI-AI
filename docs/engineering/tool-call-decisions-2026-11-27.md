@@ -576,4 +576,33 @@ full      43,378B(不变)
 - `no-shell` 挡 `dispatch_subagent` 是折中:真正干净的做法是把父 `codeMode` 透传给子代理装配,但那要动子代理的父选项链;先把会带出 `run_command` 的那条腿关掉,比留一个已知绕过口更稳。
 - `view_file`/`search_codebase` 直接删而不是造别名:它们对应的能力已由 `read_file` / `grep` / `codegraph` 覆盖,再造同义工具只会把工具面撑大。
 
+
+## 二十四、能力模式从"看不见"到"不能调":执行面接同一份白名单
+
+**上一节留下的口子**:code-mode 此前只裁提示面。注册表仍是全量,模型若凭空报出被挡工具名(`write_file` / `run_command` / `terminal_open`),执行层照旧按权限链处理 —— "看不见"不等于"不能调"。这是边界名不副实,不是能力取舍。
+
+**改动**
+- `ToolContext` 新增可选 `allowedToolNames?: ReadonlySet<string>`,注释写明"缺席 = 不做模式闸,full / 测试 / 嵌入式调用逐字节不变"。
+- `setupAgentTools` 在**非 full** 档注入 `new Set(tools.map((tool) => tool.name))`,来源就是同一份 `applyCodeMode(...).allowed`;full 档不注入。
+- `executeToolCallInner` 在 **hub 分派之前**判:名字先经 `resolveRegisteredTool` 归一(包装名 `functions.write_file` 按注册名 `write_file` 裁决),未列名直接返回 `errorType=permission_denied`,消息带"当前能力模式下不可用",不执行任何动作。
+- 位置刻意放在 `hubEnabled && hubResolver` 分支前:hub 路径会先 `resolver.dispatch` 再 return,放在本地解析之后等于只挡本地、放过 remote;放在最前面才是同一道闸覆盖两条执行路径。
+
+**读数**(真实装配 `setupAgentTools`,注册表 151 枚)
+
+```text
+read-only   允许 17 / 151,拒绝 134(此前这 134 枚只是"没显示",仍可被指名调用)
+review      允许 15 / 151,拒绝 136
+no-shell    允许 121 / 151,拒绝 30
+full        允许 151 / 151,不注入闸(零变化)
+```
+
+**验证**
+- `tests/code-mode-wiring.test.ts` 新增两例:read-only 下 `write_file`、`functions.write_file`(包装名)、`run_command` 全部被拒且 `errorType=permission_denied`,同一 ctx 下 `glob` 正常成功;no-shell 下 `run_command` 被拒、`write_file` 成功并真的落盘(证明不是一刀切)。
+- 回归面扩到 17 个测试文件 **187 例全过**,`apps/cli` tsc rc=0。
+
+**诚实说明**
+- `executeToolCall` 的 `preToolCall` 钩子仍先于这道闸触发:被挡调用的"尝试"会进钩子审计,但工具本体不执行。这是有意的 —— 审计要看得到"有人试图越界",而不是把尝试也抹掉。
+- 子代理不吃主会话这个字段:它在装配后用 `clearTools + registerTools` 换成自己的过滤集,被挡名字在子 registry 里直接不存在;`no-shell` 另用"禁派发"堵住 `general` 子代理带出 `run_command`。
+- 该闸判的是**装配时快照**。若会话中途动态注册新工具(当前路径:插件/MCP 都在 `setupAgentTools` 完成前注册),受限档的新工具默认不可执行;要放行必须刷新 `allowedToolNames`,这是失效方向偏"少给"的保守选择。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

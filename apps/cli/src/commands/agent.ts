@@ -926,6 +926,11 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   }
   const ctx: ToolContext = {
     workspacePath: opts.workspacePath,
+    // 受限档把同一份白名单带进执行面:提示面裁掉谁,执行面就拒绝谁。
+    // full 档不注入(缺席 = 不做模式闸,嵌入式调用零变化)。
+    ...(codeModeResult.mode.id === 'full'
+      ? {}
+      : { allowedToolNames: new Set(tools.map((tool) => tool.name)) }),
     workspaceRoots: opts.workspaceRoots,
     taskWorkspaceId: opts.taskWorkspaceId,
     confirmDangerous: opts.confirmDangerous,

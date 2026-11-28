@@ -733,6 +733,18 @@ export interface ToolContext {
    * 缺席(undefined)= 行为与引入前逐字节相同(测试 / 嵌入式调用不受影响)。
    */
   noteToolUsage?: (toolName: string) => void;
+  /**
+   * 当前能力模式允许的工具名集合(2026-11-28 立,setupAgentTools 在**非 full** 档注入)。
+   *
+   * 立因:code-mode 此前只裁提示面 —— 注册表仍是全量,模型若凭空报出被挡工具名,
+   * 执行层照旧放行(只受权限链约束)。"看不见"不等于"不能调",边界名不副实。
+   * 本字段把同一份 `applyCodeMode(...).allowed` 带进执行面,`executeToolCallInner`
+   * 对未列名工具直接拒绝(schema 细节也不泄露,拒绝发生在参数校验之前)。
+   *
+   * 缺席(undefined)= 不做模式闸:full 档 / 测试 / 嵌入式调用行为与引入前逐字节相同。
+   * 只影响**顶层工具调用**;子代理走自己的 registry 裁剪(clearTools+registerTools)。
+   */
+  allowedToolNames?: ReadonlySet<string>;
 }
 
 const registry = new Map<string, Tool>();
@@ -1588,6 +1600,23 @@ async function executeToolCallInner(
   call: ParsedToolCall,
   ctx: ToolContext,
 ): Promise<ToolResult> {
+  // 能力模式执行闸(2026-11-28):与提示面同一份白名单,这里是真的拒,且必须在
+  // hub 分支之前 —— hub 路径会先 dispatch 再 return,放在后面等于给远程工具留后门。
+  // 归一化后再判:包装名(`functions.write_file`)按注册名裁决,不能因写法漏过。
+  // 缺席(undefined)= 不介入:full 档 / 测试 / 嵌入式调用行为与引入前逐字节相同。
+  if (ctx.allowedToolNames) {
+    const canonical = resolveRegisteredTool(call.name)?.tool.name ?? call.name;
+    if (!ctx.allowedToolNames.has(canonical)) {
+      return {
+        success: false,
+        output: '',
+        error:
+          `工具 ${canonical} 在当前能力模式下不可用(可用工具 ${ctx.allowedToolNames.size} 枚)。` +
+          '如需该能力,请切换运行模式;本条没有执行任何动作。',
+        errorType: 'permission_denied',
+      };
+    }
+  }
   // P1-5 Computer Hub 集成:flag 启用时优先走 CompoundResolver.dispatch(local-shadows-remote)
   // ToolNotFoundError 时 fallback 到原 getTool 路径(零回归保障);其他错误转 ToolResult 返回。
   // 横切关注点(permission / rate limit / retry)在 hub 未启用或 fallback 时仍由原路径处理。
