@@ -87,6 +87,11 @@ probe `e41afe2b8e734080957dcb3ae041fc44`：
 第 1 轮调用 `agent_registry.list`（`isDispatchable=true`，耗时 235ms），第 2 轮返回
 10 个可派发智能体的名字与 ID；`iterations=2 / model=agnes-2.5-flash`，不是桩。
 
+真实派发也跑通：同一端点发“用 agent_ops 派发 coder 执行最小任务，只输出 READY”，
+第 1 轮调用 `agent_ops.dispatch`（耗时 2547ms），真实建 run
+`96988744-aa8b-49b8-83ab-8b8ebb39b016`，coder 返回 `succeeded / output=READY / 1 轮`；
+master 第 2 轮把 runId 带回。真库 `agent_runs` 终态 `succeeded`，事件 seq 1–2。
+
 ### UI
 
 `/master` 页面用真实 Edge + 测试库 admin 登录态验收：11 个注册表定义、`coder` 运行统计可见；
