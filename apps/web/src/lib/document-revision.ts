@@ -45,6 +45,37 @@ export function revisionStats(diff: HunkDiff): RevisionStats {
   return { added, removed, hunks: diff.hunks.length }
 }
 
+/**
+ * 行内差异切片(2026-11-28 二轮):行级 diff 会把「改了两个字」的整段都涂红/绿,
+ * 长条款看着像整条重写。这里按公共前缀/后缀切出真正变的那一截,交给 UI 只加重
+ * 那一小段底色;前缀后缀原样保留。纯新增/纯删除时 oldChanged/newChanged 为空。
+ */
+export interface InlineSegments {
+  prefix: string
+  oldChanged: string
+  newChanged: string
+  suffix: string
+}
+
+export function inlineDiffSegments(oldText: string, newText: string): InlineSegments {
+  let start = 0
+  while (start < oldText.length && start < newText.length && oldText[start] === newText[start]) {
+    start += 1
+  }
+  let endOld = oldText.length
+  let endNew = newText.length
+  while (endOld > start && endNew > start && oldText[endOld - 1] === newText[endNew - 1]) {
+    endOld -= 1
+    endNew -= 1
+  }
+  return {
+    prefix: oldText.slice(0, start),
+    oldChanged: oldText.slice(start, endOld),
+    newChanged: newText.slice(start, endNew),
+    suffix: oldText.slice(endOld),
+  }
+}
+
 /** 默认全接受:AI 给的是“建议稿”,用户只需驳回不认可的 hunk。 */
 export function allHunkIds(diff: HunkDiff): Set<number> {
   return new Set(diff.hunks.map((hunk) => hunk.id))

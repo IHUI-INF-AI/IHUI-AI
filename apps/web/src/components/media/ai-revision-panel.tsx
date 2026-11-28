@@ -25,8 +25,10 @@ import {
   buildRevisionDiff,
   exportRevision,
   extOfRevisionName,
+  inlineDiffSegments,
   mergeRevision,
   revisionStats,
+  type InlineSegments,
 } from '@/lib/document-revision'
 import type { DiffHunk, HunkDiff } from '@/lib/hunk-diff'
 
@@ -308,10 +310,38 @@ export function AiRevisionPanel({
     }
   }
 
-  const rows = diff?.rows ?? []
+  const rows = React.useMemo(() => diff?.rows ?? [], [diff])
   const capped = rows.length > MAX_RENDER_ROWS
   const visibleRows = capped ? rows.slice(0, MAX_RENDER_ROWS) : rows
   const totalHunks = diff?.hunks.length ?? 0
+  // 行内高亮:同一 hunk 里第 k 条删除行 ↔ 第 k 条新增行配对,切出真正改动的那一截。
+  // 配不上对(批量增删)就不加重,保持整行底色;拼回原文对不上时 HighlightedLine 直接回落整行。
+  const inlineSegments = React.useMemo(() => {
+    const map = new Map<number, InlineSegments>()
+    if (!diff) return map
+    for (const hunk of diff.hunks) {
+      const dels: number[] = []
+      const adds: number[] = []
+      for (let index = hunk.rowStart; index < hunk.rowEnd; index += 1) {
+        const row = rows[index]
+        if (row?.op === 'delete') dels.push(index)
+        else if (row?.op === 'insert') adds.push(index)
+      }
+      const pairs = Math.min(dels.length, adds.length)
+      for (let k = 0; k < pairs; k += 1) {
+        const oldIndex = dels[k]!
+        const newIndex = adds[k]!
+        const oldText = rows[oldIndex]?.oldLine?.text ?? ''
+        const newText = rows[newIndex]?.newLine?.text ?? ''
+        if (oldText === newText) continue
+        const segments = inlineDiffSegments(oldText, newText)
+        if (!segments.oldChanged && !segments.newChanged) continue
+        map.set(oldIndex, segments)
+        map.set(newIndex, segments)
+      }
+    }
+    return map
+  }, [diff, rows])
 
   return (
     <section
@@ -516,7 +546,12 @@ export function AiRevisionPanel({
                           </span>
                           {row.op === 'delete' ? (
                             <span className="whitespace-pre-wrap break-words text-rose-700 dark:text-rose-300">
-                              {row.oldLine?.text ?? ''}
+                              <HighlightedLine
+                                text={row.oldLine?.text ?? ''}
+                                segments={inlineSegments.get(index)}
+                                side="old"
+                                tone="rose"
+                              />
                             </span>
                           ) : row.op === 'equal' ? (
                             <span className="whitespace-pre-wrap break-words text-muted-foreground">
@@ -532,7 +567,12 @@ export function AiRevisionPanel({
                           </span>
                           {row.op === 'insert' ? (
                             <span className="whitespace-pre-wrap break-words text-emerald-700 dark:text-emerald-300">
-                              {row.newLine?.text ?? ''}
+                              <HighlightedLine
+                                text={row.newLine?.text ?? ''}
+                                segments={inlineSegments.get(index)}
+                                side="new"
+                                tone="emerald"
+                              />
                             </span>
                           ) : row.op === 'equal' ? (
                             <span className="whitespace-pre-wrap break-words text-muted-foreground">
@@ -585,7 +625,14 @@ export function AiRevisionPanel({
                             row.op === 'equal' && 'text-muted-foreground',
                           )}
                         >
-                          {(row.op === 'insert' ? row.newLine?.text : row.oldLine?.text) ?? ''}
+                          <HighlightedLine
+                            text={
+                              (row.op === 'insert' ? row.newLine?.text : row.oldLine?.text) ?? ''
+                            }
+                            segments={inlineSegments.get(index)}
+                            side={row.op === 'insert' ? 'new' : 'old'}
+                            tone={row.op === 'insert' ? 'emerald' : 'rose'}
+                          />
                         </span>
                       </div>
                       {hunk ? (
@@ -678,6 +725,43 @@ export function AiRevisionPanel({
         </>
       ) : null}
     </section>
+  )
+}
+
+interface HighlightedLineProps {
+  text: string
+  segments?: InlineSegments
+  side: 'old' | 'new'
+  tone: 'rose' | 'emerald'
+}
+
+/**
+ * 行内高亮渲染(2026-11-28 二轮):只在真正改动的那一截加一层深底色,
+ * 公共前缀/后缀保持原样。拼回去与整行不逐字一致时(配对错位/含制表符折叠)
+ * 直接回落整行文本 —— 高亮可以少,绝不能标错位置。
+ */
+function HighlightedLine({ text, segments, side, tone }: HighlightedLineProps) {
+  if (!segments || !text) return <>{text}</>
+  const changed = side === 'old' ? segments.oldChanged : segments.newChanged
+  if (!changed) return <>{text}</>
+  const rebuilt = `${segments.prefix}${changed}${segments.suffix}`
+  if (rebuilt !== text) return <>{text}</>
+  return (
+    <>
+      {segments.prefix}
+      <span
+        data-inline-change={side}
+        className={cn(
+          'rounded-sm px-0.5',
+          tone === 'rose'
+            ? 'bg-rose-200/90 text-rose-900 dark:bg-rose-500/35 dark:text-rose-50'
+            : 'bg-emerald-200/90 text-emerald-900 dark:bg-emerald-500/35 dark:text-emerald-50',
+        )}
+      >
+        {changed}
+      </span>
+      {segments.suffix}
+    </>
   )
 }
 

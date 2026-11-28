@@ -7,6 +7,7 @@ import {
   allHunkIds,
   buildRevisionDiff,
   exportRevision,
+  inlineDiffSegments,
   mergeRevision,
   revisionFileName,
   revisionStats,
@@ -22,6 +23,38 @@ import { makeDocx } from './fixtures/make-docx'
  *  3. docx 能写回时给 .docx,结构对不上时降级 Markdown 并带原因;
  *  4. 文本格式保持原扩展名。
  */
+describe('inlineDiffSegments', () => {
+  it('只切出改动的那一截,前后缀逐字保留', () => {
+    const seg = inlineDiffSegments(
+      '第一条 甲方应在三日内付款。',
+      '第一条 甲方应在五个工作日内付款。',
+    )
+    expect(seg.prefix).toBe('第一条 甲方应在')
+    expect(seg.oldChanged).toBe('三')
+    expect(seg.newChanged).toBe('五个工作')
+    expect(seg.suffix).toBe('日内付款。')
+  })
+
+  it('纯尾部插入/删除时一侧改动为空', () => {
+    const ins = inlineDiffSegments('第一条 甲方应付款。', '第一条 甲方应付款。补充：逾期按日计息。')
+    expect(ins.prefix).toBe('第一条 甲方应付款。')
+    expect(ins.oldChanged).toBe('')
+    expect(ins.newChanged).toBe('补充：逾期按日计息。')
+
+    const del = inlineDiffSegments('第一条 甲方应付款。补充：逾期按日计息。', '第一条 甲方应付款。')
+    expect(del.oldChanged).toBe('补充：逾期按日计息。')
+    expect(del.newChanged).toBe('')
+  })
+
+  it('整行替换时前缀后缀只保留公共头尾,不误标', () => {
+    const seg = inlineDiffSegments('第一条 甲方应在三日内付款。', '第二条 乙方应在七日内交付。')
+    expect(seg.prefix).toBe('第')
+    expect(seg.suffix).toBe('。')
+    expect(seg.oldChanged).toBe('一条 甲方应在三日内付款')
+    expect(seg.newChanged).toBe('二条 乙方应在七日内交付')
+  })
+})
+
 describe('buildRevisionDiff / mergeRevision', () => {
   const original = '第一条 甲方应在三日内付款。\n第二条 乙方应交付。\n第三条 保密义务持续三年。'
   const revised =

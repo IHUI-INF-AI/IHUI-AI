@@ -29,6 +29,11 @@ function fileOf(name: string) {
   return new File(['合同正文'], name, { type: 'text/plain' })
 }
 
+/** 行内高亮会把整行拆成 前缀+span+后缀 多个文本节点,按整段文本断言要看 textContent。 */
+async function expectBodyContains(text: string): Promise<void> {
+  await waitFor(() => expect(document.body.textContent ?? '').toContain(text))
+}
+
 function mockRevisionResponse(
   body: Record<string, unknown> = {
     instruction: '改付款期限',
@@ -60,13 +65,17 @@ describe('AiRevisionPanel', () => {
 
     fireEvent.click(screen.getByText('reviseRun'))
 
-    expect(await screen.findByText('第一条 甲方应在五个工作日内付款。')).toBeTruthy()
-    expect(screen.getAllByText('第一条 甲方应在三日内付款。').length).toBeGreaterThan(0)
+    await expectBodyContains('第一条 甲方应在五个工作日内付款。')
+    expect(document.body.textContent ?? '').toContain('第一条 甲方应在三日内付款。')
     expect(screen.getByText('test-model')).toBeTruthy()
 
     const hunk = document.querySelector('[data-hunk-id]')
     expect(hunk).toBeTruthy()
     expect(hunk?.getAttribute('data-accepted')).toBe('true')
+
+    // 行内高亮只罩住真正改动的片段,而不是整行
+    expect(document.querySelector('[data-inline-change="old"]')?.textContent).toBe('三')
+    expect(document.querySelector('[data-inline-change="new"]')?.textContent).toBe('五个工作')
 
     const reject = screen.getAllByText('reviseReject')[0]!
     fireEvent.click(reject)
@@ -83,7 +92,7 @@ describe('AiRevisionPanel', () => {
       />,
     )
 
-    expect(await screen.findByText('第一条 甲方应在五个工作日内付款。')).toBeTruthy()
+    await expectBodyContains('第一条 甲方应在五个工作日内付款。')
     expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1)
     const init = vi.mocked(fetch).mock.calls[0]?.[1] as RequestInit
     const body = init.body as FormData
@@ -96,7 +105,7 @@ describe('AiRevisionPanel', () => {
   it('接受后可在此稿上继续修订:第二轮以合并稿为输入,不是重新读原文件', async () => {
     render(<AiRevisionPanel file={fileOf('合同.docx')} name="合同.docx" />)
     fireEvent.click(screen.getByText('reviseRun'))
-    await screen.findByText('第一条 甲方应在五个工作日内付款。')
+    await expectBodyContains('第一条 甲方应在五个工作日内付款。')
 
     fireEvent.click(screen.getByText('reviseContinue'))
     expect(screen.getByTestId('revision-base-hint')).toBeTruthy()
@@ -114,7 +123,7 @@ describe('AiRevisionPanel', () => {
   it('全部驳回后导出禁用,避免导出与原文相同的“修订稿”', async () => {
     render(<AiRevisionPanel file={fileOf('合同.txt')} name="合同.txt" />)
     fireEvent.click(screen.getByText('reviseRun'))
-    await screen.findByText('第一条 甲方应在五个工作日内付款。')
+    await expectBodyContains('第一条 甲方应在五个工作日内付款。')
 
     fireEvent.click(screen.getByText('reviseRejectAll'))
     await waitFor(() => {
