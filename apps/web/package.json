@@ -101,6 +101,7 @@
     "sonner": "^2.0.7",
     "tailwindcss-animate": "^1.0.7",
     "three": "^0.185.1",
+    "tslib": "^2.9.1",
     "xlsx": "npm:@e965/xlsx@^0.20.3",
     "xstate": "^5.32.5",
     "zod": "catalog:",
