@@ -105,6 +105,11 @@ export interface SendMessageResult {
   stopReason: AgentStopReason;
   iterations: number;
   usage: TokenUsage;
+  /**
+   * 本回合最终助手正文。流式 onDelta 有时不吐帧(上游按非流式回包/只有 reasoning),
+   * 消费方(设备执行器)必须能在收尾时补上这段,否则会话里只剩一个空气泡。
+   */
+  assistantText: string;
 }
 
 interface CoreSessionState {
@@ -338,6 +343,7 @@ export class AgentCore {
         stopReason: result.stopReason,
         iterations: result.iterations,
         usage: result.usage,
+        assistantText: result.assistantText ?? '',
       };
   }
 

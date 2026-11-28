@@ -556,6 +556,12 @@ async function executeTask(
       }
     }
 
+    // 2026-11-28 生产实跑:某些上游按非流式回包(或只给 reasoning),onDelta 一帧不吐,
+    // 于是 AgentCore 有 assistantText、会话消息却是空 content。收尾前用最终正文兜底一次,
+    // 只在流式面完全为空时补,避免把已经流过的正文再追加一遍。
+    if (!streamer.text().trim() && result.assistantText.trim()) {
+      streamer.onEvent({ type: 'token', text: result.assistantText })
+    }
     await streamer.finalize()
     await deviceTaskComplete(token, task.id, {
       agent_session_id: result.sessionId,
