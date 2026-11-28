@@ -107,8 +107,16 @@ export interface AuthoritativeSourceBundle {
 let syncProxyAgent: ProxyAgent | null | undefined
 let syncProxyUrl: string | undefined
 
+function resolveSyncProxyUrl(): string {
+  const explicit = process.env.SYNC_PROXY_URL?.trim()
+  if (explicit) return explicit
+  // 生产 API 服务已配置标准 HTTPS_PROXY（本地隧道）；未显式配 SYNC_PROXY_URL 时复用，
+  // 避免定时抓取在 Node 侧直连被墙的源站。
+  return process.env.HTTPS_PROXY?.trim() || process.env.HTTP_PROXY?.trim() || ''
+}
+
 function getProxyDispatcher(url: string): ProxyAgent | null {
-  const proxyUrl = process.env.SYNC_PROXY_URL?.trim()
+  const proxyUrl = resolveSyncProxyUrl()
   if (!proxyUrl) return null
   if (/^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:|\/|$)/i.test(url)) return null
   if (syncProxyAgent === undefined || syncProxyUrl !== proxyUrl) {
