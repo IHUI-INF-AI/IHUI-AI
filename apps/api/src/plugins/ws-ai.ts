@@ -22,7 +22,8 @@ import { releasePointsHold } from '../services/points-service.js'
 import { estimateTokens } from '../services/context-manager-service.js'
 import { resolveDefaultChatModel } from '../utils/retired-providers.js'
 import { findAgentByAgentId } from '../db/agents-queries.js'
-import { getCozeAccessToken } from '../services/coze-auth-utils.js'
+import { db } from '../db/index.js'
+import { cozeChatHistory } from '@ihui/database'
 
 /**
  * F-461:消息收发时刷新 ws-auto-recovery 的活动时间(内存时间戳,轻量、不落库)。
@@ -31,6 +32,15 @@ import { getCozeAccessToken } from '../services/coze-auth-utils.js'
 const touchActivity = (): void => {
   getWsAutoRecoveryManager().recordActivity?.()
 }
+
+/**
+ * 2026-11-28 完全弃用 Coze：本地执行模式的对话历史。
+ * 按 `${userId}:${botId}` 维护最近 24 条消息（进程内），不再依赖 Coze 的 auto_save_history。
+ */
+const localChatHistories = new Map<
+  string,
+  Array<{ role: 'user' | 'assistant'; content: string }>
+>()
 
 const send = (socket: WebSocket, obj: unknown): void => {
   touchActivity()
@@ -1268,14 +1278,17 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
       if (!userId) return
       // 2026-11-28:公开面不暴露 botId，前端按社区 agentId 接入；
       // 服务端解析到 botId 后再交给 Coze，客户端仍可通过 bot_id 走兼容旧链路。
+      let agentMeta: Awaited<ReturnType<typeof findAgentByAgentId>> | undefined
       if (query.agent_id) {
         const agent = await findAgentByAgentId(query.agent_id)
-        if (!agent || agent.status !== 'published' || !agent.botId) {
+        // 2026-11-28 完全弃用 Coze：不再要求 botId，本地自建智能体（无 bot_id）同样可对话。
+        if (!agent || agent.status !== 'published') {
           send(socket, { code: 404, event: 'error', message: '智能体不存在或未发布' })
           socket.close(1008, '智能体不存在或未发布')
           return
         }
-        botId = agent.botId
+        agentMeta = agent
+        botId = agent.botId ?? agent.agentId
       }
       if (!botId) {
         send(socket, { code: 400, event: 'error', message: '缺少 agent_id 或 bot_id' })
@@ -1290,14 +1303,8 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
       }
       send(socket, { code: 0, msg: 'success', event: 'ready', user: userId, bot_id: botId })
 
-      // 2026-11-28:OAuth JWT 优先，PAT 兜底。Coze PAT 最长 30 天，不能作为长期唯一凭据。
-      const cozeToken = (await getCozeAccessToken()) ?? process.env.COZE_API_KEY
-      if (!cozeToken) {
-        send(socket, { code: 503, event: 'error', message: 'Coze 服务未配置' })
-        return
-      }
-      const cozeBaseUrl =
-        process.env.COZE_API_BASE_URL ?? process.env.COZE_API_BASE ?? 'https://api.coze.cn'
+      // 2026-11-28 完全弃用 Coze：不再签发 Coze token、不再访问 api.coze.cn。
+      // 对话由本地 LLM 承接（/api/llm/complete/stream），人格取自 agents.agent_prompt。
 
       let conversationId = ''
       let heartbeatTimer: NodeJS.Timeout | null = null
@@ -1368,7 +1375,7 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
         if (eventType === 'chat.message') {
           const queryText = msg.content as string | undefined
           // F-112:同 chat.start,忽略消息体里的 bot_id/user_id。
-          const { botId: reqBotId, userId: reqUserId } = resolveCozeIdentity({ botId, userId })
+          const { botId: reqBotId } = resolveCozeIdentity({ botId, userId })
           if (!queryText) {
             send(socket, { code: 400, event: 'error', message: '缺少 content' })
             return
@@ -1389,40 +1396,92 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
 
           startHeartbeat()
 
-          let newConversationId: string | null = null
           try {
-            // Coze Chat v3：/v3/chat + additional_messages；/v1/chat 已被上游下线（404 code=4000）。
-            const resp = await fetch(`${cozeBaseUrl.replace(/\/+$/, '')}/v3/chat`, {
+            // ============================================================
+            // 2026-11-28 完全弃用 Coze：本地 LLM 执行。
+            // 人格 = agents.agent_prompt（Coze 全量配置已落库为 coze_config_raw）；
+            // 模型 = agent_model → 默认 chat 模型；会话历史维护在 localChatHistories。
+            // 事件协议保持 conversation.*，前端（coze-agent-panel）零改动。
+            // ============================================================
+            const meta = agentMeta
+            const basePrompt = String(meta?.agentPrompt ?? '').trim()
+            const botName = String(meta?.name ?? '').trim()
+            // Coze 时代的人格 = bot 名称 + 描述/指令（Coze 运行时默认把名称注入 system），
+            // 本地化后必须显式拼装，否则模型只会看到一句能力描述而自称底层模型。
+            // 身份声明放末尾：长 prompt（几千字角色设定）在前时会淹没前置指令（lost-in-the-middle），
+            // 把「你叫谁」放到最后一行，指令遵循度最高。
+            const systemPrompt = botName
+              ? `${basePrompt ? `${basePrompt}\n\n` : ''}你的名字是「${botName}」。回答时始终以「${botName}」的身份和口吻，不要自称其他 AI 产品或模型名。`
+              : basePrompt
+            const localModel =
+              String(meta?.agentModel ?? '').trim() || resolveDefaultChatModel()
+            if (!conversationId) conversationId = `local_${randomUUID()}`
+            const historyKey = `${userId}:${reqBotId}`
+            const history = localChatHistories.get(historyKey) ?? []
+            // 2026-11-28 完全弃用 Coze 后的本地计费：与 /chat/stream、WS capability 同口径预扣，
+            // 避免 /ws/coze/chat 成为绕过计费的免费口子。
+            const billingReference = `ws-coze:${userId}:${randomUUID()}`
+            // system 人格双写：messages[0] + system_prompt 字段（两条路都验证过 ai-service 生效），
+            // 另打一条结构化日志便于线上核对 prompt 是否取到。
+            const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = []
+            if (systemPrompt) messages.push({ role: 'system', content: systemPrompt })
+            for (const h of history.slice(-12)) messages.push(h)
+            // 三保险其二：人格再以首段形式并入 user 内容，即便 system 通道失效模型也一定能看到角色设定
+            const userContent = systemPrompt
+              ? `【角色设定】${systemPrompt}\n\n【用户问题】${queryText}`
+              : queryText
+            messages.push({ role: 'user', content: userContent })
+            server.log.info(
+              `ws-coze 本地执行 agentId=${meta?.agentId ?? 'none'} promptLen=${systemPrompt.length} model=${localModel}`,
+            )
+
+            // 预扣积分（同 provider 通道口径）
+            const billing = await reserveLlmPoints({
+              userId,
+              modelId: localModel,
+              promptTokens: Math.max(1, estimateTokens(messages.map((m) => m.content).join('\n'))),
+              maxCompletionTokens: DEFAULT_MAX_COMPLETION_TOKENS,
+              source: 'llm_chat',
+              referenceId: billingReference,
+            }).catch((e) => {
+              server.log.error({ err: e, userId }, 'ws-coze 积分预检异常')
+              return null
+            })
+            if (!billing?.ok) {
+              stopHeartbeat()
+              send(socket, {
+                code: billing?.status ?? 503,
+                event: 'conversation.chat.failed',
+                message: billing?.message ?? '积分服务暂不可用,请稍后重试',
+              })
+              return
+            }
+
+            const resp = await aiServiceFetchStream(request, '/api/llm/complete/stream', {
               method: 'POST',
-              headers: {
-                Authorization: `Bearer ${cozeToken}`,
-                'Content-Type': 'application/json',
-              },
+              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                bot_id: reqBotId,
-                // F-112(2026-11-08):不向 Coze 透传客户端自报的 user_id。
-                user_id: reqUserId,
-                stream: true,
-                auto_save_history: true,
-                additional_messages: [{ role: 'user', content: queryText, content_type: 'text' }],
-                ...(conversationId ? { conversation_id: conversationId } : {}),
+                messages,
+                model: localModel,
+                // 2026-11-28:人格走官方 system_prompt（置顶注入优先级最高），不再塞 messages.system。
+                system_prompt: systemPrompt || undefined,
+                metadata: { userId, provider: 'local' },
               }),
             })
             if (!resp.ok || !resp.body) {
               stopHeartbeat()
+              const errText = await resp.text().catch(() => '')
               send(socket, {
                 code: 502,
                 event: 'conversation.chat.failed',
-                message: `Coze API ${resp.status}`,
+                message: `本地模型服务 ${resp.status}: ${errText.slice(0, 200)}`,
               })
               return
             }
+            let fullAnswer = ''
             const reader = resp.body.getReader()
             const decoder = new TextDecoder()
             let buffer = ''
-            // Coze v3 是标准 SSE:事件名只在 `event:` 行里,`data:` 的 JSON 内没有 event 字段。
-            // 只解析 data 行会让转发出去的事件名恒为空串,前端按 event 分流就永远收不到 delta。
-            let sseEventName = ''
             for (;;) {
               const { done, value } = await reader.read()
               if (done) break
@@ -1430,61 +1489,85 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
               const lines = buffer.split('\n')
               buffer = lines.pop() ?? ''
               for (const line of lines) {
-                const sseLine = line.endsWith('\r') ? line.slice(0, -1) : line
-                if (sseLine.startsWith('event:')) {
-                  sseEventName = sseLine.slice(6).trim()
+                const s = line.endsWith('\r') ? line.slice(0, -1) : line
+                if (!s.startsWith('data:')) continue
+                const jsonStr = s.slice(5).trim()
+                if (!jsonStr) continue
+                let ev: Record<string, unknown>
+                try {
+                  ev = JSON.parse(jsonStr) as Record<string, unknown>
+                } catch {
                   continue
                 }
-                if (!sseLine.startsWith('data:')) continue
-                const jsonStr = sseLine.slice(5).trim()
-                if (!jsonStr) continue
-                try {
-                  const evt = JSON.parse(jsonStr) as Record<string, unknown>
-                  // 提取 conversation_id
-                  const cid = evt.conversation_id as string | undefined
-                  if (cid && cid !== newConversationId) {
-                    newConversationId = cid
-                    conversationId = cid
-                  }
-                  const evtType = (evt.event as string) || sseEventName
-                  // v3 失败事件把原因放在 last_error.msg；提到顶层，前端可直接展示额度/发布等真实原因。
-                  const lastError = evt.last_error as { msg?: unknown } | undefined
-                  const errorMessage =
-                    evtType === 'conversation.chat.failed' && typeof lastError?.msg === 'string'
-                      ? lastError.msg
-                      : ''
-                  // 透传事件
+                if (ev.type === 'chunk' && typeof ev.content === 'string' && ev.content) {
+                  fullAnswer += ev.content
                   send(socket, {
                     code: 200,
                     msg: 'success',
-                    ...evt,
-                    event: evtType,
-                    ...(errorMessage ? { message: errorMessage } : {}),
+                    data: {
+                      id: `local_${Date.now()}`,
+                      conversation_id: conversationId,
+                      bot_id: reqBotId,
+                      role: 'assistant',
+                      type: 'answer',
+                      content: ev.content,
+                      content_type: 'text',
+                    },
+                    detail: null,
+                    event: 'conversation.message.delta',
+                    urlType: null,
                   })
-                  if (
-                    evtType.includes('completed') ||
-                    evtType.includes('finish') ||
-                    evtType.includes('end')
-                  ) {
-                    stopHeartbeat()
-                  }
-                } catch {
-                  /* skip non-JSON */
+                } else if (ev.type === 'error') {
+                  stopHeartbeat()
+                  send(socket, {
+                    code: 500,
+                    event: 'conversation.chat.failed',
+                    message: String(ev.message ?? '本地模型服务异常'),
+                  })
+                  return
                 }
               }
             }
             stopHeartbeat()
-            if (newConversationId) {
-              conversationId = newConversationId
+            history.push({ role: 'user', content: queryText })
+            if (fullAnswer) history.push({ role: 'assistant', content: fullAnswer })
+            localChatHistories.set(historyKey, history.slice(-24))
+            // 2026-11-28:会话历史落库（进程重启不再丢），并结算本轮积分（同 provider 通道口径）
+            try {
+              await db.insert(cozeChatHistory).values([
+                { botId: reqBotId, conversationId, role: 'user', content: queryText },
+                { botId: reqBotId, conversationId, role: 'assistant', content: fullAnswer || '(empty)' },
+              ])
+            } catch (e) {
+              server.log.warn({ err: e, userId, conversationId }, 'ws-coze 会话历史落库失败(已忽略)')
+            }
+            try {
+              await settleLlmPointsUsage({
+                userId,
+                modelId: localModel,
+                promptTokens: Math.max(1, estimateTokens(messages.map((m) => m.content).join('\n'))),
+                completionTokens: Math.max(1, estimateTokens(fullAnswer)),
+                source: 'llm_chat',
+                description: `WS coze-local ${localModel}`,
+                referenceId: billingReference,
+                holdReferenceId: billingReference,
+              })
+            } catch (e) {
+              server.log.error({ err: e, userId, billingReference }, 'ws-coze 积分结算失败')
             }
             send(socket, {
               code: 200,
               msg: 'success',
               event: 'conversation.chat.completed',
-              data: { conversation_id: conversationId },
+              data: { conversation_id: conversationId, bot_id: reqBotId },
             })
           } catch (e) {
             stopHeartbeat()
+            await releasePointsHold({
+              userId,
+              source: 'llm_chat',
+              referenceId: billingReference,
+            }).catch(() => undefined)
             send(socket, {
               code: 500,
               event: 'conversation.chat.failed',

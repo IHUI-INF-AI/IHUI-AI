@@ -29,6 +29,8 @@ export interface ArtifactWrite {
   absolutePath: string;
   /** 写入的字符数 */
   chars: number;
+  /** 二进制产物的字节数（文本产物可缺省） */
+  bytes?: number;
   /** 内容 sha1 前 8 位(幂等键) */
   contentHash: string;
   /** 是否本次新写入(false = 命中同名已有文件,未重复写) */
@@ -108,6 +110,60 @@ export function writeToolArtifact(opts: {
     contentHash,
     created: !alreadyExists,
   };
+}
+
+/**
+ * 写入一份二进制媒体产物（MCP image/audio/document 的 base64）。
+ * 与文本产物同一落点、同一幂等键（内容哈希），但保留原始字节而不是 utf8 转写。
+ */
+export function writeToolMediaArtifact(opts: {
+  workspacePath: string;
+  sessionId?: string;
+  toolName: string;
+  mimeType?: string;
+  base64: string;
+}): ArtifactWrite {
+  const dir = toolArtifactDir(opts.workspacePath, opts.sessionId);
+  const bytes = Buffer.from(opts.base64, 'base64');
+  const contentHash = createHash('sha1').update(bytes).digest('hex').slice(0, 8);
+  const toolSeg = (opts.toolName || 'tool').replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 40);
+  const ext = mediaExtension(opts.mimeType);
+  const fileName = `${toolSeg}-${contentHash}${ext}`;
+  const absolutePath = path.join(dir, fileName);
+  const relativePath = path.posix.join(...ARTIFACT_ROOT_SEGMENTS, sanitizeSessionSegment(opts.sessionId), fileName);
+  const existed = fs.existsSync(absolutePath);
+  if (!existed) {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(absolutePath, bytes);
+  }
+  return {
+    relativePath,
+    absolutePath,
+    chars: opts.base64.length,
+    bytes: bytes.length,
+    contentHash,
+    created: !existed,
+  };
+}
+
+function mediaExtension(mimeType: string | undefined): string {
+  const normalized = (mimeType ?? '').toLowerCase().split(';')[0]?.trim();
+  const known: Record<string, string> = {
+    'image/png': '.png',
+    'image/jpeg': '.jpg',
+    'image/jpg': '.jpg',
+    'image/webp': '.webp',
+    'image/gif': '.gif',
+    'audio/mpeg': '.mp3',
+    'audio/wav': '.wav',
+    'audio/ogg': '.ogg',
+    'application/pdf': '.pdf',
+    'text/plain': '.txt',
+    'text/html': '.html',
+    'text/html;profile=mcp-app': '.html',
+    'application/json': '.json',
+  };
+  return known[normalized ?? ''] ?? '.bin';
 }
 
 /**

@@ -38,6 +38,9 @@
  *    "WS 快照落地后,SSE 迟到的 delta 把内容回退到半截"。
  */
 
+import type { ToolCall } from './chat.js'
+import type { PlanStep, TerminalTask } from './ai.js'
+
 /**
  * 协议版本。判据或事件形状做不兼容变更时递增后缀;接收端遇到不认识的版本按 gap 处理。
  *
@@ -182,12 +185,17 @@ export interface ChatMessageCreatedEvent extends ChatSyncEventBase {
   role: ChatSyncRole
   content: string
   reasoning?: string
+  /** 执行面初值(工具卡/计划/终端);空数组与缺省同义,不制造空态。 */
+  toolCalls?: ToolCall[]
+  planSteps?: PlanStep[]
+  terminalTasks?: TerminalTask[]
 }
 
 /**
  * `message:patched`:对既有消息的一次修订。rev 从 1 起(0 是 created 的哨兵,不落链)。
  * - kind='delta':`textDelta` 必填,追加到 content 末尾。
  * - kind='snapshot':`content` 必填(全量);`reasoning` 可选,缺省 = 保持原值。
+ * - 执行面三字段可选:带值 = 服务端权威全量替换(工具卡/计划/终端),缺省 = 保持原值。
  *
  * 终态**不是**第三种 kind:它走独立帧 `message:terminal`(v2),见 ChatMessageTerminalEvent。
  */
@@ -201,6 +209,9 @@ export interface ChatMessagePatchedEvent extends ChatSyncEventBase {
   textDelta?: string
   content?: string
   reasoning?: string
+  toolCalls?: ToolCall[]
+  planSteps?: PlanStep[]
+  terminalTasks?: TerminalTask[]
 }
 
 /**
@@ -243,6 +254,10 @@ export interface ChatSyncMessageSurface {
   role: ChatSyncRole
   content: string
   reasoning?: string
+  /** 执行面:工具卡 / 计划 / 终端任务(服务端权威全量;缺省 = 尚未带过)。 */
+  toolCalls?: ToolCall[]
+  planSteps?: PlanStep[]
+  terminalTasks?: TerminalTask[]
   /** 终态标记;缺省 = 尚无终态(或该端尚未接终态投影,见契约 §7)。 */
   terminal?: ChatSyncTerminalState
 }
@@ -270,6 +285,10 @@ export interface ChatSyncMessageSnapshot {
   role: ChatSyncRole
   content: string
   reasoning?: string
+  /** 执行面快照(历史水合/断链补面);缺省 = 该行没有执行面。 */
+  toolCalls?: ToolCall[]
+  planSteps?: PlanStep[]
+  terminalTasks?: TerminalTask[]
   /** 链头是否已收尾;有值 = 该消息的流在 rev 处终止(与 terminal 帧的 reason 同域)。 */
   terminal?: ChatSyncTerminalReason
 }
@@ -366,6 +385,9 @@ export function applyChatSyncEvent(
       role: event.role,
       content: event.content,
       ...(event.reasoning !== undefined ? { reasoning: event.reasoning } : {}),
+      ...(event.toolCalls !== undefined ? { toolCalls: event.toolCalls } : {}),
+      ...(event.planSteps !== undefined ? { planSteps: event.planSteps } : {}),
+      ...(event.terminalTasks !== undefined ? { terminalTasks: event.terminalTasks } : {}),
     })
     return {
       state: { messages, appliedRevs: state.appliedRevs },
@@ -456,6 +478,9 @@ export function applyChatSyncEvent(
       ...surface,
       content: event.content ?? surface.content,
       ...(event.reasoning !== undefined ? { reasoning: event.reasoning } : {}),
+      ...(event.toolCalls !== undefined ? { toolCalls: event.toolCalls } : {}),
+      ...(event.planSteps !== undefined ? { planSteps: event.planSteps } : {}),
+      ...(event.terminalTasks !== undefined ? { terminalTasks: event.terminalTasks } : {}),
     })
   }
   appliedRevs.set(messageId, rev)

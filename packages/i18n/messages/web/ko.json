@@ -15831,16 +15831,7 @@
   },
   "eduCoursesPage": {
     "subtitle": "수강 신청한 모든 강의 관리",
-    "title": "내 강의",
-    "empty": "강의가 없습니다",
-    "loading": "로딩 중...",
-    "progress": "진행률 {n}%",
-    "searchAriaLabel": "강의 검색",
-    "searchPlaceholder": "강의 검색...",
-    "statusCompleted": "완료",
-    "statusInProgress": "진행 중",
-    "statusNotStarted": "시작 전",
-    "total": "총 {n}건"
+    "title": "내 강의"
   },
   "eduDashboardPage": {
     "coursesCard": {
@@ -23619,7 +23610,17 @@
     "usageTitle": "사용량",
     "devices": {
       "navTitle": "기기",
-      "navDesc": "로그인된 기기를 확인하고 세션을 관리합니다"
+      "navDesc": "로그인된 기기를 확인하고 세션을 관리합니다",
+      "reviewDiffToggle": "실행 전 파일 diff 확인",
+      "reviewDiffHint": "파일을 쓰거나 수정하기 전에 파일별 diff를 보여 확인합니다.",
+      "diffTitle": "파일 변경 확인",
+      "diffHint": "적용할 변경을 확인하세요. 선택하지 않은 파일은 기록하지 않습니다.",
+      "diffNotRevertable": "되돌릴 수 없음",
+      "diffHidePatch": "diff 접기",
+      "diffShowPatch": "diff 보기",
+      "diffTruncated": "변경량이 커서 앞부분만 표시합니다.",
+      "diffAcceptSelected": "선택한 {count}개 적용",
+      "diffRejectAll": "모두 거부"
     },
     "analyticsEnabled": "사용량 분석",
     "analyticsEnabledDesc": "활성화 시, 플랫폼이 기능 사용 통계(클릭, 페이지 방문, 소요 시간 등 익명 이벤트)를 기록하여 제품 개선에 사용합니다. 사용자 입력, 코드, 파일 경로 등은 기록하지 않습니다. 비활성화 시 즉시 수집이 중단되며, 기능에는 영향이 없습니다.",
@@ -25040,7 +25041,12 @@
     "convertMinHint": "최소 100포인트(¥1)",
     "convertAlreadyDone": "해당 교환 요청은 이미 처리되어 중복 차감되지 않았습니다",
     "convertSuccess": "{points} AI포인트를 교환했습니다. 현재 포인트 잔액: {balance}",
-    "convertFailed": "교환에 실패했습니다. 잠시 후 다시 시도하세요"
+    "convertFailed": "교환에 실패했습니다. 잠시 후 다시 시도하세요",
+    "overviewTitle": "계정 개요",
+    "commissionTotal": "누적 수수료",
+    "withdrawable": "출금 가능",
+    "withdrawalPending": "출금 처리 중",
+    "withdrawn": "출금 완료"
   },
   "withdrawals": {
     "allStatus": "모든 상태",

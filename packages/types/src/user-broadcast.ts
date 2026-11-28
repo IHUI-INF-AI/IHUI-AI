@@ -36,6 +36,8 @@ import {
   type ChatSyncRole,
   type ChatSyncTerminalReason,
 } from './chat-sync-contract.js'
+import type { ToolCall } from './chat.js'
+import type { PlanStep, TerminalTask } from './ai.js'
 
 // ===================== 事件名 =====================
 
@@ -528,6 +530,9 @@ export function messageCreatedEvent(input: {
   role: ChatSyncRole
   content: string
   reasoning?: string
+  toolCalls?: ToolCall[]
+  planSteps?: PlanStep[]
+  terminalTasks?: TerminalTask[]
   at?: Date | string
 }): MessageCreatedEvent {
   if (!input.conversationId) throw new Error('messageCreatedEvent: conversationId 不得为空')
@@ -546,6 +551,9 @@ export function messageCreatedEvent(input: {
   }
   if (input.at !== undefined) data.emittedAt = toIsoAt('messageCreatedEvent', input.at)
   if (input.reasoning !== undefined) data.reasoning = input.reasoning
+  if (input.toolCalls !== undefined) data.toolCalls = input.toolCalls
+  if (input.planSteps !== undefined) data.planSteps = input.planSteps
+  if (input.terminalTasks !== undefined) data.terminalTasks = input.terminalTasks
   return { event: 'message:created', data }
 }
 
@@ -561,6 +569,9 @@ export function messagePatchedEvent(input: {
   textDelta?: string
   content?: string
   reasoning?: string
+  toolCalls?: ToolCall[]
+  planSteps?: PlanStep[]
+  terminalTasks?: TerminalTask[]
   at?: Date | string
 }): MessagePatchedEvent {
   if (!input.conversationId) throw new Error('messagePatchedEvent: conversationId 不得为空')
@@ -593,6 +604,9 @@ export function messagePatchedEvent(input: {
   }
   if (input.at !== undefined) data.emittedAt = toIsoAt('messagePatchedEvent', input.at)
   if (input.reasoning !== undefined) data.reasoning = input.reasoning
+  if (input.toolCalls !== undefined) data.toolCalls = input.toolCalls
+  if (input.planSteps !== undefined) data.planSteps = input.planSteps
+  if (input.terminalTasks !== undefined) data.terminalTasks = input.terminalTasks
   return { event: 'message:patched', data }
 }
 

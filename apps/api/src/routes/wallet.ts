@@ -14,7 +14,12 @@ import { logAction } from '../services/audit-service.js'
 import { decryptJSON } from '../utils/crypto.js'
 import { validateTopupAmount } from '../services/topup-discount-service.js'
 import { requireStepUpForTwoFactorUser } from '../services/two-factor-step-up-store.js'
-import { applyWithdrawal } from '../db/commission-queries.js'
+import {
+  applyWithdrawal,
+  availableWithdrawal,
+  commissionTotals,
+  withdrawalSummary,
+} from '../db/commission-queries.js'
 import {
   exchangeWalletToPoints,
   WalletExchangeError,
@@ -181,6 +186,36 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success({ isDefault: true }))
     },
   )
+
+  // GET /overview — 统一账户总览：余额 + 佣金 + 提现口径一次取齐
+  server.get('/overview', async (request, reply) => {
+    const userId = request.userId!
+
+    const [marginRows, totals, wd] = await Promise.all([
+      db
+        .select({
+          balance: userMargins.tokenQuantity,
+          frozenBalance: userMargins.frozenQuantity,
+        })
+        .from(userMargins)
+        .where(eq(userMargins.userId, userId))
+        .limit(1),
+      commissionTotals(userId),
+      withdrawalSummary(userId),
+    ])
+    const available = await availableWithdrawal(userId)
+
+    return reply.send(
+      success({
+        pointsBalance: marginRows[0]?.balance ?? 0,
+        frozenPoints: marginRows[0]?.frozenBalance ?? 0,
+        commissionTotalCents: totals.totalCommissionCents,
+        withdrawableCents: available,
+        withdrawalPendingCents: wd.pendingAmount,
+        withdrawnCents: wd.totalWithdrawn,
+      }),
+    )
+  })
 
   // GET /balance
   server.get('/balance', async (request, reply) => {

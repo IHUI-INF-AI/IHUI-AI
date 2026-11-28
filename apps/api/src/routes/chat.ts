@@ -1445,6 +1445,16 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
         content: snap.content,
         // reasoning 空(null/'')= 无信息量,省略(契约:缺省 = 保持原值/无)。
         ...(snap.reasoning ? { reasoning: snap.reasoning } : {}),
+        // 执行面从 metadata 取:落库形状由回调写入(工具/计划/终端),数组缺省即不带。
+        ...(Array.isArray(snap.metadata?.toolCalls)
+          ? { toolCalls: snap.metadata.toolCalls as ChatSyncMessageSnapshot['toolCalls'] }
+          : {}),
+        ...(Array.isArray(snap.metadata?.planSteps)
+          ? { planSteps: snap.metadata.planSteps as ChatSyncMessageSnapshot['planSteps'] }
+          : {}),
+        ...(Array.isArray(snap.metadata?.terminalTasks)
+          ? { terminalTasks: snap.metadata.terminalTasks as ChatSyncMessageSnapshot['terminalTasks'] }
+          : {}),
       }
       return reply.send(success(data))
     },

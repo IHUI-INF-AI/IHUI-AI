@@ -176,6 +176,7 @@ export function SkillMarketListScreen() {
       onPageChange={setPage}
       // 详情按 name 反查(与 web 深链同一条口径),不传 id
       onSelect={(item) => navigation.navigate('SkillMarketDetail', { name: item.name })}
+      onOpenPurchases={() => navigation.navigate('SkillMarketPurchases')}
       onBack={() => navigation.goBack()}
       onRetry={() => setReloadToken((n) => n + 1)}
       colorScheme={resolvedTheme}

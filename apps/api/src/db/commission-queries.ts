@@ -773,6 +773,29 @@ export async function availableWithdrawal(userId: string): Promise<number> {
   return Math.max(0, available)
 }
 
+/**
+ * 佣金账户总额（不做时间窗过滤）。
+ *
+ * `commissionSummary` 是按 7 天窗口的产品口径；统一账户总览需要「历史累计」
+ * 与「可提现」并列，不能拿窗口值冒充总额，故单独给一条无窗口查询。
+ */
+export async function commissionTotals(userId: string): Promise<{
+  totalCommissionCents: number
+  totalCommissionTokens: number
+}> {
+  const rows = await db
+    .select({
+      totalCents: sql<number>`coalesce(sum(${commissionFlows.amount}), 0)::bigint`,
+      totalTokens: sql<number>`coalesce(sum(${commissionFlows.token}), 0)::bigint`,
+    })
+    .from(commissionFlows)
+    .where(and(eq(commissionFlows.beneficiaryId, userId), eq(commissionFlows.status, 1)))
+  return {
+    totalCommissionCents: toSafeAmount(rows[0]?.totalCents),
+    totalCommissionTokens: toSafeCount(rows[0]?.totalTokens),
+  }
+}
+
 // ============================================================================
 // 分销关系
 // ============================================================================

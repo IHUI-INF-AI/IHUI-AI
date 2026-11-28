@@ -15831,16 +15831,7 @@
   },
   "eduCoursesPage": {
     "subtitle": "受講済みの全コースを管理",
-    "title": "マイコース",
-    "empty": "コースがありません",
-    "loading": "読み込み中...",
-    "progress": "進捗 {n}%",
-    "searchAriaLabel": "コースを検索",
-    "searchPlaceholder": "コースを検索...",
-    "statusCompleted": "完了",
-    "statusInProgress": "受講中",
-    "statusNotStarted": "未開始",
-    "total": "全 {n} 件"
+    "title": "マイコース"
   },
   "eduDashboardPage": {
     "coursesCard": {
@@ -23619,7 +23610,17 @@
     "usageTitle": "利用状況",
     "devices": {
       "navTitle": "デバイス",
-      "navDesc": "ログイン中のデバイスを確認し、セッションを管理します"
+      "navDesc": "ログイン中のデバイスを確認し、セッションを管理します",
+      "reviewDiffToggle": "実行前にファイル差分を確認",
+      "reviewDiffHint": "ファイルの書き込み・変更前に、ファイルごとの差分を表示して確認します。",
+      "diffTitle": "ファイル変更の確認",
+      "diffHint": "適用する変更を確認してください。未選択のファイルは書き込みません。",
+      "diffNotRevertable": "元に戻せません",
+      "diffHidePatch": "差分を閉じる",
+      "diffShowPatch": "差分を表示",
+      "diffTruncated": "変更が大きいため、前半のみ表示しています。",
+      "diffAcceptSelected": "選択した {count} 件を適用",
+      "diffRejectAll": "すべて拒否"
     },
     "analyticsEnabled": "利用状況分析",
     "analyticsEnabledDesc": "有効化すると、機能利用統計（クリック、ページアクセス、所要時間などの匿名イベント）を記録して製品の改善に活用します。入力内容、コード、ファイルパスは記録されません。無効化すると即座に報告が停止し、機能には影響しません。",
@@ -25040,7 +25041,12 @@
     "convertMinHint": "最小 100ポイント（¥1）",
     "convertAlreadyDone": "この交換リクエストは処理済みです（重複請求なし）",
     "convertSuccess": "{points} AIポイントを交換しました。現在のポイント残高: {balance}",
-    "convertFailed": "交換に失敗しました。後ほど再度お試しください"
+    "convertFailed": "交換に失敗しました。後ほど再度お試しください",
+    "overviewTitle": "アカウント概要",
+    "commissionTotal": "累計報酬",
+    "withdrawable": "出金可能",
+    "withdrawalPending": "出金処理中",
+    "withdrawn": "出金済み"
   },
   "withdrawals": {
     "allStatus": "すべてのステータス",

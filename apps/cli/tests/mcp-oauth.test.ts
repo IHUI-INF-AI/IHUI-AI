@@ -393,6 +393,48 @@ describe('mcp-oauth startLocalCallbackServer', () => {
     handle.close();
   });
 
+  it('iss 与预期授权服务器一致时放行（RFC 9207）', async () => {
+    const port = 19007;
+    const state = 'iss-ok';
+    const handle = startLocalCallbackServer(port, state, 5000, 'https://auth.example.com');
+    setTimeout(() => {
+      http.get(
+        `http://localhost:${port}/callback?code=ok-code&state=${state}&iss=${encodeURIComponent('https://auth.example.com')}`,
+        () => {},
+      ).on('error', () => {});
+    }, 50);
+    await expect(handle.waitForCode).resolves.toBe('ok-code');
+  });
+
+  it('iss 不匹配时拒绝，不拿 code 去换 token', async () => {
+    const port = 19008;
+    const state = 'iss-bad';
+    const handle = startLocalCallbackServer(port, state, 5000, 'https://auth.example.com');
+    setTimeout(() => {
+      http.get(
+        `http://localhost:${port}/callback?code=evil-code&state=${state}&iss=${encodeURIComponent('https://evil.example.com')}`,
+        () => {},
+      ).on('error', () => {});
+    }, 50);
+    await expect(handle.waitForCode).rejects.toThrow(/iss 不匹配/);
+  });
+
+  it('配置了 issuer 但响应缺 iss：严格档拒绝，显式放宽才放行', async () => {
+    const strictPort = 19009;
+    const strict = startLocalCallbackServer(strictPort, 'strict', 5000, 'https://auth.example.com');
+    setTimeout(() => {
+      http.get(`http://localhost:${strictPort}/callback?code=c&state=strict`, () => {}).on('error', () => {});
+    }, 50);
+    await expect(strict.waitForCode).rejects.toThrow(/缺少 iss/);
+
+    const loosePort = 19010;
+    const loose = startLocalCallbackServer(loosePort, 'loose', 5000, 'https://auth.example.com', false);
+    setTimeout(() => {
+      http.get(`http://localhost:${loosePort}/callback?code=c&state=loose`, () => {}).on('error', () => {});
+    }, 50);
+    await expect(loose.waitForCode).resolves.toBe('c');
+  });
+
   it('收到 error 参数时 reject', async () => {
     const port = 19003;
     const state = 'test-state';

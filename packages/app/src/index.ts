@@ -66,6 +66,7 @@ export type { ConversationHistoryGroup } from './features/chat/ConversationHisto
 export { OrderScreen } from './features/order/OrderScreen'
 export { StudyPlanScreen } from './features/study-plan/StudyPlanScreen'
 export { WalletScreen } from './features/wallet/WalletScreen'
+export type { WalletOverview } from './features/wallet/WalletScreen'
 export { CourseCatalogScreen } from './features/course-catalog/CourseCatalogScreen'
 export { PointHistoryScreen } from './features/point-history/PointHistoryScreen'
 export { NoteListScreen } from './features/note-list/NoteListScreen'
@@ -274,6 +275,11 @@ export type {
 } from './features/skills-market/SkillMarketDetailScreen'
 export { SkillMarketListScreen } from './features/skills-market/SkillMarketListScreen'
 export type { SkillMarketListScreenProps } from './features/skills-market/SkillMarketListScreen'
+export { SkillMarketPurchasesScreen } from './features/skills-market/SkillMarketPurchasesScreen'
+export type {
+  SkillMarketPurchasesScreenProps,
+  SkillMyPurchaseView,
+} from './features/skills-market/SkillMarketPurchasesScreen'
 /** 批次 16(2026-07-29):考试历史/考试结果/模型收益/Token 价值 */
 export { ExamHistoryScreen } from './features/exam-history/ExamHistoryScreen'
 export { ExamResultScreen } from './features/exam-result/ExamResultScreen'
