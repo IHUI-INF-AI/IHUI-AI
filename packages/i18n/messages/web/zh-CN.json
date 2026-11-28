@@ -12739,7 +12739,8 @@
     "reviewTargetCommit": "指定 Commit",
     "reviewTargetCommitLabel": "Commit SHA",
     "reviewTargetCommitPlaceholder": "输入 Commit SHA",
-    "reasoningEffortDefault": "默认"
+    "reasoningEffortDefault": "默认",
+    "officePreviewLabel": "预览"
   },
   "chatHistory": {
     "moveToGroup": "移动到分组",
@@ -19157,7 +19158,21 @@
       "offPeak": "低谷",
       "cacheRead": "缓存读",
       "cacheWrite": "缓存写",
-      "subscriptionOnly": "订阅专享"
+      "subscriptionOnly": "订阅专享",
+      "billingMode": "计费方式",
+      "byImage": "按图",
+      "bySecond": "按秒",
+      "byCall": "按次",
+      "dynamicCost": "按量计费",
+      "minCharge": "最低收费",
+      "minChargePerCall": "每次最低收费",
+      "unitPrice": "单价",
+      "referencePrice": "参考价",
+      "tieredPrice": "阶梯价",
+      "startingAt": "起",
+      "unitImage": "图片",
+      "unitSecond": "秒",
+      "unitCall": "次"
     },
     "aiNews": {
       "fallbackHint": "暂无最新资讯,显示 2026-07 真实新模型",
@@ -30649,7 +30664,13 @@
     "accentViolet": "紫色",
     "accentEmerald": "翠绿",
     "accentAmber": "琥珀",
-    "accentRose": "玫红"
+    "accentRose": "玫红",
+    "themeSkinDefault": "跟随系统",
+    "themeSkinPearl": "珍珠白",
+    "themeSkinObsidian": "黑曜石",
+    "presetBuiltinPink": "樱花粉",
+    "themeSkinLabel": "主题皮肤",
+    "presetBuiltinPinkDesc": "柔和的粉色点缀，界面更温暖轻盈"
   },
   "checkinAssistant": {
     "taskPanelTitle": "任务面板",
@@ -32246,7 +32267,14 @@
     "injected": "要求已发送，AI 会在下一步处理",
     "injectFailed": "补充要求发送失败",
     "defaultWorkspaceName": "AI 默认工作区",
-    "workspaceAutoFailed": "自动准备工作区失败，请手动选择工作区"
+    "workspaceAutoFailed": "自动准备工作区失败，请手动选择工作区",
+    "statusRunning": "执行中",
+    "statusCompleted": "已完成",
+    "statusFailed": "失败",
+    "statusCanceled": "已停止",
+    "approvalPending": "等待确认",
+    "approvalAllowed": "已允许",
+    "approvalDenied": "已拒绝"
   },
   "ringtoneNames": {
     "dingdong": "叮咚",

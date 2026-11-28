@@ -189,7 +189,9 @@ describe('W 组:派发器装车与判型分流', () => {
       path.join(HERE, '..', '..', '..', 'components', 'media', 'PDFViewer.tsx'),
       'utf8',
     )
-    expect(viewer).toContain("workerSrc = '/pdfjs/pdf.worker.min.mjs'")
+    expect(viewer).toContain("pdfjs.GlobalWorkerOptions.workerSrc = `/pdfjs/pdf.worker.min.mjs${")
+    // 版本查询参数必须由主线程 pdfjs.version 派生:静态 worker 升级后旧缓存会导致文字层永久转圈
+    expect(viewer).toContain("workerVersion ? `?v=${encodeURIComponent(workerVersion)}` : ''")
     // 文件必须真在 public/ 下 —— 路径写对但素材缺失表现为"预览能开、文字层永久转圈"
     expect(existsSync(path.join(WEB_ROOT, 'public', 'pdfjs', 'pdf.worker.min.mjs'))).toBe(true)
   })

@@ -979,7 +979,7 @@ export default function AdminSkillMarketPage() {
 
       {target && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-lg border bg-background p-5 shadow-xl">
+          <div className="w-full max-w-md rounded-lg border bg-background p-5 shadow-elevation-xl">
             <h2 className="text-title font-semibold">确认退款</h2>
             <p className="mt-2 text-body text-muted-foreground">
               技能「{target.skillName}」将全额退回 {yuan(target.priceCents)}；卖家已到账的{' '}
@@ -1024,7 +1024,7 @@ export default function AdminSkillMarketPage() {
 
       {reviewTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-lg border bg-background p-5 shadow-xl">
+          <div className="w-full max-w-md rounded-lg border bg-background p-5 shadow-elevation-xl">
             <h2 className="text-title font-semibold">
               {reviewAction === 'approve' ? '通过退款申请' : '拒绝退款申请'}
             </h2>

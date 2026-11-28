@@ -2586,7 +2586,7 @@
   "devices": {
     "title": "设备管理",
     "pairTitle": "配对码",
-    "pairHint": "只给没有登录态的机器用(纯命令行 / 服务器):在目标机器执行 ihui device pair <码>。本机桌面端不需要配对码,点上方「一键启用」即可。",
+    "pairHint": "只给没有登录态的机器用(纯命令行 / 服务器):在目标机器执行 ihui device pair 「码」。本机桌面端不需要配对码,点上方「一键启用」即可。",
     "pairGenerate": "生成配对码",
     "pairRegenerate": "重新生成",
     "pairFailed": "配对码生成失败",
