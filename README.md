@@ -84,7 +84,7 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 ## Recent updates (auto-maintained)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-28**
-- 🔧 工程/其他:G-17 运营内容工具显示名五语言(21 键,含修复 9 枚存量键缺失) (f6fb6e8a3a)
+- 🔧 工程/其他:G-17 运营内容工具显示名五语言(21 键,含修复 9 枚存量键缺失) (8d42005570)
 - 🚀 新功能/改进:运营内容 agent 手第一腿(G-17)——公告/轮播 CRUD 接入对话 tool loop (e8e1efbcb8)
 - 🐞 修复:设备请求带指纹并豁免机器链路 CSRF，修复 claim 过期参数序列化 (695368e82b)
 - 🚀 新功能/改进:权威榜新增九源平均总榜与厂商图标 (d4de982a1a)
@@ -107,6 +107,7 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 - 🔧 工程/其他:对齐协议与预算变更后的源锁断言 (7a506ede2e)
 - 🚀 新功能/改进:/api/chat/coze/stream 切本地执行——顺带修复 uuid 列失效的存量 500 (6fcca14c81)
 - 🚀 新功能/改进:设备执行面结构化上屏,对齐 TRAE 三端任务视图 (2e6b7791e9)
+- 🔧 工程/其他:G-17 运营内容工具显示名五语言(21 键,含修复 9 枚存量键缺失) (f6fb6e8a3a)
 - 🚀 新功能/改进:/ws/coze/chat 本地执行接积分预扣/结算 + 会话历史落库 (ed5a640e7)
 - 🐞 修复:本地执行人格改走 system_prompt 置顶注入（messages 仅对话，避免被注入链覆盖） (3cbf0ccafa)
 - 🚀 新功能/改进:/ws/coze/chat 切本地 LLM 执行，完全弃用 Coze 后端（人格取 agent_prompt，历史进程内维护） (1fa02efdf2)
