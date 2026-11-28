@@ -73,6 +73,26 @@ describe('AiRevisionPanel', () => {
     await waitFor(() => expect(hunk?.getAttribute('data-accepted')).toBe('false'))
   })
 
+  it('对话侧带指令挂载即自动出稿,指令原样进 multipart', async () => {
+    render(
+      <AiRevisionPanel
+        file={fileOf('合同.txt')}
+        name="合同.txt"
+        initialInstruction="把付款条款改成 30 天"
+        autoRun
+      />,
+    )
+
+    expect(await screen.findByText('第一条 甲方应在五个工作日内付款。')).toBeTruthy()
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1)
+    const init = vi.mocked(fetch).mock.calls[0]?.[1] as RequestInit
+    const body = init.body as FormData
+    expect(body.get('instruction')).toBe('把付款条款改成 30 天')
+    expect((screen.getByLabelText('reviseInstructionLabel') as HTMLTextAreaElement).value).toBe(
+      '把付款条款改成 30 天',
+    )
+  })
+
   it('全部驳回后导出禁用,避免导出与原文相同的“修订稿”', async () => {
     render(<AiRevisionPanel file={fileOf('合同.txt')} name="合同.txt" />)
     fireEvent.click(screen.getByText('reviseRun'))

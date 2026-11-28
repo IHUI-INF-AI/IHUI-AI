@@ -19,6 +19,7 @@ import {
   TriangleAlert,
   RotateCw,
   Pencil,
+  Wand2,
 } from 'lucide-react'
 
 import { Button } from '@ihui/ui-react'
@@ -34,6 +35,27 @@ interface ContextReferencePanelProps {
   onRetry?: (id: string) => void
   /** D124:打开位图标注编辑器(仅图片附件;标注结果由宿主回填为发送附件) */
   onAnnotate?: (id: string) => void
+  /** 对话侧「AI 修订」入口(仅文档类附件;宿主负责取原始 File 与输入区正文) */
+  onRevise?: (id: string) => void
+}
+
+/** 与 /api/office/revise 的正文抽取面保持一致(docx/pdf/文本类;xlsx/pptx 走导出兜底不限). */
+const REVISE_EXTS = new Set([
+  'doc',
+  'docx',
+  'pdf',
+  'txt',
+  'md',
+  'markdown',
+  'csv',
+  'tsv',
+  'json',
+  'html',
+  'htm',
+])
+
+function canReviseName(name: string): boolean {
+  return REVISE_EXTS.has(name.split('.').pop()?.toLowerCase() ?? '')
 }
 
 const TYPE_META: Record<
@@ -52,8 +74,10 @@ export function ContextReferencePanel({
   onRemove,
   onRetry,
   onAnnotate,
+  onRevise,
 }: ContextReferencePanelProps) {
   const t = useTranslations('chat')
+  const td = useTranslations('docs.projectFiles')
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set())
 
   const toggle = (id: string) => {
@@ -184,6 +208,20 @@ export function ContextReferencePanel({
                         data-testid={`annotate-image-${ref.id}`}
                       >
                         <Pencil className="h-3 w-3" />
+                      </Button>
+                    </Tooltip>
+                  )}
+                  {onRevise && ref.type === 'file' && canReviseName(ref.label) && (
+                    <Tooltip content={td('aiRevise')}>
+                      <Button
+                        variant="ghost"
+                        size="icon-2xs"
+                        className="text-muted-foreground hover:text-primary"
+                        onClick={() => onRevise(ref.id)}
+                        aria-label={td('aiRevise')}
+                        data-testid={`revise-reference-${ref.id}`}
+                      >
+                        <Wand2 className="h-3 w-3" />
                       </Button>
                     </Tooltip>
                   )}

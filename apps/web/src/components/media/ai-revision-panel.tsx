@@ -53,6 +53,10 @@ interface Props {
   name: string
   className?: string
   onClose?: () => void
+  /** 预填修订指令(对话侧发起时带过来的一句话要求);空则用默认指令。 */
+  initialInstruction?: string
+  /** 挂载后自动按 initialInstruction 生成一次(对话侧"点一下就出稿"场景)。 */
+  autoRun?: boolean
 }
 
 async function requestRevision(options: {
@@ -111,10 +115,19 @@ function hunkBarAnchors(diff: HunkDiff): Map<number, DiffHunk> {
   return map
 }
 
-export function AiRevisionPanel({ file, name, className, onClose }: Props) {
+export function AiRevisionPanel({
+  file,
+  name,
+  className,
+  onClose,
+  initialInstruction,
+  autoRun = false,
+}: Props) {
   const t = useTranslations('docs.projectFiles')
   const ext = extOfRevisionName(name)
-  const [instruction, setInstruction] = React.useState(() => t('reviseDefaultInstruction'))
+  const [instruction, setInstruction] = React.useState(
+    () => initialInstruction?.trim() || t('reviseDefaultInstruction'),
+  )
   const [running, setRunning] = React.useState(false)
   const [result, setResult] = React.useState<RevisionApiResult | null>(null)
   const [error, setError] = React.useState<string | null>(null)
@@ -127,6 +140,7 @@ export function AiRevisionPanel({ file, name, className, onClose }: Props) {
   const timerRef = React.useRef<number | null>(null)
   const bytesRef = React.useRef<Uint8Array | null>(null)
   const requestSeq = React.useRef(0)
+  const autoRanRef = React.useRef(false)
 
   const diff = React.useMemo(
     () => (result ? buildRevisionDiff(result.originalText, result.revisedText) : null),
@@ -139,11 +153,12 @@ export function AiRevisionPanel({ file, name, className, onClose }: Props) {
     setResult(null)
     setAccepted(new Set())
     setError(null)
-    setInstruction(t('reviseDefaultInstruction'))
+    setInstruction(initialInstruction?.trim() || t('reviseDefaultInstruction'))
     bytesRef.current = null
     // 文件名/字节变化才重置;t 只影响默认文案,不参与身份判定。
+    autoRanRef.current = false
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [file, name])
+  }, [file, name, initialInstruction])
 
   React.useEffect(() => {
     return () => {
@@ -157,7 +172,7 @@ export function AiRevisionPanel({ file, name, className, onClose }: Props) {
     abortRef.current?.abort()
   }
 
-  const run = async () => {
+  const run = async (overrideInstruction?: string) => {
     if (file.size > MAX_FILE_BYTES) {
       setError(t('reviseTooLarge'))
       return
@@ -177,7 +192,7 @@ export function AiRevisionPanel({ file, name, className, onClose }: Props) {
       const data = await requestRevision({
         file,
         name,
-        instruction: instruction.trim(),
+        instruction: (overrideInstruction ?? instruction).trim(),
         signal: controller.signal,
       })
       if (seq !== requestSeq.current) return
@@ -204,6 +219,16 @@ export function AiRevisionPanel({ file, name, className, onClose }: Props) {
       if (seq === requestSeq.current) setRunning(false)
     }
   }
+
+  // 对话侧发起:挂载后按带过来的指令自动出一版(只跑一次;file/name 变化会在上面的
+  // 重置 effect 里把 autoRanRef 复位,重开对话框才会再自动跑)。
+  const runRef = React.useRef(run)
+  runRef.current = run
+  React.useEffect(() => {
+    if (!autoRun || autoRanRef.current) return
+    autoRanRef.current = true
+    void runRef.current(initialInstruction)
+  }, [autoRun, initialInstruction, file, name])
 
   const mergedText = React.useMemo(() => {
     if (!result || !diff) return ''

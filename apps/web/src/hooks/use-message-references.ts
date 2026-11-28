@@ -245,6 +245,8 @@ export function useMessageReferences(): {
   resetReferences: () => void
   /** 入队专用:清空输入区引用但不 revoke blob URL(条目出队发送后再由 doSend 释放) */
   detachReferences: () => void
+  /** 取某条附件引用的原始 File(对话侧「AI 修订」入口用) */
+  getPendingFile: (id: string) => File | undefined
 } {
   const [references, setReferences] = React.useState<ReferenceItem[]>([])
   // 2026-08-02 修复 P1 内存泄露:用 ref 引用最新 references,
@@ -499,6 +501,8 @@ export function useMessageReferences(): {
     removeReference,
     resetReferences,
     detachReferences,
+    /** 取某条附件引用仍在内存里的原始 File(对话侧"AI 修订"入口用;发送后仍有效)。 */
+    getPendingFile: (id: string): File | undefined => pendingFiles.current.get(id),
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
