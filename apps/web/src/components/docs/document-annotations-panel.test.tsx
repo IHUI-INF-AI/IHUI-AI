@@ -163,4 +163,54 @@ describe('DocumentAnnotationsPanel', () => {
     expect(received[0]?.autoSend).toBe(true)
     expect(received[0]?.autoSendPrompt).toContain('可执行')
   })
+
+  it('全部 AI 结论可一次交给主 AI,保留每条坐标且只自动发送一次', async () => {
+    fetchMock.mockResolvedValueOnce({
+      success: true,
+      data: [
+        record({
+          id: 'ai-1',
+          author: 'AI 审阅官',
+          origin: 'ai',
+          label: '文档第 17-24 段 · AI 全文',
+          body: '【高】缺少未成年人个人信息保护条款。',
+          anchor: { kind: 'docx', paragraph: 17 },
+        }),
+        record({
+          id: 'ai-2',
+          author: 'AI 审阅官',
+          origin: 'ai',
+          label: '合规台账 A1:E5 · AI 全文',
+          body: '【中】责任部门列存在空白单元格。',
+          anchor: { kind: 'xlsx', sheet: '合规台账', range: 'A1:E5' },
+        }),
+        record({ id: 'human-1', body: '人工批注不应混入 AI 总结' }),
+      ],
+    } as never)
+
+    render(
+      <DocumentAnnotationsPanel
+        documentId="file:developer/demo.docx"
+        documentTitle="AI 生成内容合规整改办理包"
+      />,
+    )
+    const received: AnchorReferenceDetail[] = []
+    const listener = (e: Event): void => {
+      received.push((e as CustomEvent<AnchorReferenceDetail>).detail)
+    }
+    window.addEventListener(ADD_TEXT_REFERENCE_EVENT, listener)
+    fireEvent.click(await screen.findByTestId('annotation-ai-handoff-all'))
+    window.removeEventListener(ADD_TEXT_REFERENCE_EVENT, listener)
+
+    expect(received).toHaveLength(1)
+    expect(received[0]?.source).toBe('ai-finding')
+    expect(received[0]?.autoSend).toBe(true)
+    expect(received[0]?.autoSendPrompt).toContain('全部 AI 预审结论')
+    expect(received[0]?.text).toContain('AI 全文预审，共 2 条')
+    expect(received[0]?.text).toContain('文档第 17-24 段 · AI 全文')
+    expect(received[0]?.text).toContain('合规台账 A1:E5 · AI 全文')
+    expect(received[0]?.text).toContain('缺少未成年人个人信息保护条款')
+    expect(received[0]?.text).toContain('责任部门列存在空白单元格')
+    expect(received[0]?.text).not.toContain('人工批注不应混入 AI 总结')
+  })
 })

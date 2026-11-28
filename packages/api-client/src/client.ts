@@ -2251,9 +2251,16 @@ export async function runResumableSSEStream(opts: ResumableSSEStreamOptions): Pr
       const info = getSSEErrorInfo(err)
       const code = info?.code
       // P2-2 retry-after 协商:429 + retryAfter 视为可重试(走网络重试路径,按 retryAfter 等待);
-      // 429 无 retryAfter 仍视为业务错误(不重连);401/403 永远是业务错误
+      // 429 无 retryAfter 仍视为业务错误(不重连);401/403 永远是业务错误。
+      // 2026-11-28:4xx 默认都是业务错误。尤其 409 REQUEST_IN_PROGRESS —— 服务端积分
+      // hold 已存在,重试同一 assistantId 只会反复撞同一把锁,等再久也不会变 200;
+      // 只有 408(请求超时)属于传输层可重试。5xx/网络错误仍按原策略退避重连。
+      const retryableClientStatus =
+        code === 408 || (code === 429 && info?.retryAfter !== undefined)
       const isBusinessError =
-        code === 401 || code === 403 || (code === 429 && info?.retryAfter === undefined)
+        code === 401 ||
+        code === 403 ||
+        (typeof code === 'number' && code >= 400 && code < 500 && !retryableClientStatus)
       // F3 修复(2026-11-13):流内业务 error 帧(attachErrorMeta 打标,区别于 HTTP 层错误)
       // 默认是确定性业务失败,不是网络抖动 ⇒ 立即终态、不重连,避免反复重投白烧 token。
       // 保留既有语义:该帧显式带 retryAfter 时仍走下方 Retry-After 协商重连。
