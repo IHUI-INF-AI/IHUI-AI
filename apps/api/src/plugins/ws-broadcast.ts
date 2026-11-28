@@ -40,6 +40,7 @@ import {
   messagePatchedEvent,
   messageTerminalEvent,
   type ChatPatchKind,
+  type ChatMessagePatchedEvent,
   type ChatSyncRole,
   type ChatSyncTerminalReason,
 } from '@ihui/types'
@@ -189,6 +190,9 @@ export interface ChatMessagePatchedBroadcastInput {
   content?: string
   textDelta?: string
   reasoning?: string
+  toolCalls?: ChatMessagePatchedEvent['toolCalls']
+  planSteps?: ChatMessagePatchedEvent['planSteps']
+  terminalTasks?: ChatMessagePatchedEvent['terminalTasks']
   at?: Date | string
 }
 
@@ -618,6 +622,9 @@ const wsBroadcastPlugin: FastifyPluginAsync = async (server) => {
         kind,
         ...(kind === 'delta' ? { textDelta: input.textDelta } : { content: input.content }),
         ...(input.reasoning !== undefined ? { reasoning: input.reasoning } : {}),
+        ...(input.toolCalls !== undefined ? { toolCalls: input.toolCalls } : {}),
+        ...(input.planSteps !== undefined ? { planSteps: input.planSteps } : {}),
+        ...(input.terminalTasks !== undefined ? { terminalTasks: input.terminalTasks } : {}),
         ...(input.at !== undefined ? { at: input.at } : {}),
       })
       return fanoutToConversationRoom({

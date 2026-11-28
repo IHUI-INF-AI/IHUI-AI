@@ -16,6 +16,9 @@ import {
   type ApprovalPolicyId,
   type ReasoningEffort,
   type ChatSyncTerminalReason,
+  type PlanStep,
+  type TerminalTask,
+  type ToolCall,
   repairMessages,
 } from '@ihui/types'
 import {
@@ -152,6 +155,11 @@ export interface ChatSyncStreamFrameEmitter {
   appendContent(delta: string): void
   appendReasoning(delta: string): void
   /**
+   * 执行面帧(tool-call-start / tool-result / plan_updated / terminal_start / terminal_end)。
+   * 只更新服务端权威快照并尽快广播;不认识/子代理帧直接忽略,不改转发主链。
+   */
+  appendExecutionFrame(frame: Record<string, unknown>): void
+  /**
    * 冲掉未达阈值的尾巴并排空帧链。返回"已发帧全部落地"的 promise(永不 reject)——
    * 终态帧必须排在它之后(终态 rev = 链头)。
    */
@@ -174,6 +182,12 @@ function createChatSyncStreamFrameEmitter(input: {
   let sentContent = ''
   let sentReasoning = ''
   let createdSent = false
+  /** 执行面:服务端看到的工具卡/计划/终端(按帧增量维护,快照整表下发) */
+  let toolCalls: ToolCall[] = []
+  let planSteps: PlanStep[] = []
+  let terminalTasks: TerminalTask[] = []
+  /** 链上是否还有未发出的执行面变更 */
+  let activityDirty = false
   /** 帧链:rev 分配是服务端账户,乱序发帧会把端侧 rev 链打乱 ⇒ 逐帧串行 */
   let chain: Promise<void> = Promise.resolve()
 
@@ -210,6 +224,16 @@ function createChatSyncStreamFrameEmitter(input: {
   const pendingChars = (): number =>
     content.length - sentContent.length + (reasoning.length - sentReasoning.length)
 
+  /** 执行面非空字段;空数组不下发,避免把"没有"写成"已清空"的歧义。 */
+  const executionPayload = (): Pick<
+    ChatMessagePatchedBroadcastInput,
+    'toolCalls' | 'planSteps' | 'terminalTasks'
+  > => ({
+    ...(toolCalls.length > 0 ? { toolCalls } : {}),
+    ...(planSteps.length > 0 ? { planSteps } : {}),
+    ...(terminalTasks.length > 0 ? { terminalTasks } : {}),
+  })
+
   const enqueuePatched = (): void => {
     const nextContent = content
     const nextReasoning = reasoning
@@ -225,11 +249,40 @@ function createChatSyncStreamFrameEmitter(input: {
           kind: 'snapshot',
           content: nextContent,
           ...(nextReasoning.length > 0 ? { reasoning: nextReasoning } : {}),
+          ...executionPayload(),
         })
         sentContent = nextContent
         sentReasoning = nextReasoning
       } catch (err) {
         // 不推进 sent* —— 下一帧仍带全量,自愈;若流已结束由 flush 的返回 promise 让调用方知情
+        report('patched', err)
+      }
+    })
+  }
+
+  /**
+   * 执行面变更单独发一帧 snapshot:工具/计划/终端可能在没有新正文时发生(start→result);
+   * 若等正文阈值,手机端会一直看不到"工具已跑完/计划已更新"。
+   */
+  const enqueueActivitySnapshot = (): void => {
+    if (!createdSent) enqueueCreated()
+    activityDirty = true
+    chain = chain.then(async () => {
+      if (!activityDirty) return
+      activityDirty = false
+      try {
+        await input.broadcastPatched({
+          conversationId: input.conversationId,
+          memberUserIds: input.memberUserIds,
+          messageId: input.messageId,
+          kind: 'snapshot',
+          content,
+          ...(reasoning.length > 0 ? { reasoning } : {}),
+          ...executionPayload(),
+        })
+      } catch (err) {
+        // 下一帧仍带全量,自愈;不把 activityDirty 卡死在 true(否则每个后续正文帧都重发)
+        activityDirty = true
         report('patched', err)
       }
     })
@@ -251,12 +304,197 @@ function createChatSyncStreamFrameEmitter(input: {
       reasoning += delta
       maybeSend()
     },
+    appendExecutionFrame(frame) {
+      const changed = applyExecutionFrameToState(frame, {
+        get: () => ({ toolCalls, planSteps, terminalTasks }),
+        set: (next) => {
+          toolCalls = next.toolCalls
+          planSteps = next.planSteps
+          terminalTasks = next.terminalTasks
+        },
+      })
+      if (changed) enqueueActivitySnapshot()
+    },
     flush() {
       if (!createdSent && (content.length > 0 || reasoning.length > 0)) enqueueCreated()
       enqueuePatched()
+      // 执行面已变更但正文没有新尾巴 ⇒ 也要把最后一版执行面推出去
+      if (activityDirty) enqueueActivitySnapshot()
       return chain
     },
   }
+}
+
+/** 将工具结果/入参按 JSON 预算截断:手机端只做展示,超长正文不该占满 WS 帧。 */
+const CHAT_SYNC_ACTIVITY_VALUE_MAX_CHARS = 6000
+
+function clampActivityValue(value: unknown, maxChars = CHAT_SYNC_ACTIVITY_VALUE_MAX_CHARS): unknown {
+  if (value === undefined) return undefined
+  try {
+    const json = JSON.stringify(value)
+    if (typeof json !== 'string' || json.length <= maxChars) return value
+    return { truncated: true, preview: json.slice(0, maxChars) }
+  } catch {
+    return String(value).slice(0, maxChars)
+  }
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
+}
+
+function asNonEmptyString(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 ? value : null
+}
+
+/**
+ * 执行面帧的唯一折叠点(服务端侧):把 SSE 工具/计划/终端帧更新为可广播的全量快照。
+ * 不认识或形状不全的帧返回 false —— 与正文采集同一纪律,采集失败不反噬转发主链。
+ */
+function applyExecutionFrameToState(
+  frame: Record<string, unknown>,
+  state: {
+    get: () => { toolCalls: ToolCall[]; planSteps: PlanStep[]; terminalTasks: TerminalTask[] }
+    set: (next: {
+      toolCalls: ToolCall[]
+      planSteps: PlanStep[]
+      terminalTasks: TerminalTask[]
+    }) => void
+  },
+): boolean {
+  const current = state.get()
+  const type = frame.type
+  if (type === 'tool-call-start') {
+    const id = asNonEmptyString(frame.toolCallId)
+    const toolName = asNonEmptyString(frame.toolName)
+    if (!id || !toolName) return false
+    const call: ToolCall = {
+      id,
+      toolName,
+      args: asRecord(frame.args) ?? {},
+      status: 'running',
+      ...(typeof frame.iteration === 'number' ? { iteration: frame.iteration } : {}),
+      ...(asNonEmptyString(frame.serverSource)
+        ? { serverSource: frame.serverSource as ToolCall['serverSource'] }
+        : {}),
+      ...(asNonEmptyString(frame.serverId) ? { serverId: asNonEmptyString(frame.serverId)! } : {}),
+      ...(asNonEmptyString(frame.serverName)
+        ? { serverName: asNonEmptyString(frame.serverName)! }
+        : {}),
+    }
+    // 同 id 重发(重连/重放)按最后一次为准,不重复插两张卡
+    state.set({
+      ...current,
+      toolCalls: [...current.toolCalls.filter((item) => item.id !== id), call],
+    })
+    return true
+  }
+  if (type === 'tool-result') {
+    const id = asNonEmptyString(frame.toolCallId)
+    if (!id) return false
+    const toolName = asNonEmptyString(frame.toolName) ?? 'unknown'
+    const isError = frame.isError === true
+    const result = clampActivityValue(frame.result)
+    const args = asRecord(frame.args)
+    const existing = current.toolCalls.find((item) => item.id === id)
+    const nextCall: ToolCall = {
+      ...(existing ?? { id, toolName, args: args ?? {}, status: 'running' as const }),
+      ...(existing ? {} : { args: args ?? {} }),
+      ...(toolName !== 'unknown' ? { toolName } : {}),
+      status: isError ? 'error' : 'success',
+      ...(isError ? { isError: true } : {}),
+      ...(result !== undefined ? { result } : {}),
+      ...(args ? { args } : {}),
+      ...(typeof frame.durationMs === 'number' ? { durationMs: frame.durationMs } : {}),
+      ...(typeof frame.iteration === 'number' ? { iteration: frame.iteration } : {}),
+      ...(frame.repeated === true ? { repeated: true } : {}),
+      ...(asNonEmptyString(frame.image_url) ? { image_url: asNonEmptyString(frame.image_url)! } : {}),
+      ...(asNonEmptyString(frame.audio_url) ? { audio_url: asNonEmptyString(frame.audio_url)! } : {}),
+      ...(asNonEmptyString(frame.video_url) ? { video_url: asNonEmptyString(frame.video_url)! } : {}),
+      ...(asNonEmptyString(frame.task_id) ? { task_id: asNonEmptyString(frame.task_id)! } : {}),
+    }
+    state.set({
+      ...current,
+      toolCalls: existing
+        ? current.toolCalls.map((item) => (item.id === id ? nextCall : item))
+        : [...current.toolCalls, nextCall],
+    })
+    return true
+  }
+  if (type === 'plan_updated') {
+    const rawPlan = Array.isArray(frame.plan) ? frame.plan : []
+    if (rawPlan.length === 0) return false
+    const steps: PlanStep[] = rawPlan.flatMap((item, index) => {
+      const record = asRecord(item)
+      const step = asNonEmptyString(record?.step)
+      if (!record || !step) return []
+      const status = asNonEmptyString(record.status) ?? 'pending'
+      return [
+        {
+          id: asNonEmptyString(record.id) ?? `plan-${index}-${step.slice(0, 16)}`,
+          step,
+          status: status as PlanStep['status'],
+          ...(asNonEmptyString(frame.explanation) ? { explanation: asNonEmptyString(frame.explanation)! } : {}),
+          ...(typeof record.durationMs === 'number' ? { durationMs: record.durationMs } : {}),
+          ...(asNonEmptyString(record.startedAt) ? { startedAt: asNonEmptyString(record.startedAt)! } : {}),
+          ...(asNonEmptyString(record.endedAt) ? { endedAt: asNonEmptyString(record.endedAt)! } : {}),
+          ...(typeof record.tokenUsage === 'number' ? { tokenUsage: record.tokenUsage } : {}),
+          ...(Array.isArray(record.toolCallIds)
+            ? { toolCallIds: record.toolCallIds.filter((v): v is string => typeof v === 'string') }
+            : {}),
+        },
+      ]
+    })
+    if (steps.length === 0) return false
+    state.set({ ...current, planSteps: steps })
+    return true
+  }
+  if (type === 'terminal_start') {
+    const id = asNonEmptyString(frame.terminalId)
+    const command = asNonEmptyString(frame.command)
+    if (!id || !command) return false
+    const task: TerminalTask = {
+      id,
+      command,
+      status: 'running',
+      startedAt: asNonEmptyString(frame.startedAt) ?? new Date().toISOString(),
+    }
+    state.set({
+      ...current,
+      terminalTasks: [...current.terminalTasks.filter((item) => item.id !== id), task],
+    })
+    return true
+  }
+  if (type === 'terminal_end') {
+    const id = asNonEmptyString(frame.terminalId)
+    if (!id) return false
+    const status = frame.status === 'failed' ? 'failed' : 'completed'
+    const output = typeof frame.output === 'string' ? frame.output.slice(0, 6000) : undefined
+    const existing = current.terminalTasks.find((item) => item.id === id)
+    const nextTask: TerminalTask = {
+      ...(existing ?? {
+        id,
+        command: '',
+        status: 'running' as const,
+        startedAt: asNonEmptyString(frame.endedAt) ?? new Date().toISOString(),
+      }),
+      status,
+      ...(output !== undefined ? { output } : {}),
+      ...(typeof frame.exitCode === 'number' ? { exitCode: frame.exitCode } : {}),
+      ...(asNonEmptyString(frame.endedAt) ? { endedAt: asNonEmptyString(frame.endedAt)! } : {}),
+      ...(typeof frame.durationMs === 'number' ? { durationMs: frame.durationMs } : {}),
+    }
+    state.set({
+      ...current,
+      terminalTasks: existing
+        ? current.terminalTasks.map((item) => (item.id === id ? nextTask : item))
+        : [...current.terminalTasks, nextTask],
+    })
+    return true
+  }
+  return false
 }
 
 /**
@@ -1265,6 +1503,14 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
                     chatSyncFrame.appendContent(frame.content)
                   } else if (frame.type === 'reasoning' && typeof frame.content === 'string') {
                     chatSyncFrame.appendReasoning(frame.content)
+                  } else if (
+                    frame.type === 'tool-call-start' ||
+                    frame.type === 'tool-result' ||
+                    frame.type === 'plan_updated' ||
+                    frame.type === 'terminal_start' ||
+                    frame.type === 'terminal_end'
+                  ) {
+                    chatSyncFrame.appendExecutionFrame(frame)
                   }
                 }
                 // done 帧到达即内容已完整:提前冲掉尾巴,终态帧(rev=链头)不必等 finally。

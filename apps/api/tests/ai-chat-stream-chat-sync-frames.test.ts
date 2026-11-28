@@ -396,6 +396,67 @@ describe('B02 缺口①:SSE 生成腿的 created / patched 帧', () => {
     }
   })
 
+  it('⑥b 执行面帧 ⇒ toolCalls/planSteps/terminalTasks 随 snapshot 广播(另一台设备能看到工具卡)', async () => {
+    mockUser()
+    const restore = mockAIServiceSSE([
+      JSON.stringify({
+        type: 'tool-call-start',
+        toolCallId: 'call-1',
+        toolName: 'read_file',
+        args: { path: 'a.ts' },
+        iteration: 1,
+      }),
+      JSON.stringify({
+        type: 'tool-result',
+        toolCallId: 'call-1',
+        toolName: 'read_file',
+        result: 'ok',
+        durationMs: 12,
+      }),
+      JSON.stringify({
+        type: 'plan_updated',
+        plan: [{ id: 'p1', step: '读取文件', status: 'completed' }],
+        explanation: '完成',
+      }),
+      JSON.stringify({
+        type: 'terminal_start',
+        terminalId: 'term-1',
+        command: 'ls',
+        status: 'running',
+        startedAt: '2026-11-28T00:00:00.000Z',
+      }),
+      JSON.stringify({
+        type: 'terminal_end',
+        terminalId: 'term-1',
+        status: 'completed',
+        endedAt: '2026-11-28T00:00:01.000Z',
+        durationMs: 1000,
+        output: 'ok',
+        exitCode: 0,
+      }),
+    ])
+    try {
+      await injectStream(server, coords)
+      const patched = timeline.filter((f) => f.kind === 'patched')
+      const last = patched[patched.length - 1]!.input as {
+        toolCalls?: Array<Record<string, unknown>>
+        planSteps?: Array<Record<string, unknown>>
+        terminalTasks?: Array<Record<string, unknown>>
+      }
+      expect(last.toolCalls).toEqual([
+        expect.objectContaining({ id: 'call-1', toolName: 'read_file', status: 'success' }),
+      ])
+      expect(last.planSteps).toEqual([
+        expect.objectContaining({ id: 'p1', step: '读取文件', status: 'completed' }),
+      ])
+      expect(last.terminalTasks).toEqual([
+        expect.objectContaining({ id: 'term-1', command: 'ls', status: 'completed', exitCode: 0 }),
+      ])
+    } finally {
+      restore()
+    }
+  })
+
   it('⑦ 越权负控:伪造 metadata.userId ⇒ 三帧投递对象仍是认证身份,伪造收件人零帧', async () => {
     // 票71 越权纪律(2026-11-01):metadata.userId 是客户端可整写字段,曾经被
     // `opts.metadata?.userId ?? request.userId` 优先采纳 ⇒ 任何人可把携带会话消息全文的
