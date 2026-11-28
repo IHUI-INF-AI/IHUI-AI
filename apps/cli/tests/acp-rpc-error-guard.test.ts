@@ -40,6 +40,13 @@ const RPC_METHOD_EXEMPT = new Set([
   'session/prompt',
 ]);
 
+/** L14 起标准方法名取自 SDK 常量,静态守门需把常量还原成线上的方法名。 */
+const ACP_METHOD_CONSTANTS: Record<string, string> = {
+  sessionNew: 'session/new',
+  sessionLoad: 'session/load',
+  sessionPrompt: 'session/prompt',
+};
+
 describe('asRpcError 守门:新方法必须经 rpcMethod', () => {
   const serverSrc = readFileSync(
     path.join(__dirname, '..', 'src', 'acp', 'server.ts'),
@@ -58,13 +65,13 @@ describe('asRpcError 守门:新方法必须经 rpcMethod', () => {
 
   const registry = serverSrc.slice(chainStart, end);
 
-  /** 抽出每个 .onRequest( 块里的方法名字面量(第一个字符串字面量)。 */
+  /** 抽出每个 .onRequest( 块里的方法名(字符串字面量或 ACP_METHODS.<key>)。 */
   function methodNames(src: string): { name: string; body: string }[] {
     const out: { name: string; body: string }[] = [];
-    const re = /\.onRequest\s*(?:<[^>]*>)?\s*\(\s*['"]([^'"]+)['"]/g;
+    const re = /\.onRequest\s*(?:<[^>]*>)?\s*\(\s*(?:['"]([^'"]+)['"]|ACP_METHODS\.([A-Za-z0-9_]+))/g;
     let m: RegExpExecArray | null;
     while ((m = re.exec(src)) !== null) {
-      const name = m[1]!;
+      const name = m[1] ?? ACP_METHOD_CONSTANTS[m[2]!] ?? `ACP_METHODS.${m[2]}`;
       // 块体:从这个 match 到下一个 .onRequest( 之间(最后一个取到链尾)
       const nextIdx = src.indexOf('.onRequest', m.index + 1);
       const body = src.slice(m.index, nextIdx === -1 ? src.length : nextIdx);

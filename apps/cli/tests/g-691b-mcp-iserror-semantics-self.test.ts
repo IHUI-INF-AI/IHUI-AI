@@ -98,7 +98,9 @@ describe('G-691 ① isError:true 必须读成失败,不得报成功(改前恒 su
       'echo',
     );
     expect(res.success).toBe(true);
-    expect(res.output).toBe('(无文本输出)');
+    // 2026-11-28 多段内容落地后,纯非文本结果保留结构块并显式标注数量,
+    // 不再伪装成"(无文本输出)"的空正文(否则宿主/审计会把图片结果当成空结果)。
+    expect(res.output).toBe('(无文本输出) [非文本内容: image×1]');
   });
 });
 

@@ -150,8 +150,10 @@ describe('tool_search 检索源随模式收窄', () => {
     expect(hr.output).toContain('### hr_employee_list')
   })
 
-  it('对照:full 模式下同一条查询能揭示 git_merge(证明上两条不是查询无效)', async () => {
+  it('对照:full 模式下同一条查询能拿到 git_merge(证明上两条不是查询无效)', async () => {
     const merge = await ask('full', { queries: ['合并分支'] })
-    expect(merge.output).toContain('### git_merge')
+    // 危险/变更类工具按策略常驻前缀,不一定是延迟工具;此时检索结果只列名字,
+    // 不能把"没返回 schema"误读成"没检索到"。
+    expect(merge.output).toContain('git_merge')
   })
 })

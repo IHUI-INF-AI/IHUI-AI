@@ -55,7 +55,9 @@ describe('compressContextV2 回收先行(零模型请求优先)', () => {
   it('回收足够时:一次模型请求都不发,结果标 trigger=reclaim', async () => {
     const sampler = countingSampler();
     const result = await compressContextV2(staleHeavyConversation(), {
-      contextLimit: 4000,
+      // 6000 而非 4000:压缩分母已改为 effectiveContextWindow(先扣输出预留),
+      // 保留最近 3 轮后剩 2811 token,需要在扣预留后仍落到触发线以下。
+      contextLimit: 6000,
       sampler,
       nowMs: 1_000,
       lastActivityAtMs: 1_000, // 空闲 0 ⇒ 只有窗口比例触发能成立

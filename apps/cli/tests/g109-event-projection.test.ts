@@ -98,7 +98,7 @@ describe('G-109 事件面:三处出口真实性源锁(不得"造好没装车")',
     // 声明点与发射点同锁(按形状而非逐字行:调用改成多行后,逐字 toContain 会假红,
     // 而"少带一个参数"这种真回归必须仍能被抓到 ⇒ 参数序列整体进正则,缺 result.error 即红)。
     expect(src).toMatch(
-      /onToolResult\?\.\(\s*call\.name,\s*result\.success,\s*result\.output,\s*result\.display,\s*result\.error,\s*\)/,
+      /onToolResult\?\.\(\s*call\.name,\s*effectiveResult\.success,\s*effectiveResult\.output,\s*effectiveResult\.display,\s*effectiveResult\.error,\s*\)/,
     );
     expect(src).toMatch(/type: 'tool_result',[\s\S]{0,160}\.\.\.\(display \? \{ display \} : \{\}\),/);
     expect(src).toMatch(/type: 'tool_result',[\s\S]{0,220}\.\.\.\(error \? \{ error \} : \{\}\),/);

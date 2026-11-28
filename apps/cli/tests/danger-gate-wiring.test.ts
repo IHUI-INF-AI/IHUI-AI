@@ -268,7 +268,9 @@ describe('W4 反向对照:唯一出口的正当写法不得被误报', () => {
 describe('W5 L7905 收口:会话级 flag 随 ctx 下发,工具层披露可追溯', () => {
   it('commands/agent.ts: setupAgentTools 的 ctx 携带 allowDangerous,且就地旁路归零', () => {
     const src = readFileSync(path.join(srcRoot, 'commands', 'agent.ts'), 'utf-8')
-    expect(src).toMatch(/const ctx: ToolContext = \{[\s\S]{0,300}?allowDangerous: opts\.allowDangerous,/)
+    // ctx 字段随 code-mode / task-workspace / 热使用上报扩过几轮,位置会后移;
+    // 锁的是"同一对象里带 allowDangerous",不是字面相邻的 300 字符。
+    expect(src).toMatch(/const ctx: ToolContext = \{[\s\S]{0,1200}?allowDangerous: opts\.allowDangerous,/)
     // 86H:构造方式换成带审计的包装器(判据本体"必须经唯一出口"一字未松,见 W2 的同名改造)
     expect(src).toMatch(/createAuditedDangerGate\s*\(\s*\{/)
     expect(countInlineDecisions(src)).toBe(0)

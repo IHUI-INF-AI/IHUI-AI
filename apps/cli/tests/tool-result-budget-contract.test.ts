@@ -204,7 +204,8 @@ describe('⑤ 装车证明:声明面到执行面那条线真的连着', () => {
   });
 
   it('投影出口是唯一的:信封内部不另抄一份字节换算', () => {
-    const src = readFileSync(path.join(HERE, '..', 'src', 'tools', 'result-envelope', 'index.ts'), 'utf8');
+    // W4-12 拆档后 index.ts 只做 re-export;编排与投影调用在 envelope-tool-result.ts。
+    const src = readFileSync(path.join(HERE, '..', 'src', 'tools', 'result-envelope', 'envelope-tool-result.ts'), 'utf8');
     expect(src).toContain('projectContractResultBudget(');
     expect(src).not.toMatch(/\/\s*3\b.*providerVisible|providerVisibleLimitBytes\s*\//);
   });

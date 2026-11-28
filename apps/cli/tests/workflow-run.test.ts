@@ -143,7 +143,16 @@ describe('runDeclaredWorkflow 真实执行', () => {
 
   it('cwd 字段生效(相对声明文件目录)', async () => {
     fs.mkdirSync(path.join(dir, 'sub'));
-    const f = writeDecl({ steps: [{ id: 'a', run: 'pwd > where.txt', cwd: 'sub' }] });
+    // `pwd` 只在 Unix shell 是内建命令;用 node 写盘,Windows / Linux 都能验证 cwd。
+    const f = writeDecl({
+      steps: [
+        {
+          id: 'a',
+          run: 'node -e "require(\'fs\').writeFileSync(\'where.txt\',process.cwd())"',
+          cwd: 'sub',
+        },
+      ],
+    });
     await runDeclaredWorkflow({ declarationPath: f });
     const where = fs.readFileSync(path.join(dir, 'sub', 'where.txt'), 'utf8');
     expect(where).toContain('sub');

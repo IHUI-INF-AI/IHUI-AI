@@ -101,7 +101,10 @@ describe('票B: MCP 子进程 env 白名单', () => {
 
   describe('装车对账:MCP 通道必须真的走白名单出口', () => {
     it('connectMcpServer 的 stdio spawn 用 buildMcpChildEnv(server.env),旧的"黑名单整片+声明合并"写法不得回来', () => {
-      expect(MCP_RUNTIME_SRC).toMatch(/env:\s*buildMcpChildEnv\(server\.env\)/);
+      // stdioEnv 是 buildMcpChildEnv(server.env) 的唯一产物,spawn 与 tool-host
+      // 两条腿都只消费这一份;锁"同源构造 + 同源消费",不锁字面内联。
+      expect(MCP_RUNTIME_SRC).toContain('const stdioEnv = buildMcpChildEnv(server.env)');
+      expect(MCP_RUNTIME_SRC).toMatch(/env:\s*stdioEnv/);
       expect(MCP_RUNTIME_SRC).not.toMatch(
         /env:\s*\{\s*\.\.\.buildFilteredEnv\(DEFAULT_BLOCKED_ENV_VARS\),\s*\.\.\.server\.env\s*\}/,
       );

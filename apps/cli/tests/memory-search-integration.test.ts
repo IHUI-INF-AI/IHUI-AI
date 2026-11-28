@@ -19,7 +19,6 @@ import {
 } from '../src/commands/repl.js';
 import {
   MockEmbeddingProvider,
-  ApiEmbeddingProvider,
   type MemoryEntry,
 } from '../src/memory/index.js';
 
@@ -124,7 +123,11 @@ describe('resolveEmbeddingProvider', () => {
       embeddingApiKey: 'sk-test-key',
     });
     const provider = resolveEmbeddingProvider();
-    expect(provider).toBeInstanceOf(ApiEmbeddingProvider);
+    // 2026-11-26 起真实 provider 一律套持久缓存(Wrapper),不再是裸 ApiEmbeddingProvider;
+    // 判据改为"不是 Mock、且能 embed",避免把缓存层当成未接线。
+    expect(provider).toBeDefined();
+    expect(provider).not.toBeInstanceOf(MockEmbeddingProvider);
+    expect(typeof provider!.embedBatch).toBe('function');
   });
 
   it('仅有 apiBase 缺 apiKey → 返回 MockEmbeddingProvider', () => {
