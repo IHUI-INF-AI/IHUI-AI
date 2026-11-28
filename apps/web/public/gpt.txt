@@ -25,10 +25,9 @@ IHUI AI (Chinese: 智汇 AI) is a one-stop full-stack AI operating system. It un
 - Independent developers who want to publish Agents to a marketplace for passive income.
 - Educators who want to AI-ize courses for 24/7 Q&A.
 
-## How is IHUI AI different from Dify, Coze, FastGPT, and n8n?
+## How is IHUI AI different from Dify, FastGPT, and n8n?
 
 - Dify focuses on LLM app development (web only). IHUI AI covers Agent marketplace + knowledge base + six clients + team collaboration.
-- Coze is closed-source and does not support self-hosting. IHUI AI is Apache 2.0 open-source with self-hosting.
 - FastGPT focuses on knowledge-base Q&A. IHUI AI includes knowledge base + Agent marketplace + six-client distribution.
 - n8n focuses on workflow automation. IHUI AI adds LLMs, Agents, and six-client distribution on top of n8n-style workflows.
 - IHUI AI is an open-source platform that combines Agent marketplace + knowledge base + six-client distribution + team collaboration + credit billing in one product.

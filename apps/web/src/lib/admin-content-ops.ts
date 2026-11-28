@@ -11,18 +11,54 @@
  * 服务凭据;非管理员调用会得到 403 并以 tool-result 错误回传给模型。
  */
 import type { ApiResult } from '@ihui/types'
-import {
-  addAnnouncement,
-  addCarousel,
-  listAdminAnnouncements,
-  listCarousel,
-  updateAnnouncement,
-  updateCarousel,
-} from '@ihui/api-client'
-import type {
-  AdminContentOpOutcome,
-  AdminContentOps,
-} from '@ihui/shared/chat/workspace-tool-executor'
+import { addCarousel, fetchApi, listCarousel, updateCarousel } from '@ihui/api-client'
+
+export interface AdminContentOpOutcome {
+  ok: boolean
+  data?: unknown
+  message?: string
+}
+
+export interface AdminContentOps {
+  listAnnouncements(query?: Record<string, unknown>): Promise<AdminContentOpOutcome>
+  createAnnouncement(body: Record<string, unknown>): Promise<AdminContentOpOutcome>
+  updateAnnouncement(id: string, body: Record<string, unknown>): Promise<AdminContentOpOutcome>
+  listCarousels(query?: Record<string, unknown>): Promise<AdminContentOpOutcome>
+  createCarousel(body: Record<string, unknown>): Promise<AdminContentOpOutcome>
+  updateCarousel(id: string, body: Record<string, unknown>): Promise<AdminContentOpOutcome>
+}
+
+function qs(query: Record<string, unknown> = {}): string {
+  const sp = new URLSearchParams()
+  for (const [k, v] of Object.entries(query)) if (v != null && v !== '') sp.set(k, String(v))
+  const s = sp.toString()
+  return s ? `?${s}` : ''
+}
+
+async function listAdminAnnouncements(
+  query: Record<string, unknown> = {},
+): Promise<ApiResult<{ list: unknown[]; total: number }>> {
+  return fetchApi<{ list: unknown[]; total: number }>(`/api/admin/content/announcement${qs(query)}`)
+}
+
+async function addAnnouncement(
+  body: Record<string, unknown>,
+): Promise<ApiResult<unknown>> {
+  return fetchApi<unknown>('/api/admin/content/announcement', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+async function updateAnnouncement(
+  id: string,
+  body: Record<string, unknown>,
+): Promise<ApiResult<unknown>> {
+  return fetchApi<unknown>(`/api/admin/content/announcement/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
+}
 
 function toOutcome<T>(res: ApiResult<T>): AdminContentOpOutcome {
   if (res.success) return { ok: true, data: res.data }
@@ -41,7 +77,7 @@ export function createAdminContentOps(): AdminContentOps {
       return toOutcome(await updateAnnouncement(id, body))
     },
     async listCarousels(query) {
-      return toOutcome(await listCarousel(query ?? {}))
+      return toOutcome(await listCarousel((query ?? {}) as Record<string, string | number | boolean | null | undefined>))
     },
     async createCarousel(body) {
       return toOutcome(await addCarousel(body))

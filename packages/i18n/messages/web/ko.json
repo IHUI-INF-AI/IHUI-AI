@@ -1033,9 +1033,9 @@
       "title": "에이전트 관리",
       "total": "총 {total}건",
       "updateSuccess": "업데이트성공",
-      "coze": {
-        "title": "Coze 업스트림 설정",
-        "coverageTitle": "Coze 커버리지",
+      "agentPlatform": {
+        "title": "智能体 업스트림 설정",
+        "coverageTitle": "智能体 커버리지",
         "coverageSubtitle": "116개 업스트림 Bot의 실제 설정을 필드별로 점검",
         "syncOne": "이 Bot 동기화",
         "syncSuccess": "동기화 완료({status})",
@@ -1047,7 +1047,7 @@
         "lastSyncedAt": "최근 동기화",
         "batchHint": "기본 {size}, 최대 {max}, 동시 {concurrency}",
         "credentialsConfigured": "자격 증명 설정됨: {envName}",
-        "credentialsMissing": "Coze 자격 증명 없음. 배치 동기화는 503을 반환합니다",
+        "credentialsMissing": "智能体 자격 증명 없음. 배치 동기화는 503을 반환합니다",
         "prompt": "프롬프트",
         "model": "모델 파라미터",
         "onboarding": "오프닝과 추천 질문",
@@ -1569,22 +1569,22 @@
     "developer": {
       "cancel": "취소",
       "colActions": "작업",
-      "colCozeId": "코즈 ＩＤ",
+      "col智能体Id": "코즈 ＩＤ",
       "colNickname": "닉네임",
       "colPlatform": "플랫폼",
       "colSignAccount": "서명 계정",
       "colStatus": "상태",
-      "cozeCreate": "계정 추가",
-      "cozeCreateTitle": "Coze 계정 추가",
-      "cozeDeleteConfirm": "계정 \"{cozeId}\" 삭제 확인 ?",
-      "cozeEditTitle": "Coze 계정 편집",
-      "cozeExport": "Coze 계정 내보내기",
-      "cozeSearchPlaceholder": "Coze ID / 계정 / 닉네임 검색...",
-      "cozeSectionTitle": "Coze 개발자 계정",
+      "智能体Create": "계정 추가",
+      "智能体CreateTitle": "智能体 계정 추가",
+      "智能体DeleteConfirm": "계정 \"{智能体Id}\" 삭제 확인 ?",
+      "智能体EditTitle": "智能体 계정 편집",
+      "智能体Export": "智能体 계정 내보내기",
+      "智能体SearchPlaceholder": "智能体 ID / 계정 / 닉네임 검색...",
+      "智能体SectionTitle": "智能体 개발자 계정",
       "delete": "삭제",
       "edit": "편집",
       "fieldAddress": "주소",
-      "fieldCozeId": "코즈 ＩＤ *",
+      "field智能体Id": "코즈 ＩＤ *",
       "fieldPlatform": "플랫폼",
       "fieldSignAccount": "서명 계정 *",
       "fieldSignNickname": "서명 닉네임",
@@ -7572,7 +7572,7 @@
     "vipExclusive": "VIP 전용",
     "config": "설정",
     "dispatchSubagent": "배포 하위 에이전트",
-    "coze": {
+    "agentPlatform": {
       "title": "업스트림 기능",
       "prologue": "오프닝",
       "suggested": "추천 질문",
@@ -8997,30 +8997,6 @@
         "MEDIA_COUNT_EXCEEDED": {
           "title": "미디어 파일 개수가 제한을 초과했습니다",
           "action": "첨부를 줄이고 재시도"
-        },
-        "MEMORY_DREAM_FAILED": {
-          "title": "기억 정리 실패",
-          "action": "잠시 후 다시 시도하세요. 계속 실패하면 현재 대화를 이어가세요"
-        },
-        "MEMORY_FORGET_FAILED": {
-          "title": "기억 삭제 실패",
-          "action": "잠시 후 다시 시도하세요. 삭제가 반영되지 않았다면 다시 제출하지 마세요"
-        },
-        "MEMORY_PROCEDURAL_SAVE_FAILED": {
-          "title": "절차 기억 저장 실패",
-          "action": "잠시 후 다시 시도하세요. 이 단계 결과는 절차에 기록되지 않습니다"
-        },
-        "MEMORY_RECALL_FAILED": {
-          "title": "기억 조회 실패",
-          "action": "잠시 후 다시 시도하세요. 이번 답변에 이전 맥락이 빠질 수 있습니다"
-        },
-        "MEMORY_SAVE_FAILED": {
-          "title": "기억 저장 실패",
-          "action": "잠시 후 다시 시도하세요. 이번 내용이 기억되지 않을 수 있습니다"
-        },
-        "MEMORY_TOPICS_FAILED": {
-          "title": "기억 주제 조회 실패",
-          "action": "잠시 후 다시 시도하세요. 현재 대화는 계속할 수 있습니다"
         },
         "MISSING_DATA": {
           "title": "필수 파라미터가 없습니다",
@@ -10779,7 +10755,7 @@
       "tasks": "작업",
       "progress": "진행률",
       "agents": "에이전트",
-      "coze": "Coze 에이전트",
+      "agentPlatform": "智能体 에이전트",
       "background": "백그라운드",
       "swarm": "스웜",
       "orchestration": "오케스트레이션",
@@ -10801,13 +10777,13 @@
       "unified": "작업 허브",
       "atomicrollback": "전체 스택 롤백"
     },
-    "coze": {
-      "title": "Coze 에이전트",
+    "agentPlatform": {
+      "title": "智能体 에이전트",
       "hint": "동기화된 커뮤니티 에이전트를 선택해 실제 메시지로 연결을 확인합니다.",
       "searchPlaceholder": "에이전트 검색",
       "loading": "불러오는 중…",
       "loadFailed": "에이전트 목록을 불러오지 못했습니다",
-      "empty": "동기화된 Coze 에이전트가 없습니다",
+      "empty": "동기화된 智能体 에이전트가 없습니다",
       "switch": "전환",
       "loadingCapabilities": "업스트림 기능 불러오는 중…",
       "plugins": "플러그인",
@@ -10825,7 +10801,7 @@
       "failed": "연결 실패",
       "closed": "연결이 끊어졌습니다",
       "notConnected": "연결이 아직 준비되지 않았습니다",
-      "connectFailed": "Coze 연결 실패",
+      "connectFailed": "智能体 연결 실패",
       "upstreamFailed": "업스트림 실패",
       "publicOnly": "공개 기능만 표시하며 프롬프트와 모델 설정은 제외됩니다"
     },
@@ -16448,7 +16424,7 @@
     "heroBadge": "도움말 센터",
     "heroSubtitle": "IHUI AI에 대한 12가지 자주 묻는 질문, 30초 안에 답을 찾으세요.",
     "heroTitle": "자주 묻는 질문",
-    "metaDescription": "IHUI AI FAQ: 플랫폼 소개, Dify/Coze/FastGPT와의 비교, 가격, 배포, API, 모델 지원, 데이터 보안 등 12가지 자주 묻는 질문.",
+    "metaDescription": "IHUI AI FAQ: 플랫폼 소개, Dify/智能体/FastGPT와의 비교, 가격, 배포, API, 모델 지원, 데이터 보안 등 12가지 자주 묻는 질문.",
     "metaTitle": "자주 묻는 질문 — IHUI AI",
     "q10Answer": "최소: 2코어 CPU / 4GB RAM / 20GB 디스크, 10-50 동시 사용자 지원. 권장: 4코어 CPU / 8GB RAM / 50GB SSD, 200 동시 사용자 지원. GPU 불필요(LLM 추론은 클라우드 API 실행); 로컬 모델(7B-13B)을 실행하는 경우 24GB VRAM 단일 카드 필요.",
     "q10Question": "자체 호스팅에 어떤 하드웨어가 필요한가요?",
@@ -16458,8 +16434,8 @@
     "q12Question": "IHUI AI가 내 데이터로 모델을 학습하나요?",
     "q1Answer": "IHUI AI(중국어: 지후이 AI)는 원스톱 풀스택 AI 운영 체제입니다. Agent 설계, 지식 베이스 RAG, 다중 모델 통합 스케줄링, 크로스 플랫폼 협업 및 팀 운영을 하나의 플랫폼에 통합하며, Web, Desktop, 미니프로그램, 브라우저 확장, React Native, CLI 등 6개 클라이언트를 하나의 코드베이스로 지원하고, Apache 2.0 오픈 소스 코어 및 자체 호스팅을 지원합니다.",
     "q1Question": "IHUI AI란 무엇인가요?",
-    "q2Answer": "Dify는 LLM 앱 개발에 중점(Web만); Coze는 클로즈드 소스(자체 호스팅 불가); FastGPT는 지식 베이스 Q&A에 중점. IHUI AI는 Agent 마켓플레이스 + 지식 베이스 + 6개 클라이언트 배포 + 팀 협업 + 크레딧 과금을 동시에 지원하는 드문 오픈 소스 플랫폼으로, Dify + Coze + FastGPT 3종 세트를 하나의 플랫폼으로 대체합니다.",
-    "q2Question": "IHUI AI는 Dify, Coze, FastGPT와 어떻게 다른가요?",
+    "q2Answer": "Dify는 LLM 앱 개발에 중점(Web만); 智能体는 클로즈드 소스(자체 호스팅 불가); FastGPT는 지식 베이스 Q&A에 중점. IHUI AI는 Agent 마켓플레이스 + 지식 베이스 + 6개 클라이언트 배포 + 팀 협업 + 크레딧 과금을 동시에 지원하는 드문 오픈 소스 플랫폼으로, Dify + 智能体 + FastGPT 3종 세트를 하나의 플랫폼으로 대체합니다.",
+    "q2Question": "IHUI AI는 Dify, 智能体, FastGPT와 어떻게 다른가요?",
     "q3Answer": "세 가지 사용자가 가장 큰 혜택을 봅니다: AI 개발자(Agent를 빠르게 구축/배포/수익화, 6개 클라이언트 원클릭 게시), 엔터프라이즈 IT(데이터 주권 및 통합 AI 역량 허브를 위한 자체 호스팅), 팀 리더(다중 사용자 협업, 통합 지식 베이스, 통합 과금).",
     "q3Question": "IHUI AI는 누구를 위한 제품인가요?",
     "q4Answer": "OpenAI(GPT-4o/o1/GPT-4.1), Anthropic Claude(Opus 4/Sonnet 4), Google Gemini, Alibaba Qwen(Qwen-Max/Plus), DeepSeek(V3/R1), Zhipu GLM-4, Baidu ERNIE, ByteDance Doubao, Moonshot Kimi, Ollama 및 모든 OpenAI 호환 엔드포인트. 통합 과금, 자동 폴백, 비용 기반 라우팅.",
@@ -16878,7 +16854,7 @@
       "wechat": "WeChat Pay"
     },
     "platforms": {
-      "coze": "Coze",
+      "agentPlatform": "智能体",
       "n8n": "n8n"
     },
     "privacyPolicy": "개인정보처리방침",
@@ -16989,7 +16965,7 @@
       "gork": "Gork",
       "huawei": "화웨이",
       "jldx": "길림대학",
-      "kouzi": "코우즈",
+      "kouzi": "스마트 에이전트",
       "openai": "OpenAI",
       "tencent": "텐센트",
       "yuanbaoxiang": "위안바오상",
@@ -27144,7 +27120,7 @@
   },
   "apiSettings": {
     "title": "API 설정",
-    "cozeTitle": "Coze 설정",
+    "智能体Title": "智能体 설정",
     "apiToken": "API 토큰",
     "tokenPlaceholder": "API 토큰을 입력하세요",
     "baseUrl": "Base URL",
@@ -29974,6 +29950,10 @@
   "tradeHub": {
     "title": "거래",
     "subtitle": "수익·주문·결제·멤버십 포인트"
+  },
+  "personalHub": {
+    "title": "내 계정",
+    "subtitle": "계정·즐겨찾기·학습·구독"
   },
   "developerHub": {
     "title": "개발자",

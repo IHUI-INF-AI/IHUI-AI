@@ -271,9 +271,9 @@ export const domesticAiPlatformsCompetitors: Partial<
       {
         dimension: 'Agent 编排',
         ihui: '可视化 + 200+ 模板',
-        competitor: '基础对话 + 扣子集成',
+        competitor: '基础对话',
         ihuiDetail: 'Agent 市场 + 一键 fork',
-        competitorDetail: '需配合扣子平台',
+        competitorDetail: '平台内置基础编排能力',
       },
       {
         dimension: '多模型',

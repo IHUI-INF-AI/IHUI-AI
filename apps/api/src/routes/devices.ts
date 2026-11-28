@@ -10,7 +10,7 @@ import { success, error } from '../utils/response.js'
 import { db } from '../db/index.js'
 import { deviceTokens, type Device, type DeviceTask } from '@ihui/database'
 import { deviceTaskEvent, isDeviceTaskStage, isDeviceTaskStatus } from '@ihui/types'
-import type { DeviceTaskDiffSummary, DeviceTaskProgress, TerminalTask, ToolCall } from '@ihui/types'
+import type { DeviceTaskDiffSummary, DeviceTaskProgress, PlanStep, TerminalTask, ToolCall } from '@ihui/types'
 import { readChatSyncRev } from '../db/chat-sync-rev-queries.js'
 import { AppError } from '../errors/AppError.js'
 import {
@@ -611,9 +611,12 @@ export const devicesRoutes: FastifyPluginAsync = async (server) => {
         text_delta: z.string().max(20_000).optional(),
         content: z.string().max(200_000).optional(),
         progress: taskProgressInputSchema.optional(),
+        // 思考过程全量:设备端累积后上报,服务端写 reasoning 列(历史可回放)。
+        reasoning: z.string().max(200_000).optional(),
         // 执行面:设备端折叠后的全量快照。单条形状由三端渲染层归一(脏条目单条丢弃),
         // 这里只限总条数与总体量,防止一条畸形上报把会话消息撑爆。
         tool_calls: z.array(z.record(z.string(), z.unknown())).max(200).optional(),
+        plan_steps: z.array(z.record(z.string(), z.unknown())).max(200).optional(),
         terminal_tasks: z.array(z.record(z.string(), z.unknown())).max(200).optional(),
       })
       .safeParse(request.body)
@@ -626,8 +629,12 @@ export const devicesRoutes: FastifyPluginAsync = async (server) => {
         ...(parsed.data.text_delta !== undefined ? { textDelta: parsed.data.text_delta } : {}),
         ...(parsed.data.content !== undefined ? { content: parsed.data.content } : {}),
         ...(parsed.data.progress ? { progress: toProgress(parsed.data.progress) } : {}),
+        ...(parsed.data.reasoning !== undefined ? { reasoning: parsed.data.reasoning } : {}),
         ...(parsed.data.tool_calls
           ? { toolCalls: parsed.data.tool_calls as unknown as ToolCall[] }
+          : {}),
+        ...(parsed.data.plan_steps
+          ? { planSteps: parsed.data.plan_steps as unknown as PlanStep[] }
           : {}),
         ...(parsed.data.terminal_tasks
           ? { terminalTasks: parsed.data.terminal_tasks as unknown as TerminalTask[] }
@@ -641,7 +648,9 @@ export const devicesRoutes: FastifyPluginAsync = async (server) => {
           ? { textDelta: frame.textDelta ?? '' }
           : { content: frame.content }),
         memberUserIds: [device.userId],
+        ...(frame.reasoning !== undefined ? { reasoning: frame.reasoning } : {}),
         ...(frame.toolCalls !== undefined ? { toolCalls: frame.toolCalls } : {}),
+        ...(frame.planSteps !== undefined ? { planSteps: frame.planSteps } : {}),
         ...(frame.terminalTasks !== undefined ? { terminalTasks: frame.terminalTasks } : {}),
       })
       // rev 由广播装饰器分配;设备拿链头做对账(不是自己造坐标)

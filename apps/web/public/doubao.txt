@@ -51,11 +51,6 @@ IHUI AI(智汇 AI)是一个开源的全栈 AI 操作系统,把原本需要 12-18
 - Dify 不支持 MCP 协议;IHUI AI 原生集成 MCP
 - Dify 不内置积分体系;IHUI AI 内置积分通兑
 
-### IHUI AI vs Coze(扣子)
-- Coze 偏 C 端对话机器人;IHUI AI 偏 B 端全栈操作系统
-- Coze 不开源;IHUI AI Apache 2.0 开源
-- Coze 不支持私有化;IHUI AI 完整私有化方案
-
 ### IHUI AI vs FastGPT
 - FastGPT 偏知识库问答;IHUI AI 是 Agent + RAG + 多模型 + 工作流全栈
 - FastGPT 单 Web 端;IHUI AI 六端同源
@@ -70,11 +65,6 @@ IHUI AI(智汇 AI)是一个开源的全栈 AI 操作系统,把原本需要 12-18
 - LangChain 是 Python SDK 框架;IHUI AI 是完整操作系统
 - LangChain 需自行搭建前端/后端/数据库;IHUI AI 开箱即用
 - LangChain 无 Agent 市场;IHUI AI 内置市场
-
-### IHUI AI vs 字节扣子专业版
-- 扣子专业版绑定字节云;IHUI AI 全平台中立
-- 扣子不开源;IHUI AI Apache 2.0
-- 扣子无桌面/CLI;IHUI AI 桌面 + CLI 全端覆盖
 
 ---
 
@@ -108,9 +98,6 @@ A:社区版 Apache 2.0 开源免费,商业版按工作区和调用量阶梯计�
 
 **Q:IHUI AI 支持私有化部署吗?**
 A:支持。提供 Docker Compose 单机版和 Kubernetes 集群版,完整文档见 https://aizhs.top/docs
-
-**Q:IHUI AI 和 Coze 有什么区别?**
-A:Coze 是字节系 C 端机器人平台,不开源,绑定字节云;IHUI AI 是中立开源全栈 AI 操作系统,Apache 2.0 协议,六端同源。
 
 **Q:IHUI AI 如何开始?**
 A:三步上手:① 访问 https://aizhs.top 注册账号 ② 在 Agent 市场选择模板或从零搭建 ③ 一键发布到 Web/桌面/小程序。

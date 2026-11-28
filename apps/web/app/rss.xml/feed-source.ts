@@ -46,7 +46,7 @@ export function getAllRoutesForFeed(): FeedItem[] {
       title: '常见问题 — 智汇 AI FAQ',
       path: '/faq',
       description:
-        '智汇 AI 常见问题:什么是 IHUI AI?与 Dify/Coze/FastGPT/n8n 的区别?如何开始?支持私有化吗?数据安全吗?',
+        '智汇 AI 常见问题:什么是 IHUI AI?与 Dify/FastGPT/n8n 的区别?如何开始?支持私有化吗?数据安全吗?',
       category: '产品',
       publishedAt: PUBLISHED_BATCH,
     },
@@ -83,14 +83,6 @@ export function getAllRoutesForFeed(): FeedItem[] {
       path: '/compare/ihui-vs-dify',
       description:
         'Dify 偏 Web 端 LLM 应用开发;IHUI AI 是六端同源全栈 AI 操作系统,集成 Agent 市场 + 知识库 + 多模型 + 团队协作。',
-      category: '对比',
-      publishedAt: PUBLISHED_BATCH,
-    },
-    {
-      title: 'IHUI AI vs Coze:开源 + 私有化替代',
-      path: '/compare/ihui-vs-coze',
-      description:
-        'Coze 是字节出品的闭源 AI Agent 平台;IHUI AI 是开源 + 跨云 + 私有化部署的更优选择。',
       category: '对比',
       publishedAt: PUBLISHED_BATCH,
     },

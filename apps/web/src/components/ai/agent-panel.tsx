@@ -1,11 +1,11 @@
 'use client'
 
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Coze 智能体联调面板：选择社区已同步的 Coze Bot，展示公开能力，并通过 WS 流式对话。
+// Agent 智能体联调面板：选择社区已同步的 Agent Bot，展示公开能力，并通过 WS 流式对话。
 // 设计边界：
-// - 只消费公开能力 cozePublic，不请求 prompt / 模型参数 / 变量值；
+// - 只消费公开能力 agentPublic，不请求 prompt / 模型参数 / 变量值；
 // - botId 不落到前端，WS 只带 agent_id，由 API 服务端解析；
-// - 对话走 /ws/coze/chat，OAuth JWT 优先，PAT 仅兜底。
+// - 对话走 /ws/agent/chat，OAuth JWT 优先，PAT 仅兜底。
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
@@ -21,14 +21,14 @@ import {
   Sparkles,
   Workflow,
 } from 'lucide-react'
-import type { CozePublicCapabilities } from '@ihui/types'
+import type { AgentPublicCapabilities } from '@ihui/types'
 import { fetchWsTicket } from '@ihui/api-client'
 import { fetchApi, getStreamBaseUrl } from '@/lib/api'
 import { buildWsUrl } from '@/lib/ws-url'
 import { useAuthStore } from '@/stores/auth'
 import { cn } from '@/lib/utils'
 
-interface CozeAgentRow {
+interface AgentRow {
   agentId: string
   name: string
   description?: string | null
@@ -39,8 +39,8 @@ interface CozeAgentRow {
   status?: string
 }
 
-interface CozeAgentDetail extends CozeAgentRow {
-  cozePublic?: CozePublicCapabilities | null
+interface AgentDetail extends AgentRow {
+  agentPublic?: AgentPublicCapabilities | null
 }
 
 type ChatLine = {
@@ -52,7 +52,7 @@ type ChatLine = {
 
 type ConnectionStatus = 'idle' | 'connecting' | 'ready' | 'failed' | 'closed' | 'login'
 
-const EMPTY_COZE_PUBLIC: CozePublicCapabilities = {
+const EMPTY_AGENT_PUBLIC: AgentPublicCapabilities = {
   prologue: null,
   suggestedQuestions: [],
   plugins: [],
@@ -77,15 +77,15 @@ function payloadText(payload: Record<string, unknown>, key: string): string {
   return typeof value === 'string' ? value : ''
 }
 
-export function CozeAgentPanel() {
-  const t = useTranslations('aiToolsPanel.coze')
+export function AgentPanel() {
+  const t = useTranslations('aiToolsPanel.Agent')
   const token = useAuthStore((s) => s.token)
-  const [agents, setAgents] = React.useState<CozeAgentRow[]>([])
+  const [agents, setAgents] = React.useState<AgentRow[]>([])
   const [loadingAgents, setLoadingAgents] = React.useState(true)
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [keyword, setKeyword] = React.useState('')
-  const [selected, setSelected] = React.useState<CozeAgentRow | null>(null)
-  const [detail, setDetail] = React.useState<CozeAgentDetail | null>(null)
+  const [selected, setSelected] = React.useState<AgentRow | null>(null)
+  const [detail, setDetail] = React.useState<AgentDetail | null>(null)
   const [loadingDetail, setLoadingDetail] = React.useState(false)
   const [showPicker, setShowPicker] = React.useState(true)
   const [lines, setLines] = React.useState<ChatLine[]>([])
@@ -100,9 +100,9 @@ export function CozeAgentPanel() {
     setLoadingAgents(true)
     setLoadError(null)
     try {
-      const all: CozeAgentRow[] = []
+      const all: AgentRow[] = []
       for (let page = 1; page <= 3; page += 1) {
-        const res = await fetchApi<{ list: CozeAgentRow[]; total?: number }>(
+        const res = await fetchApi<{ list: AgentRow[]; total?: number }>(
           `/api/agents?status=published&page=${page}&pageSize=100`,
         )
         if (!res.success || !res.data) throw new Error('agent list failed')
@@ -131,7 +131,7 @@ export function CozeAgentPanel() {
     setLoadingDetail(true)
     void (async () => {
       try {
-        const res = await fetchApi<CozeAgentDetail>(
+        const res = await fetchApi<AgentDetail>(
           `/api/agents/${encodeURIComponent(selected.agentId)}`,
         )
         if (!cancelled && res.success && res.data) setDetail(res.data)
@@ -184,7 +184,7 @@ export function CozeAgentPanel() {
       if (cancelled) return
       const ws = new WebSocket(
         buildWsUrl(
-          `/ws/coze/chat?agent_id=${encodeURIComponent(selected.agentId)}`,
+          `/ws/agent/chat?agent_id=${encodeURIComponent(selected.agentId)}`,
           ticket ?? token,
         ),
       )
@@ -291,7 +291,7 @@ export function CozeAgentPanel() {
     )
   }, [agents, keyword])
 
-  const capabilities = detail?.cozePublic ?? EMPTY_COZE_PUBLIC
+  const capabilities = detail?.agentPublic ?? EMPTY_AGENT_PUBLIC
 
   const handleSend = React.useCallback(() => {
     const text = input.trim()
@@ -319,7 +319,7 @@ export function CozeAgentPanel() {
     }
   }, [])
 
-  const selectAgent = (agent: CozeAgentRow) => {
+  const selectAgent = (agent: AgentRow) => {
     setSelected(agent)
     setShowPicker(false)
   }
@@ -332,7 +332,7 @@ export function CozeAgentPanel() {
   ] as const
 
   return (
-    <div className="space-y-2" data-testid="coze-agent-panel">
+    <div className="space-y-2" data-testid="Agent-agent-panel">
       <div className="flex items-start gap-2">
         <Bot className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
         <div className="min-w-0">
@@ -350,7 +350,7 @@ export function CozeAgentPanel() {
               onChange={(event) => setKeyword(event.target.value)}
               placeholder={t('searchPlaceholder')}
               className="min-w-0 flex-1 bg-transparent text-label text-foreground outline-none placeholder:text-muted-foreground"
-              data-testid="coze-agent-search"
+              data-testid="Agent-agent-search"
             />
           </div>
           <div className="max-h-32 overflow-y-auto rounded-md border border-border">
@@ -370,7 +370,7 @@ export function CozeAgentPanel() {
                   type="button"
                   onClick={() => selectAgent(agent)}
                   className="flex w-full items-start gap-2 border-b border-border/60 px-2.5 py-2 text-left last:border-b-0 hover:bg-accent/50"
-                  data-testid={`coze-agent-option-${agent.agentId}`}
+                  data-testid={`Agent-agent-option-${agent.agentId}`}
                 >
                   <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                     <Bot className="h-3.5 w-3.5" />
@@ -453,7 +453,7 @@ export function CozeAgentPanel() {
             <div
               ref={listRef}
               className="h-40 space-y-2 overflow-y-auto bg-background px-2 py-2"
-              data-testid="coze-chat-lines"
+              data-testid="Agent-chat-lines"
             >
               {lines.length === 0 ? (
                 <p className="pt-6 text-center text-[11px] text-muted-foreground">
@@ -492,7 +492,7 @@ export function CozeAgentPanel() {
                 placeholder={t('inputPlaceholder')}
                 rows={2}
                 className="w-full resize-none bg-transparent px-1 text-label text-foreground outline-none placeholder:text-muted-foreground"
-                data-testid="coze-chat-input"
+                data-testid="Agent-chat-input"
               />
               <div className="flex items-center justify-between gap-1">
                 <span
@@ -552,7 +552,7 @@ export function CozeAgentPanel() {
         </div>
       )}
 
-      {selected && detail?.cozePublic ? (
+      {selected && detail?.agentPublic ? (
         <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
           <Sparkles className="h-2.5 w-2.5" />
           {t('publicOnly')}

@@ -24,6 +24,7 @@ import type {
   DeviceTaskApprovalRequest,
   DeviceTaskDiffSummary,
   DeviceTaskProgress,
+  PlanStep,
   TerminalTask,
   ToolCall,
 } from '@ihui/types'
@@ -49,8 +50,11 @@ export interface TaskStreamFrame {
   kind: 'delta' | 'snapshot'
   content: string
   textDelta?: string
+  /** 思考过程全量;缺省 = 本次上报没有 reasoning 变化 */
+  reasoning?: string
   /** 执行面全量快照;缺省 = 本次上报没有执行面变化 */
   toolCalls?: ToolCall[]
+  planSteps?: PlanStep[]
   terminalTasks?: TerminalTask[]
 }
 
@@ -182,8 +186,11 @@ export async function appendTaskStream(
     textDelta?: string
     content?: string
     progress?: DeviceTaskProgress
-    /** 设备端折叠后的执行面(工具卡/终端卡);全量,不是增量 */
+    /** 思考过程全量(设备端累积),落 reasoning 列;缺省保持原值 */
+    reasoning?: string
+    /** 设备端折叠后的执行面(工具卡/计划/终端卡);全量,不是增量 */
     toolCalls?: ToolCall[]
+    planSteps?: PlanStep[]
     terminalTasks?: TerminalTask[]
   },
 ): Promise<TaskStreamFrame> {
@@ -200,12 +207,18 @@ export async function appendTaskStream(
     }
     await db
       .update(chatMessages)
-      .set({ content: sql`${chatMessages.content} || ${delta}` })
+      .set({
+        content: sql`${chatMessages.content} || ${delta}`,
+        ...(input.reasoning !== undefined ? { reasoning: input.reasoning } : {}),
+      })
       .where(eq(chatMessages.id, task.messageId))
   } else {
     await db
       .update(chatMessages)
-      .set({ content: typeof input.content === 'string' ? input.content : '' })
+      .set({
+        content: typeof input.content === 'string' ? input.content : '',
+        ...(input.reasoning !== undefined ? { reasoning: input.reasoning } : {}),
+      })
       .where(eq(chatMessages.id, task.messageId))
   }
 
@@ -216,8 +229,12 @@ export async function appendTaskStream(
     .limit(1)
 
   // 执行面落 metadata(与 AI 回调同一落库面):历史重进/重连快照都从
-  // chat_messages.metadata.toolCalls/terminalTasks 还原,手机端不必再学第二套任务日志。
-  if (input.toolCalls !== undefined || input.terminalTasks !== undefined) {
+  // chat_messages.metadata.toolCalls/planSteps/terminalTasks 还原,手机端不必再学第二套任务日志。
+  if (
+    input.toolCalls !== undefined ||
+    input.planSteps !== undefined ||
+    input.terminalTasks !== undefined
+  ) {
     const prevRaw = rows[0]?.metadata
     const prev =
       prevRaw && typeof prevRaw === 'object' && !Array.isArray(prevRaw)
@@ -226,6 +243,7 @@ export async function appendTaskStream(
     const nextMetadata: Record<string, unknown> = {
       ...prev,
       ...(input.toolCalls !== undefined ? { toolCalls: input.toolCalls } : {}),
+      ...(input.planSteps !== undefined ? { planSteps: input.planSteps } : {}),
       ...(input.terminalTasks !== undefined ? { terminalTasks: input.terminalTasks } : {}),
     }
     await db
@@ -248,7 +266,9 @@ export async function appendTaskStream(
     messageId: task.messageId,
     kind: input.kind,
     content: rows[0]?.content ?? '',
+    ...(input.reasoning !== undefined ? { reasoning: input.reasoning } : {}),
     ...(input.toolCalls !== undefined ? { toolCalls: input.toolCalls } : {}),
+    ...(input.planSteps !== undefined ? { planSteps: input.planSteps } : {}),
     ...(input.terminalTasks !== undefined ? { terminalTasks: input.terminalTasks } : {}),
   }
   if (input.kind === 'delta') frame.textDelta = input.textDelta

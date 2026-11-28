@@ -12,6 +12,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { setBaseUrl, type ToolDeltaEvent } from '@ihui/api-client';
+import type { PlanStep } from '@ihui/types';
 import { registerCliTokenProvider } from '../lib/auth-refresh.js';
 import type { ToolResultDisplaySource } from '@ihui/types';
 import {
@@ -49,6 +50,8 @@ export interface AgentCoreOptions {
 
 export type AgentEvent =
   | { type: 'token'; text: string }
+  | { type: 'reasoning'; text: string }
+  | { type: 'plan_update'; plan: PlanStep[] }
   | { type: 'tool_call'; name: string; args: Record<string, unknown> }
   | {
       type: 'tool_result';
@@ -273,6 +276,18 @@ export class AgentCore {
         sessionId: state.session.id,
         onDelta: async (delta) => {
           await onEvent({ type: 'token', text: delta });
+        },
+        onReasoning: async (delta) => {
+          await onEvent({ type: 'reasoning', text: delta });
+        },
+        onPlanUpdate: async (event) => {
+          await onEvent({
+            type: 'plan_update',
+            plan: event.plan.map((step, index) => ({
+              ...step,
+              id: step.id ?? `plan-${index + 1}`,
+            })),
+          });
         },
         onToolCall: async (name, args) => {
           d113Bridge.noteToolCall(name);

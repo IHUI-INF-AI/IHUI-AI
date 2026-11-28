@@ -23,10 +23,9 @@
 ## 对比同类产品
 
 - **vs Dify**:Dify 偏 LLM 应用开发,无桌面/小程序端;IHUI AI 六端覆盖 + Agent 市场 + 积分通兑
-- **vs Coze**:Coze 闭源,不支持私有化;IHUI AI 开源 + 私有化 + 团队协作
 - **vs FastGPT**:FastGPT 偏知识库;IHUI AI 含知识库 + Agent 市场 + 多端分发
 - **vs n8n**:n8n 偏工作流自动化;IHUI AI 在工作流基础上叠加 LLM + Agent + 多端
-- **vs Dify + Coze + FastGPT 三件套**:IHUI AI 一个平台覆盖三件套能力
+- **vs Dify + FastGPT 两件套**:IHUI AI 一个平台覆盖两件套能力
 
 ## 典型用户
 

@@ -156,10 +156,10 @@ const quickstartJsonLd = {
         },
         {
           '@type': 'Question',
-          name: 'IHUI AI 和 Dify、Coze、FastGPT、n8n 有什么区别?',
+          name: 'IHUI AI 和 Dify、FastGPT、n8n 有什么区别?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'Dify 偏 Web 端 LLM 应用开发;Coze 是字节出品的闭源 Agent 平台;FastGPT 专注知识库 Q&A;n8n 偏工作流自动化。IHUI AI 是六端同源的全栈 AI 操作系统,集成 Agent 市场 + 知识库 RAG + 多模型调度 + MCP + 工作流 + 团队协作 + 积分计费,Apache 2.0 开源,支持私有化部署。',
+            text: 'Dify 偏 Web 端 LLM 应用开发;FastGPT 专注知识库 Q&A;n8n 偏工作流自动化。IHUI AI 是六端同源的全栈 AI 操作系统,集成 Agent 市场 + 知识库 RAG + 多模型调度 + MCP + 工作流 + 团队协作 + 积分计费,Apache 2.0 开源,支持私有化部署。',
           },
         },
         {

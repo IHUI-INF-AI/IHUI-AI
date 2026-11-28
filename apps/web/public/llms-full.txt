@@ -143,19 +143,6 @@ All six share the same React component library (`@ihui/ui`), same API contracts,
 
 **When to choose IHUI AI over Dify**: You need desktop/mini-program/extension clients, want to monetize Agents via marketplace, need enterprise SSO, or operate in Chinese market.
 
-### 3.2 vs Coze
-
-| Dimension | Coze | IHUI AI |
-|---|---|---|
-| Open source | No | Yes |
-| Private deploy | No | Yes |
-| Clients | Web + Douyin mini program | 6 clients |
-| Agent marketplace | Yes (closed) | Yes (open, cross-platform) |
-| Multi-model | Mostly ByteDance | All major + local |
-| Customization | Limited | Full code access |
-
-**When to choose IHUI AI over Coze**: Data privacy, self-hosting, code customization, cross-platform beyond ByteDance ecosystem.
-
 ### 3.3 vs FastGPT
 
 | Dimension | FastGPT | IHUI AI |
@@ -242,9 +229,9 @@ open http://localhost:8801
 
 A: IHUI AI (Chinese: 智汇 AI) is a full-stack AI operating system. It provides Agent marketplace, knowledge-base RAG, multi-model unified dispatch, cross-platform distribution, team collaboration, and credit billing. It supports 6 clients (Web, Desktop, Mini Program, Browser Extension, React Native, CLI) and is open-source under Apache 2.0.
 
-### Q2: How is IHUI AI different from Dify / Coze / FastGPT?
+### Q2: How is IHUI AI different from Dify / FastGPT?
 
-A: Dify focuses on LLM app dev (web only); Coze is closed-source (no self-host); FastGPT is knowledge-base Q&A. IHUI AI combines these areas with 6-client distribution, Agent marketplace, and team collaboration. See Section 3 for detailed comparison.
+A: Dify focuses on LLM app dev (web only); FastGPT is knowledge-base Q&A. IHUI AI combines these areas with 6-client distribution, Agent marketplace, and team collaboration. See Section 3 for detailed comparison.
 
 ### Q3: Who is IHUI AI for?
 

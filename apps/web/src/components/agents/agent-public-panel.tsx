@@ -6,16 +6,16 @@
 import type { ReactNode } from 'react'
 import { BookOpen, Command, MessageSquare, Sparkles, Workflow } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import type { CozePublicCapabilities } from '@ihui/types'
+import type { AgentPublicCapabilities } from '@ihui/types'
 import { cn } from '@/lib/utils'
 
-interface CozePublicPanelProps {
-  capabilities?: CozePublicCapabilities | null
+interface AgentPublicPanelProps {
+  capabilities?: AgentPublicCapabilities | null
   className?: string
 }
 
-export function CozePublicPanel({ capabilities, className }: CozePublicPanelProps) {
-  const t = useTranslations('agent.coze')
+export function AgentPublicPanel({ capabilities, className }: AgentPublicPanelProps) {
+  const t = useTranslations('agent.agentPlatform')
   if (!capabilities) return null
 
   const plugins = capabilities.plugins ?? []

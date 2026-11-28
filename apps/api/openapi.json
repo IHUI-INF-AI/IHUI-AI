@@ -125832,7 +125832,7 @@
         }
       }
     },
-    "/api/cozeZhsApi/agent-category/agent/{id}": {
+    "/api/agentZhsApi/agent-category/agent/{id}": {
       "get": {
         "parameters": [
           {
@@ -125851,7 +125851,7 @@
         }
       }
     },
-    "/api/cozeZhsApi/agent-category/create": {
+    "/api/agentZhsApi/agent-category/create": {
       "post": {
         "responses": {
           "200": {
@@ -125860,7 +125860,7 @@
         }
       }
     },
-    "/api/cozeZhsApi/agent-category/{agent_id}": {
+    "/api/agentZhsApi/agent-category/{agent_id}": {
       "put": {
         "parameters": [
           {
@@ -125879,7 +125879,7 @@
         }
       }
     },
-    "/api/cozeZhsApi/agent-category/{id}": {
+    "/api/agentZhsApi/agent-category/{id}": {
       "delete": {
         "parameters": [
           {
@@ -125898,7 +125898,7 @@
         }
       }
     },
-    "/api/cozeZhsApi/agents/Alllist": {
+    "/api/agentZhsApi/agents/Alllist": {
       "get": {
         "responses": {
           "200": {
@@ -125907,7 +125907,7 @@
         }
       }
     },
-    "/api/cozeZhsApi/agents/billings/{id}": {
+    "/api/agentZhsApi/agents/billings/{id}": {
       "get": {
         "parameters": [
           {
@@ -125926,7 +125926,7 @@
         }
       }
     },
-    "/api/cozeZhsApi/agents/callback/test": {
+    "/api/agentZhsApi/agents/callback/test": {
       "get": {
         "responses": {
           "200": {
@@ -125942,7 +125942,7 @@
         }
       }
     },
-    "/api/cozeZhsApi/agents/callbacks": {
+    "/api/agentZhsApi/agents/callbacks": {
       "get": {
         "responses": {
           "200": {
@@ -125951,7 +125951,7 @@
         }
       }
     },
-    "/api/cozeZhsApi/agents/config/webhook-secret": {
+    "/api/agentZhsApi/agents/config/webhook-secret": {
       "get": {
         "responses": {
           "200": {
@@ -125967,7 +125967,7 @@
         }
       }
     },
-    "/api/cozeZhsApi/agents/manage": {
+    "/api/agentZhsApi/agents/manage": {
       "get": {
         "responses": {
           "200": {
@@ -125976,7 +125976,7 @@
         }
       }
     },
-    "/api/cozeZhsApi/agents/test/auth-config": {
+    "/api/agentZhsApi/agents/test/auth-config": {
       "get": {
         "responses": {
           "200": {
@@ -125985,7 +125985,7 @@
         }
       }
     },
-    "/api/cozeZhsApi/agents/test/coze-subscription": {
+    "/api/agentZhsApi/agents/test/coze-subscription": {
       "post": {
         "responses": {
           "200": {
@@ -125994,7 +125994,7 @@
         }
       }
     },
-    "/api/cozeZhsApi/agents/test/fetch-details": {
+    "/api/agentZhsApi/agents/test/fetch-details": {
       "post": {
         "responses": {
           "200": {
@@ -126003,7 +126003,7 @@
         }
       }
     },
-    "/api/cozeZhsApi/agents/test/signature-verification": {
+    "/api/agentZhsApi/agents/test/signature-verification": {
       "post": {
         "responses": {
           "200": {
@@ -126012,7 +126012,7 @@
         }
       }
     },
-    "/api/cozeZhsApi/agents/token/balance/{userUuid}": {
+    "/api/agentZhsApi/agents/token/balance/{userUuid}": {
       "put": {
         "parameters": [
           {
@@ -126031,7 +126031,7 @@
         }
       }
     },
-    "/api/cozeZhsApi/agents/user/billing": {
+    "/api/agentZhsApi/agents/user/billing": {
       "post": {
         "responses": {
           "200": {
@@ -126040,7 +126040,7 @@
         }
       }
     },
-    "/api/cozeZhsApi/agents/{id}/details": {
+    "/api/agentZhsApi/agents/{id}/details": {
       "get": {
         "parameters": [
           {
@@ -126059,7 +126059,7 @@
         }
       }
     },
-    "/api/cozeZhsApi/n8n/addAgent": {
+    "/api/agentZhsApi/n8n/addAgent": {
       "post": {
         "responses": {
           "200": {
@@ -126068,7 +126068,7 @@
         }
       }
     },
-    "/api/cozeZhsApi/n8n/workflows": {
+    "/api/agentZhsApi/n8n/workflows": {
       "post": {
         "responses": {
           "200": {
@@ -126077,7 +126077,7 @@
         }
       }
     },
-    "/api/cozeZhsApi/search/model/workflow/run": {
+    "/api/agentZhsApi/search/model/workflow/run": {
       "post": {
         "responses": {
           "200": {

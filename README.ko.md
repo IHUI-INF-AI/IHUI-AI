@@ -2227,6 +2227,7 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-28**
+- 📚 문서:更新最近变更记录 (ff2a1fe54)
 - 🚀 기능/개선:权威榜主榜按覆盖阈值排序，全榜厂商真实 logo (22f5262d7)
 - 🐞 수정:心跳间隔 15s 收紧到 10s，避开 EdgeOne 15s 空闲断流 (0fa89e1a1)
 - 🐞 수정:设备执行器收尾兜底最终助手正文，避免非流式回包留下空气泡 (87881585e)

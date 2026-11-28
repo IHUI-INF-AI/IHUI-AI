@@ -1033,9 +1033,9 @@
       "title": "エージェント",
       "total": "合計 {total} 件",
       "updateSuccess": "更新しました",
-      "coze": {
-        "title": "Coze 上流設定",
-        "coverageTitle": "Coze カバレッジ",
+      "agentPlatform": {
+        "title": "智能体 上流設定",
+        "coverageTitle": "智能体 カバレッジ",
         "coverageSubtitle": "116 個の上流 Bot の実設定を項目ごとに照合",
         "syncOne": "この Bot を同期",
         "syncSuccess": "同期成功（{status}）",
@@ -1047,7 +1047,7 @@
         "lastSyncedAt": "最終同期",
         "batchHint": "既定 {size}、上限 {max}、並列 {concurrency}",
         "credentialsConfigured": "認証情報設定済み：{envName}",
-        "credentialsMissing": "Coze 認証情報が未設定。一括同期は 503 を返します",
+        "credentialsMissing": "智能体 認証情報が未設定。一括同期は 503 を返します",
         "prompt": "プロンプト",
         "model": "モデルパラメータ",
         "onboarding": "開始メッセージと候補質問",
@@ -1569,22 +1569,22 @@
     "developer": {
       "cancel": "キャンセル",
       "colActions": "操作",
-      "colCozeId": "Ｃｏｚｅ ＩＤ",
+      "col智能体Id": "Ｃｏｚｅ ＩＤ",
       "colNickname": "ニックネーム",
       "colPlatform": "プラットフォーム",
       "colSignAccount": "アカウント",
       "colStatus": "ステータス",
-      "cozeCreate": "アカウント",
-      "cozeCreateTitle": "Coze アカウントを",
-      "cozeDeleteConfirm": "アカウント「{cozeId}」をしますか？",
-      "cozeEditTitle": "Coze アカウントを",
-      "cozeExport": "Coze アカウントをエクスポート",
-      "cozeSearchPlaceholder": "Coze ID / アカウント / ニックネームを...",
-      "cozeSectionTitle": "Coze アカウント",
+      "智能体Create": "アカウント",
+      "智能体CreateTitle": "智能体 アカウントを",
+      "智能体DeleteConfirm": "アカウント「{智能体Id}」をしますか？",
+      "智能体EditTitle": "智能体 アカウントを",
+      "智能体Export": "智能体 アカウントをエクスポート",
+      "智能体SearchPlaceholder": "智能体 ID / アカウント / ニックネームを...",
+      "智能体SectionTitle": "智能体 アカウント",
       "delete": "削除",
       "edit": "編集",
       "fieldAddress": "アドレス",
-      "fieldCozeId": "Ｃｏｚｅ ＩＤ *",
+      "field智能体Id": "Ｃｏｚｅ ＩＤ *",
       "fieldPlatform": "プラットフォーム",
       "fieldSignAccount": "アカウント *",
       "fieldSignNickname": "ニックネーム",
@@ -7572,7 +7572,7 @@
     "vipExclusive": "VIP専用",
     "config": "設定",
     "dispatchSubagent": "サブエージェント割り当て",
-    "coze": {
+    "agentPlatform": {
       "title": "上流機能",
       "prologue": "開始メッセージ",
       "suggested": "候補質問",
@@ -8997,30 +8997,6 @@
         "MEDIA_COUNT_EXCEEDED": {
           "title": "メディアファイルの数が上限を超えています",
           "action": "添付を減らして再試行"
-        },
-        "MEMORY_DREAM_FAILED": {
-          "title": "記憶の整理に失敗しました",
-          "action": "しばらくして再試行してください。続く場合は現在の会話を続けられます"
-        },
-        "MEMORY_FORGET_FAILED": {
-          "title": "記憶の削除に失敗しました",
-          "action": "しばらくして再試行してください。削除が反映されていない場合は再送信しないでください"
-        },
-        "MEMORY_PROCEDURAL_SAVE_FAILED": {
-          "title": "手順記憶の保存に失敗しました",
-          "action": "しばらくして再試行してください。この手順の結果は記録されません"
-        },
-        "MEMORY_RECALL_FAILED": {
-          "title": "記憶の読み出しに失敗しました",
-          "action": "しばらくして再試行してください。今回の回答には過去の文脈が欠ける可能性があります"
-        },
-        "MEMORY_SAVE_FAILED": {
-          "title": "記憶の保存に失敗しました",
-          "action": "しばらくして再試行してください。今回の内容は記憶されない可能性があります"
-        },
-        "MEMORY_TOPICS_FAILED": {
-          "title": "記憶トピックの読み込みに失敗しました",
-          "action": "しばらくして再試行してください。現在の会話は続けられます"
         },
         "MISSING_DATA": {
           "title": "必須パラメータがありません",
@@ -10779,7 +10755,7 @@
       "tasks": "タスク",
       "progress": "進捗",
       "agents": "エージェント",
-      "coze": "Coze エージェント",
+      "agentPlatform": "智能体 エージェント",
       "background": "バックグラウンド",
       "swarm": "スウォーム",
       "orchestration": "オーケストレーション",
@@ -10801,13 +10777,13 @@
       "unified": "タスクハブ",
       "atomicrollback": "スタック全体ロールバック"
     },
-    "coze": {
-      "title": "Coze エージェント",
+    "agentPlatform": {
+      "title": "智能体 エージェント",
       "hint": "同期済みのコミュニティエージェントを選び、実メッセージで疎通確認します。",
       "searchPlaceholder": "エージェントを検索",
       "loading": "読み込み中…",
       "loadFailed": "エージェント一覧の読み込みに失敗",
-      "empty": "同期済みの Coze エージェントはありません",
+      "empty": "同期済みの 智能体 エージェントはありません",
       "switch": "切り替え",
       "loadingCapabilities": "上流機能を読み込み中…",
       "plugins": "プラグイン",
@@ -10825,7 +10801,7 @@
       "failed": "接続失敗",
       "closed": "接続が切断されました",
       "notConnected": "接続がまだ準備できていません",
-      "connectFailed": "Coze への接続に失敗しました",
+      "connectFailed": "智能体 への接続に失敗しました",
       "upstreamFailed": "上流で失敗しました",
       "publicOnly": "公開機能のみ表示。プロンプトとモデル設定は含みません"
     },
@@ -16448,7 +16424,7 @@
     "heroBadge": "ヘルプセンター",
     "heroSubtitle": "IHUI AI に関する12のよくある質問、30秒で答えが見つかります。",
     "heroTitle": "よくある質問",
-    "metaDescription": "IHUI AI よくある質問: プラットフォーム紹介、Dify/Coze/FastGPT との比較、価格、展開、API、モデル対応、データセキュリティなど12のよくある質問。",
+    "metaDescription": "IHUI AI よくある質問: プラットフォーム紹介、Dify/智能体/FastGPT との比較、価格、展開、API、モデル対応、データセキュリティなど12のよくある質問。",
     "metaTitle": "よくある質問 — IHUI AI",
     "q10Answer": "最小構成: 2コア CPU / 4GB RAM / 20GB ディスク、10-50同時ユーザー対応。推奨構成: 4コア CPU / 8GB RAM / 50GB SSD、200同時ユーザー対応。GPU は不要(LLM 推論はクラウド API 実行); ローカルモデル(7B-13B)を実行する場合は24GB VRAM のシングルカードが必要。",
     "q10Question": "セルフホストに必要なハードウェアは?",
@@ -16458,8 +16434,8 @@
     "q12Question": "智匯 AI は私のデータを使ってモデルを学習しますか?",
     "q1Answer": "IHUI AIはワンストップのフルスタック AI オペレーティングシステムです。Agent 設計、ナレッジベース RAG、マルチモデル統合スケジューリング、クロスプラットフォーム連携とチーム運営を1つのプラットフォームに統合し、Web、デスクトップ、ミニプログラム、ブラウザ拡張、React Native、CLI の6クライアントを1コードベースで配信、Apache 2.0 オープンソースのコアコードとセルフホスト展開をサポートします。",
     "q1Question": "智匯 AI とは何ですか?",
-    "q2Answer": "Dify は LLM アプリ開発中心(Web のみ); Coze はクローズドソース(セルフホスト不可); FastGPT はナレッジベース Q&A 中心。IHUI AI は現在少数、Agent マーケット + ナレッジベース + 6クライアント配信 + チーム連携 + クレジット課金を同時にカバーするオープンソースプラットフォームで、Dify + Coze + FastGPT の3点セットを1つのプラットフォームに置き換えます。",
-    "q2Question": "智匯 AI と Dify、Coze、FastGPT の違いは?",
+    "q2Answer": "Dify は LLM アプリ開発中心(Web のみ); 智能体 はクローズドソース(セルフホスト不可); FastGPT はナレッジベース Q&A 中心。IHUI AI は現在少数、Agent マーケット + ナレッジベース + 6クライアント配信 + チーム連携 + クレジット課金を同時にカバーするオープンソースプラットフォームで、Dify + 智能体 + FastGPT の3点セットを1つのプラットフォームに置き換えます。",
+    "q2Question": "智匯 AI と Dify、智能体、FastGPT の違いは?",
     "q3Answer": "3タイプのユーザーが最も恩恵を受けます: AI 開発者(Agent の迅速な構築/配信/収益化、6クライアントへのワンクリック配信)、エンタープライズ IT(データ主権のためのセルフホスト展開、統合 AI 機能ハブ)、チームリーダー(マルチユーザー連携、統一ナレッジベース、統一課金)。",
     "q3Question": "智匯 AI は誰向けですか?",
     "q4Answer": "OpenAI(GPT-4o/o1/GPT-4.1)、Anthropic Claude(Opus 4/Sonnet 4)、Google Gemini、Alibaba Qwen(Qwen-Max/Plus)、DeepSeek(V3/R1)、Zhipu GLM-4、Baidu ERNIE、ByteDance Doubao、Moonshot Kimi、そして Ollama などのローカルモデルおよび任意の OpenAI 互換エンドポイント。統合課金、自動フォールバック、コストベースルーティング。",
@@ -16878,7 +16854,7 @@
       "wechat": "WeChat Pay"
     },
     "platforms": {
-      "coze": "Coze",
+      "agentPlatform": "智能体",
       "n8n": "n8n"
     },
     "privacyPolicy": "プライバシーポリシー",
@@ -16989,7 +16965,7 @@
       "gork": "Gork",
       "huawei": "ファーウェイ",
       "jldx": "吉林大学",
-      "kouzi": "コウズ",
+      "kouzi": "スマートエージェント",
       "openai": "OpenAI",
       "tencent": "テンセント",
       "yuanbaoxiang": "元宝箱",
@@ -27144,7 +27120,7 @@
   },
   "apiSettings": {
     "title": "API 設定",
-    "cozeTitle": "Coze 設定",
+    "智能体Title": "智能体 設定",
     "apiToken": "API トークン",
     "tokenPlaceholder": "API トークンを入力",
     "baseUrl": "Base URL",
@@ -29974,6 +29950,10 @@
   "tradeHub": {
     "title": "取引",
     "subtitle": "収益・注文・決済・会員ポイント"
+  },
+  "personalHub": {
+    "title": "マイページ",
+    "subtitle": "アカウント・お気に入り・学習・サブスクリプション"
   },
   "developerHub": {
     "title": "開発者",

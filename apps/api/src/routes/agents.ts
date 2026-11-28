@@ -74,7 +74,7 @@ import {
   type CreateSettlementInput,
   type UpdateExamineInput,
 } from '../db/agents-queries.js'
-import { toCozePublicCapabilities } from '../lib/coze-bot-config.js'
+import { toAgentPublicCapabilities } from '../lib/coze-bot-config.js'
 import {
   getCozeAgentConfigView,
   getCozeCoverage,
@@ -345,7 +345,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     // 2026-07-21 安全审计加固:/callback/* 走 HMAC 签名校验,不走 JWT 鉴权
     // 原因:Coze / 第三方 webhook 由对方服务器回调,无 JWT 凭据,必须按签名验证身份
     const url = request.url.split('?')[0] ?? request.url
-    if (url.startsWith('/api/callback/') || url.startsWith('/cozeZhsApi/agents/callback/coze')) {
+    if (url.startsWith('/api/callback/') || url.startsWith('/agentZhsApi/agents/callback/coze')) {
       return // 跳过 requireAuth,由路由内部 verifyHmacSignature 处理
     }
     // 2026-08-12:市场统计公开(agents/stats 未登录可浏览),与 /agents 列表一致
@@ -507,8 +507,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     // 草稿/待审/驳回一律 404,不暴露资源存在性(与「非属主不暴露」同口径)。
     if (agent.status !== 'published') return reply.status(404).send(error(404, '智能体不存在'))
     const publicAgent = sanitizePublicAgent(agent)
-    const cozePublic = toCozePublicCapabilities(agent)
-    return reply.send(success(cozePublic ? { ...publicAgent, cozePublic } : publicAgent))
+    const agentPublic = toAgentPublicCapabilities(agent)
+    return reply.send(success(agentPublic ? { ...publicAgent, agentPublic } : publicAgent))
   })
 
   // POST /agents/create - 创建代理
@@ -2157,12 +2157,12 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===========================================================================
-  // R80 补齐: D 盘 coze_zhs_py/api/agents.py 15 端点迁移 (前缀 /cozeZhsApi/agents)
+  // R80 补齐: D 盘 coze_zhs_py/api/agents.py 15 端点迁移 (前缀 /agentZhsApi/agents)
   // 8 真实 + 7 Stub (Stub 端点已加 R81 真实实现)
   // ===========================================================================
 
-  // 1. POST /cozeZhsApi/agents/callback/test - 真实生成测试回调
-  server.post('/cozeZhsApi/agents/callback/test', async (request, reply) => {
+  // 1. POST /agentZhsApi/agents/callback/test - 真实生成测试回调
+  server.post('/agentZhsApi/agents/callback/test', async (request, reply) => {
     try {
       const parsed = z
         .object({
@@ -2196,8 +2196,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // 2. GET /cozeZhsApi/agents/callback/test - 返回最近回调记录
-  server.get('/cozeZhsApi/agents/callback/test', async (_request, reply) => {
+  // 2. GET /agentZhsApi/agents/callback/test - 返回最近回调记录
+  server.get('/agentZhsApi/agents/callback/test', async (_request, reply) => {
     try {
       const records = await dbRead
         .select()
@@ -2216,8 +2216,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // 3. GET /cozeZhsApi/agents/test/auth-config - 真实读取 env
-  server.get('/cozeZhsApi/agents/test/auth-config', async (_request, reply) => {
+  // 3. GET /agentZhsApi/agents/test/auth-config - 真实读取 env
+  server.get('/agentZhsApi/agents/test/auth-config', async (_request, reply) => {
     const token = process.env.COZE_API_TOKEN ?? process.env.COZE_PAT_TOKEN ?? ''
     const clientId = process.env.COZE_OAUTH_CLIENT_ID ?? ''
     const clientSecret = process.env.COZE_OAUTH_CLIENT_SECRET ?? ''
@@ -2234,8 +2234,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     )
   })
 
-  // 4. POST /cozeZhsApi/agents/test/fetch-details - 真实 Coze API + 本地
-  server.post('/cozeZhsApi/agents/test/fetch-details', async (request, reply) => {
+  // 4. POST /agentZhsApi/agents/test/fetch-details - 真实 Coze API + 本地
+  server.post('/agentZhsApi/agents/test/fetch-details', async (request, reply) => {
     try {
       const parsed = z.object({ bot_id: z.string().min(1) }).safeParse(request.body)
       if (!parsed.success) {
@@ -2284,8 +2284,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // 5. GET /cozeZhsApi/agents/manage - 真实返回 admin 跳转
-  server.get('/cozeZhsApi/agents/manage', async (_request, reply) => {
+  // 5. GET /agentZhsApi/agents/manage - 真实返回 admin 跳转
+  server.get('/agentZhsApi/agents/manage', async (_request, reply) => {
     const adminUrl = process.env.ADMIN_WEB_URL ?? '/admin/agents'
     return reply.send(
       success({
@@ -2296,8 +2296,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     )
   })
 
-  // 6. GET /cozeZhsApi/agents/Alllist - 真实查 agents 表全量
-  server.get('/cozeZhsApi/agents/Alllist', async (request, reply) => {
+  // 6. GET /agentZhsApi/agents/Alllist - 真实查 agents 表全量
+  server.get('/agentZhsApi/agents/Alllist', async (request, reply) => {
     try {
       const q = z
         .object({
@@ -2321,8 +2321,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // 7. GET /cozeZhsApi/agents/billings/:id - 真实查 agentBillings by billingId
-  server.get('/cozeZhsApi/agents/billings/:id', async (request, reply) => {
+  // 7. GET /agentZhsApi/agents/billings/:id - 真实查 agentBillings by billingId
+  server.get('/agentZhsApi/agents/billings/:id', async (request, reply) => {
     try {
       const { id } = z.object({ id: z.string().min(1) }).parse(request.params)
       const rows = await dbRead
@@ -2339,8 +2339,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // 8. GET /cozeZhsApi/agents/:id/details - 真实关联查 agents + agentBillings
-  server.get('/cozeZhsApi/agents/:id/details', async (request, reply) => {
+  // 8. GET /agentZhsApi/agents/:id/details - 真实关联查 agents + agentBillings
+  server.get('/agentZhsApi/agents/:id/details', async (request, reply) => {
     try {
       const { id } = z.object({ id: z.string().min(1) }).parse(request.params)
       const agentRows = await dbRead.select().from(agents).where(eq(agents.agentId, id)).limit(1)
@@ -2364,8 +2364,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // 9. GET /cozeZhsApi/agents/callbacks - 真实查 agentBillings 当作回调记录
-  server.get('/cozeZhsApi/agents/callbacks', async (request, reply) => {
+  // 9. GET /agentZhsApi/agents/callbacks - 真实查 agentBillings 当作回调记录
+  server.get('/agentZhsApi/agents/callbacks', async (request, reply) => {
     try {
       const q = z
         .object({
@@ -2393,7 +2393,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // 10. POST /cozeZhsApi/agents/config/webhook-secret - 真实写入运行时变量
+  // 10. POST /agentZhsApi/agents/config/webhook-secret - 真实写入运行时变量
   // 2026-07-21 安全审计加固:
   // 1. 移除弱默认 'your_webhook_secret_here' — 攻击者可枚举 → 必须强制配置
   // 2. POST 端点要求 admin 权限 — 防止普通用户篡改运行时密钥绕过 webhook 验签
@@ -2416,7 +2416,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   let runtimeWebhookSecretOverridden = false
   // 注意:此 POST 端点也受 preHandler 鉴权(除 /callback/* 外),
   // 此处额外要求 admin 角色 (roleId >= 1)
-  server.post('/cozeZhsApi/agents/config/webhook-secret', async (request, reply) => {
+  server.post('/agentZhsApi/agents/config/webhook-secret', async (request, reply) => {
     try {
       // 2026-07-21 安全审计加固:仅 admin 可改运行时 webhook 密钥
       // 防止普通用户伪造 webhook 验签(可任意改密钥绕过验签,或制造 401 风暴)
@@ -2449,8 +2449,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // 11. GET /cozeZhsApi/agents/config/webhook-secret - 真实读取
-  server.get('/cozeZhsApi/agents/config/webhook-secret', async (request, reply) => {
+  // 11. GET /agentZhsApi/agents/config/webhook-secret - 真实读取
+  server.get('/agentZhsApi/agents/config/webhook-secret', async (request, reply) => {
     // 与 POST 同闸:密钥预览(前 8 + 后 4 位)只向系统管理员开放。
     // 非管理员一律 404,不暴露该资源存在性(403 会把「密钥配置存在」泄露给任意登录用户)。
     if (!isSystemAdmin(request, { includeInternalChannel: false })) {
@@ -2473,8 +2473,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     )
   })
 
-  // 12. POST /cozeZhsApi/agents/test/coze-subscription - 真实生成测试事件
-  server.post('/cozeZhsApi/agents/test/coze-subscription', async (request, reply) => {
+  // 12. POST /agentZhsApi/agents/test/coze-subscription - 真实生成测试事件
+  server.post('/agentZhsApi/agents/test/coze-subscription', async (request, reply) => {
     try {
       const parsed = z
         .object({
@@ -2497,7 +2497,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(
         success({
           eventPayload,
-          message: `已生成 ${parsed.data.event_type} 测试事件, 可投递到 /cozeZhsApi/agents/callback/coze 验证处理逻辑`,
+          message: `已生成 ${parsed.data.event_type} 测试事件, 可投递到 /agentZhsApi/agents/callback/coze 验证处理逻辑`,
         }),
       )
     } catch (e) {
@@ -2507,8 +2507,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // 13. POST /cozeZhsApi/agents/test/signature-verification - 真实 HMAC-SHA256 验证
-  server.post('/cozeZhsApi/agents/test/signature-verification', async (request, reply) => {
+  // 13. POST /agentZhsApi/agents/test/signature-verification - 真实 HMAC-SHA256 验证
+  server.post('/agentZhsApi/agents/test/signature-verification', async (request, reply) => {
     try {
       const parsed = z
         .object({
@@ -2545,7 +2545,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // 14. PUT /cozeZhsApi/agents/token/balance/:userUuid - 真实 UPDATE
+  // 14. PUT /agentZhsApi/agents/token/balance/:userUuid - 真实 UPDATE
   //
   // 2026-10-31 安全强化第 10 批 R10：**加 admin 闸**。此前本路由只有插件级 `checkAuth`
   // —— 任意登录用户 PUT 自己的 uuid 与 `balance: 1e9` 即可凭空造币。该余额正是直播
@@ -2554,7 +2554,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   // 判据走 `requireAdmin`（resolveAdminRoleId + includeInternalChannel:false 单源，
   // 与 admin 面同一条；内部密钥 + 伪造 X-User-Id 不构成 admin 提权）。
   server.put(
-    '/cozeZhsApi/agents/token/balance/:userUuid',
+    '/agentZhsApi/agents/token/balance/:userUuid',
     { preHandler: requireAdmin },
     async (request, reply) => {
       try {
@@ -2604,8 +2604,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // 15. POST /cozeZhsApi/agents/user/billing - 真实查 agentBillings + 统计
-  server.post('/cozeZhsApi/agents/user/billing', async (request, reply) => {
+  // 15. POST /agentZhsApi/agents/user/billing - 真实查 agentBillings + 统计
+  server.post('/agentZhsApi/agents/user/billing', async (request, reply) => {
     try {
       const parsed = z
         .object({
@@ -2735,7 +2735,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // 5. GET /callbacks - 回调记录列表 (当前用户)
-  // 复用 agentBillings 表作为回调记录 (与现有 /cozeZhsApi/agents/callbacks 一致)
+  // 复用 agentBillings 表作为回调记录 (与现有 /agentZhsApi/agents/callbacks 一致)
   server.get('/callbacks', async (request, reply) => {
     const q = z
       .object({
