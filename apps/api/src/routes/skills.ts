@@ -32,12 +32,14 @@ import type {
   SkillPurchaseResponse,
   SkillPurchaseRefundResponse,
   SkillMarketPurchaseAdminListResponse,
+  SkillMarketSettlementResponse,
 } from '@ihui/shared/skills/market'
 import {
   InsufficientSkillFundsError,
   SkillPurchaseNotFoundError,
   SkillPurchaseStateError,
   getSkillEarnings,
+  getSkillMarketSettlement,
   hasPurchasedSkill,
   listSkillMarketPurchasesAdmin,
   purchasePaidSkill,
@@ -1010,6 +1012,17 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
       await writeMarket(server.redis, MARKET_KEY, entries)
 
       return reply.send(success({ name: removed.name, unlisted: true }))
+    },
+  )
+
+  // GET /admin/skills-market/settlement — 按技能+卖家聚合成交、分成、退款与平台承担。
+  // 只读；金额单位均为分，净额口径由服务层统一计算。
+  server.get(
+    '/admin/skills-market/settlement',
+    { preHandler: requireAdmin },
+    async (_request, reply) => {
+      const result: SkillMarketSettlementResponse = await getSkillMarketSettlement()
+      return reply.send(success(result))
     },
   )
 

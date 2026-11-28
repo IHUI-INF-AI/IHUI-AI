@@ -170,6 +170,8 @@ export interface SkillMarketPurchaseAdminItem {
   createdAt: string
   refundedAt: string | null
   refundAmountCents: number
+  /** 实际从卖家余额扣回的分成；NULL = 历史退款未记录。 */
+  sellerClawbackCents: number | null
   refundReason: string | null
 }
 
@@ -179,6 +181,56 @@ export interface SkillMarketPurchaseAdminListResponse {
   total: number
   page: number
   pageSize: number
+}
+
+/**
+ * 技能市场结算口径（管理员，GET /admin/skills-market/settlement）。
+ *
+ * 与“钱包余额”区分：这是购买账本口径的成交/分成/退款汇总。
+ * - grossSalesCents：所有成交订单（含后来退款）当时的成交额
+ * - refundedGrossCents：已退款订单当时成交额
+ * - netGmvCents = grossSalesCents - refundedGrossCents
+ * - authorShareEarnedCents：所有成交订单作者应得分成（含后来退款）
+ * - authorShareActiveCents：当前仍在购订单的作者分成
+ * - authorShareOnRefundedCents：已退款订单原作者分成（应冲正）
+ * - sellerClawbackCents：退款时实际从卖家余额扣回的分成
+ * - platformBorneCents = authorShareOnRefundedCents - sellerClawbackCents（平台承担）
+ * - authorNetCents = authorShareEarnedCents - sellerClawbackCents
+ * - platformShareEarnedCents：所有成交订单平台分成
+ * - platformShareActiveCents：当前仍在购订单的平台分成
+ * - platformShareOnRefundedCents：已退款订单的平台分成（应冲正）
+ * - platformNetCents = platformShareEarnedCents - platformShareOnRefundedCents - platformBorneCents
+ */
+export interface SkillMarketSettlementTotals {
+  paidCount: number
+  refundedCount: number
+  grossSalesCents: number
+  refundedGrossCents: number
+  netGmvCents: number
+  authorShareEarnedCents: number
+  authorShareActiveCents: number
+  authorShareOnRefundedCents: number
+  sellerClawbackCents: number
+  platformBorneCents: number
+  authorNetCents: number
+  platformShareEarnedCents: number
+  platformShareActiveCents: number
+  platformShareOnRefundedCents: number
+  platformNetCents: number
+  /** 已退款行中 seller_clawback_cents 为 NULL 的历史记录数；>0 时平台承担额不可精确复核。 */
+  clawbackMissingCount: number
+}
+
+export interface SkillMarketSettlementRow extends SkillMarketSettlementTotals {
+  skillName: string
+  sellerUserId: string | null
+  sellerNickname: string | null
+}
+
+export interface SkillMarketSettlementResponse {
+  summary: SkillMarketSettlementTotals
+  items: SkillMarketSettlementRow[]
+  currency: 'CNY'
 }
 
 /** 作者收益汇总(GET /skills/market/earnings)。 */

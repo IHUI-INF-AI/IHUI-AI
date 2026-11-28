@@ -39,6 +39,14 @@ export const skillMarketPurchases = pgTable(
     status: varchar('status', { length: 16 }).default('paid').notNull(),
     refundedAt: timestamp('refunded_at', { withTimezone: true }),
     refundAmountCents: integer('refund_amount_cents').default(0).notNull(),
+    /**
+     * 退款时从卖家余额实际扣回的分成（分）。
+     * 允许 NULL：字段落地前的历史退款没有记录，不能把“未知”当成“扣回 0”。
+     * 结算时 platformBorne = 原作者分成 - 实际扣回，NULL 行单独计数提示。
+     */
+    sellerClawbackCents: integer('seller_clawback_cents'),
+    /** 购买时写入的作者分成佣金流水 ID；退款按 ID 精确冲正，历史行回退到 remark 匹配。 */
+    commissionFlowId: uuid('commission_flow_id'),
     refundReason: varchar('refund_reason', { length: 255 }),
     refundedBy: uuid('refunded_by'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -49,6 +57,7 @@ export const skillMarketPurchases = pgTable(
       .on(t.buyerUserId, t.skillName)
       .where(sql`${t.status} = 'paid'`),
     sellerTimeIdx: index('skill_market_purchases_seller_time_idx').on(t.sellerUserId, t.createdAt),
+    statusTimeIdx: index('skill_market_purchases_status_time_idx').on(t.status, t.createdAt),
   }),
 )
 

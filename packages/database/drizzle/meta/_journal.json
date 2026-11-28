@@ -3411,6 +3411,13 @@
       "when": 1795845600000,
       "tag": "20261128160000_skill_market_refund",
       "breakpoints": true
+    },
+    {
+      "idx": 497,
+      "version": "7",
+      "when": 1795852800000,
+      "tag": "20261128180000_skill_market_settlement",
+      "breakpoints": true
     }
   ]
 }
