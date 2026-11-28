@@ -50,7 +50,7 @@ describe('MasterAssistantPanel', () => {
     render(<MasterAssistantPanel />)
 
     await waitFor(() => expect(screen.getByRole('heading', { name: '总管' })).toBeTruthy())
-    expect(screen.getByTestId('master-open-agents').textContent).toContain('智能体与子智能体')
+    expect(screen.getByTestId('master-open-agents').textContent).toContain('总管创建的智能体')
     expect(screen.getByTestId('master-open-approvals').textContent).toContain('待你确认')
     expect(screen.getByTestId('master-open-approvals').textContent).toContain('1')
   })

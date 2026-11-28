@@ -849,6 +849,7 @@ export function AISidePanel() {
   // masterMode 由侧边栏「AI总管」按钮写入;新建任务 / 关闭面板会退回普通对话。
   const masterMode = useAiPanelStore((s) => s.masterMode)
   const exitMaster = useAiPanelStore((s) => s.exitMaster)
+  const setMasterSessionId = useAiPanelStore((s) => s.setMasterSessionId)
   const {
     messages,
     currentModel,
@@ -1680,6 +1681,8 @@ export function AISidePanel() {
       if (useChatStore.getState().isStreaming) return
       // 新建任务 = 从总管模式退回普通会话(否则点新建仍停在总管,用户会以为没反应)
       exitMaster()
+      // 新建任务同时清掉总管 session,右侧运行列表不会把上一轮对话的智能体带过来
+      setMasterSessionId(null)
       // 2026-11-11 重构:不再在这里特判 640–1279「抬浮窗」——
       // openPanel 已是桶感知的唯一出口(sheet/float 档强制浮窗并复位折叠/最小化),
       // 侧栏按钮 / 快捷键 / 任何路由触发的入口都走同一条规则,不会各写一份。
@@ -1688,7 +1691,7 @@ export function AISidePanel() {
     }
     window.addEventListener('global-shortcut:new-chat', onNewChat)
     return () => window.removeEventListener('global-shortcut:new-chat', onNewChat)
-  }, [exitMaster, handleNewChat, openPanel])
+  }, [exitMaster, handleNewChat, openPanel, setMasterSessionId])
 
   // 2026-11-16 用户定档:ChatMode 手动入口全部移除 —— Alt+P 与 Ctrl+1~5 不再切换模式,
   // 发送链固定全工具开放,由 AI 自主决定是否使用工具。

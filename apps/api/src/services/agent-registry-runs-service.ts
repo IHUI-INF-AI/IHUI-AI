@@ -149,6 +149,46 @@ export async function listDefinitionRuns(
   return { items: rows.map(toRunView), total: countRows[0]?.count ?? 0 }
 }
 
+/**
+ * 我的运行列表(2026-11-28):
+ * 总管右侧只展示"这次对话里由总管派出去"的智能体,不是注册表的模板。
+ * 以 sessionId 收口;owner 永远是当前用户,不信任前端传 owner。
+ */
+export async function listOwnerRuns(
+  actor: AgentRegistryActor,
+  query: {
+    sessionId?: string
+    status?: RunStatus
+    limit?: number
+    offset?: number
+  } = {},
+): Promise<{ items: AgentRunView[]; total: number }> {
+  const filters = [eq(agentRuns.ownerUserId, actor.userId)]
+  if (query.sessionId) {
+    // 总管派发时把 chat session 写进 metadata.masterSessionId;老 run 的 session_id
+    // 是运行自己的会话载体,不能再当"哪次总管对话"用,所以这里只认 metadata。
+    filters.push(
+      sql`${agentRuns.metadata}->>'masterSessionId' = ${query.sessionId}`,
+    )
+  }
+  if (query.status !== undefined) filters.push(eq(agentRuns.status, query.status))
+  const where = and(...filters)
+  const [rows, countRows] = await Promise.all([
+    db
+      .select()
+      .from(agentRuns)
+      .where(where)
+      .orderBy(desc(agentRuns.createdAt))
+      .limit(Math.min(Math.max(query.limit ?? 50, 1), 100))
+      .offset(Math.max(query.offset ?? 0, 0)),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(agentRuns)
+      .where(where),
+  ])
+  return { items: rows.map(toRunView), total: countRows[0]?.count ?? 0 }
+}
+
 export async function getAgentRun(actor: AgentRegistryActor, runId: string): Promise<AgentRunView> {
   const run = await loadRunOrThrow(runId)
   await assertRunVisible(actor, run)

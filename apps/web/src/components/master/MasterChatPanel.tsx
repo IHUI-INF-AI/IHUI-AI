@@ -27,11 +27,19 @@ interface MasterReply {
 
 interface MasterChatPanelProps {
   masterName?: string
+  /** 当前总管对话 sessionId(面板重开时继续同一会话;由 ai-panel store 提供) */
+  initialSessionId?: string
+  /** 会话创建/续接时把 sessionId 交给外层,供右侧「总管创建的智能体」按会话拉运行 */
+  onSessionIdChange?: (sessionId: string) => void
 }
 
-export function MasterChatPanel({ masterName = '总管' }: MasterChatPanelProps) {
+export function MasterChatPanel({
+  masterName = '总管',
+  initialSessionId,
+  onSessionIdChange,
+}: MasterChatPanelProps) {
   const [input, setInput] = useState('')
-  const [sessionId, setSessionId] = useState<string | undefined>()
+  const [sessionId, setSessionId] = useState<string | undefined>(initialSessionId)
   const [turns, setTurns] = useState<ChatTurn[]>([])
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
@@ -64,7 +72,10 @@ export function MasterChatPanel({ masterName = '总管' }: MasterChatPanelProps)
       if (!response.ok || payload.code !== 0 || !payload.data) {
         throw new Error(payload.errorCode || payload.message || `HTTP ${response.status}`)
       }
-      if (payload.data.session_id) setSessionId(payload.data.session_id)
+      if (payload.data.session_id) {
+        setSessionId(payload.data.session_id)
+        onSessionIdChange?.(payload.data.session_id)
+      }
       setTurns((prev) => [
         ...prev,
         {

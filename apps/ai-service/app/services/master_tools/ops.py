@@ -391,7 +391,13 @@ class AgentOpsTool:
                 payload[key] = value
         return payload
 
-    async def handle(self, arguments: dict[str, Any], *, user_id: str) -> dict[str, Any]:
+    async def handle(
+        self,
+        arguments: dict[str, Any],
+        *,
+        user_id: str,
+        master_session_id: str | None = None,
+    ) -> dict[str, Any]:
         request_id = f"req_{uuid.uuid4().hex[:12]}"
         started = time.monotonic()
 
@@ -420,7 +426,9 @@ class AgentOpsTool:
         try:
             payload = self._build_payload(arguments)
             if payload["action"] in _LOCAL_ACTIONS:
-                result = await self._local_action(payload, user_id=user_id)
+                result = await self._local_action(
+                    payload, user_id=user_id, master_session_id=master_session_id
+                )
             else:
                 result = await self._post_ops(payload, user_id=user_id)
         except OpsToolError as error:
@@ -435,10 +443,18 @@ class AgentOpsTool:
             )
         return envelope(data=result)
 
-    async def _local_action(self, payload: dict[str, Any], *, user_id: str) -> Any:
+    async def _local_action(
+        self,
+        payload: dict[str, Any],
+        *,
+        user_id: str,
+        master_session_id: str | None = None,
+    ) -> Any:
         """dispatch 真实执行 single；pause/resume/talk 依赖本实例在飞会话。"""
         if payload["action"] == "dispatch":
-            return await self._dispatch(payload, user_id=user_id)
+            return await self._dispatch(
+                payload, user_id=user_id, master_session_id=master_session_id
+            )
 
         run_id = str(payload.get("runId") or "").strip()
         if not run_id:
@@ -449,7 +465,12 @@ class AgentOpsTool:
         if action in ("run_cancel", "run_stop"):
             return await self._cancel_run(run, run_id=run_id, user_id=user_id, action=action)
         if action == "run_retry":
-            return await self._retry_run(run, run_id=run_id, user_id=user_id)
+            return await self._retry_run(
+                run,
+                run_id=run_id,
+                user_id=user_id,
+                master_session_id=master_session_id,
+            )
 
         if not session_id:
             raise OpsToolError(
@@ -974,7 +995,14 @@ class AgentOpsTool:
             "durationMs": result.duration_ms,
         }
 
-    async def _retry_run(self, run: Any, *, run_id: str, user_id: str) -> dict[str, Any]:
+    async def _retry_run(
+        self,
+        run: Any,
+        *,
+        run_id: str,
+        user_id: str,
+        master_session_id: str | None = None,
+    ) -> dict[str, Any]:
         """按创建 run 时保存的 dispatch 快照重建一次新 run；旧 run 不改状态。"""
         status = str(run.get("status") or "") if isinstance(run, dict) else ""
         if status not in {"failed", "canceled", "timeout"}:
@@ -1004,7 +1032,9 @@ class AgentOpsTool:
             if key not in ("action", "runId") and value is not None
         }
         retry_payload["action"] = "dispatch"
-        retried = await self._dispatch(retry_payload, user_id=user_id)
+        retried = await self._dispatch(
+            retry_payload, user_id=user_id, master_session_id=master_session_id
+        )
         return {
             "retriedFrom": run_id,
             "requestedMode": retry_payload.get("mode") or "single",
@@ -1079,7 +1109,13 @@ class AgentOpsTool:
         )
         return True
 
-    async def _dispatch(self, payload: dict[str, Any], *, user_id: str) -> dict[str, Any]:
+    async def _dispatch(
+        self,
+        payload: dict[str, Any],
+        *,
+        user_id: str,
+        master_session_id: str | None = None,
+    ) -> dict[str, Any]:
         from ..agent_definition_provider import AgentDefinitionProvider
         from ..agent_orchestrator import AgentOrchestrator, to_run_registry_status
         from ..agent_registry_client import AgentRegistryClient
@@ -1096,7 +1132,12 @@ class AgentOpsTool:
             "recursive",
             "decomposed",
         ):
-            return await self._dispatch_multi(payload, mode=mode, user_id=user_id)
+            return await self._dispatch_multi(
+            payload,
+            mode=mode,
+            user_id=user_id,
+            master_session_id=master_session_id,
+        )
         if mode != "single":
             raise OpsToolError(
                 "AGENT_MODE_NOT_IMPLEMENTED",
@@ -1140,6 +1181,11 @@ class AgentOpsTool:
                 "metadata": {
                     "source": "master_tools.agent_ops.dispatch",
                     "dispatchPayload": _dispatch_snapshot(payload),
+                    **(
+                        {"masterSessionId": master_session_id}
+                        if master_session_id
+                        else {}
+                    ),
                 },
             }
         )
@@ -1228,7 +1274,12 @@ class AgentOpsTool:
         }
 
     async def _dispatch_multi(
-        self, payload: dict[str, Any], *, mode: str, user_id: str
+        self,
+        payload: dict[str, Any],
+        *,
+        mode: str,
+        user_id: str,
+        master_session_id: str | None = None,
     ) -> dict[str, Any]:
         """多参与者模式的父 run + 子步骤执行；debate/vote/critique 复用同一父账本。"""
         from ..agent_definition_provider import AgentDefinitionProvider
@@ -1390,6 +1441,11 @@ class AgentOpsTool:
                     "source": "master_tools.agent_ops.dispatch",
                     "participants": [definition.id for definition in resolved],
                     "dispatchPayload": _dispatch_snapshot(payload),
+                    **(
+                        {"masterSessionId": master_session_id}
+                        if master_session_id
+                        else {}
+                    ),
                 },
             }
         )

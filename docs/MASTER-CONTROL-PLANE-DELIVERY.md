@@ -16,10 +16,17 @@
 - 左侧菜单栏在「新建任务」上方新增「AI总管」按钮(`SidebarQuickActions`)。
 - 点击后用 `useAiPanelStore.openMaster()` 打开**现有** AI 面板,并把面板主体切到 `MasterAssistantPanel`:
   身份胶囊 + 总管对话 + 两枚去工作区的入口。
-- 右侧工作展示区只放面板: `/master` = 智能体与子智能体卡片墙, `/master/approvals` = 待你确认;
-  顶部 `GlobalShell`、左侧 `Sidebar`、右侧 `AISidePanel` 都保留,不再为总管隐藏任何一层。
-- `/master` 不再注册为侧栏一级导航项;顶栏标签显示「智能体」/「待你确认」。
-- 旧的 `MasterRegistryConsole` 保留 `embedded` 模式:只画工作区面板,不画顶部菜单栏和左栏导航。
+- 右侧工作展示区只放面板: `/master` = **总管这次对话里实际派出去的智能体运行列表**,
+  `/master/approvals` = 待你确认;顶部 `GlobalShell`、左侧 `Sidebar`、右侧 `AISidePanel`
+  都保留,不再为总管隐藏任何一层。
+- `/master` 不是项目原有的「智能体」/AI 应用商店,也不是 `agent-registry` 模板卡片墙。
+  数据面为 `GET /api/agent-registry/runs?sessionId=...`,只读 `agent_runs` 中
+  `metadata.masterSessionId` 等于本次总管对话 session 的运行。
+- 进行中(`queued/running/paused/blocked`)带圆形旋转动画;`succeeded/failed/canceled/timeout`
+  统一归入「已完成」。
+- `/master` 不再注册为侧栏一级导航项;顶栏标签显示「总管智能体」/「待你确认」。
+- 旧的 `MasterRegistryConsole` 保留 `embedded` 模式:只画工作区面板,不画顶部菜单栏和左栏导航;
+  但 embedded 的 registry 视图已替换为 `MasterCreatedAgentsPanel`,不再渲染模板卡片。
 
 ## 本轮提交
 

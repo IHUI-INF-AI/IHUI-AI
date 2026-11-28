@@ -7,7 +7,7 @@
  * 用户明确不要独立 `/master` 页面:总管就是现有 AI 面板里的一种内容形态。
  * 这一层只做三件事:
  *  1. 顶部身份胶囊(复用 MasterIdentityHeader,名字可改);
- *  2. 两枚去工作区的入口(智能体与子智能体 / 待你确认),点开走现有工作区,
+ *  2. 两枚去工作区的入口(总管创建的智能体 / 待你确认),点开走现有工作区,
  *     不在面板里再造一套表格式后台;
  *  3. 对话主体复用 MasterChatPanel,按 400–720px 窄面板留白。
  */
@@ -19,6 +19,7 @@ import { ShieldCheck, Users } from 'lucide-react'
 
 import { MasterChatPanel } from './MasterChatPanel'
 import { MasterIdentityHeader } from './MasterIdentityHeader'
+import { useAiPanelStore } from '@/stores/ai-panel'
 
 interface MasterProfileView {
   displayName: string
@@ -51,6 +52,8 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export function MasterAssistantPanel() {
+  const masterSessionId = useAiPanelStore((state) => state.masterSessionId)
+  const setMasterSessionId = useAiPanelStore((state) => state.setMasterSessionId)
   const [masterName, setMasterName] = useState(DEFAULT_MASTER_NAME)
   const [maxLength, setMaxLength] = useState(24)
   const [pending, setPending] = useState(0)
@@ -123,7 +126,7 @@ export function MasterAssistantPanel() {
           className="inline-flex items-center gap-1.5 rounded-full border border-[#e7e2d8] bg-[#fbfaf7] px-3 py-1.5 text-[12px] text-[#5e574d] transition hover:border-[#d8d0c2] hover:bg-white hover:text-[#2c2823]"
         >
           <Users className="h-3.5 w-3.5" />
-          智能体与子智能体
+          总管创建的智能体
         </Link>
         <Link
           href="/master/approvals"
@@ -141,7 +144,11 @@ export function MasterAssistantPanel() {
       </div>
 
       <div className="min-h-0 flex-1">
-        <MasterChatPanel masterName={masterName} />
+        <MasterChatPanel
+          masterName={masterName}
+          initialSessionId={masterSessionId ?? undefined}
+          onSessionIdChange={setMasterSessionId}
+        />
       </div>
     </section>
   )

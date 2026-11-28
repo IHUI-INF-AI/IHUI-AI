@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 
 import { MasterChatPanel } from './MasterChatPanel'
+import { MasterCreatedAgentsPanel } from './MasterCreatedAgentsPanel'
 import { MasterIdentityHeader } from './MasterIdentityHeader'
 import { MasterRunControlPanel } from './MasterRunControlPanel'
 
@@ -527,7 +528,7 @@ export function MasterRegistryConsole({
               <div className="flex h-14 shrink-0 items-center gap-1 border-b border-[#eee9e1] px-5 text-[13px]">
                 {(
                   [
-                    { key: 'registry' as const, label: '智能体与子智能体' },
+                    { key: 'registry' as const, label: '总管创建的智能体' },
                     { key: 'approvals' as const, label: '待你确认' },
                     { key: 'run' as const, label: '任务运行' },
                   ] satisfies Array<{ key: ConsoleView; label: string }>
@@ -558,14 +559,6 @@ export function MasterRegistryConsole({
                     </button>
                   )
                 })}
-                <button
-                  type="button"
-                  onClick={toggleCreate}
-                  className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-[#ded8ce] bg-white px-3 py-1.5 text-[12px] text-[#5e574d] transition hover:bg-[#f7f4ef]"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  {showCreate ? '收起新建' : '新建模板'}
-                </button>
               </div>
             )}
             {view === 'chat' && (
@@ -584,7 +577,9 @@ export function MasterRegistryConsole({
 
             {view === 'run' && <MasterRunControlPanel masterName={masterName} />}
 
-            {view === 'registry' && (
+            {view === 'registry' && embedded && <MasterCreatedAgentsPanel />}
+
+            {view === 'registry' && !embedded && (
               <div className="flex min-h-0 flex-1 flex-col">
                 <div className="flex shrink-0 flex-wrap items-start justify-between gap-3 border-b border-[#f0ebe3] px-7 py-6">
                   <div>

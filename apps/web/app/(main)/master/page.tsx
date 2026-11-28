@@ -5,8 +5,8 @@ import type { Metadata } from 'next'
 import { MasterRegistryConsole } from '@/components/master/MasterRegistryConsole'
 
 export const metadata: Metadata = {
-  title: '智能体与子智能体 · 总管 | 智汇 AI',
-  description: '总管的用人面板：智能体与子智能体、待你确认。',
+  title: '总管智能体 · 总管 | 智汇 AI',
+  description: '总管在对话中派出去、正在跑或已经跑完的智能体。',
   robots: { index: false, follow: false },
 }
 

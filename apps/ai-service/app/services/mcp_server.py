@@ -19042,7 +19042,11 @@ async def _tool_agent_ops(arguments: dict[str, Any]) -> dict[str, Any]:
             "action": str(arguments.get("action") or ""),
             "error": {"code": "AGENT_USER_REQUIRED", "message": "缺少 __user_id，拒绝越权访问运行"},
         }
-    return await agent_ops_tool.handle(arguments, user_id=user_id)
+    return await agent_ops_tool.handle(
+        arguments,
+        user_id=user_id,
+        master_session_id=str(arguments.get("__session_id") or "").strip() or None,
+    )
 
 
 async def _tool_master_memory(arguments: dict[str, Any]) -> dict[str, Any]:

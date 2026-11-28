@@ -112,7 +112,7 @@ const EXTRA_PATH_LABELS: PathLabelEntry[] = [
   // ===== 原有 21 条独立页面路由 =====
   // 2026-11-28:总管工作区(智能体 / 待你确认)不再是侧栏的一级「控制台页」,
   // 但顶栏标签仍要有中文名,不能退化成路由段 "Master"。
-  { href: '/master', spec: { ns: 'nav', key: 'masterConsole' }, dynamicLabel: '智能体' },
+  { href: '/master', spec: { ns: 'nav', key: 'masterConsole' }, dynamicLabel: '总管智能体' },
   {
     href: '/master/approvals',
     spec: { ns: 'nav', key: 'masterConsole' },

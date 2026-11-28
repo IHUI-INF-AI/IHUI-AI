@@ -134,6 +134,12 @@ interface AiPanelState {
    * false = 原来的通用 AI 对话。会话级 UI 态,不持久化。
    */
   masterMode: boolean
+  /**
+   * 本次总管对话的 sessionId(2026-11-28):
+   * 右侧「总管创建的智能体」只按这个 session 拉运行账本,不拉注册表模板。
+   * 跨 `/workspace` ↔ `/master` 路由切换要保留;新建任务清空。
+   */
+  masterSessionId: string | null
   /** 工作展示区折叠态:true = 隐藏右侧 work-area,AI 面板占满(2026-08-17 用户需求) */
   workAreaCollapsed: boolean
   /**
@@ -149,6 +155,8 @@ interface AiPanelState {
   openMaster: () => void
   /** 退出总管模式,回到普通 AI 对话(新建任务/关闭面板时调用) */
   exitMaster: () => void
+  /** 记录/清空当前总管对话的 sessionId,供右侧运行列表拉取使用 */
+  setMasterSessionId: (sessionId: string | null) => void
   setWidth: (w: number) => void
   setResizing: (v: boolean) => void
   setActiveWorkspace: (ws: ActiveWorkspace | null) => void
@@ -198,6 +206,7 @@ export const useAiPanelStore = create<AiPanelState>()(
       floatSize: FLOAT_DEFAULT_SIZE,
       floatFabPosition: null,
       masterMode: false,
+      masterSessionId: null,
       workAreaCollapsed: false,
       workAreaFullscreen: false,
 
@@ -230,6 +239,7 @@ export const useAiPanelStore = create<AiPanelState>()(
         set({ masterMode: true, floatCollapsed: false, floatMinimized: false })
       },
       exitMaster: () => set({ masterMode: false }),
+      setMasterSessionId: (sessionId) => set({ masterSessionId: sessionId }),
       setWidth: (w) =>
         set({
           width: Math.min(AI_PANEL_MAX_WIDTH, Math.max(AI_PANEL_MIN_WIDTH, w)),

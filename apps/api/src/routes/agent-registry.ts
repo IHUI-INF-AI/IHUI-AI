@@ -57,6 +57,7 @@ import {
   getAgentRunStats,
   listAgentRunEvents,
   listDefinitionRuns,
+  listOwnerRuns,
   listRunArtifacts,
 } from '../services/agent-registry-runs-service.js'
 import { runIdempotent } from '../services/agent-registry-idempotency.js'
@@ -189,6 +190,14 @@ const definitionRunsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
   offset: z.coerce.number().int().min(0).default(0),
   cursor: z.string().max(200).optional(),
+})
+
+/** 我的运行列表:总管右侧按本次对话 sessionId 收口,只列自己派出去的智能体。 */
+const ownerRunsQuerySchema = z.object({
+  sessionId: z.string().min(1).max(64).optional(),
+  status: z.enum(RUN_STATUSES).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
 })
 
 const runLogsQuerySchema = z.object({
@@ -477,6 +486,28 @@ export const agentRegistryRoutes: FastifyPluginAsync = async (server) => {
     const params = parseOrThrow(z.object({ id: uuidSchema }), request.params)
     const query = parseOrThrow(definitionRunsQuerySchema, request.query)
     const result = await listDefinitionRuns(actor, params.id, {
+      status: query.status as RunStatus | undefined,
+      limit: query.limit,
+      offset: query.offset,
+    })
+    return reply.send(
+      withRequestId(
+        request,
+        success({ items: result.items, total: result.total, nextCursor: null }),
+      ),
+    )
+  })
+
+  /**
+   * 总管右侧「智能体」的真实数据面(2026-11-28):
+   * 不是注册表模板,而是"这次对话里总管派出去、已经跑起来/跑完的智能体"。
+   * 前端传当前总管 chat 的 sessionId,后端按 owner + session 收口。
+   */
+  server.get('/runs', async (request, reply) => {
+    const actor = actorOf(request)
+    const query = parseOrThrow(ownerRunsQuerySchema, request.query)
+    const result = await listOwnerRuns(actor, {
+      sessionId: query.sessionId,
       status: query.status as RunStatus | undefined,
       limit: query.limit,
       offset: query.offset,

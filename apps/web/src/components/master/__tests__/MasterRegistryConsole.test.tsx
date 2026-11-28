@@ -161,9 +161,9 @@ describe('MasterRegistryConsole', () => {
 
     render(<MasterRegistryConsole embedded initialView="registry" />)
 
-    await screen.findAllByText('写作助手')
-    expect(screen.getByText('你的智能体')).toBeTruthy()
-    expect(screen.getByRole('button', { name: /智能体与子智能体/ })).toBeTruthy()
+    await screen.findByRole('heading', { name: '总管创建的智能体' })
+    expect(screen.getByRole('button', { name: /总管创建的智能体/ })).toBeTruthy()
     expect(screen.getAllByRole('button', { name: /待你确认/ }).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('button', { name: /智能体与子智能体/ })).toBeNull()
   })
 })
