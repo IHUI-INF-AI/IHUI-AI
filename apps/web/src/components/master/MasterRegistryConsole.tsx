@@ -233,7 +233,7 @@ export function MasterRegistryConsole() {
       const detail = await api<ApprovalView>(`/api/agent-registry/approvals/${created.approvalId}`)
       setApproval(detail)
       setTypedName('')
-      setNotice('删除审批已生成，请在待审批中确认；未确认前不会删除。')
+      setNotice('删除确认已生成，请在「待你确认」中处理；未确认前不会删除。')
       await reload()
     } catch (err) {
       setError(err instanceof Error ? err.message : '删除预检失败')
@@ -298,13 +298,12 @@ export function MasterRegistryConsole() {
     attention?: boolean
   }> = [
     { key: 'chat', label: masterName, icon: MessageSquare },
-    { key: 'registry', label: '智能体注册表', icon: Boxes, count: items.length },
-    { key: 'run', label: '运行控制', icon: Activity },
+    { key: 'registry', label: '智能体', icon: Boxes },
+    { key: 'run', label: '任务运行', icon: Activity },
     {
       key: 'approvals',
-      label: '待审批',
+      label: '待你确认',
       icon: ShieldCheck,
-      count: approvals.length,
       attention: approvals.length > 0,
     },
   ]
@@ -386,24 +385,17 @@ export function MasterRegistryConsole() {
                     <Icon className="h-[18px] w-[18px] shrink-0 text-[#6f685d]" />
                   )}
                   <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                  {item.count !== undefined && (
-                    <span
-                      className={`text-[11px] tabular-nums ${
-                        item.attention ? 'text-[#a36e2a]' : 'text-[#a39b8f]'
-                      }`}
-                    >
-                      {loading ? '…' : item.count}
-                    </span>
+                  {item.attention && (
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#c08334]" />
                   )}
                 </button>
               )
             })}
           </nav>
 
-          <div className="mt-6 rounded-[10px] border border-[#e9e3d9] bg-[#faf8f4] px-3.5 py-3 text-[11px] leading-5 text-[#9d9487]">
-            <p className="mb-1 text-[10px] tracking-[0.1em] text-[#b0a79b]">运行边界</p>
+          <div className="mt-7 space-y-0.5 px-3 text-[11px] leading-5 text-[#a49b8f]">
             <p>固定人格 · 三工具</p>
-            <p>删除与回滚必须审批</p>
+            <p>删除与回滚需要你确认</p>
             <p>控制面只作用于 single run</p>
           </div>
 
@@ -433,7 +425,7 @@ export function MasterRegistryConsole() {
             </span>
             <div className="min-w-0 text-[11px] leading-4 text-[#9b9387]">
               <p className="truncate text-[12px] text-[#5f584d]">个人工作区</p>
-              <p className="truncate">注册表按账号隔离</p>
+              <p className="truncate">总管工作台</p>
             </div>
           </div>
         </aside>
@@ -464,13 +456,13 @@ export function MasterRegistryConsole() {
                       Agent registry
                     </p>
                     <h2 className="mt-1 text-[22px] font-semibold leading-8 text-[#23211c]">
-                      智能体注册表{' '}
+                      智能体{' '}
                       <span className="text-[14px] font-normal tabular-nums text-[#9c9488]">
                         {items.length}
                       </span>
                     </h2>
                     <p className="mt-1 text-[12px] text-[#8d8579]">
-                      删除只发起审批，不在这里直接抹掉。
+                      总管可调用的角色与能力。删除只发起确认，不在这里直接抹掉。
                     </p>
                   </div>
                   <button
@@ -479,7 +471,7 @@ export function MasterRegistryConsole() {
                     className="inline-flex items-center gap-1.5 rounded-full bg-[#23211d] px-3.5 py-2 text-[12px] font-medium text-white transition hover:bg-[#3a372f]"
                   >
                     <Plus className="h-3.5 w-3.5" />
-                    {showCreate ? '收起新建' : '新建定义'}
+                    {showCreate ? '收起新建' : '新建智能体'}
                   </button>
                 </div>
 
@@ -659,18 +651,20 @@ export function MasterRegistryConsole() {
                       Approvals
                     </p>
                     <h2 className="mt-1 text-[22px] font-semibold leading-8 text-[#23211c]">
-                      待审批{' '}
+                      待你确认{' '}
                       <span className="text-[14px] font-normal tabular-nums text-[#9c9488]">
                         {approvals.length}
                       </span>
                     </h2>
-                    <p className="mt-1 text-[12px] text-[#8d8579]">删除与回滚在这里二次确认。</p>
+                    <p className="mt-1 text-[12px] text-[#8d8579]">
+                      删除与回滚在这里二次确认。
+                    </p>
                   </div>
                 </div>
                 <div className="min-h-0 flex-1 overflow-y-auto px-7 py-5">
                   {approvals.length === 0 ? (
                     <p className="rounded-xl border border-[#eee9e1] bg-[#faf9f6] py-14 text-center text-[12px] text-[#a29a8e]">
-                      没有待审批
+                      没有待确认
                     </p>
                   ) : (
                     <ul className="divide-y divide-[#f1ede5] overflow-hidden rounded-xl border border-[#eee9e1] bg-white">

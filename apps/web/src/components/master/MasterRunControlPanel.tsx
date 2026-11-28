@@ -105,9 +105,9 @@ export function MasterRunControlPanel({ masterName = '总管' }: MasterRunContro
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#a29a8e]">
-              Run control
+              Task run
             </p>
-            <h2 className="mt-1 text-[22px] font-semibold leading-8 text-[#23211c]">运行控制</h2>
+            <h2 className="mt-1 text-[22px] font-semibold leading-8 text-[#23211c]">任务运行</h2>
           </div>
           <span className="rounded-full border border-[#e4ded3] px-2.5 py-1 text-[11px] text-[#8c8478]">
             single run · HTTP 控制面
