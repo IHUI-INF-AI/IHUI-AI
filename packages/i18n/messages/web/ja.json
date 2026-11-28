@@ -12467,9 +12467,9 @@
     },
     "analysisOpen": "シナリオ分析を表示",
     "secretMaskShow": "認証情報を表示",
-    "secretMaskHide": "認証情報を隠す"
-  ,
-    "resizeComposerHint": "ドラッグで入力欄の高さを調整"},
+    "secretMaskHide": "認証情報を隠す",
+    "resizeComposerHint": "ドラッグで入力欄の高さを調整"
+  },
   "chatHistory": {
     "selectModeAriaLabel": "タスクの複数選択モードを切り替え",
     "backToHistory": "にる",
@@ -15433,17 +15433,8 @@
     "sections": "セクション目次"
   },
   "eduCoursesPage": {
-    "empty": "コースがありません",
-    "loading": "読み込み中...",
-    "progress": "進捗 {n}%",
-    "searchAriaLabel": "コースを検索",
-    "searchPlaceholder": "コースを検索...",
-    "statusCompleted": "完了",
-    "statusInProgress": "受講中",
-    "statusNotStarted": "未開始",
     "subtitle": "受講済みの全コースを管理",
-    "title": "マイコース",
-    "total": "全 {n} 件"
+    "title": "マイコース"
   },
   "eduDashboardPage": {
     "coursesCard": {
@@ -16596,11 +16587,11 @@
       "points": "ポイント",
       "signIn": "チェックイン",
       "signedIn": "チェックイン済み",
-      "welcome": "Hi、学習プラットフォームへようこそ"
-    ,
+      "welcome": "Hi、学習プラットフォームへようこそ",
       "usageLoadFailed": "使用量データの読み込みに失敗しました：{message}",
       "usageUnavailable": "一時利用不可",
-      "usageFailedAttempts": "{count}回失敗"},
+      "usageFailedAttempts": "{count}回失敗"
+    },
     "moduleSection": {
       "noData": "データがありません",
       "viewMore": "もっと見る"
@@ -24607,8 +24598,7 @@
     "frozen": "凍結金額",
     "totalRecharge": "累計チャージ",
     "totalWithdraw": "累計出金",
-    "loadFailed": "ウォレットの読み込みに失敗しました"
-  ,
+    "loadFailed": "ウォレットの読み込みに失敗しました",
     "loginRequired": "ログインしてウォレットを表示してください",
     "convertTitle": "ウォレット残高をAIポイントに交換",
     "convertRule": "1分=1ポイント、交換後は取り消せません",
@@ -24616,7 +24606,8 @@
     "convertMinHint": "最小 100ポイント（¥1）",
     "convertAlreadyDone": "この交換リクエストは処理済みです（重複請求なし）",
     "convertSuccess": "{points} AIポイントを交換しました。現在のポイント残高: {balance}",
-    "convertFailed": "交換に失敗しました。後ほど再度お試しください"},
+    "convertFailed": "交換に失敗しました。後ほど再度お試しください"
+  },
   "withdrawals": {
     "allStatus": "すべてのステータス",
     "create": "新規作成",
@@ -28984,7 +28975,8 @@
     "trendChartScope": "対象：{scope}",
     "trendChartHint": "過去 30 日",
     "trendCountAxisLabel": "人数",
-    "trendChartAria": "{scope} の出席トレンドチャート"
+    "trendChartAria": "{scope} の出席トレンドチャート",
+    "selfCheckInFailed": "チェックインに失敗しました"
   },
   "eduCertificates": {
     "certificateNo": "番号：{no}",

@@ -12401,9 +12401,9 @@
     "predictiveEditReplace": "取代",
     "predictiveEditDelete": "刪除",
     "secretMaskShow": "顯示憑證",
-    "secretMaskHide": "隱藏憑證"
-  ,
-    "resizeComposerHint": "拖動調整輸入框高度"},
+    "secretMaskHide": "隱藏憑證",
+    "resizeComposerHint": "拖動調整輸入框高度"
+  },
   "chatHistory": {
     "moveToGroup": "移動到分組",
     "moveSelectedToGroup": "移動所選到分組",
@@ -15353,16 +15353,7 @@
   },
   "eduCoursesPage": {
     "subtitle": "管理已報名的全部課程",
-    "title": "我的課程",
-    "empty": "尚無課程",
-    "loading": "載入中...",
-    "progress": "進度 {n}%",
-    "searchAriaLabel": "搜尋課程",
-    "searchPlaceholder": "搜尋課程...",
-    "statusCompleted": "已完成",
-    "statusInProgress": "進行中",
-    "statusNotStarted": "未開始",
-    "total": "共 {n} 門"
+    "title": "我的課程"
   },
   "eduDashboardPage": {
     "coursesCard": {
@@ -16342,11 +16333,11 @@
       "points": "積分",
       "signIn": "簽到",
       "signedIn": "已簽到",
-      "welcome": "Hi，歡迎來到學習平臺"
-    ,
+      "welcome": "Hi，歡迎來到學習平臺",
       "usageLoadFailed": "用量資料載入失敗：{message}",
       "usageUnavailable": "暫不可用",
-      "usageFailedAttempts": "失敗 {count} 次"},
+      "usageFailedAttempts": "失敗 {count} 次"
+    },
     "moduleSection": {
       "noData": "暫無數據",
       "viewMore": "查看更多"
@@ -24514,8 +24505,7 @@
     "frozen": "凍結金額",
     "totalRecharge": "累計儲值",
     "totalWithdraw": "累計提現",
-    "loadFailed": "錢包載入失敗"
-  ,
+    "loadFailed": "錢包載入失敗",
     "loginRequired": "請先登入後查看錢包",
     "convertTitle": "錢包餘額兌換 AI 積分",
     "convertRule": "1 分 = 1 積分，兌換後不可逆",
@@ -24523,7 +24513,8 @@
     "convertMinHint": "最低 100 積分（¥1）",
     "convertAlreadyDone": "該兌換請求已處理過，未重複扣款",
     "convertSuccess": "已兌換 {points} AI 積分，當前積分餘額 {balance}",
-    "convertFailed": "兌換失敗，請稍後重試"},
+    "convertFailed": "兌換失敗，請稍後重試"
+  },
   "withdrawals": {
     "allStatus": "全部狀態",
     "create": "新增",
@@ -28854,7 +28845,8 @@
     "trendChartScope": "範圍：{scope}",
     "trendChartHint": "最近 30 天",
     "trendCountAxisLabel": "人數",
-    "trendChartAria": "{scope} 出勤趨勢圖表"
+    "trendChartAria": "{scope} 出勤趨勢圖表",
+    "selfCheckInFailed": "簽到失敗，請稍後重試"
   },
   "eduCertificates": {
     "certificateNo": "編號：{no}",

@@ -12467,9 +12467,9 @@
     },
     "analysisOpen": "시나리오 분석 보기",
     "secretMaskShow": "자격 증명 표시",
-    "secretMaskHide": "자격 증명 숨기기"
-  ,
-    "resizeComposerHint": "드래그하여 입력창 높이 조정"},
+    "secretMaskHide": "자격 증명 숨기기",
+    "resizeComposerHint": "드래그하여 입력창 높이 조정"
+  },
   "chatHistory": {
     "selectModeAriaLabel": "작업 다중 선택 모드 전환",
     "backToHistory": "기록으로 돌아가기",
@@ -15433,17 +15433,8 @@
     "sections": "섹션 목차"
   },
   "eduCoursesPage": {
-    "empty": "강의가 없습니다",
-    "loading": "로딩 중...",
-    "progress": "진행률 {n}%",
-    "searchAriaLabel": "강의 검색",
-    "searchPlaceholder": "강의 검색...",
-    "statusCompleted": "완료",
-    "statusInProgress": "진행 중",
-    "statusNotStarted": "시작 전",
     "subtitle": "수강 신청한 모든 강의 관리",
-    "title": "내 강의",
-    "total": "총 {n}건"
+    "title": "내 강의"
   },
   "eduDashboardPage": {
     "coursesCard": {
@@ -16596,11 +16587,11 @@
       "points": "포인트",
       "signIn": "출석",
       "signedIn": "출석 완료",
-      "welcome": "Hi, 학습 플랫폼에 오신 것을 환영합니다"
-    ,
+      "welcome": "Hi, 학습 플랫폼에 오신 것을 환영합니다",
       "usageLoadFailed": "사용량 데이터 로드 실패: {message}",
       "usageUnavailable": "일시적으로 사용 불가",
-      "usageFailedAttempts": "{count}회 실패"},
+      "usageFailedAttempts": "{count}회 실패"
+    },
     "moduleSection": {
       "noData": "데이터 없음",
       "viewMore": "더 보기"
@@ -24607,8 +24598,7 @@
     "frozen": "동결 금액",
     "totalRecharge": "누적 충전",
     "totalWithdraw": "누적 출금",
-    "loadFailed": "지갑 로딩 실패"
-  ,
+    "loadFailed": "지갑 로딩 실패",
     "loginRequired": "로그인 후 지갑을 확인하세요",
     "convertTitle": "지갑 잔액을 AI 포인트로 교환",
     "convertRule": "1분 = 1포인트, 교환 후 되돌릴 수 없습니다",
@@ -24616,7 +24606,8 @@
     "convertMinHint": "최소 100포인트(¥1)",
     "convertAlreadyDone": "해당 교환 요청은 이미 처리되어 중복 차감되지 않았습니다",
     "convertSuccess": "{points} AI포인트를 교환했습니다. 현재 포인트 잔액: {balance}",
-    "convertFailed": "교환에 실패했습니다. 잠시 후 다시 시도하세요"},
+    "convertFailed": "교환에 실패했습니다. 잠시 후 다시 시도하세요"
+  },
   "withdrawals": {
     "allStatus": "모든 상태",
     "create": "생성",
@@ -28984,7 +28975,8 @@
     "trendChartScope": "범위: {scope}",
     "trendChartHint": "최근 30일",
     "trendCountAxisLabel": "인원",
-    "trendChartAria": "{scope} 출석 추이 차트"
+    "trendChartAria": "{scope} 출석 추이 차트",
+    "selfCheckInFailed": "체크인 실패"
   },
   "eduCertificates": {
     "certificateNo": "번호: {no}",
