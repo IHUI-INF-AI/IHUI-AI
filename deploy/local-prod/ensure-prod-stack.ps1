@@ -16,9 +16,27 @@ try {
     return [bool](Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue)
   }
 
+  # 日志轮转：Start-Process 的 -RedirectStandardOutput/-RedirectStandardError 会清空目标文件，
+  # 每次自愈重启都会把上一段现场覆盖掉。重启前先把旧日志挪进 logs\archive，
+  # 后台 AI 才能回溯"重启前发生了什么"；每类日志只留最近 20 份。
+  function Rotate-LogPair([string]$base) {
+    $archive = Join-Path $LogDir 'archive'
+    New-Item -ItemType Directory -Force -Path $archive | Out-Null
+    foreach ($ext in 'out', 'err') {
+      $src = Join-Path $LogDir ("{0}-prod.{1}.log" -f $base, $ext)
+      if ((Test-Path -LiteralPath $src) -and (Get-Item -LiteralPath $src).Length -gt 0) {
+        $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+        Move-Item -LiteralPath $src -Destination (Join-Path $archive ("{0}-prod.{1}.{2}.log" -f $base, $ext, $stamp)) -Force
+      }
+    }
+    Get-ChildItem -LiteralPath $archive -Filter ("{0}-prod.*.log" -f $base) |
+      Sort-Object LastWriteTime -Descending | Select-Object -Skip 20 | Remove-Item -Force
+  }
+
   if (-not (Test-Port 8802)) {
     $apiOut = Join-Path $LogDir 'api-prod.out.log'
     $apiErr = Join-Path $LogDir 'api-prod.err.log'
+    Rotate-LogPair 'api'
     Start-Process -FilePath $Pwsh -ArgumentList @(
       '-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass',
       '-File', (Join-Path $Root 'deploy\local-prod\run-api-prod.ps1')
@@ -31,6 +49,7 @@ try {
   if (-not (Test-Port 8801)) {
     $webOut = Join-Path $LogDir 'web-prod.out.log'
     $webErr = Join-Path $LogDir 'web-prod.err.log'
+    Rotate-LogPair 'web'
     Start-Process -FilePath $Pwsh -ArgumentList @(
       '-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass',
       '-File', (Join-Path $Root 'deploy\local-prod\run-web-prod.ps1')
@@ -45,6 +64,7 @@ try {
   if (-not (Test-Port 8803)) {
     $aiOut = Join-Path $LogDir 'ai-prod.out.log'
     $aiErr = Join-Path $LogDir 'ai-prod.err.log'
+    Rotate-LogPair 'ai'
     Start-Process -FilePath $Pwsh -ArgumentList @(
       '-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass',
       '-File', (Join-Path $Root 'deploy\local-prod\run-ai-prod.ps1')
