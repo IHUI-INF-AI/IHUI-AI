@@ -1110,6 +1110,18 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     tools: ['publish_article'],
   }),
   c({
+    scope: 'publish:submit',
+    domain: 'platform',
+    dataClass: 'scoped-write',
+    risk: 'high',
+    billable: false,
+    thirdPartyEligible: true,
+    idempotencyRequired: true,
+    description: '以 API Key 归属人的自有账号提交发布任务;只返回任务状态,不暴露账号凭据',
+    routes: ['POST /api/publish/tasks', 'GET /api/publish/tasks/:taskId'],
+    tools: [],
+  }),
+  c({
     scope: 'oauth:manage',
     domain: 'developer',
     dataClass: 'scoped-write',

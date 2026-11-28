@@ -172,6 +172,8 @@ export const API_KEY_PERMISSIONS = [
   'im:send',
   /** 内容发布到第三方社媒(平台运营面) */
   'publish:operate',
+  /** 以 Key 归属人的自有账号提交发布任务(不暴露账号凭据) */
+  'publish:submit',
   /** 自身账单/额度/用量读取:GET /v1/usage, GET /v1/billing/* */
   'billing:read',
   /** OAuth 应用与授权管理 */
