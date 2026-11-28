@@ -1859,6 +1859,71 @@ async def get_stats(
         await conn.close()
 
 
+@router.get("/analytics/top-content")
+async def get_top_content(
+    request: Request,
+    days: int = Query(default=7, ge=1, le=365),
+    limit: int = Query(default=5, ge=1, le=20),
+) -> dict[str, Any]:
+    """按最新互动快照排出周期内阅读/播放最高的内容。
+
+    原先前端靠 /monitor/overview 逐篇取指标,50 行会触发 N+1 查询并超时。
+    这里用一条 SQL 取每个 task_id+platform 的最新快照,按用户过滤后排序。
+    """
+    user_id = _get_user_id(request)
+    conn = await _get_conn()
+    try:
+        rows = await conn.fetch(
+            """
+            WITH latest AS (
+              SELECT DISTINCT ON (task_id, platform)
+                     task_id, platform, views, likes, comments, shares, collected_at
+              FROM publish_metrics
+              ORDER BY task_id, platform, collected_at DESC
+            )
+            SELECT l.task_id, l.platform, l.views, l.likes, l.comments, l.shares,
+                   t.title, t.finished_at, t.created_at,
+                   h.published_url
+            FROM latest l
+            JOIN publish_tasks t ON t.task_id = l.task_id AND t.user_id = $1
+            LEFT JOIN LATERAL (
+              SELECT published_url
+              FROM publish_history h2
+              WHERE h2.task_id = l.task_id
+                AND h2.platform = l.platform
+                AND h2.success = true
+              ORDER BY h2.created_at DESC
+              LIMIT 1
+            ) h ON true
+            WHERE l.collected_at >= NOW() - make_interval(days => $2)
+            ORDER BY l.views DESC, l.likes DESC, t.created_at DESC
+            LIMIT $3
+            """,
+            user_id, days, limit,
+        )
+        items = [
+            {
+                "taskId": r["task_id"],
+                "title": r["title"] or "",
+                "platform": r["platform"],
+                "views": int(r["views"] or 0),
+                "likes": int(r["likes"] or 0),
+                "comments": int(r["comments"] or 0),
+                "shares": int(r["shares"] or 0),
+                "publishedAt": (
+                    (r["finished_at"] or r["created_at"]).isoformat()
+                    if (r["finished_at"] or r["created_at"])
+                    else None
+                ),
+                "publishedUrl": r["published_url"],
+            }
+            for r in rows
+        ]
+        return _wrap_ok({"days": days, "items": items})
+    finally:
+        await conn.close()
+
+
 # ===== 调试工具 =====
 
 @router.get("/credentials-key/generate")
