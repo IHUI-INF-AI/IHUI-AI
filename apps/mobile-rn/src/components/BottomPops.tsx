@@ -359,10 +359,6 @@ export function AppConfirmHost() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    // H5/Taro 的 RN Modal 宿主会把内容层 shrink-wrap:本件只有 absolute 的 sheet 子节点,
-    // 不给根层显式宽度时 sheet 的 left:0/right:0 会落到 0 宽(标题 x=195、w=0,视觉整层消失)。
-    // 原生端 100% 即屏幕宽,布局语义不变;H5 端才真正把 sheet 撑回满宽。
-    width: '100%',
     justifyContent: 'flex-end',
   } as ViewStyle,
   mask: {

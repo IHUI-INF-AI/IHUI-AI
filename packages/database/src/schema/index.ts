@@ -194,6 +194,7 @@ export * from './workspace-permissions.js'
 export * from './self-media.js'
 // 多平台一键发布系统(2026-07-20 新增,14 平台 + 凭证加密 + 任务调度 + 历史记录)
 export * from './publish-platform.js'
+export * from './publish-api-usage.js'
 export * from './publish-account-pool.js'
 // 搜索热词表(2026-07-20 补建,迁移报告 P0 缺失项)
 export * from './search-hot-words.js'

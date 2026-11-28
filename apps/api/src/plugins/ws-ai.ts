@@ -21,8 +21,6 @@ import {
 import { releasePointsHold } from '../services/points-service.js'
 import { estimateTokens } from '../services/context-manager-service.js'
 import { resolveDefaultChatModel } from '../utils/retired-providers.js'
-import { findAgentByAgentId } from '../db/agents-queries.js'
-import { getCozeAccessToken } from '../services/coze-auth-utils.js'
 
 /**
  * F-461:消息收发时刷新 ws-auto-recovery 的活动时间(内存时间戳,轻量、不落库)。
@@ -1261,27 +1259,11 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
   //    功能: conversation_id 自动管理 + 心跳保活
   // ==========================================================================
   server.get('/ws/coze/chat', { websocket: true }, (socket, request) => {
-    const query = request.query as { token?: string; bot_id?: string; agent_id?: string }
-    let botId = query.bot_id ?? ''
+    const query = request.query as { token?: string; bot_id?: string }
+    const botId = query.bot_id ?? ''
     ;(async () => {
       const userId = await wsAuth(socket, query.token)
       if (!userId) return
-      // 2026-11-28:公开面不暴露 botId，前端按社区 agentId 接入；
-      // 服务端解析到 botId 后再交给 Coze，客户端仍可通过 bot_id 走兼容旧链路。
-      if (query.agent_id) {
-        const agent = await findAgentByAgentId(query.agent_id)
-        if (!agent || agent.status !== 'published' || !agent.botId) {
-          send(socket, { code: 404, event: 'error', message: '智能体不存在或未发布' })
-          socket.close(1008, '智能体不存在或未发布')
-          return
-        }
-        botId = agent.botId
-      }
-      if (!botId) {
-        send(socket, { code: 400, event: 'error', message: '缺少 agent_id 或 bot_id' })
-        socket.close(1008, '缺少智能体标识')
-        return
-      }
       // 2026-08-02 P1 安全审计:单用户并发连接数限制
       if (!userConnectionLimiter.acquire(userId)) {
         server.log.warn({ userId }, 'ws-ai(coze/chat)拒绝连接:单用户连接数超限')
@@ -1290,14 +1272,11 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
       }
       send(socket, { code: 0, msg: 'success', event: 'ready', user: userId, bot_id: botId })
 
-      // 2026-11-28:OAuth JWT 优先，PAT 兜底。Coze PAT 最长 30 天，不能作为长期唯一凭据。
-      const cozeToken = (await getCozeAccessToken()) ?? process.env.COZE_API_KEY
-      if (!cozeToken) {
+      const cozeKey = process.env.COZE_API_KEY
+      if (!cozeKey) {
         send(socket, { code: 503, event: 'error', message: 'Coze 服务未配置' })
         return
       }
-      const cozeBaseUrl =
-        process.env.COZE_API_BASE_URL ?? process.env.COZE_API_BASE ?? 'https://api.coze.cn'
 
       let conversationId = ''
       let heartbeatTimer: NodeJS.Timeout | null = null
@@ -1391,23 +1370,19 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
 
           let newConversationId: string | null = null
           try {
-            // Coze Chat v3：/v3/chat + additional_messages；/v1/chat 已被上游下线（404 code=4000）。
-            const resp = await fetch(`${cozeBaseUrl.replace(/\/+$/, '')}/v3/chat`, {
+            const resp = await fetch('https://api.coze.cn/v1/chat', {
               method: 'POST',
               headers: {
-                Authorization: `Bearer ${cozeToken}`,
+                Authorization: `Bearer ${cozeKey}`,
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
                 bot_id: reqBotId,
                 // F-112(2026-11-08):不向 Coze 透传客户端自报的 user_id。
                 user_id: reqUserId,
+                query: queryText,
+                conversation_id: conversationId,
                 stream: true,
-                auto_save_history: true,
-                additional_messages: [
-                  { role: 'user', content: queryText, content_type: 'text' },
-                ],
-                ...(conversationId ? { conversation_id: conversationId } : {}),
               }),
             })
             if (!resp.ok || !resp.body) {

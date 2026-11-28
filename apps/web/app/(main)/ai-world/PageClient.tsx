@@ -16,7 +16,7 @@ import {
   Code,
   Sparkles,
   Trophy,
-  BarChart3,
+  FlaskConical,
 } from 'lucide-react'
 
 import { fetchAiWorld } from './helpers'
@@ -24,7 +24,7 @@ import { ItemList } from './ItemList'
 import { CategorySidebar } from './CategorySidebar'
 import { HotAppsCard } from './HotAppsCard'
 import { RankingTable } from './RankingTable'
-import { AuthoritativeBenchmark } from './AuthoritativeBenchmark'
+import { BenchmarkTable } from './BenchmarkTable'
 import { BackButton } from '@/components/common'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import type { ItemKind } from './types'
@@ -61,7 +61,7 @@ const TABS: TabDef[] = [
     hasSidebar: false,
   },
   { key: 'rankings', label: '模型排行', icon: Trophy, layout: 'list', hasSidebar: false },
-  { key: 'benchmark', label: '权威榜', icon: BarChart3, layout: 'list', hasSidebar: false },
+  { key: 'benchmark', label: '实测榜', icon: FlaskConical, layout: 'list', hasSidebar: false },
 ]
 
 // 白名单:仅允许 TABS 已声明的 key,防 XSS
@@ -145,7 +145,7 @@ export default function AiWorldPage() {
       {activeTab === 'rankings' ? (
         <RankingTable />
       ) : activeTab === 'benchmark' ? (
-        <AuthoritativeBenchmark />
+        <BenchmarkTable />
       ) : activeTabDef.hasSidebar ? (
         <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-[200px_1fr]">
           <aside className="rounded-lg border bg-card p-2">

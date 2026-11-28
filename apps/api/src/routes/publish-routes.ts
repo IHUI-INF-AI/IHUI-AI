@@ -48,6 +48,7 @@ import { config } from '../config/index.js'
 import { FILE_UPLOAD_BODY_LIMIT } from '../config/body-limits.js'
 import { authenticate } from '../plugins/auth.js'
 import { mintInternalJwt } from '../utils/internal-jwt.js'
+import { recordPublishUsage } from '../services/publish-usage-service.js'
 import { error, success } from '../utils/response.js'
 
 // =============================================================================
@@ -291,11 +292,16 @@ export function buildPublishUpstream(path: string): string {
   return url
 }
 
+interface PublishProxyResult {
+  statusCode: number
+  payload: unknown
+}
+
 async function proxyToAiService(
   request: FastifyRequest,
   reply: FastifyReply,
   path: string,
-): Promise<void> {
+): Promise<PublishProxyResult> {
   const url = buildPublishUpstream(path)
   const method = request.method
   const headers: Record<string, string> = {
@@ -328,9 +334,11 @@ async function proxyToAiService(
       }
     }
     reply.status(upstream.status).send(payload)
+    return { statusCode: upstream.status, payload }
   } catch (e) {
     request.log.error({ err: e, url }, 'publish proxy failed')
     reply.status(502).send(error(502, 'ai-service unavailable'))
+    return { statusCode: 502, payload: null }
   }
 }
 
@@ -400,6 +408,22 @@ async function proxyMultipartToAiService(
     request.log.error({ err: e, url }, 'publish upload proxy failed')
     reply.status(502).send(error(502, 'ai-service unavailable'))
   }
+}
+
+/**
+ * 从 ai-service 创建任务响应里取 task_id。
+ * ai-service 返回 { code, message, data: { task_id, status } }；兼容未来的裸 task_id。
+ */
+function extractCreatedTaskId(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== 'object') return undefined
+  const record = payload as Record<string, unknown>
+  const data = record.data
+  if (data && typeof data === 'object') {
+    const taskId = (data as Record<string, unknown>).task_id
+    if (typeof taskId === 'string' && taskId.length > 0) return taskId
+  }
+  const taskId = record.task_id
+  return typeof taskId === 'string' && taskId.length > 0 ? taskId : undefined
 }
 
 export const publishRoutes: FastifyPluginAsync = async (server) => {
@@ -530,7 +554,21 @@ export const publishRoutes: FastifyPluginAsync = async (server) => {
       )
     }
 
-    await proxyToAiService(request, reply, '/tasks')
+    const result = await proxyToAiService(request, reply, '/tasks')
+    // 只有机器通道（API Key）的成功创建才进独立计费账本；人工 JWT 仍走原链路。
+    if (request.apiKey && result.statusCode >= 200 && result.statusCode < 300) {
+      const taskId = extractCreatedTaskId(result.payload)
+      if (taskId) {
+        void recordPublishUsage({
+          apiKeyId: request.apiKey.id,
+          userId: request.apiKey.userId,
+          taskId,
+          statusCode: result.statusCode,
+        }).catch((err) => {
+          request.log.warn({ err, apiKeyId: request.apiKey?.id, taskId }, 'publish usage ledger write failed')
+        })
+      }
+    }
   })
 
   server.get('/publish/tasks', async (request, reply) => {
