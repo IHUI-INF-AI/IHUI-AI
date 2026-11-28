@@ -201,8 +201,20 @@ export default function ConnectorsPageClient() {
       />
 
       {actions.docDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4">
-          <div className="max-h-[80vh] w-full max-w-2xl overflow-auto rounded-lg border bg-card p-4 shadow-elevation-lg">
+        // 2026-11-28:z-50 → z-modal(低于 AI 面板 z-sticky=990 会被盖住),并对齐项目手搓 dialog
+        // 惯例(hooks-manager 同形):role/aria-modal + 遮罩点击关闭
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- 模态遮罩点击外部关闭;键盘用户通过关闭按钮提供等价交互
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={actions.docDialog.title}
+          className="fixed inset-0 z-modal flex items-center justify-center bg-background/80 p-4"
+          onClick={() => actions.setDocDialog(null)}
+        >
+          <div
+            className="max-h-[80vh] w-full max-w-2xl overflow-auto rounded-lg border bg-card p-4 shadow-elevation-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="mb-2 flex items-center justify-between gap-2">
               <h2 className="text-body font-semibold">{actions.docDialog.title}</h2>
               <Button variant="outline" size="sm" onClick={() => actions.setDocDialog(null)}>

@@ -4450,6 +4450,8 @@
     "loadFailed": "読み込み失敗"
   },
   "webViewPortal": {
+    "publishAccountPool": "公開アカウントプール",
+    "publishAiDraft": "AI ドラフト",
     "hrMyPerf": "自分の評価",
     "hrMyTraining": "自分の研修",
     "hrMyExpense": "自分の経費精算",

@@ -103,7 +103,7 @@ export function HomePage4Pricing() {
         </p>
       </RevealOnView>
 
-      <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 tablet-min-[1024px]:grid-cols-4 min-[1024px]:gap-3">
+      <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 tablet-lg:grid-cols-4 min-[1024px]:gap-3">
         {PRICING_PLANS.map((plan, i) => {
           const isRecommended = plan.recommended
           return (

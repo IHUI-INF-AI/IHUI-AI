@@ -4762,6 +4762,7 @@
     "loadFailed": "Failed to load"
   },
   "webViewPortal": {
+    "publishAiDraft": "AI Draft",
     "hrMyPerf": "My performance",
     "hrMyTraining": "My training",
     "hrMyExpense": "My expenses",

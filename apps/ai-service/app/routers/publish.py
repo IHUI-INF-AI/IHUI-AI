@@ -71,6 +71,8 @@ from app.services.publish.base_adapter import (
 from app.services.publish.credential_history import apply_credentials_update
 from app.services.publish.credentials_crypto import decrypt, encrypt, generate_key_b64
 from app.services.publish.metrics_collector import (
+    _ensure_metrics_table,
+    _ensure_style_check_table,
     collect_metrics,
     latest_metrics,
     latest_style_check,
@@ -1859,6 +1861,71 @@ async def get_stats(
         await conn.close()
 
 
+@router.get("/analytics/top-content")
+async def get_top_content(
+    request: Request,
+    days: int = Query(default=7, ge=1, le=365),
+    limit: int = Query(default=5, ge=1, le=20),
+) -> dict[str, Any]:
+    """按最新互动快照排出周期内阅读/播放最高的内容。
+
+    原先前端靠 /monitor/overview 逐篇取指标,50 行会触发 N+1 查询并超时。
+    这里用一条 SQL 取每个 task_id+platform 的最新快照,按用户过滤后排序。
+    """
+    user_id = _get_user_id(request)
+    conn = await _get_conn()
+    try:
+        rows = await conn.fetch(
+            """
+            WITH latest AS (
+              SELECT DISTINCT ON (task_id, platform)
+                     task_id, platform, views, likes, comments, shares, collected_at
+              FROM publish_metrics
+              ORDER BY task_id, platform, collected_at DESC
+            )
+            SELECT l.task_id, l.platform, l.views, l.likes, l.comments, l.shares,
+                   t.title, t.finished_at, t.created_at,
+                   h.published_url
+            FROM latest l
+            JOIN publish_tasks t ON t.task_id = l.task_id AND t.user_id = $1
+            LEFT JOIN LATERAL (
+              SELECT published_url
+              FROM publish_history h2
+              WHERE h2.task_id = l.task_id
+                AND h2.platform = l.platform
+                AND h2.success = true
+              ORDER BY h2.created_at DESC
+              LIMIT 1
+            ) h ON true
+            WHERE l.collected_at >= NOW() - make_interval(days => $2)
+            ORDER BY l.views DESC, l.likes DESC, t.created_at DESC
+            LIMIT $3
+            """,
+            user_id, days, limit,
+        )
+        items = [
+            {
+                "taskId": r["task_id"],
+                "title": r["title"] or "",
+                "platform": r["platform"],
+                "views": int(r["views"] or 0),
+                "likes": int(r["likes"] or 0),
+                "comments": int(r["comments"] or 0),
+                "shares": int(r["shares"] or 0),
+                "publishedAt": (
+                    (r["finished_at"] or r["created_at"]).isoformat()
+                    if (r["finished_at"] or r["created_at"])
+                    else None
+                ),
+                "publishedUrl": r["published_url"],
+            }
+            for r in rows
+        ]
+        return _wrap_ok({"days": days, "items": items})
+    finally:
+        await conn.close()
+
+
 # ===== 调试工具 =====
 
 @router.get("/credentials-key/generate")
@@ -2130,15 +2197,45 @@ async def monitor_overview(
 ) -> dict[str, Any]:
     """监测总览:每个已发布平台一行,含核验与最新指标。"""
     user_id = _get_user_id(request)  # 鉴权 + IDOR 防护
+    # 指标/核验表按需建;下面一条 SQL 批量取快照,避免逐行开连接(20 行实测 8.4s)。
+    await _ensure_metrics_table()
+    await _ensure_style_check_table()
     conn = await _get_conn()
     try:
         rows = await conn.fetch(
             """
             SELECT t.task_id, t.title, t.status, t.created_at, t.finished_at, t.error AS task_error,
                    h.platform, h.published_url, h.platform_content_id, h.error_message AS hist_error,
-                   h.created_at AS hist_created
+                   h.created_at AS hist_created,
+                   (SELECT count(*) FROM publish_history h2
+                    JOIN publish_tasks t2 ON t2.task_id = h2.task_id
+                    WHERE t2.title = t.title AND h2.platform = h.platform) AS attempts,
+                   (SELECT (e->>'account_id')::bigint
+                    FROM jsonb_array_elements(COALESCE(t.targets, '[]'::jsonb)) e
+                    WHERE e->>'platform' = h.platform
+                    LIMIT 1) AS account_id,
+                   m.views AS metric_views, m.likes AS metric_likes,
+                   m.comments AS metric_comments, m.shares AS metric_shares,
+                   m.collected_at AS metric_collected_at,
+                   s.passed AS style_passed, s.issues AS style_issues,
+                   s.content_length AS style_content_length,
+                   s.images_total AS style_images_total,
+                   s.images_loaded AS style_images_loaded,
+                   s.checked_at AS style_checked_at
             FROM publish_history h
             JOIN publish_tasks t ON t.task_id = h.task_id
+            LEFT JOIN LATERAL (
+              SELECT views, likes, comments, shares, collected_at
+              FROM publish_metrics pm
+              WHERE pm.task_id = t.task_id AND pm.platform = h.platform
+              ORDER BY pm.collected_at DESC LIMIT 1
+            ) m ON true
+            LEFT JOIN LATERAL (
+              SELECT passed, issues, content_length, images_total, images_loaded, checked_at
+              FROM publish_style_check ps
+              WHERE ps.task_id = t.task_id AND ps.platform = h.platform
+              ORDER BY ps.checked_at DESC LIMIT 1
+            ) s ON true
             WHERE t.user_id = $1
             ORDER BY t.created_at DESC
             LIMIT $2
@@ -2147,36 +2244,39 @@ async def monitor_overview(
         )
         items: list[dict[str, Any]] = []
         for r in rows:
-            task_id = r["task_id"]
-            platform = r["platform"]
-            title = r["title"]
-            content_id = r["platform_content_id"]
-            account_id = await _account_id_for_task(conn, task_id, platform)
-            rc = await conn.fetchval(
-                """
-                SELECT count(*) FROM publish_history h2
-                JOIN publish_tasks t2 ON t2.task_id = h2.task_id
-                WHERE t2.title = $1 AND h2.platform = $2
-                """,
-                title, platform,
-            )
-            attempts = int(rc) if rc else 0
-            resubmit_count = max(0, attempts - 1)
-            style_check = await latest_style_check(task_id, platform)
-            metrics = await latest_metrics(task_id, platform)
+            attempts = int(r["attempts"] or 0)
+            style_check = None
+            if r["style_checked_at"] is not None:
+                style_check = {
+                    "passed": r["style_passed"],
+                    "issues": r["style_issues"],
+                    "content_length": r["style_content_length"],
+                    "images_total": r["style_images_total"],
+                    "images_loaded": r["style_images_loaded"],
+                    "checked_at": r["style_checked_at"].isoformat(),
+                }
+            metrics = None
+            if r["metric_collected_at"] is not None:
+                metrics = {
+                    "views": r["metric_views"],
+                    "likes": r["metric_likes"],
+                    "comments": r["metric_comments"],
+                    "shares": r["metric_shares"],
+                    "collected_at": r["metric_collected_at"].isoformat(),
+                }
             last_error = r["hist_error"] or r["task_error"]
             items.append({
-                "task_id": task_id,
-                "title": title,
-                "platform": platform,
-                "account_id": account_id,
+                "task_id": r["task_id"],
+                "title": r["title"],
+                "platform": r["platform"],
+                "account_id": int(r["account_id"]) if r["account_id"] is not None else None,
                 "status": r["status"],
                 "published_url": r["published_url"],
-                "platform_content_id": content_id,
+                "platform_content_id": r["platform_content_id"],
                 "created_at": r["created_at"].isoformat() if r["created_at"] else None,
                 "finished_at": r["finished_at"].isoformat() if r["finished_at"] else None,
                 "last_error": last_error,
-                "resubmit_count": resubmit_count,
+                "resubmit_count": max(0, attempts - 1),
                 "style_check": style_check,  # 无核验时为 null
                 "metrics": metrics,  # 无指标时为 null
             })

@@ -191,7 +191,7 @@ export function MemberCard() {
                 role="alert"
                 className="mt-5 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-4 text-center text-label text-destructive"
               >
-                用量数据加载失败:{usageAggregate.message}
+                {t('usageLoadFailed', { message: usageAggregate.message })}
               </div>
             ) : (
               usageCells && (
@@ -206,11 +206,11 @@ export function MemberCard() {
                         // G-652 (a) 可选面 transport 失败:该区清空 + 计数行(绝不显示 0)
                         <>
                           <strong className="text-lg font-semibold text-muted-foreground">
-                            暂不可用
+                            {t('usageUnavailable')}
                           </strong>
                           <span className="text-label text-muted-foreground">{s.label}</span>
                           <span className="text-label text-destructive">
-                            失败 {s.droppedCount} 次
+                            {t('usageFailedAttempts', { count: s.droppedCount })}
                           </span>
                         </>
                       ) : (

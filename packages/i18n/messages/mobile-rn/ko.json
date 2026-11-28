@@ -4762,6 +4762,7 @@
     "loadFailed": "불러오기 실패"
   },
   "webViewPortal": {
+    "publishAiDraft": "AI 초안",
     "hrMyPerf": "내 성과",
     "hrMyTraining": "내 교육",
     "hrMyExpense": "내 경비",

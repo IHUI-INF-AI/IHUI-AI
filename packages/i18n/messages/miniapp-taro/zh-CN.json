@@ -4450,6 +4450,8 @@
     "loadFailed": "加载失败"
   },
   "webViewPortal": {
+    "publishAccountPool": "发布账号池",
+    "publishAiDraft": "AI 出稿",
     "hrMyPerf": "我的绩效",
     "hrMyTraining": "我的培训",
     "hrMyExpense": "我的报销",

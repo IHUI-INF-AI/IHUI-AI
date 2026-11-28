@@ -36,6 +36,7 @@ import {
 import {
   fetchSkillsMarket,
   installSkill,
+  purchaseSkill,
   rateSkill,
   fetchSkillRatings,
   fetchSkillSubscription,
@@ -176,13 +177,30 @@ export default function SkillsMarketPageClient({ deepLinkName }: { deepLinkName?
     }
   }
 
-  /** 一键安装(入库 + 计数自增乐观) */
+  /** 一键安装(入库 + 计数自增乐观);付费条目先确认再走购买接口 */
   const handleInstall = async (entry: SkillMarketEntry) => {
     if (actingName) return
+    const priceCents = entry.priceCents ?? 0
+    if (priceCents > 0) {
+      const priceText = (priceCents / 100).toFixed(2)
+      const confirmed = window.confirm(
+        t('purchaseConfirm', { name: entry.name, price: priceText }),
+      )
+      if (!confirmed) return
+    }
     setActingName(entry.name)
     try {
-      const r = await installSkill(entry.name)
-      toast.success(t('installSuccess', { name: entry.name, count: r.installCount }))
+      if (priceCents > 0) {
+        const r = await purchaseSkill(entry.name)
+        toast.success(
+          r.alreadyPurchased
+            ? t('installSuccess', { name: entry.name, count: r.installCount })
+            : t('purchaseSuccess', { name: entry.name }),
+        )
+      } else {
+        const r = await installSkill(entry.name)
+        toast.success(t('installSuccess', { name: entry.name, count: r.installCount }))
+      }
       refresh()
     } catch {
       toast.error(t('actionFailed'))
@@ -434,6 +452,11 @@ function SkillCard({
           {entry.author}
         </span>
         <span>v{entry.version}</span>
+        <span className="font-semibold text-amber-600">
+          {(entry.priceCents ?? 0) > 0
+            ? `¥${((entry.priceCents ?? 0) / 100).toFixed(2)}`
+            : t('free')}
+        </span>
       </div>
       <div className="mt-auto flex items-center gap-2">
         <Button
@@ -458,7 +481,9 @@ function SkillCard({
         </Button>
         <Button variant="outline" onClick={onInstall} disabled={acting} className="flex-1">
           <Download className="mr-1.5 h-3.5 w-3.5" />
-          {t('install')}
+          {(entry.priceCents ?? 0) > 0
+            ? t('buy', { price: ((entry.priceCents ?? 0) / 100).toFixed(2) })
+            : t('install')}
         </Button>
       </div>
     </div>
@@ -576,6 +601,11 @@ function SkillDetailDialog({ entry, onClose }: { entry: SkillMarketEntry; onClos
               <h2 className="text-lg font-bold tracking-tight text-foreground">{entry.name}</h2>
               <Badge variant="primary">v{entry.version}</Badge>
               <Badge variant="default">{entry.license}</Badge>
+              <span className="text-label font-semibold text-amber-600">
+                {(entry.priceCents ?? 0) > 0
+                  ? `¥${((entry.priceCents ?? 0) / 100).toFixed(2)}`
+                  : t('free')}
+              </span>
               {ownership && !ownership.enabled && <Badge variant="default">{t('unlisted')}</Badge>}
             </div>
             <div className="flex flex-wrap items-center gap-2 text-label text-muted-foreground">

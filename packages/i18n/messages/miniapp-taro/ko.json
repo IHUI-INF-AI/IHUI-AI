@@ -4450,6 +4450,8 @@
     "loadFailed": "불러오기 실패"
   },
   "webViewPortal": {
+    "publishAccountPool": "게시 계정 풀",
+    "publishAiDraft": "AI 초안",
     "hrMyPerf": "내 성과",
     "hrMyTraining": "내 교육",
     "hrMyExpense": "내 경비 정산",

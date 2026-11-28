@@ -374,7 +374,9 @@ n/a 唯一一条是 B3-10（硬件专用键盘钩子），取证文档自己写�
 **教训**:`git-sync-converge` 只搬已跟踪路径 —— 任何"只在工作树里"的新模块,只要跨过一次 sync 就会消失,而消费方(import)如果已入库,主干就断。判据必须能回答"这个 import 的文件在不在 HEAD 的树里",不能看工作树。
 
 
-## 十二、工具检索质量、业务域延迟与一次主干救援(2026-11-28)
+## 十三、工具检索质量、业务域延迟与一次主干救援(2026-11-28)
+
+> 编号说明:上一节(十二)的 34 条查询读数已被本节 45 条取代,保留它作历史记录。
 
 **对外口径(定死)**:读数、榜单、周报只写**模型官方名**(GLM-4.7-Flash / DeepSeek Chat / Step-Router V1),不写接入平台、网关、代理名。接入链路是内部部署细节。
 
@@ -391,5 +393,37 @@ n/a 唯一一条是 B3-10（硬件专用键盘钩子），取证文档自己写�
 **主干曾不可编译(已修)**:`apps/cli/src/tools/index.ts` 已提交了对 `tool-exec-budget-policy`/`tool-registration`/`tool-executor`/`ptc-*` 等模块的 import,但那些文件**只在工作树、从未入库**(rescue 快照 `7ef51cb99` 才第一次把它们拍进去);后续 `git-sync-converge` 按已跟踪路径合并,把未跟踪模块从工作树清掉 ⇒ `tsc` 在 origin 与本地同时失败。处置:以快照为参照整体恢复 `apps/cli/src`(68 路径)、`packages/agent-sdk|context-compaction`,补 `packages/ptc-runtime/package.json`,在 `@ihui/types` 补 `SubagentSpawnBudget`/`permissionMode`。恢复后 `apps/cli` 主 `tsc --noEmit` rc=0。
 
 **教训**:`git-sync-converge` 只搬已跟踪路径——任何"只在工作树里"的新模块,跨过一次 sync 就消失,而消费方 import 已入库时主干即断。判据要能回答"这个 import 的文件在不在 HEAD 的树里",不能看工作树。
+
+
+## 十四、工具名解析与内建重名台账(2026-11-28)
+
+**病灶**:`executeToolCall` 旧实现是 `getTool(call.name)` 精确匹配。模型发来的名字并不总是注册名:`GitMerge`(驼峰)、`git-merge`(连字符)、`readFile`、带尾随空格 —— 差一个大小写就回"未知工具",白烧一整轮;而这类错**不是选错工具**,只是拼写形态不同。
+
+**修法(只消格式差异,不做语义映射)**:新增 `tools/tool-name-resolve.ts`,归一化键 = 小写 + 去掉所有非字母数字,`Git_Merge`/`git-merge`/`git merge` 同键。三条纪律写进模块头注:精确名永远优先;归一化后命中多枚判**歧义**并拒绝执行(猜一个比报错更坏);**不做跨词映射**(Read→read_file、Bash→run_command 一律不认,那属语义猜测)。
+
+未知工具的错误文案也改了:旧版只有一句"未知工具: xxx",现在是 `未知工具: xxx; closest matches: read_file, read_pdf, …`(最多 3 个,按名字相似度给,只给建议不替模型执行)。命中格式差异时把 `call.name` 改写成注册名 —— 后续权限判定、审计台账、PostToolUse 钩子看到的必须是**真被执行的那个工具**。
+
+读数:`tests/tool-name-resolve.test.ts` **7 passed**(归一化 3 例、歧义 1 例、建议 1 例、执行面 3 例);工具链回归批 14 个文件 **180 passed**;`apps/cli` 主 `tsc --noEmit` rc=0。
+
+**同轮查出的另一件事:内建重名 15 对**。`git.ts` 与 `git-advanced.ts` 同名 15 枚(`git_merge`/`git_branch_*`/`git_stash_*`/`git_conflict_*`/`git_tag_*`/`git_remote_*`)。两者都是 builtin 归属,`registerTools` 的同归属覆盖规则**允许后到者静默顶掉先到者**(`GIT_ADVANCED` 在 `setup` 里后注册,所以实际生效的是它那一份)。实测这 15 对签名(描述/危险级/参数/必填)完全一致,当前行为无差;风险是"两份拷贝各改各的"——改一边没改另一边,模型看到的 schema 与真正执行的行为就分叉。
+
+处置不是删代码,是立台账:`tests/tool-duplicate-inventory.test.ts` **2 passed** 钉住"重名清单恰好这 15 个 + 每对签名一致"。新增重名会红(要求显式决策),两份实现分叉也会红(那是真 bug)。
+
+**口径边界**:只查内建族之间;MCP 跨归属同名冲突由既有 `tool-name-collision.test.ts` 管(拒收后到者并点名双方)。
+
+
+## 十五、参数面检索与类型面二次救援(2026-11-28)
+
+**病灶**:查询词有时只出现在**参数名/参数描述**里——"超时"在 `run_command` 的 `timeout` 说明里,"偏移""行数"在 `read_file` 的 `offset`/`limit` 里,工具名与工具描述都不含。旧打分只看 name + description,这类查询要么落空,要么把 `read_file` 排到第 3 位之后。
+
+**修法**:`scoreTool` 增加参数面(`parameterText` = 参数名 + 参数描述),权重压在描述命中之下——参数名命中 6、参数描述命中 3、参数面 CJK 二元组 2,**参数面总分封顶 10**(防止"参数多"的工具靠零散词堆分)。词法桥补 `超时→timeout`、`偏移→offset`、`行数→limit`、`限制→limit`、`正则→pattern`。
+
+读数(`tests/tool-search-quality.test.ts`,49 条):**hit@5 49/49(100%)、hit@1 36/49(73%)**。四个参数面用例:`按偏移量读取`→`read_file` 17 分排第 1(改前 13 分排第 3);`读取行数限制`→`read_file` 23 分第 1;`正则匹配内容`→`grep` 13 分第 1;`超时时间设置`→`run_command` 7 分排第 2,第 1 是 `hr_approval_flow_upsert`(8 分,描述里确有审批超时)——召回合情,判据只钉 top5,不钉死第 1。
+
+**一条被自己否掉的试验**:试过加"泛词二元组停用表"(时间/设置/数据/内容…),实测四个用例排位**一点没变**(`hr_approval_flow_upsert` 的 8 分来自描述里真实的"超时",不是"时间/设置")⇒ 整段删除。没有读数背书的重构不留。
+
+**类型面二次救援**:本轮开工跑 `tsc` 直接 rc=2——`subagents/worker-pool.ts`、`tools/subagent.ts`、`subagents/worker-entry.ts` 都在用 `SubagentSpawnBudget` 与 `SubagentSpawnRequest.budget/permissionMode`,而 `packages/types` 里的定义**第二次**被并行提交冲掉(消费方在、定义不在,主干静默断)。处置:重落 `SubagentSpawnBudget` 接口与两个字段,`tsc -b packages/types` rc=0,`apps/cli` 主 `tsc --noEmit` rc=0。
+
+**教训(写进流程)**:每次动手前先跑一次 `tsc --noEmit` 探位相,而不是写完再跑——"开工就红"和"被我改红"是两件事,后者会白白吃掉一轮;类型面补丁落地即推,消费方先入库的定义改动最容易被并行会话的合并冲掉。
 
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

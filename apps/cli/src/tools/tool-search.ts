@@ -50,6 +50,15 @@ const CJK_GRAM_SCORE_NAME = 6;
 const CJK_GRAM_SCORE_DESCRIPTION = 3;
 /** 二元组分数的上限:防止一句长中文(十几个二元组)靠零散命中压过直接命中。 */
 const CJK_GRAM_CAP = 12;
+/**
+ * 参数面(2026-11-28 立):查询里的"超时/偏移/行数"这类词只出现在**参数名/参数描述**里,
+ * 名字与工具描述都不含 —— 旧打分对此完全瞎。权重压在描述命中(25/4)之下:
+ * 参数只是佐证,不能盖过"名字/描述已明说"的工具。
+ */
+const PARAM_TOKEN_SCORE = 6;
+const PARAM_DESCRIPTION_SCORE = 3;
+const PARAM_CJK_GRAM_SCORE = 2;
+const PARAM_SCORE_CAP = 10;
 
 const CJK_CHAR = /[\u3400-\u4dbf\u4e00-\u9fff]/;
 
@@ -139,6 +148,12 @@ const CJK_NAME_ALIASES: ReadonlyArray<readonly [string, readonly string[]]> = [
   ['重认证', ['reauth']],
   ['端点', ['endpoint']],
   ['接口', ['endpoint', 'api']],
+  // ==== 参数语义(2026-11-28):这些词只出现在参数名/参数描述里 ====
+  ['超时', ['timeout']],
+  ['偏移', ['offset', 'skip']],
+  ['行数', ['limit', 'lines']],
+  ['限制', ['limit']],
+  ['正则', ['pattern', 'regex']],
 ];
 
 /** 把中文串切成二元组(只保留"两字都是汉字"的相邻对);英文/数字不参与。 */
@@ -176,27 +191,48 @@ function tokenizeQuery(query: string): string[] {
     .filter((token) => token.length > 0);
 }
 
+/** 参数面文本(参数名 + 参数描述):"超时"只出现在 `timeout` 的说明里，靠它才找得到 run_command。 */
+function parameterText(tool: Pick<Tool, 'parameters'>): { keys: string; text: string } {
+  const keyParts: string[] = [];
+  const descParts: string[] = [];
+  for (const [key, schema] of Object.entries(tool.parameters ?? {})) {
+    keyParts.push(key.toLowerCase());
+    const description = (schema as { description?: unknown })?.description;
+    if (typeof description === 'string' && description.length > 0) {
+      descParts.push(description.toLowerCase());
+    }
+  }
+  return { keys: keyParts.join(' '), text: `${keyParts.join(' ')} ${descParts.join(' ')}` };
+}
+
 /** 单条查询对单枚工具的得分(大小写不敏感)。 */
-function scoreTool(tool: Pick<Tool, 'name' | 'description'>, query: string): number {
+function scoreTool(tool: Pick<Tool, 'name' | 'description' | 'parameters'>, query: string): number {
   const q = query.trim().toLowerCase();
   if (q === '') return 0;
   const name = tool.name.toLowerCase();
   const description = tool.description.toLowerCase();
+  const params = parameterText(tool);
   let score = 0;
   if (name === q) score += NAME_EXACT_SCORE;
   else if (name.includes(q)) score += NAME_SUBSTRING_SCORE;
   if (description.includes(q)) score += DESCRIPTION_SUBSTRING_SCORE;
+  let paramScore = 0;
   for (const token of tokenizeQuery(q)) {
     const nameHit = name.includes(token);
     const descriptionHit = description.includes(token);
     if (nameHit) score += NAME_TOKEN_SCORE;
     if (descriptionHit) score += DESCRIPTION_TOKEN_SCORE;
+    if (!nameHit && !descriptionHit) {
+      if (params.keys.includes(token)) paramScore += PARAM_TOKEN_SCORE;
+      else if (params.text.includes(token)) paramScore += PARAM_DESCRIPTION_SCORE;
+    }
     // 整串不命中时退回二元组:中文查询"合并分支"在描述里找不到整串,但"合并""分支"都在。
     if (!nameHit && !descriptionHit) {
       let gramScore = 0;
       for (const gram of new Set(cjkBigrams(token))) {
         if (name.includes(gram)) gramScore += CJK_GRAM_SCORE_NAME;
         else if (description.includes(gram)) gramScore += CJK_GRAM_SCORE_DESCRIPTION;
+        else if (params.text.includes(gram)) paramScore += PARAM_CJK_GRAM_SCORE;
       }
       score += Math.min(gramScore, CJK_GRAM_CAP);
     }
@@ -204,9 +240,11 @@ function scoreTool(tool: Pick<Tool, 'name' | 'description'>, query: string): num
     for (const term of aliasTermsFor(token)) {
       if (name.includes(term)) score += NAME_TOKEN_SCORE;
       else if (description.includes(term)) score += DESCRIPTION_TOKEN_SCORE;
+      else if (params.text.includes(term)) paramScore += PARAM_TOKEN_SCORE;
     }
   }
-  return score;
+  // 参数面总分封顶:防止"参数多"的工具靠零散词堆分压过真正对口的工具。
+  return score + Math.min(paramScore, PARAM_SCORE_CAP);
 }
 
 /** 纯检索:查询串与精确名并集打分,按分数降序、同分按名字升序(结果可复现)。 */

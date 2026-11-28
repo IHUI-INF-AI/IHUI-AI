@@ -939,6 +939,19 @@ export interface ParallelExecutionResult {
 }
 
 /** CLI 子进程 spawn 请求(cli 端 SubagentSpawnRequest) */
+/**
+ * 子 agent 独立预算上限(W4-09)。父侧先解析、非法值直接拒收，不把非法预算静默下发；
+ * `maxTurns` 会同时收紧 `maxIterations`，保证"预算轮次"就是真实执行轮次。
+ */
+export interface SubagentSpawnBudget {
+  /** 最大回合数 */
+  maxTurns?: number
+  /** 采样 token 上限(回合末结算) */
+  maxTokens?: number
+  /** 工具调用上限 */
+  maxToolCalls?: number
+}
+
 export interface SubagentSpawnRequest {
   /** 子 agent 角色(researcher/coder/reviewer/planner/general) */
   persona: SubagentPersona
@@ -956,6 +969,10 @@ export interface SubagentSpawnRequest {
   maxIterations?: number
   /** 超时秒数(默认 300) */
   timeoutSeconds?: number
+  /** W4-09:父侧解析后的独立预算(未知键整份拒收) */
+  budget?: SubagentSpawnBudget
+  /** W4-09:权限档;inherit/缺席 = 沿用父会话，绝不静默放宽 */
+  permissionMode?: PermissionMode | 'inherit'
 }
 
 /** CLI 子进程 spawn 响应 */

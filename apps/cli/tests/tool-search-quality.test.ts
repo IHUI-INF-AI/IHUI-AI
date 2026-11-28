@@ -135,6 +135,11 @@ const CASES: Array<[string, string]> = [
   ['重认证状态', 'relay_reauth_status'],
   ['接口列表', 'api_list_endpoints'],
   ['端点说明', 'api_describe_endpoint'],
+  // ==== 参数语义(2026-11-28):查询词只出现在参数名/参数描述里 ====
+  ['超时时间设置', 'run_command'],
+  ['按偏移量读取', 'read_file'],
+  ['读取行数限制', 'read_file'],
+  ['正则匹配内容', 'grep'],
 ]
 
 describe('工具检索质量(中文查询命中率)', () => {

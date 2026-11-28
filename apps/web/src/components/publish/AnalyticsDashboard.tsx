@@ -249,8 +249,8 @@ export function AnalyticsDashboard({
       ) : null}
 
       {/* 趋势图 + 平台分布 */}
-      <div className="grid grid-cols-1 gap-3 tablet-min-[1024px]:grid-cols-3">
-        <Card className="tablet-min-[1024px]:col-span-2">
+      <div className="grid grid-cols-1 gap-3 tablet-lg:grid-cols-3">
+        <Card className="tablet-lg:col-span-2">
           <CardContent className="min-[640px]:p-3 p-3">
             <h3 className="mb-3 text-label font-medium text-muted-foreground">
               {t('analytics.trend')}

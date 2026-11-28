@@ -9,6 +9,21 @@
 # 这里用它与 apps/ai-service 自己的 .env 启动，只监听环回地址。
 
 $ErrorActionPreference = 'Stop'
+
+# 自隐藏兜底：不管调用方用什么方式拉起（Start-Process 只要带 -RedirectStandard* 就会强制新建
+# 控制台），先把自己已经拿到的那个控制台窗口藏掉，桌面上不再留下 pwsh 黑框。
+# GetConsoleWindow 为 0 表示本就没有控制台（CreateNoWindow），直接跳过。
+try {
+  if (-not ('IHUI.ConsoleHide' -as [type])) {
+    Add-Type -Namespace IHUI -Name ConsoleHide -MemberDefinition @'
+[DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
+[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+'@
+  }
+  $h = [IHUI.ConsoleHide]::GetConsoleWindow()
+  if ($h -ne [IntPtr]::Zero) { [void][IHUI.ConsoleHide]::ShowWindow($h, 0) }
+} catch { }
+
 $Root = 'C:\IHUI-AI'
 $AiDir = Join-Path $Root 'apps\ai-service'
 $Python = Join-Path $AiDir '.venv\Scripts\python.exe'

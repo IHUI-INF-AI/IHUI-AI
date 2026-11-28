@@ -1,18 +1,17 @@
 {
   "face": "worktree",
-  "webRoutes": 934,
+  "webRoutes": 932,
   "rnScreens": 361,
-  "miniPages": 343,
+  "miniPages": 335,
   "registryEntries": 260,
   "carrierLedgerRows": 278,
   "categories": {
-    "web-only": 536,
+    "web-only": 532,
     "mini-native": 214,
-    "mini-webview": 97,
-    "rn-only": 62,
-    "mini-native-direct": 10,
-    "mini-native-own": 14,
-    "rn-pending": 1
+    "mini-webview": 98,
+    "rn-only": 73,
+    "rn-pending": 2,
+    "mini-native-own": 13
   },
   "gaps": {
     "unclassified": 0,
@@ -28,26 +27,23 @@
     "portalPageMissing": []
   },
   "review": {
-    "rnOnly": 62,
-    "rnOnlyScreens": 51,
-    "rnOnlyDecided": 51,
-    "rnOnlyNeedsReview": 0,
-    "rnOnlyPlatformDifference": 41,
-    "rnOnlyVerdicts": "scripts/data/cross-end-rn-only-verdicts.jsonl",
+    "rnOnly": 73,
+    "rnOnlyScreens": 59,
+    "rnOnlyDecided": 10,
+    "rnOnlyNeedsReview": 49,
     "rnOnlyReview": "scripts/data/cross-end-route-contract-rn-only-review.json",
-    "rnPending": 1,
-    "miniNativeOwn": 14,
-    "miniNativeDirect": 10,
-    "note": "rn-only 是 RN 有屏但小程序无同对象原生页/共享壳的平台差；当前 51/51 屏已完成逐屏裁决（41 屏落 cross-end-rn-only-verdicts.jsonl，另有既有 not-applicable 裁决），0 屏待审；有同对象页的已改判 mini-native-own。rn-pending 是待真机验收；mini-native-direct 是小程序直接 import RN shell 的真实承载；mini-native-own 是页头/人工复核显式声明的自有页。四者都不冒充共享屏全量承载"
+    "rnPending": 2,
+    "miniNativeOwn": 13,
+    "miniNativeDirect": 0,
+    "note": "rn-only 是 RN 有屏但既无共享屏登记、也无小程序直接 shell 承载的按平台差候选；其中已有 not-applicable 裁决的 10 屏不重复派单，其余 49 屏待产品/端侧复核；rn-pending 是待真机验收；mini-native-direct 是小程序直接 import RN shell 的真实承载；mini-native-own 是页头显式声明对齐 RN 屏的小程序手写页。四者都不冒充共享屏全量承载"
   },
-  "contractHash": "2482724b5b9bc2c744e214b2d3d9efbf4087620406e509351b2491196249e14e",
-  "contractRows": 934,
+  "contractHash": "d750f04e3b8b8fb89c2d2fd167d0075e1c896a41ff89ae5d57dd02dbd63254ec",
+  "contractRows": 932,
   "sources": [
     "scripts/data/cross-end-screen-registry.json",
     "scripts/data/web-mp-route-carrier-ledger.jsonl",
     "scripts/data/web-rn-screen-map.jsonl",
     "scripts/data/miniapp-mirror-verdicts.jsonl",
-    "scripts/data/cross-end-rn-only-verdicts.jsonl",
     "scripts/data/cross-end-mini-own-manual.json",
     "apps/miniapp-taro/src/app.config.ts"
   ]
