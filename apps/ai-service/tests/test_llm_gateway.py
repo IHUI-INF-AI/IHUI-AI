@@ -753,6 +753,32 @@ def test_resolve_provider_agnes(monkeypatch):
     assert litellm_model == "openai/gpt-4o-mini"
 
 
+def test_resolve_provider_ihui_relay(monkeypatch):
+    """ihui/* → ihui_relay 的 key/base，模型 ID 保留 ihui/ 前缀。"""
+    from app.core.config import settings
+    from app.core.llm_gateway import _model_to_provider_code
+    monkeypatch.setattr(
+        settings,
+        "llm_providers",
+        json.dumps(
+            {
+                "ihui_relay": {
+                    "api_key": "sk-ihui-relay-test",
+                    "api_base": "https://api.x5m5x.com/v1",
+                    "models": ["ihui/glm-5.3"],
+                    "default_model": "ihui/glm-5.3",
+                }
+            }
+        ),
+    )
+    gw = LLMGateway()
+    api_key, api_base, litellm_model = gw._resolve_provider("ihui/glm-5.3")
+    assert _model_to_provider_code("ihui/glm-5.3") == "ihui_relay"
+    assert api_key == "sk-ihui-relay-test"
+    assert api_base == "https://api.x5m5x.com/v1"
+    assert litellm_model == "openai/ihui/glm-5.3"
+
+
 def test_resolve_provider_groq(monkeypatch):
     """groq/* → (groq_api_key, None, model) — LiteLLM 原生路由。"""
     from app.core.config import settings

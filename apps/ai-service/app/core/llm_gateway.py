@@ -398,6 +398,10 @@ _PREFIX_TO_PROVIDER_CODE: dict[str, str] = {
     "stepfun/": "stepfun",
     "agnes/": "agnes",
     "workbuddy/": "workbuddy_relay",
+    # 2026-11-28: LLM_PROVIDERS 的 ihui_relay 模型目录使用 ihui/ 前缀（default_model=ihui/glm-5.3）。
+    # 缺少这条映射会落到默认 openai，_resolve 永远拿不到 ihui_relay 的 key，
+    # 表现为「模型列表能选、调用即 provider API key 未配置」。
+    "ihui/": "ihui_relay",
     "qwen": "qwen",
     "qwen-": "qwen",
     # 小米 MiMo 官方 /v1/models 返回裸名(mimo-v2.5 等,无 vendor 前缀)。缺这条则
@@ -2257,6 +2261,10 @@ class LLMGateway:
         if m.startswith("workbuddy/"):
             # 项目自有中转站(账号池):模型串保持 workbuddy/ 前缀,由中转站路由到账号池
             cfg = settings.get_provider_config("workbuddy_relay")
+            return cfg.api_key, cfg.api_base, f"openai/{model}"
+        if m.startswith("ihui/"):
+            # ihui_relay 的 OpenAI 兼容目录直接暴露 ihui/... 模型 ID，保留前缀透传。
+            cfg = settings.get_provider_config("ihui_relay")
             return cfg.api_key, cfg.api_base, f"openai/{model}"
         if m.startswith("groq/"):
             cfg = settings.get_provider_config("groq")
