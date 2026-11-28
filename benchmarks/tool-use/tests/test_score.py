@@ -110,4 +110,30 @@ def test_sample_trajectories_summary(registry):
     assert summary["arg_pass_rate"] == pytest.approx(5 / 7, abs=1e-4)
     assert summary["clean_rate"] == 1.0
 
+
+def test_bm25_retrieval_keeps_key_tools_in_top5(registry):
+    import tool_retrieval
+
+    tools = registry
+    bm25 = tool_retrieval.BM25({name: tool_retrieval.document(tool) for name, tool in tools.items()})
+    checks = [
+        ("查一下三年级二班还有哪些学员欠费", "edu_list_arrears"),
+        ("按 Ctrl+Shift+A", "computer_keyboard_hotkey"),
+        ("读一下 apps/web/src/app.tsx", "read_file"),
+        ("查我待审批的请假单", "hr_my_leaves"),
+    ]
+    for query, expected in checks:
+        top5 = [name for name, _ in bm25.rank(query)[:5]]
+        assert expected in top5, (query, expected, top5)
+
+
+def test_bm25_full_golden_recall_is_measured(registry):
+    import tool_retrieval
+
+    cases = score.load_cases(Path(__file__).resolve().parents[1] / "cases" / "golden.jsonl")
+    report = tool_retrieval.evaluate(cases, registry, topk=5)
+    assert report["cases"] == 100
+    assert 0.75 <= report["recall@5"] <= 1.0
+
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

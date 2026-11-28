@@ -24,7 +24,18 @@
 
 完整报告在 `reports/tool-surface-baseline.md`，机器可读版是 `reports/tool-surface-baseline.json`。
 
-## 三条命令
+纯 BM25 工具检索（无 embedding、无模型）在 100 条金标上的读数：
+
+| 指标 | 读数 |
+|---|---:|
+| Recall@1 | 59.0% |
+| Recall@5 | 83.0% |
+| MRR | 0.700 |
+
+17 条金标连 Top-5 都进不去，集中在“中文口语 → 英文工具名”的词面断裂：`git 状态` 对不上 `status`、`回车` 对不上 `Enter`、`待办` 对不上 `todo`、`截图` 分不清 `browser_screenshot` 与 `computer_screenshot_screen`。结论：**纯 BM25 不够，P1 不能直接照搬 Tool Search；必须先补 aliases / when_to_use 示例，再上向量混合检索**。报告在 `reports/tool-retrieval-baseline.md`。
+
+
+## 四条命令
 
 ```bash
 # 1) 重算工具面基线（无需外网、不调模型）
@@ -36,6 +47,9 @@ apps/ai-service/.venv/Scripts/python.exe benchmarks/tool-use/score.py --validate
 # 3) 给录制轨迹打分
 apps/ai-service/.venv/Scripts/python.exe benchmarks/tool-use/score.py \
   --trajectories benchmarks/tool-use/tests/fixtures/sample_trajectories.jsonl
+
+# 4) 重算 BM25 工具检索基线
+apps/ai-service/.venv/Scripts/python.exe benchmarks/tool-use/tool_retrieval.py
 ```
 
 单测：

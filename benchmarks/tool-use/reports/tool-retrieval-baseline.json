@@ -1,0 +1,246 @@
+{
+  "cases": 100,
+  "recall@1": 0.59,
+  "recall@5": 0.83,
+  "mrr": 0.6995,
+  "misses": [
+    {
+      "id": "edu-017",
+      "domain": "education",
+      "user": "李明泽报名的是哪个班、欠多少",
+      "expected": "edu_list_students",
+      "rank": 6,
+      "top5": [
+        "edu_create_refund",
+        "edu_create_payment_record",
+        "edu_send_fee_reminder_batch",
+        "edu_send_fee_reminder",
+        "edu_list_arrears"
+      ]
+    },
+    {
+      "id": "fin-015",
+      "domain": "finance_hr",
+      "user": "查一下今年的总账",
+      "expected": "finance_ledger_ops",
+      "rank": 33,
+      "top5": [
+        "hr_insurance_readiness",
+        "social_insurance_calc",
+        "ai_bookkeeping",
+        "hr_my_attendance",
+        "ai_payroll_handoff"
+      ]
+    },
+    {
+      "id": "code-003",
+      "domain": "code",
+      "user": "把 config 里的 timeout 从 30 改成 60",
+      "expected": "file_edit",
+      "rank": 37,
+      "top5": [
+        "extract_document_assets",
+        "get_publish_acceptance",
+        "run_command",
+        "workbook_read_range",
+        "sandbox_session"
+      ]
+    },
+    {
+      "id": "code-010",
+      "domain": "code",
+      "user": "调查一下发布链路为什么失败",
+      "expected": "investigate_codebase",
+      "rank": 7,
+      "top5": [
+        "get_publish_task",
+        "get_publish_stats",
+        "prepare_publish_draft",
+        "image_edit",
+        "audio_transcription"
+      ]
+    },
+    {
+      "id": "code-013",
+      "domain": "code",
+      "user": "新建一个 README 片段",
+      "expected": "write_file",
+      "rank": 55,
+      "top5": [
+        "update_publish_draft",
+        "create_artifact",
+        "video_generation",
+        "workflow_resume",
+        "advisor_consult"
+      ]
+    },
+    {
+      "id": "code-014",
+      "domain": "code",
+      "user": "看下当前 git 状态",
+      "expected": "git_operations",
+      "rank": 6,
+      "top5": [
+        "list_publish_accounts",
+        "list_publish_tasks",
+        "browser_network_requests",
+        "get_publish_acceptance",
+        "get_publish_task"
+      ]
+    },
+    {
+      "id": "code-015",
+      "domain": "code",
+      "user": "看下这次改动的 diff",
+      "expected": "git_operations",
+      "rank": 15,
+      "top5": [
+        "workbook_write_cells",
+        "write_file",
+        "workbook_close",
+        "review_pr",
+        "workflow_resume"
+      ]
+    },
+    {
+      "id": "code-016",
+      "domain": "code",
+      "user": "跑一下 pytest tests/test_x.py",
+      "expected": "run_command",
+      "rank": 11,
+      "top5": [
+        "auto_rebuild_codebase",
+        "schedule_wakeup",
+        "workflow_resume",
+        "apply_patch_set",
+        "subagent_job"
+      ]
+    },
+    {
+      "id": "web-001",
+      "domain": "web",
+      "user": "打开 https://aizhs.top",
+      "expected": "browser_navigate",
+      "rank": 42,
+      "top5": [
+        "list_publish_accounts",
+        "workbook_open",
+        "sandbox_session",
+        "analyze_code",
+        "browser_selfcheck"
+      ]
+    },
+    {
+      "id": "web-002",
+      "domain": "web",
+      "user": "点一下登录按钮",
+      "expected": "browser_click_element",
+      "rank": 49,
+      "top5": [
+        "browser_selfcheck",
+        "prepare_publish_draft",
+        "get_publish_acceptance",
+        "list_publish_accounts",
+        "send_to_session"
+      ]
+    },
+    {
+      "id": "desk-003",
+      "domain": "desktop",
+      "user": "点屏幕坐标 100,200",
+      "expected": "computer_mouse_click",
+      "rank": 10,
+      "top5": [
+        "computer_mouse_move",
+        "read_image",
+        "browser_selfcheck",
+        "computer_screenshot_screen",
+        "map_site"
+      ]
+    },
+    {
+      "id": "desk-007",
+      "domain": "desktop",
+      "user": "按回车",
+      "expected": "computer_keyboard_press",
+      "rank": 26,
+      "top5": [
+        "todo_read",
+        "read_tool_output",
+        "list_symbol_definitions",
+        "web_search",
+        "list_project_rules"
+      ]
+    },
+    {
+      "id": "media-004",
+      "domain": "media_meta",
+      "user": "生成一张赛博朋克封面",
+      "expected": "image_generation",
+      "rank": 17,
+      "top5": [
+        "create_publish_draft",
+        "publish_preflight",
+        "update_publish_draft",
+        "video_generation",
+        "configure_automation_task"
+      ]
+    },
+    {
+      "id": "media-009",
+      "domain": "media_meta",
+      "user": "把这段话读出来",
+      "expected": "voice_tts",
+      "rank": 19,
+      "top5": [
+        "audio_transcription",
+        "extract_document_assets",
+        "send_team_message",
+        "hr_insurance_readiness",
+        "list_scheduled_tasks"
+      ]
+    },
+    {
+      "id": "media-011",
+      "domain": "media_meta",
+      "user": "把刚才的总结存成 HTML 报告",
+      "expected": "create_artifact",
+      "rank": 7,
+      "top5": [
+        "present_files",
+        "create_publish_draft",
+        "browser_selfcheck",
+        "review_pr",
+        "resolve_conflict"
+      ]
+    },
+    {
+      "id": "media-013",
+      "domain": "media_meta",
+      "user": "上次我们讨论的工具面方案在哪",
+      "expected": "session_search",
+      "rank": 20,
+      "top5": [
+        "read_tool_output",
+        "get_tool_schema",
+        "orchestrate_agents",
+        "workbook_write_cells",
+        "terminal"
+      ]
+    },
+    {
+      "id": "media-015",
+      "domain": "media_meta",
+      "user": "看下我的待办",
+      "expected": "todo_read",
+      "rank": 156,
+      "top5": [
+        "edu_my_bills",
+        "team_task",
+        "browser_network_requests",
+        "parse_document",
+        "subagent_job"
+      ]
+    }
+  ]
+}
