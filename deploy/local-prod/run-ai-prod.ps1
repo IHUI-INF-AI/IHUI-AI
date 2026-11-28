@@ -1,5 +1,6 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 # 本机生产 ai-service 启动器（8803）。由 ensure-prod-stack.ps1 在缺位时调用。
 #
@@ -11,6 +12,8 @@ $ErrorActionPreference = 'Stop'
 $Root = 'C:\IHUI-AI'
 $AiDir = Join-Path $Root 'apps\ai-service'
 $Python = Join-Path $AiDir '.venv\Scripts\python.exe'
+$PythonW = Join-Path $AiDir '.venv\Scripts\pythonw.exe'
+if (Test-Path -LiteralPath $PythonW) { $Python = $PythonW }
 $LogDir = Join-Path $Root 'logs'
 $Port = 8803
 
@@ -28,10 +31,21 @@ if (Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyCon
 
 $out = Join-Path $LogDir 'ai-prod.out.log'
 $err = Join-Path $LogDir 'ai-prod.err.log'
-Start-Process -FilePath $Python -ArgumentList @(
-    '-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', "$Port"
-) -WorkingDirectory $AiDir -WindowStyle Hidden `
-  -RedirectStandardOutput $out -RedirectStandardError $err | Out-Null
+
+# 为什么不用 Start-Process -WindowStyle Hidden：
+# 1) 同时给 -RedirectStandardOutput/Error 时，Start-Process 走 UseShellExecute=false，
+#    WindowStyle 被忽略，子进程仍会拿到一个可见控制台；
+# 2) .venv\Scripts\python.exe 只是跳板，它再拉起的 base python 会自建控制台，
+#    于是「隐藏启动」也会弹出一个标题为 python.exe 路径的黑框。
+# 这里改用 .venv 的 pythonw.exe（本身无控制台）+ cmd.exe 文件重定向 + CreateNoWindow：
+# 控制台从根上不会被创建；重定向由 cmd 持有，本脚本退出后日志照旧持续写入。
+$psi = [System.Diagnostics.ProcessStartInfo]::new()
+$psi.FileName = "$env:ComSpec"
+$psi.Arguments = '/d /c ""{0}" -m uvicorn app.main:app --host 127.0.0.1 --port {1} 1>>"{2}" 2>>"{3}""' -f $Python, $Port, $out, $err
+$psi.WorkingDirectory = $AiDir
+$psi.UseShellExecute = $false
+$psi.CreateNoWindow = $true
+[void][System.Diagnostics.Process]::Start($psi)
 
 for ($i = 1; $i -le 40; $i++) {
     Start-Sleep -Seconds 2
@@ -43,3 +57,4 @@ for ($i = 1; $i -le 40; $i++) {
     }
 }
 exit 1
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
