@@ -147,6 +147,7 @@ export function ProjectFilesSection() {
                     src: `/api/workspace/files/${file.id}`,
                     subtitle: `${file.projectName} · ${formatSize(file.size)}`,
                     projectId: file.projectId,
+                    fileId: file.id,
                   })
                 }
               >

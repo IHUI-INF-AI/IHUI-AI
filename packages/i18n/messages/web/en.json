@@ -14906,7 +14906,13 @@
       "revisePickProject": "Choose project",
       "reviseLoadingProjects": "Loading projects…",
       "reviseSaveConfirm": "Save",
-      "reviseNoProjects": "No projects yet — create one in the workspace first"
+      "reviseNoProjects": "No projects yet — create one in the workspace first",
+      "reviseSavedAsVersion": "Saved as version {version}",
+      "reviseVersionChangeLog": "AI revision: {accepted}/{total} changes accepted",
+      "versionHistory": "Version history",
+      "versionEmpty": "No versions yet — save an AI revision and it will show up here",
+      "versionDownload": "Download this version",
+      "versionLoadFailed": "Failed to load versions, please retry later"
     }
   },
   "drama": {

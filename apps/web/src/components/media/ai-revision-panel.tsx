@@ -74,6 +74,8 @@ interface Props {
   autoRun?: boolean
   /** 所属项目 id:有值时提供「保存回文档中心」,按项目文件接口上传修订稿。 */
   projectId?: string
+  /** 工作区文件 id:有值时保存成该文件的**新版本**(版本链),而不是另存一份新文件。 */
+  fileId?: string
 }
 
 async function requestRevision(options: {
@@ -140,6 +142,7 @@ export function AiRevisionPanel({
   initialInstruction,
   autoRun = false,
   projectId,
+  fileId,
 }: Props) {
   const t = useTranslations('docs.projectFiles')
   const ext = extOfRevisionName(name)
@@ -370,23 +373,42 @@ export function AiRevisionPanel({
    */
   const saveToDocs = async (targetProjectId?: string) => {
     const pid = targetProjectId ?? projectId
-    if (!pid || !result || !diff || accepted.size === 0) return
+    if ((!fileId && !pid) || !result || !diff || accepted.size === 0) return
     setSaving(true)
     try {
       const exported = await buildExport()
       if (!exported) return
       const form = new FormData()
+      if (fileId) {
+        // multipart 字段顺序:changeLog 必须在 file 之前 —— @fastify/multipart
+        // 读到文件就停止解析字段,反向顺序会丢版本说明。
+        form.append(
+          'changeLog',
+          t('reviseVersionChangeLog', { accepted: accepted.size, total: totalHunks }),
+        )
+      }
       // 用显式 File 而不是 append(blob, filename):部分环境忽略第三参,服务端会收到 "blob"
       form.append(
         'file',
         new File([exported.blob], exported.filename, { type: exported.blob.type }),
       )
-      const res = await fetchApi<{ file?: { id: string; name: string } }>(
-        `/api/workspace/projects/${encodeURIComponent(pid)}/files`,
-        { method: 'POST', body: form },
-      )
-      if (!res.success) throw new Error(res.error || 'SAVE_FAILED')
-      toast.success(t('reviseSavedToDocs', { name: exported.filename }))
+      if (fileId) {
+        // 版本链(2026-11-28):同一个文件行追加新版本,文档中心仍是一条记录,
+        // 旧版本 blob 保留可回读;changeLog 是版本历史里的那句人话。
+        const res = await fetchApi<{ file?: { id: string }; version?: { version: number } }>(
+          `/api/workspace/files/${encodeURIComponent(fileId)}/versions`,
+          { method: 'POST', body: form },
+        )
+        if (!res.success) throw new Error(res.error || 'SAVE_FAILED')
+        toast.success(t('reviseSavedAsVersion', { version: res.data?.version?.version ?? '?' }))
+      } else {
+        const res = await fetchApi<{ file?: { id: string; name: string } }>(
+          `/api/workspace/projects/${encodeURIComponent(pid!)}/files`,
+          { method: 'POST', body: form },
+        )
+        if (!res.success) throw new Error(res.error || 'SAVE_FAILED')
+        toast.success(t('reviseSavedToDocs', { name: exported.filename }))
+      }
       // 文档中心「我的项目文件」订阅此事件即时刷新,用户不用等 60s staleTime 才看到新稿。
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('ihui:project-files-changed'))
@@ -404,7 +426,7 @@ export function AiRevisionPanel({
    * 只读当前用户的项目(接口按 userId 过滤),不缓存 —— 选错项目会把修订稿传进别人的项目。
    */
   const startSave = async () => {
-    if (projectId) {
+    if (projectId || fileId) {
       await saveToDocs(projectId)
       return
     }

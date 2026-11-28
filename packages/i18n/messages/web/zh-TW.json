@@ -14915,7 +14915,13 @@
       "revisePickProject": "選擇專案",
       "reviseLoadingProjects": "載入專案中…",
       "reviseSaveConfirm": "儲存",
-      "reviseNoProjects": "尚無專案,請先在工作區建立專案"
+      "reviseNoProjects": "尚無專案,請先在工作區建立專案",
+      "reviseSavedAsVersion": "已儲存為第 {version} 版",
+      "reviseVersionChangeLog": "AI 修訂稿:採納 {accepted}/{total} 處",
+      "versionHistory": "歷史版本",
+      "versionEmpty": "尚無版本記錄,儲存一次 AI 修訂後會出現在這裡",
+      "versionDownload": "下載此版本",
+      "versionLoadFailed": "版本載入失敗,請稍後重試"
     }
   },
   "drama": {

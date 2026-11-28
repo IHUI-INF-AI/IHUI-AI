@@ -14980,7 +14980,13 @@
       "revisePickProject": "프로젝트 선택",
       "reviseLoadingProjects": "프로젝트 불러오는 중…",
       "reviseSaveConfirm": "저장",
-      "reviseNoProjects": "프로젝트가 없습니다. 먼저 워크스페이스에서 만들어 주세요"
+      "reviseNoProjects": "프로젝트가 없습니다. 먼저 워크스페이스에서 만들어 주세요",
+      "reviseSavedAsVersion": "버전 {version}(으)로 저장됨",
+      "reviseVersionChangeLog": "AI 수정본: {accepted}/{total}건 반영",
+      "versionHistory": "버전 기록",
+      "versionEmpty": "아직 버전 기록이 없습니다. AI 수정본을 저장하면 여기에 표시됩니다",
+      "versionDownload": "이 버전 다운로드",
+      "versionLoadFailed": "버전을 불러오지 못했습니다. 잠시 후 다시 시도하세요"
     }
   },
   "drama": {

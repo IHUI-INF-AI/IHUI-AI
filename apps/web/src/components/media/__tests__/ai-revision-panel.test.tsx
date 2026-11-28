@@ -165,6 +165,29 @@ describe('AiRevisionPanel', () => {
     window.removeEventListener('ihui:project-files-changed', onFilesChanged)
   })
 
+  it('项目文件保存为版本:changeLog 在 file 之前,走文件版本接口', async () => {
+    fetchApiMock.mockResolvedValueOnce({
+      success: true,
+      data: { version: { version: 3 }, file: { id: 'f-1' } },
+    })
+    render(
+      <AiRevisionPanel file={fileOf('合同.txt')} name="合同.txt" projectId="p-1" fileId="f-1" />,
+    )
+    fireEvent.click(screen.getByText('reviseRun'))
+    await expectBodyContains('第一条 甲方应在五个工作日内付款。')
+
+    fireEvent.click(screen.getByText('reviseSaveToDocs'))
+    await waitFor(() => expect(fetchApiMock).toHaveBeenCalledTimes(1))
+    const [url, init] = fetchApiMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('/api/workspace/files/f-1/versions')
+    const form = init.body as FormData
+    // @fastify/multipart 读到 file 即停止解析字段:changeLog 必须在前面
+    expect(Array.from(form.keys())).toEqual(['changeLog', 'file'])
+    expect(String(form.get('changeLog'))).toContain('reviseVersionChangeLog')
+    const sent = form.get('file') as File
+    expect(sent.name).toBe('合同-修订稿.txt')
+  })
+
   it('对话附件无项目归属:先选项目再保存,上传到所选项目', async () => {
     fetchApiMock.mockImplementation(async (url: string) =>
       url === '/api/workspace/projects'

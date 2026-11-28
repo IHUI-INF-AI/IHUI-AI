@@ -14980,7 +14980,13 @@
       "revisePickProject": "プロジェクトを選択",
       "reviseLoadingProjects": "プロジェクトを読み込み中…",
       "reviseSaveConfirm": "保存",
-      "reviseNoProjects": "プロジェクトがありません。先にワークスペースで作成してください"
+      "reviseNoProjects": "プロジェクトがありません。先にワークスペースで作成してください",
+      "reviseSavedAsVersion": "バージョン {version} として保存しました",
+      "reviseVersionChangeLog": "AI 改訂版:{accepted}/{total} 件を採用",
+      "versionHistory": "バージョン履歴",
+      "versionEmpty": "バージョン履歴はまだありません。AI 改訂を保存するとここに表示されます",
+      "versionDownload": "このバージョンをダウンロード",
+      "versionLoadFailed": "バージョンの読み込みに失敗しました。後でもう一度お試しください"
     }
   },
   "drama": {

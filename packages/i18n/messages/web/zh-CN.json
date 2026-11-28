@@ -14960,7 +14960,13 @@
       "revisePickProject": "选择项目",
       "reviseLoadingProjects": "加载项目中…",
       "reviseSaveConfirm": "保存",
-      "reviseNoProjects": "还没有项目,请先在工作区创建项目"
+      "reviseNoProjects": "还没有项目,请先在工作区创建项目",
+      "reviseSavedAsVersion": "已保存为第 {version} 版",
+      "reviseVersionChangeLog": "AI 修订稿:采纳 {accepted}/{total} 处",
+      "versionHistory": "历史版本",
+      "versionEmpty": "还没有版本记录,保存一次 AI 修订后会出现在这里",
+      "versionDownload": "下载此版本",
+      "versionLoadFailed": "版本加载失败,请稍后重试"
     }
   },
   "drama": {

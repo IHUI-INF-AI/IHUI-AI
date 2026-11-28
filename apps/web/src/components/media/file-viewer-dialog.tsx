@@ -7,6 +7,7 @@
 import * as React from 'react'
 import {
   Download,
+  History,
   Loader2,
   Maximize2,
   MessageSquare,
@@ -23,6 +24,7 @@ import { useAiPanelStore } from '@/stores/ai-panel'
 import { useFileHandoffStore } from '@/stores/file-handoff'
 import { AiDocumentPanel, canAnalyzeWithAi } from './ai-document-panel'
 import { AiRevisionPanel } from './ai-revision-panel'
+import { FileVersionHistory } from './file-version-history'
 import { UniversalFilePreview } from './universal-file-preview'
 
 /**
@@ -46,6 +48,8 @@ export interface FileViewerTarget {
   readonly subtitle?: string
   /** 该文件所属项目(项目文件才有):修订稿「保存回文档中心」按此上传,未知则不显示。 */
   readonly projectId?: string
+  /** 工作区文件 id(项目文件才有):有值时可看版本历史、修订稿存为新版本。 */
+  readonly fileId?: string
 }
 
 interface Props {
@@ -78,8 +82,8 @@ export function FileViewerDialog({ target, onClose }: Props) {
   const [loading, setLoading] = React.useState(false)
   const [failed, setFailed] = React.useState(false)
   const [expanded, setExpanded] = React.useState(false)
-  /** 右侧面板:AI 解读 / AI 修订稿。两者互斥,避免同一份文件出现两套请求。 */
-  const [panel, setPanel] = React.useState<'ai' | 'revision' | null>(null)
+  /** 右侧面板:AI 解读 / AI 修订稿 / 版本历史。三者互斥,避免同一份文件出现两套请求。 */
+  const [panel, setPanel] = React.useState<'ai' | 'revision' | 'versions' | null>(null)
   const [reloadKey, setReloadKey] = React.useState(0)
 
   React.useEffect(() => {
@@ -227,6 +231,19 @@ export function FileViewerDialog({ target, onClose }: Props) {
                   <span className="hidden text-xs sm:inline">{t('aiRevise')}</span>
                 </Button>
               ) : null}
+              {target?.fileId ? (
+                <Button
+                  variant={panel === 'versions' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  onClick={() => setPanel((value) => (value === 'versions' ? null : 'versions'))}
+                  aria-label={t('versionHistory')}
+                  title={t('versionHistory')}
+                  className="gap-1.5"
+                >
+                  <History className="h-4 w-4" />
+                  <span className="hidden text-xs sm:inline">{t('versionHistory')}</span>
+                </Button>
+              ) : null}
               {aiAvailable ? (
                 <Button
                   variant="ghost"
@@ -263,11 +280,16 @@ export function FileViewerDialog({ target, onClose }: Props) {
             </div>
           </div>
         </DialogHeader>
-        {panel === 'revision' && blob && target ? (
+        {panel === 'versions' && target?.fileId ? (
+          <div className="min-h-0 overflow-y-auto">
+            <FileVersionHistory fileId={target.fileId} />
+          </div>
+        ) : panel === 'revision' && blob && target ? (
           <AiRevisionPanel
             file={blob}
             name={target.name}
             projectId={target.projectId}
+            fileId={target.fileId}
             onClose={() => setPanel(null)}
             className="min-h-0"
           />
