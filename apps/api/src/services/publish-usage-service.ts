@@ -11,7 +11,7 @@
  * 第一版没有金额列：定价、结算账户、作者分成尚未落地，先保证计量单位可追溯。
  */
 import { and, desc, eq, sql } from 'drizzle-orm'
-import { db, dbRead } from '../db/index.js'
+import { db } from '../db/index.js'
 import { developerApiKeys, publishApiUsageRecords } from '@ihui/database'
 
 export interface RecordPublishUsageInput {
@@ -62,14 +62,14 @@ export async function getPublishUsage(
   userId: string,
   limit = 20,
 ): Promise<PublishUsageSummary | null> {
-  const [key] = await dbRead
+  const [key] = await db
     .select({ id: developerApiKeys.id })
     .from(developerApiKeys)
     .where(and(eq(developerApiKeys.id, apiKeyId), eq(developerApiKeys.userId, userId)))
     .limit(1)
   if (!key) return null
 
-  const [agg] = await dbRead
+  const [agg] = await db
     .select({
       units: sql<number>`coalesce(sum(${publishApiUsageRecords.units}), 0)::int`,
       records: sql<number>`count(*)::int`,
@@ -78,7 +78,7 @@ export async function getPublishUsage(
     .from(publishApiUsageRecords)
     .where(eq(publishApiUsageRecords.apiKeyId, apiKeyId))
 
-  const items = await dbRead
+  const items = await db
     .select({
       id: publishApiUsageRecords.id,
       action: publishApiUsageRecords.action,
