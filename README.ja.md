@@ -2227,6 +2227,12 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-28**
+- 🐞 修正:WS 聊天改用 Chat v3 接口与 additional_messages (ce5ac9741a)
+- 🐞 修正:用量最近时间按毫秒比较 (656eefb9de)
+- 🚀 機能/改善:接入 LMArena/AA/OpenRouter 权威模型榜 (9f089a703a)
+- 🚀 機能/改善:发布能力计费标记与开放调用计量 (924d77101d)
+- 🐞 修正:成功率按百分比口径，复盘改单条SQL取数，补权限标签 (1c80b00b3c)
+- 📚 ドキュメント:对外读数只写模型官方名,不写接入平台/网关名 (2cd21ca5cc)
 - 📚 ドキュメント:同步 README 提交记录 (432eb92a11)
 - 📚 ドキュメント:记录 b410e589f6 深链修复提交 (edcf7f3ecb)
 - 🐞 修正:修复子包深链首帧空白并更新验收证据 (b410e589f6)

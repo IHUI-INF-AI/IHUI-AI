@@ -22,7 +22,8 @@ import {
   Workflow,
 } from 'lucide-react'
 import type { CozePublicCapabilities } from '@ihui/types'
-import { fetchApi } from '@/lib/api'
+import { fetchWsTicket } from '@ihui/api-client'
+import { fetchApi, getStreamBaseUrl } from '@/lib/api'
 import { buildWsUrl } from '@/lib/ws-url'
 import { useAuthStore } from '@/stores/auth'
 import { cn } from '@/lib/utils'
@@ -145,6 +146,9 @@ export function CozeAgentPanel() {
     }
   }, [selected])
 
+  const tRef = React.useRef(t)
+  tRef.current = t
+
   React.useEffect(() => {
     if (!selected) return
     setLines([])
@@ -155,10 +159,9 @@ export function CozeAgentPanel() {
       setStatus('login')
       return
     }
-    const ws = new WebSocket(
-      buildWsUrl(`/ws/coze/chat?agent_id=${encodeURIComponent(selected.agentId)}`, token),
-    )
-    socketRef.current = ws
+
+    let cancelled = false
+    let socket: WebSocket | null = null
 
     const appendDelta = (content: string) => {
       if (!content) return
@@ -174,83 +177,104 @@ export function CozeAgentPanel() {
       })
     }
 
-    ws.onmessage = (event) => {
-      let msg: Record<string, unknown>
-      try {
-        msg = JSON.parse(String(event.data)) as Record<string, unknown>
-      } catch {
-        return
-      }
-      const eventName = typeof msg.event === 'string' ? msg.event : ''
-      const payload = asRecord(msg.data)
+    void (async () => {
+      // 短期 WS 票：access token 只走 Authorization 头，不落进 URL/访问日志。
+      // 换票失败按既有约定降级直连 access（服务端 wsAuth 兼容双 token）。
+      const ticket = await fetchWsTicket(getStreamBaseUrl(), token)
+      if (cancelled) return
+      const ws = new WebSocket(
+        buildWsUrl(
+          `/ws/coze/chat?agent_id=${encodeURIComponent(selected.agentId)}`,
+          ticket ?? token,
+        ),
+      )
+      socket = ws
+      socketRef.current = ws
 
-      if (eventName === 'ready') {
-        readyRef.current = true
-        setStatus('ready')
-        ws.send(JSON.stringify({ type: 'chat.start' }))
-        return
+      ws.onmessage = (event) => {
+        let msg: Record<string, unknown>
+        try {
+          msg = JSON.parse(String(event.data)) as Record<string, unknown>
+        } catch {
+          return
+        }
+        const eventName = typeof msg.event === 'string' ? msg.event : ''
+        const payload = asRecord(msg.data)
+
+        if (eventName === 'ready') {
+          readyRef.current = true
+          setStatus('ready')
+          ws.send(JSON.stringify({ type: 'chat.start' }))
+          return
+        }
+        if (eventName === 'conversation.message.delta') {
+          // 服务端 3s 心跳伪装成 delta，不能拼进回答。
+          if (payloadText(payload, 'id').startsWith('heartbeat_')) return
+          const type = payloadText(payload, 'type')
+          if (type && type !== 'answer') return
+          appendDelta(payloadText(payload, 'content'))
+          return
+        }
+        if (eventName === 'conversation.message.completed') {
+          const type = payloadText(payload, 'type')
+          if (type && type !== 'answer') return
+          const content = payloadText(payload, 'content')
+          if (content) appendDelta(content)
+          setLines((prev) => {
+            const last = prev[prev.length - 1]
+            if (!last || last.role !== 'assistant') return prev
+            return [...prev.slice(0, -1), { ...last, streaming: false }]
+          })
+          return
+        }
+        if (eventName === 'conversation.chat.completed') {
+          setLines((prev) => {
+            const last = prev[prev.length - 1]
+            if (!last || last.role !== 'assistant') return prev
+            return [...prev.slice(0, -1), { ...last, streaming: false }]
+          })
+          return
+        }
+        if (eventName === 'conversation.chat.failed' || eventName === 'error') {
+          const message =
+            payloadText(msg, 'message') ||
+            payloadText(msg, 'msg') ||
+            tRef.current('upstreamFailed')
+          setError(message)
+          setStatus('failed')
+          setLines((prev) => {
+            const last = prev[prev.length - 1]
+            if (!last || last.role !== 'assistant') return prev
+            return [...prev.slice(0, -1), { ...last, streaming: false }]
+          })
+        }
       }
-      if (eventName === 'conversation.message.delta') {
-        // 服务端 3s 心跳伪装成 delta，不能拼进回答。
-        if (payloadText(payload, 'id').startsWith('heartbeat_')) return
-        const type = payloadText(payload, 'type')
-        if (type && type !== 'answer') return
-        appendDelta(payloadText(payload, 'content'))
-        return
-      }
-      if (eventName === 'conversation.message.completed') {
-        const type = payloadText(payload, 'type')
-        if (type && type !== 'answer') return
-        const content = payloadText(payload, 'content')
-        if (content) appendDelta(content)
-        setLines((prev) => {
-          const last = prev[prev.length - 1]
-          if (!last || last.role !== 'assistant') return prev
-          return [...prev.slice(0, -1), { ...last, streaming: false }]
-        })
-        return
-      }
-      if (eventName === 'conversation.chat.completed') {
-        setLines((prev) => {
-          const last = prev[prev.length - 1]
-          if (!last || last.role !== 'assistant') return prev
-          return [...prev.slice(0, -1), { ...last, streaming: false }]
-        })
-        return
-      }
-      if (eventName === 'conversation.chat.failed' || eventName === 'error') {
-        const message =
-          payloadText(msg, 'message') || payloadText(msg, 'msg') || t('upstreamFailed')
-        setError(message)
+
+      ws.onerror = () => {
         setStatus('failed')
-        setLines((prev) => {
-          const last = prev[prev.length - 1]
-          if (!last || last.role !== 'assistant') return prev
-          return [...prev.slice(0, -1), { ...last, streaming: false }]
-        })
+        setError(tRef.current('connectFailed'))
       }
-    }
-
-    ws.onerror = () => {
-      setStatus('failed')
-      setError(t('connectFailed'))
-    }
-    ws.onclose = () => {
-      readyRef.current = false
-      setStatus((prev) => (prev === 'failed' ? prev : 'closed'))
-    }
+      ws.onclose = () => {
+        readyRef.current = false
+        setStatus((prev) => (prev === 'failed' ? prev : 'closed'))
+      }
+    })()
 
     return () => {
+      cancelled = true
       readyRef.current = false
-      ws.onmessage = null
-      ws.onerror = null
-      ws.onclose = null
-      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-        ws.close()
+      const ws = socket ?? socketRef.current
+      if (ws) {
+        ws.onmessage = null
+        ws.onerror = null
+        ws.onclose = null
+        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+          ws.close()
+        }
       }
       socketRef.current = null
     }
-  }, [selected, t, token])
+  }, [selected, token])
 
   React.useEffect(() => {
     const el = listRef.current
