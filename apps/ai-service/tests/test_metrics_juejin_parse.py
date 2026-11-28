@@ -57,4 +57,26 @@ def test_apply_csdn_html_detects_security_verification() -> None:
     assert mc._apply_csdn_html("<title>安全验证</title>", metrics) is False
     assert metrics["source"]["error"] == "csdn security verification"
     assert metrics["views"] == 0
+
+
+def test_bilibili_creator_fallback_cookies_and_stat() -> None:
+    credentials = {
+        "__cookie_jar__": [
+            {"name": "SESSDATA", "value": "a"},
+            {"name": "bili_jct", "value": "b"},
+        ],
+        "dedeuserid": "42",
+    }
+    cookies = mc._bilibili_cookies(credentials)
+    assert cookies == {"SESSDATA": "a", "bili_jct": "b", "dedeuserid": "42"}
+    metrics = _blank()
+    mc._apply_bilibili_creator_stat(
+        {"play": 8, "like": 2, "reply": 1, "share": 0}, metrics
+    )
+    assert metrics["views"] == 8
+    assert metrics["likes"] == 2
+    assert metrics["comments"] == 1
+    assert metrics["shares"] == 0
+    assert metrics["source"]["views"] == "creator.stat.play"
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
