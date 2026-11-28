@@ -81,13 +81,13 @@ describe('LogPanel 失败态', () => {
     vi.mocked(apiOrThrow).mockRejectedValue(new Error('500 Internal Server Error'))
     renderPanel()
 
-    await waitFor(() => expect(screen.getByText(/台账加载失败/)).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('加载失败')).toBeTruthy())
     expect(screen.getByRole('button', { name: '重试' })).toBeTruthy()
-    expect(screen.queryByText('暂无发送记录')).toBeNull()
+    expect(screen.queryByText('暂无数据')).toBeNull()
     expect(screen.getByText('共 — 条')).toBeTruthy()
   })
 
-  it('接口成功且为空 ⇒ 仍显示「暂无发送记录」', async () => {
+  it('接口成功且为空 ⇒ 仍显示「暂无数据」', async () => {
     vi.mocked(apiOrThrow).mockResolvedValue({
       items: [],
       total: 0,
@@ -95,8 +95,8 @@ describe('LogPanel 失败态', () => {
     } as never)
     renderPanel()
 
-    await waitFor(() => expect(screen.getByText('暂无发送记录')).toBeTruthy())
-    expect(screen.queryByText(/台账加载失败/)).toBeNull()
+    await waitFor(() => expect(screen.getByText('暂无数据')).toBeTruthy())
+    expect(screen.queryByText('加载失败')).toBeNull()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
