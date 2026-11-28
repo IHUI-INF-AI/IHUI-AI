@@ -42,7 +42,6 @@ import SenseNova from '@lobehub/icons/es/SenseNova'
 import Tiangong from '@lobehub/icons/es/Tiangong'
 import InternLM from '@lobehub/icons/es/InternLM'
 import ByteDance from '@lobehub/icons/es/ByteDance'
-import Coze from '@lobehub/icons/es/Coze'
 import Qingyan from '@lobehub/icons/es/Qingyan'
 import ChatGLM from '@lobehub/icons/es/ChatGLM'
 import AgnesAI from '@lobehub/icons/es/AgnesAI' // 2026-08-02 新增:Agnes 安格(国内厂商)
@@ -158,7 +157,7 @@ import { cn } from '@/lib/utils'
  *              Stepfun 阶跃星辰 / Minimax / Hunyuan 腾讯混元 / Baidu 百度
  *              Baichuan 百川 / Spark 讯飞星火 / Wenxin 文心一言 / Yi 零一万物
  *              SenseNova 商汤 / Tiangong 天工 / InternLM 书生
- *   - 集团:ByteDance / Coze / Alibaba / Tencent / Huawei / Tongyi / Qingyan / ChatGLM / Kimi
+ *   - 集团:ByteDance /  Alibaba / Tencent / Huawei / Tongyi / Qingyan / ChatGLM / Kimi
  *   - 2026-07-31 兜底:Chrome / Remotion / Hyperframes(lobehub 无收录,lucide 同色兜底)
  */
 
@@ -275,7 +274,6 @@ const VENDOR_COMPONENTS = {
   internlm: InternLM,
   // 集团
   bytedance: ByteDance,
-  coze: Coze,
   tongyi: Qwen, // 通义 = Qwen 同厂商
   qingyan: Qingyan,
   chatglm: ChatGLM,

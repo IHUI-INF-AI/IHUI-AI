@@ -6,11 +6,11 @@
  * n8n 代理路由 (R81 真实化)
  *
  * D 盘源: coze_zhs_py/api/n8n_proxy.py
- * 路径前缀: /cozeZhsApi/n8n
+ * 路径前缀: /agentZhsApi/n8n
  *
  * 端点 (1:1 迁移 D 盘):
- *  POST /cozeZhsApi/n8n/workflows  透传 n8n workflows 列表(配置 n8n_domain+api_key 时真实 fetch)
- *  POST /cozeZhsApi/n8n/addAgent   通过 n8n 创建智能体(真实 INSERT agents + zhs_agent_examine)
+ *  POST /agentZhsApi/n8n/workflows  透传 n8n workflows 列表(配置 n8n_domain+api_key 时真实 fetch)
+ *  POST /agentZhsApi/n8n/addAgent   通过 n8n 创建智能体(真实 INSERT agents + zhs_agent_examine)
  *
  * G-299(2026-09-28)追加 /ai/n8n 面(RN N8nModelScreen 消费,env 驱动 + SSRF 校验;
  * 2026-10-02 把 list/create 自 proxy-tools 一并收拢到本面,四操作全在此):
@@ -37,7 +37,7 @@ import { ensureSafeFetchUrl, safeFetch } from '../utils/ssrf-guard.js'
 // N8N_API_KEY 只有一个名字、两侧同值,不属这一型,仍就地读。
 import { readN8nBaseUrl, readN8nCredentials, n8nNotConfiguredHint } from '../utils/n8n-env.js'
 
-const PREFIX = '/cozeZhsApi/n8n'
+const PREFIX = '/agentZhsApi/n8n'
 const N8N_ENV_PRIMARY = 'N8N_DOMAIN' as const
 
 // ==================== Zod schemas ====================
@@ -82,7 +82,7 @@ export const n8nProxyRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // 1. POST /cozeZhsApi/n8n/workflows — 真实透传 n8n API (R81)
+  // 1. POST /agentZhsApi/n8n/workflows — 真实透传 n8n API (R81)
   // D 盘实现: 使用 n8n_domain + X-N8N-API-KEY 透传查询 workflows,active=true
   // G 盘真实化: 当 n8n_domain/api_key 来自请求体时, 真实 fetch https://${n8n_domain}/api/v1/workflows
   // 当仅 N8N_DOMAIN/N8N_API_KEY 环境变量配置时使用环境变量, 否则回退到 stub
@@ -187,7 +187,7 @@ export const n8nProxyRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // 2. POST /cozeZhsApi/n8n/addAgent — 真实写入 agents + zhs_agent_examine (R81)
+  // 2. POST /agentZhsApi/n8n/addAgent — 真实写入 agents + zhs_agent_examine (R81)
   // D 盘实现: 生成 agent_id = n8n_<uuid>,INSERT agents + zhs_agent_examine,提交审核
   // G 盘真实化: 真实 INSERT agents (source='n8n') + zhs_agent_examine, 返回 agent_id + examine_id
   server.post(`${PREFIX}/addAgent`, async (request, reply) => {
@@ -282,7 +282,7 @@ export const n8nProxyRoutes: FastifyPluginAsync = async (server) => {
   // 只留 PUT/toggle —— 那是 2026-09-27 "并存 ⇒ Fastify 启动即抛 FST_ERR_DUPLICATED_ROUTE
   // ⇒ 整个后端下线"事故后的临时拆法;两套语义已按客户端契约收拢到本面(旧实现返回裸数组、
   // create 语义是"凭据透传查询",与客户端契约都不符,详见下方各端点注释)。
-  // 与 /cozeZhsApi/n8n 代理同一上游、同一 env 纪律(主名 N8N_DOMAIN,别名 N8N_BASE_URL,
+  // 与 /agentZhsApi/n8n 代理同一上游、同一 env 纪律(主名 N8N_DOMAIN,别名 N8N_BASE_URL,
   // 取值一律经 utils/n8n-env.ts 那唯一一份出口):
   //   - list 未配置 ⇒ 200 空列表 + notAvailable 标记(读操作空态可表达,与
   //     miniapp-compat /workflows/n8n 同语义);

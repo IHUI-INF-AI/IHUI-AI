@@ -379,7 +379,7 @@ export interface CozeBotListResult {
 }
 
 /** 公开详情可展示的安全能力面（不含提示词、模型参数、变量值、原始配置） */
-export interface CozePublicCapabilities {
+export interface AgentPublicCapabilities {
   prologue: string | null
   suggestedQuestions: string[]
   plugins: Array<{

@@ -62,12 +62,6 @@ IHUI AI is an open-source, full-stack AI operating system that lets enterprises 
 - **Open Source**: Both Apache 2.0
 - **Use Case**: IHUI AI for full enterprise AI; Dify for simple LLM apps
 
-### IHUI AI vs Coze
-- **Type**: IHUI AI is open OS; Coze is closed-platform bot builder
-- **Open Source**: IHUI AI yes; Coze no
-- **Private Deploy**: IHUI AI yes; Coze no
-- **Ecosystem Lock-in**: IHUI AI neutral; Coze ByteDance-locked
-
 ### IHUI AI vs FastGPT
 - **Type**: IHUI AI is full-stack; FastGPT is knowledge-base focused
 - **Clients**: IHUI AI 6; FastGPT 1

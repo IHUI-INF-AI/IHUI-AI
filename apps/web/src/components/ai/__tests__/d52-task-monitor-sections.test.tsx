@@ -9,7 +9,7 @@ import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import React from 'react'
 import { render, cleanup, screen, fireEvent, within } from '@testing-library/react'
 
-/** 与 ai-side-panel-tools.tsx TAB_KEYS 顺序一致(inspector 由 D116/03c3bdc4b 追加,coze 由智能体面板接入追加) */
+/** 与 ai-side-panel-tools.tsx TAB_KEYS 顺序一致(inspector 由 D116/03c3bdc4b 追加,agentPlatform 由智能体面板接入追加) */
 const ALL_TABS = [
   'goal',
   'memory',
@@ -17,7 +17,7 @@ const ALL_TABS = [
   'tasks',
   'progress',
   'agents',
-  'coze',
+  'agentPlatform',
   'background',
   'swarm',
   'orchestration',

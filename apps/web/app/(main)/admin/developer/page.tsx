@@ -8,22 +8,16 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { Code2, Download } from 'lucide-react'
+import { Code2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { HasPermi } from '@/components/auth/HasPermi'
-import { Button } from '@ihui/ui-react'
 import { DeveloperCards } from './DeveloperCards'
-import { DeveloperCozeTable } from './DeveloperCozeTable'
-import { DeveloperCozeDialog } from './DeveloperCozeDialog'
 import { DeveloperKeyDialog, DeveloperWebhookDialog } from './DeveloperKeyDialog'
-import { useDeveloperCoze } from './useDeveloperCoze'
 import type { ApiKey, WebhookConfig, SdkItem } from './types'
 import { BackButton } from '@/components/common'
 
 export default function DeveloperPage() {
   const t = useTranslations('adminTools')
-  const td = useTranslations('admin.developer')
   const qc = useQueryClient()
   const [keyOpen, setKeyOpen] = React.useState(false)
   const [keyName, setKeyName] = React.useState('')
@@ -107,8 +101,6 @@ export default function DeveloperPage() {
     )
   }
 
-  const coze = useDeveloperCoze()
-
   return (
     <div className="space-y-4 px-4 py-4">
       <BackButton />
@@ -120,12 +112,6 @@ export default function DeveloperPage() {
           </h1>
           <p className="mt-1 text-body text-muted-foreground">{t('developer.subtitle')}</p>
         </div>
-        <HasPermi code="ai:developer:export">
-          <Button variant="outline" size="sm" onClick={coze.handleCozeExport}>
-            <Download className="h-4 w-4" />
-            {td('cozeExport')}
-          </Button>
-        </HasPermi>
       </div>
 
       <DeveloperCards
@@ -138,33 +124,6 @@ export default function DeveloperPage() {
         onDeleteKey={delKeyMut.mutate}
         onCreateKey={() => setKeyOpen(true)}
         onCreateWebhook={() => setWhOpen(true)}
-      />
-
-      <DeveloperCozeTable
-        list={coze.cozeList}
-        isLoading={coze.cozeLoading}
-        search={coze.cozeSearch}
-        onSearchChange={coze.setCozeSearch}
-        page={coze.cozePage}
-        totalPages={coze.cozeTotalPages}
-        total={coze.cozeTotal}
-        onPageChange={coze.setCozePage}
-        onCreate={coze.openCozeCreate}
-        onEdit={coze.openCozeEdit}
-        onDelete={coze.cozeDeleteMut.mutate}
-        onStatusChange={(id, status) => coze.cozeStatusMut.mutate({ id, status })}
-        deletePending={coze.cozeDeleteMut.isPending}
-      />
-
-      <DeveloperCozeDialog
-        open={coze.cozeOpen}
-        editing={coze.cozeEditing}
-        form={coze.cozeForm}
-        err={coze.cozeErr}
-        isPending={coze.cozeSaveMut.isPending}
-        onFormChange={coze.setCozeForm}
-        onClose={coze.closeCozeDialog}
-        onSubmit={coze.submitCoze}
       />
 
       <DeveloperKeyDialog

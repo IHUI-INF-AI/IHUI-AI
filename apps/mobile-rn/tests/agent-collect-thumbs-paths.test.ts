@@ -5,13 +5,13 @@
 // 智能体收藏/点赞与分类字典的端内接口路径回归(台账行「RN 与 api-client 三处接口路径多写一段 agents」)
 //
 // 立票事实(现读,非推断):
-//   ①② apps/mobile-rn/src/screens/HomeScreen.tsx 的收藏/点赞曾写 cozeZhsApi 前缀下带 agents 段的
+//   ①② apps/mobile-rn/src/screens/HomeScreen.tsx 的收藏/点赞曾写 agentZhsApi 前缀下带 agents 段的
 //      collect / thumbs,归一后多一段 agents ⇒ 运行时必 404;后端 apps/api/src/routes/agents.ts
 //      注册的是 server.post 直写的 /collect 与 /thumbs,经 routes/index.ts 的
 //      register(agentsRoutes, { prefix: /api }) 挂载 ⇒ 实际路径 /api/collect、/api/thumbs。
 //      该两处已修入库(提交 f3bf8bd3fc),本测试防回潮。
 //   ③ packages/api-client/src/endpoints/agent.ts 的 getAgentCategories 请求
-//      cozeZhsApi 前缀下的 cache/agent-category-dict/categories(fetchApi 的 normalizeUrl 归一为
+//      agentZhsApi 前缀下的 cache/agent-category-dict/categories(fetchApi 的 normalizeUrl 归一为
 //      /api 前缀),后端由 agent-category-dict.ts 以绝对路径字面量注册(机主拍板新建的公开端点)。
 //
 // 2026-10-15 尺子重定锚(调用点已迁移,原尺子读空→红):
@@ -54,13 +54,13 @@ const API_CHAT_ROUTE = 'apps/api/src/routes/chat.ts'
 
 /**
  * 通道等价归一档 —— 与 api-client normalizeUrl(client.ts L546-555)逐分支同规则:
- * 绝对 http(s) 原样; /api/ /uploads/ /ws/ 原样; /cozeZhsApi 换 /api; 其余以 / 开头补 /api;
- * 不带斜杠的补 /api/。守门 8 CE① 的 /cozeZhsApi 规则同样涵盖。
+ * 绝对 http(s) 原样; /api/ /uploads/ /ws/ 原样; /agentZhsApi 换 /api; 其余以 / 开头补 /api;
+ * 不带斜杠的补 /api/。守门 8 CE① 的 /agentZhsApi 规则同样涵盖。
  */
 const normalize = (p: string): string => {
   if (/^https?:\/\//i.test(p)) return p
   if (p.startsWith('/api/') || p.startsWith('/uploads/') || p.startsWith('/ws/')) return p
-  if (p.startsWith('/cozeZhsApi')) return p.replace(/^\/cozeZhsApi/, '/api')
+  if (p.startsWith('/agentZhsApi')) return p.replace(/^\/agentZhsApi/, '/api')
   if (p.startsWith('/')) return `/api${p}`
   return `/api/${p}`
 }

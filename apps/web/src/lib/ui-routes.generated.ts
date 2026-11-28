@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: 55709d1765c627b6a3223a1a268bb8bc31f778ed
-// inputsSha256: 38f4918feb5dfb841a29f27f19853f66d5d5fb8ce39c933c3a50ded9b0f1d719
+// sourceCommit: 2af920ca95a7d5026920e83d7d5ed6846e5cb3ca
+// inputsSha256: 7ef2fe95ceee04d4de0158bb48a43b39e29ea9bbc76c8286279cfd0c3713d9f9
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx d17f249c8506951babf768ff47e0800dc7ed191a9c80ddb124142a8520bcd80e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -320,7 +320,7 @@
 // input: apps/web/app/(main)/admin/signin-rule/page.tsx fcd2218c408001fc4717f50deab4313a8e4915ae1a8036d804d7da3f4b9c8925
 // input: apps/web/app/(main)/admin/skill-batch/page.tsx 2f75906c0ec8e004fd1d1ef0f1d7fc13318e80e0605365f3a9e8f7e8d494b95d
 // input: apps/web/app/(main)/admin/skill-categories/page.tsx 1d38feda1ed53edd28b29deed17baf994378c9a987228805b6bce86175336c98
-// input: apps/web/app/(main)/admin/skill-market/page.tsx e7df8ce7e625541054ac743ba29725f5892e3f8b8f2b48f3240ff6fe7b01785e
+// input: apps/web/app/(main)/admin/skill-market/page.tsx 6eae9a5773471f4069f4ad9fb64bb519a59025b4aed1373d757ad60d0eb551c9
 // input: apps/web/app/(main)/admin/skill-stats/page.tsx 991e25cff285e901c0c8bbabb82af26832e6570b578daf67686f407f320d8c51
 // input: apps/web/app/(main)/admin/skill-versions/page.tsx 2f508287b80cc679d5b7287b5f734724f51c677398981bd2efc36486f6738ace
 // input: apps/web/app/(main)/admin/skills/page.tsx ec133e44c28944baa809162c2c651d88b608a99ea26ae0c2e43e64775b718323
@@ -357,7 +357,6 @@
 // input: apps/web/app/(main)/admin/user-margin/page.tsx 8e3ff15587b69d2ae0ff6da7c87786ec26aed878d50fbd7f2af6467390af0e9a
 // input: apps/web/app/(main)/admin/user-stat/page.tsx 118c2fb873342ba161e06763e86a505a923f14cf413e96bc6798e9588cdcd39d
 // input: apps/web/app/(main)/admin/users/page.tsx 487b5c4f398febdc7a4ab0a5fbd4be8cafea1c8051f7cd44e79e1e111035ffd5
-// input: apps/web/app/(main)/admin/variables/page.tsx f6d725f8df9e1b97ce6d63ee0a24866becf375123ff6d567177bcb931aa84b73
 // input: apps/web/app/(main)/admin/video-logs/page.tsx 3e3bed309da78091dd6c471f7fed1eb28f8af6ea2dc3d5273fc625d1dc6ec465
 // input: apps/web/app/(main)/admin/visit-tracking/page.tsx 1910bdbf32c4b91401e6459dc0f1e134d257b19c29beb75b6ae1bd4b5eb9ca31
 // input: apps/web/app/(main)/admin/visit-trend/page.tsx b0b3422de4941877f54aa2bb61423b707d3c387950a7921d394a707b22ded423
@@ -458,7 +457,6 @@
 // input: apps/web/app/(main)/compare/ihui-vs-bolt-new/page.tsx 7ec4ce0eb20069a5b7a70a348de01c6708038dde69a7df366bc1e0bc4616d832
 // input: apps/web/app/(main)/compare/ihui-vs-claude-code/page.tsx a7909fab2b1dc57d5435572e9188a430f04d39ef59fe5ae747671e4c32e272b2
 // input: apps/web/app/(main)/compare/ihui-vs-copilot-studio/page.tsx 5fd4882dbc5e2f254a446a1cf22610a0cdc0ff2cead0738953358e0146f81611
-// input: apps/web/app/(main)/compare/ihui-vs-coze/page.tsx 059bb5caac77b0026571db967db04da0e5a9ff64c8c8c4d9d38406c9e9346671
 // input: apps/web/app/(main)/compare/ihui-vs-crewai/page.tsx 50ac297771ea5af124fdbe821bf1ab3b280799183a07d47932095f32676604c1
 // input: apps/web/app/(main)/compare/ihui-vs-cursor/page.tsx 0dd380a3f83578717ca935c7d67deb916317c73c1664c3d22c294f450c3e3c98
 // input: apps/web/app/(main)/compare/ihui-vs-deepseek-platform/page.tsx bc9bda6d650703e95036920f32536c1089bac761d387113cc6b8895a384c6171
@@ -847,10 +845,10 @@
 // input: apps/web/app/(main)/share/[code]/page.tsx 167c448e4b4a8fc29be5687451d9507f01ee71ce9633cc34fae01875dea45992
 // input: apps/web/app/(main)/share/page.tsx d5df784435de4fdc6af70d10d3c1dedeaa4359289d56e9d4da7778f0acddb552
 // input: apps/web/app/(main)/skills-market/[id]/page.tsx 22c9297245a249350e204aacc1e1e978198704afda124abd0e11d6e06c91f8f9
-// input: apps/web/app/(main)/skills-market/earnings/page.tsx 88c4e5bdc9067c9312dcac8f091870682037bcfeb11c81c9116ad53f97942917
+// input: apps/web/app/(main)/skills-market/earnings/page.tsx 3b7ee9e795043c904252a4e5d239996aa9400c224c76e29e2659f48dec112368
 // input: apps/web/app/(main)/skills-market/page.tsx a766040ff3b687a5a3d7149bfcc1290d96559d2472a5240a23e5bd2b134ba600
-// input: apps/web/app/(main)/skills-market/purchases/page.tsx d9faa91a9ae18ff1560b5028bf438a3eba98182c0269db49c797487379053e68
-// input: apps/web/app/(main)/skills/market/page.tsx c16de43387def3a1cccf5559b5b3613a81982bfe2f6e401ed0e53ffdae4c72bb
+// input: apps/web/app/(main)/skills-market/purchases/page.tsx 1acaee0d492e3f36ed31da5e26b40ae32de98d6d35c5b40575d250da29e11190
+// input: apps/web/app/(main)/skills/market/page.tsx 411fcaa9c02ecfb2b526a2b6c013b97dfa7b33b0b1539c0a29bc8ad45e95b6a8
 // input: apps/web/app/(main)/skills/page.tsx 38765932b5d79e111a9d91fa22317363d4be64742dd17ae1e1d012e9cd098f40
 // input: apps/web/app/(main)/spec/[id]/page.tsx aa87c22226e7b4f4618429c44041536bd60b8774b1a7109580b93eadb0363876
 // input: apps/web/app/(main)/spec/generate/page.tsx 5c6c4d5b27e1d1c7c6306457fbaf6650a9df873c14c1be71bf5481d9d61b6c20
@@ -974,7 +972,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 35efcf616fc264c76204fb3d155f464682cd239b37965652b930391e0e7144b6
 // input: apps/web/app/status/page.tsx bf75df2bfcad093f6ec6405984b9a3fa2e7cba0c353f405066f6809c382bceca
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-11-28T13:46:00.087Z
+// generatedAt: 2026-11-28T10:43:35.128Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
@@ -1319,7 +1317,6 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/admin/user-margin', param: false, group: 'admin' },
   { path: '/admin/user-stat', param: false, group: 'admin' },
   { path: '/admin/users', param: false, group: 'admin' },
-  { path: '/admin/variables', param: false, group: 'admin' },
   { path: '/admin/video-logs', param: false, group: 'admin' },
   { path: '/admin/visit-tracking', param: false, group: 'admin' },
   { path: '/admin/visit-trend', param: false, group: 'admin' },
@@ -1424,7 +1421,6 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/compare/ihui-vs-bolt-new', param: false, group: 'compare' },
   { path: '/compare/ihui-vs-claude-code', param: false, group: 'compare' },
   { path: '/compare/ihui-vs-copilot-studio', param: false, group: 'compare' },
-  { path: '/compare/ihui-vs-coze', param: false, group: 'compare' },
   { path: '/compare/ihui-vs-crewai', param: false, group: 'compare' },
   { path: '/compare/ihui-vs-cursor', param: false, group: 'compare' },
   { path: '/compare/ihui-vs-deepseek-platform', param: false, group: 'compare' },

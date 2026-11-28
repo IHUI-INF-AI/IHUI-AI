@@ -18,7 +18,7 @@ const compareJsonLd = {
       url: 'https://aizhs.top/compare',
       name: 'IHUI AI 产品对比 — 主流 AI 平台深度对比',
       description:
-        'IHUI AI 与主流 AI 平台的深度对比:Dify、Coze、FastGPT、n8n。从客户端、Agent、RAG、模型、MCP、私有化、定价等 11 个维度逐一分析。',
+        'IHUI AI 与主流 AI 平台的深度对比:Dify、FastGPT、n8n。从客户端、Agent、RAG、模型、MCP、私有化、定价等 11 个维度逐一分析。',
       inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
       isPartOf: { '@id': 'https://aizhs.top/#website' },
       about: { '@id': 'https://aizhs.top/#organization' },
@@ -35,13 +35,13 @@ const compareJsonLd = {
 }
 
 export const metadata: Metadata = {
-  title: 'IHUI AI 产品对比 — Dify / Coze / FastGPT / n8n 深度对比 | 2026',
+  title: 'IHUI AI 产品对比 — Dify / FastGPT / n8n 深度对比 | 2026',
   description:
     'IHUI AI 与主流 AI 平台的深度对比。从客户端、Agent、RAG、模型、MCP、私有化、定价等 11 个维度分析,帮你选择最适合的 AI 平台。',
   alternates: { canonical: '/compare' },
   openGraph: {
     title: 'IHUI AI 产品对比 — 主流 AI 平台深度分析',
-    description: 'IHUI AI vs Dify / Coze / FastGPT / n8n 11 维度对比',
+    description: 'IHUI AI vs Dify / FastGPT / n8n 11 维度对比',
     url: 'https://aizhs.top/compare',
     type: 'website',
   },
@@ -57,17 +57,6 @@ const COMPARISONS = [
       'Agent 市场 vs 无',
       'MCP 原生支持 vs 不支持',
       'Apache 2.0 vs BSL',
-    ],
-  },
-  {
-    slug: 'ihui-vs-coze',
-    competitor: 'Coze',
-    tagline: 'IHUI AI 开源 + 私有化 vs Coze 字节闭源 Agent 平台',
-    keyPoints: [
-      '开源 Apache 2.0 vs 闭源',
-      '自托管 vs 字节云',
-      '数据主权 vs 字节掌控',
-      '10+ 模型 vs 豆包为主',
     ],
   },
   {
@@ -89,7 +78,7 @@ const COMPARISONS = [
   },
 ]
 
-const TABLE_COLS = ['IHUI-AI', 'ChatGPT Plus', 'Dify', 'LangChain', 'Coze', 'FastGPT'] as const
+const TABLE_COLS = ['IHUI-AI', 'ChatGPT Plus', 'Dify', 'LangChain', '其他平台', 'FastGPT'] as const
 const TABLE_ROWS: [
   string,
   string,
@@ -260,7 +249,7 @@ const TABLE_ROWS: [
 ]
 
 const ALL_COMPARISONS = [
-  { group: 'AI 应用平台', items: ['dify', 'coze', 'fastgpt', 'flowise', 'typebot', 'stack-ai'] },
+  { group: 'AI 应用平台', items: ['dify', 'fastgpt', 'flowise', 'typebot', 'stack-ai'] },
   { group: 'AI 编排框架', items: ['langchain', 'llamaindex', 'crewai', 'autogen', 'openai-agent'] },
   { group: '自动化工具', items: ['n8n', 'make', 'zapier-ai', 'wordware', 'spark', 'relevance-ai'] },
   {
@@ -295,7 +284,6 @@ const ALL_COMPARISONS = [
 
 const LABELS: Record<string, string> = {
   dify: 'Dify',
-  coze: 'Coze',
   fastgpt: 'FastGPT',
   flowise: 'Flowise',
   typebot: 'Typebot',

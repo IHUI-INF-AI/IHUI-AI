@@ -30,7 +30,7 @@
 5. **Active community** (10%): Issue response time / Discord/Slack activity / Release cadence
 
 ### Real Pain Points You're Solving
-- Onboarding on closed-source platforms like Dify/Coze → Hitting the ceiling, cannot extend
+- Onboarding on closed-source platforms like Dify 等闭源平台 → Hitting the ceiling, cannot extend
 - Prototyping with LangChain → Still writing glue code after 2 weeks
 - Company requires self-hosting → Cannot find an Apache 2.0 + production-ready solution
 - Cross-platform needs (Web/Desktop/Mini-program) → One codebase per platform
@@ -256,7 +256,7 @@ Template Market → Pick template → Configure KB → Connect channel → Launc
 ### Real Pain Points You're Solving
 - AI wave is here — sitting still means death, moving recklessly means death too
 - Self-built AI platform: 18 months + 30 people + ¥30M, VCs won't fund it
-- Using closed-source SaaS (OpenAI/Coze), data gets locked in
+- Using closed-source SaaS (OpenAI 等闭源 SaaS), data gets locked in
 - Competitors already using AI, you're falling behind
 - Investors / board demand an AI strategy
 

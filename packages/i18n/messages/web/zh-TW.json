@@ -1276,9 +1276,9 @@
       "title": "智能體管理",
       "total": "共 {total} 條",
       "updateSuccess": "更新成功",
-      "coze": {
-        "title": "Coze 上游設定",
-        "coverageTitle": "Coze 覆蓋率",
+      "agentPlatform": {
+        "title": "智能体 上游設定",
+        "coverageTitle": "智能体 覆蓋率",
         "coverageSubtitle": "逐欄位核對 116 個上游 Bot 的真實設定同步情況",
         "syncOne": "同步此 Bot",
         "syncSuccess": "同步成功（{status}）",
@@ -1290,7 +1290,7 @@
         "lastSyncedAt": "最近同步",
         "batchHint": "單批預設 {size}，上限 {max}，並發 {concurrency}",
         "credentialsConfigured": "憑據已設定：{envName}",
-        "credentialsMissing": "未設定 Coze 憑據，批次同步會回傳 503",
+        "credentialsMissing": "未設定 智能体 憑據，批次同步會回傳 503",
         "prompt": "提示詞",
         "model": "模型參數",
         "onboarding": "開場白與建議問題",
@@ -1812,22 +1812,22 @@
     "developer": {
       "cancel": "取消",
       "colActions": "操作",
-      "colCozeId": "Coze ID",
+      "col智能体Id": "智能体 ID",
       "colNickname": "暱稱",
       "colPlatform": "平臺",
       "colSignAccount": "簽權賬號",
       "colStatus": "狀態",
-      "cozeCreate": "新增賬號",
-      "cozeCreateTitle": "新增 Coze 賬號",
-      "cozeDeleteConfirm": "確認刪除賬號 \"{cozeId}\" ?",
-      "cozeEditTitle": "編輯 Coze 賬號",
-      "cozeExport": "導出 Coze 賬號",
-      "cozeSearchPlaceholder": "搜索 Coze ID / 賬號 / 暱稱...",
-      "cozeSectionTitle": "Coze 開發者賬號",
+      "智能体Create": "新增賬號",
+      "智能体CreateTitle": "新增 智能体 賬號",
+      "智能体DeleteConfirm": "確認刪除賬號 \"{智能体Id}\" ?",
+      "智能体EditTitle": "編輯 智能体 賬號",
+      "智能体Export": "導出 智能体 賬號",
+      "智能体SearchPlaceholder": "搜索 智能体 ID / 賬號 / 暱稱...",
+      "智能体SectionTitle": "智能体 開發者賬號",
       "delete": "刪除",
       "edit": "編輯",
       "fieldAddress": "地址",
-      "fieldCozeId": "Coze ID *",
+      "field智能体Id": "智能体 ID *",
       "fieldPlatform": "平臺",
       "fieldSignAccount": "簽權賬號 *",
       "fieldSignNickname": "簽權暱稱",
@@ -7541,7 +7541,7 @@
     "vipExclusive": "VIP 專享",
     "config": "設定",
     "dispatchSubagent": "分發子代理",
-    "coze": {
+    "agentPlatform": {
       "title": "上游能力",
       "prologue": "開場白",
       "suggested": "建議問題",
@@ -8962,30 +8962,6 @@
         "MEDIA_COUNT_EXCEEDED": {
           "title": "媒體檔案數量超出限制",
           "action": "精簡附件後重試"
-        },
-        "MEMORY_DREAM_FAILED": {
-          "title": "記憶整理失敗",
-          "action": "稍後重試；若持續失敗，可先繼續目前對話"
-        },
-        "MEMORY_FORGET_FAILED": {
-          "title": "記憶刪除失敗",
-          "action": "稍後重試；刪除未生效時不要重複提交"
-        },
-        "MEMORY_PROCEDURAL_SAVE_FAILED": {
-          "title": "流程記憶儲存失敗",
-          "action": "稍後重試；目前步驟結果不會被記入流程"
-        },
-        "MEMORY_RECALL_FAILED": {
-          "title": "記憶讀取失敗",
-          "action": "稍後重試；本次回答可能缺少歷史上下文"
-        },
-        "MEMORY_SAVE_FAILED": {
-          "title": "記憶儲存失敗",
-          "action": "稍後重試；本輪內容可能不會被記住"
-        },
-        "MEMORY_TOPICS_FAILED": {
-          "title": "記憶主題讀取失敗",
-          "action": "稍後重試；不影響目前對話繼續"
         },
         "MISSING_DATA": {
           "title": "缺少必填參數",
@@ -10748,7 +10724,7 @@
       "tasks": "任務",
       "progress": "進度",
       "agents": "代理",
-      "coze": "Coze 智能體",
+      "agentPlatform": "智能体 智能體",
       "background": "背景",
       "swarm": "集群",
       "orchestration": "編排",
@@ -10770,13 +10746,13 @@
       "unified": "任務中心",
       "atomicrollback": "整棧回滾"
     },
-    "coze": {
-      "title": "Coze 智能體",
+    "agentPlatform": {
+      "title": "智能体 智能體",
       "hint": "選一個已同步的社群智能體，直接發訊息聯調。",
       "searchPlaceholder": "搜尋智能體",
       "loading": "載入中…",
       "loadFailed": "智能體列表載入失敗",
-      "empty": "暫無已同步的 Coze 智能體",
+      "empty": "暫無已同步的 智能体 智能體",
       "switch": "切換",
       "loadingCapabilities": "讀取上游能力…",
       "plugins": "外掛",
@@ -10794,7 +10770,7 @@
       "failed": "連線失敗",
       "closed": "連線已中斷",
       "notConnected": "連線尚未就緒，請稍後重試",
-      "connectFailed": "連線 Coze 失敗",
+      "connectFailed": "連線 智能体 失敗",
       "upstreamFailed": "上游回傳失敗",
       "publicOnly": "僅顯示公開能力，不含提示詞與模型參數"
     },
@@ -16401,7 +16377,7 @@
     "heroBadge": "幫助中心",
     "heroSubtitle": "關於 IHUI AI 的 12 個常見問題，30 秒找到答案。",
     "heroTitle": "常見問題",
-    "metaDescription": "智匯 AI 常見問題:平臺介紹、與 Dify/Coze/FastGPT 對比、價格、部署、API、模型支持、數據安全等 12 個高頻問題。",
+    "metaDescription": "智匯 AI 常見問題:平臺介紹、與 Dify/智能体/FastGPT 對比、價格、部署、API、模型支持、數據安全等 12 個高頻問題。",
     "metaTitle": "常見問題 — 智匯 AI",
     "q10Answer": "最低配置:2 核 CPU / 4GB RAM / 20GB 磁盤,可支持 10-50 並發用戶。推薦配置:4 核 CPU / 8GB RAM / 50GB SSD,可支持 200 並發用戶。GPU 不是必需的(純 LLM 推理走雲端 API),如果跑本地模型(7B-13B)需要單卡 24GB 顯存。",
     "q10Question": "自託管需要什麼硬件?",
@@ -16411,8 +16387,8 @@
     "q12Question": "智匯 AI 會被用於訓練你們的模型嗎?",
     "q1Answer": "智匯 AI(英文名 IHUI AI)是一站式全棧 AI 操作系統。它把 Agent 設計、知識庫 RAG、多模型統一調度、跨端協作和團隊運營裝進同一個平臺,支持 Web、桌面、小程序、瀏覽器插件、React Native、CLI 共六個客戶端同源分發,核心代碼 Apache 2.0 開源,可私有化部署。",
     "q1Question": "智匯 AI 是什麼?",
-    "q2Answer": "Dify 偏 LLM 應用開發(僅 Web);Coze 閉源(不支持私有化);FastGPT 偏知識庫 Q&A。智匯 AI 是當前少數同時覆蓋 Agent 市場 + 知識庫 + 六端分發 + 團隊協作 + 積分計費的開源平臺,一個平臺頂 Dify + Coze + FastGPT 三件套。",
-    "q2Question": "智匯 AI 與 Dify、Coze、FastGPT 的區別?",
+    "q2Answer": "Dify 偏 LLM 應用開發(僅 Web);智能体 閉源(不支持私有化);FastGPT 偏知識庫 Q&A。智匯 AI 是當前少數同時覆蓋 Agent 市場 + 知識庫 + 六端分發 + 團隊協作 + 積分計費的開源平臺,一個平臺頂 Dify + 智能体 + FastGPT 三件套。",
+    "q2Question": "智匯 AI 與 Dify、智能体、FastGPT 的區別?",
     "q3Answer": "三類用戶最受益:AI 開發者(快速搭建/分發/變現 Agent,六端一鍵發布)、企業 IT(私有化部署,數據不出域,統一 AI 能力中心)、團隊 Leader(多人協作,統一知識庫,統一計費)。",
     "q3Question": "智匯 AI 適合誰?",
     "q4Answer": "OpenAI(GPT-4o/o1/GPT-4.1)、Anthropic Claude(Opus 4/Sonnet 4)、Google Gemini、阿裡通義千問(Qwen-Max/Plus)、DeepSeek(V3/R1)、智譜 GLM-4、文心一言、豆包、Kimi,以及 Ollama 等本地模型和任何 OpenAI 兼容端點。統一計費、自動 fallback、成本路由。",
@@ -16831,7 +16807,7 @@
       "wechat": "微信支付"
     },
     "platforms": {
-      "coze": "Coze",
+      "agentPlatform": "智能体",
       "n8n": "n8n"
     },
     "privacyPolicy": "隱私政策",
@@ -16942,7 +16918,7 @@
       "gork": "Gork",
       "huawei": "華為",
       "jldx": "吉林大學",
-      "kouzi": "釦子",
+      "kouzi": "智慧體",
       "openai": "OpenAI",
       "tencent": "騰訊",
       "yuanbaoxiang": "元寶箱",
@@ -27421,7 +27397,7 @@
   },
   "apiSettings": {
     "title": "API 設定",
-    "cozeTitle": "Coze 設定",
+    "智能体Title": "智能体 設定",
     "apiToken": "API Token",
     "tokenPlaceholder": "請輸入 API Token",
     "baseUrl": "Base URL",
@@ -28316,20 +28292,7 @@
     "earningsStatusRefunded": "已退款",
     "earningsRefundDetail": "退款 ¥{refund} · 扣回 ¥{clawback}",
     "earningsClawbackMissing": "扣回未記錄",
-    "earningsNote": "淨分成 = 銷售分成 - 退款實際扣回；餘額不足未扣回的部分由平臺承擔。",
-    "settlementTitle": "本月結算參考",
-    "settlementStatus": "狀態",
-    "settlementMonth": "帳期",
-    "settlementAllPeriods": "全部帳期",
-    "settlementNoActivity": "本月暫無技能成交或退款",
-    "settlementSuggested": "參考出款上限",
-    "settlementDisclaimer": "這是唯讀參考，不建立提現、不發起轉帳；實際付款仍走提現審核。",
-    "settlementStatusReady": "可進入人工複核",
-    "settlementStatusNoNet": "本月無正淨額",
-    "settlementStatusNotWithdrawable": "目前無可提現",
-    "settlementStatusNeedsReview": "需先核查",
-    "settlementFlagCapped": "被可提現餘額截斷",
-    "settlementFlagNegative": "本月淨額為負"
+    "earningsNote": "淨分成 = 銷售分成 - 退款實際扣回；餘額不足未扣回的部分由平臺承擔。"
   },
   "chatSearchBar": {
     "messageNotFound": "找不到該訊息，可能已不在目前清單視窗內",
@@ -30257,6 +30220,10 @@
   "tradeHub": {
     "title": "交易",
     "subtitle": "收益、訂單、支付與會員積分"
+  },
+  "personalHub": {
+    "title": "個人中心",
+    "subtitle": "帳戶、收藏、學習與訂閱"
   },
   "developerHub": {
     "title": "開發者",

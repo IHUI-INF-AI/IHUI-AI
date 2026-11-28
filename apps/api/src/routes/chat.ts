@@ -172,7 +172,7 @@ function truncateUpstreamLogBody(text: string): string {
 // 2026-11-28 完全弃用 Coze 后，/coze/stream 的本地会话历史（进程内，按 user+bot 分槽）。
 const cozeHttpHistories = new Map<string, Array<{ role: 'user' | 'assistant'; content: string }>>()
 
-const cozeStreamSchema = z.object({
+const agentStreamSchema = z.object({
   botId: z.string().min(1),
   userId: z.string().min(1),
   query: z.string().min(1),
@@ -2531,13 +2531,13 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     )
   })
 
-  // POST /coze/stream — Coze 流式聊天 + conversation_id 自动管理
+  // POST /agent/stream — 智能体流式聊天 + conversation_id 自动管理
   // 迁移自 coze_zhs_py/api/chat.py stream_generator
-  server.post('/coze/stream', async (request, reply) => {
+  server.post('/agent/stream', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
 
-    const parsed = cozeStreamSchema.safeParse(request.body)
+    const parsed = agentStreamSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
@@ -2547,7 +2547,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     if (targetUserId !== request.userId)
       return reply.status(403).send(error(403, '无权操作其他用户的会话'))
 
-    // 2026-11-28 完全弃用 Coze：本历史代理端点改为本地 LLM 执行（SSE 帧与 /ws/coze/chat 同构），
+    // 2026-11-28 完全弃用 Coze：本历史代理端点改为本地 LLM 执行（SSE 帧与 /ws/agent/chat 同构），
     // 不再要求 COZE_API_KEY、不再访问 api.coze.cn；botId 既可传 Coze bot_id，也可传本地 agentId。
     const agent = (await findAgentByBotId(botId)) ?? (await findAgentByAgentId(botId))
     if (!agent) return reply.status(404).send(error(404, '智能体不存在或未上线'))
@@ -2584,7 +2584,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     // 5 分钟兜底超时,防止上游挂住导致连接泄漏
     const timeoutGuard = setTimeout(() => controller.abort(), 5 * 60 * 1000)
 
-    // 本地计费与 /ws/coze/chat 同口径：预扣 → 结算，失败释放
+    // 本地计费与 /ws/agent/chat 同口径：预扣 → 结算，失败释放
     const billingReference = `chat-coze:${targetUserId}:${randomUUID()}`
     const billing = await reserveLlmPoints({
       userId: targetUserId,
@@ -2678,7 +2678,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       hist.push({ role: 'user', content: query })
       if (fullAnswer) hist.push({ role: 'assistant', content: fullAnswer })
       cozeHttpHistories.set(histKey, hist.slice(-24))
-      // 与 /ws/coze/chat 同表落库，失败忽略
+      // 与 /ws/agent/chat 同表落库，失败忽略
       try {
         await db.insert(cozeChatHistory).values([
           { botId, conversationId: localConvId, role: 'user', content: query },

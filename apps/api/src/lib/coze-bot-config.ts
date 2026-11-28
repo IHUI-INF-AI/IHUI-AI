@@ -21,7 +21,7 @@ import type {
   CozeBotOnboardingInfo,
   CozeBotPromptInfo,
   CozeBotVariable,
-  CozePublicCapabilities,
+  AgentPublicCapabilities,
 } from '@ihui/types'
 
 /** 可直接交给 `updateAgentDetails` 的差量；允许空值用于清空远端已撤销的配置。 */
@@ -286,7 +286,7 @@ function arrayOfRecords(value: unknown): Record<string, unknown>[] {
 }
 
 /** 对游客/非属主公开的安全能力面：不含提示词、模型参数、变量值。 */
-export function toCozePublicCapabilities(agent: Partial<Agent>): CozePublicCapabilities | null {
+export function toAgentPublicCapabilities(agent: Partial<Agent>): AgentPublicCapabilities | null {
   const plugins = arrayOfRecords(agent.cozePlugins).map((p) => ({
     name: textOf(p.name),
     description: textOf(p.description),

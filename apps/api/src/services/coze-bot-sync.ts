@@ -23,9 +23,9 @@ import {
 } from '@ihui/database'
 import type { CozeBotConfig } from '@ihui/types'
 import { db, dbRead } from '../db/index.js'
-import { mapCozeBotConfig, toCozePublicCapabilities, type CozeConfigSource } from '../lib/coze-bot-config.js'
+import { mapCozeBotConfig, toAgentPublicCapabilities, type CozeConfigSource } from '../lib/coze-bot-config.js'
 import { getCozeAccessToken, loadCozeOAuthConfig } from './coze-auth-utils.js'
-import { COZE_DISABLED_MESSAGE, COZE_INTEGRATION_ENABLED } from '../lib/coze-integration.js'
+import { AGENT_PLATFORM_DISABLED_MESSAGE, AGENT_PLATFORM_INTEGRATION_ENABLED } from '../lib/agent-platform.js'
 
 const DEFAULT_COZE_BASE_URL = 'https://api.coze.cn'
 const FETCH_TIMEOUT_MS = 20000
@@ -41,7 +41,7 @@ export type CozeSyncErrorCode =
   | 'COZE_API_ERROR'
   | 'COZE_TIMEOUT'
   | 'COZE_RESPONSE_INVALID'
-  | 'COZE_DISABLED'
+  | 'AGENT_PLATFORM_DISABLED'
 
 export class CozeSyncError extends Error {
   code: CozeSyncErrorCode
@@ -78,7 +78,7 @@ function resolveCozeBaseUrl(): string {
 }
 
 export function getCozeCredentialStatus(): CozeCredentialStatus {
-  if (!COZE_INTEGRATION_ENABLED) {
+  if (!AGENT_PLATFORM_INTEGRATION_ENABLED) {
     return { configured: false, mode: 'none', envName: null, baseUrl: resolveCozeBaseUrl() }
   }
   if (loadCozeOAuthConfig()) {
@@ -343,8 +343,8 @@ export async function syncAgentCozeConfig(
   agent: Agent,
   opts: SyncAgentOptions = {},
 ): Promise<SyncAgentResult> {
-  if (!COZE_INTEGRATION_ENABLED) {
-    throw new CozeSyncError('COZE_DISABLED', COZE_DISABLED_MESSAGE, { statusCode: 410 })
+  if (!AGENT_PLATFORM_INTEGRATION_ENABLED) {
+    throw new CozeSyncError('AGENT_PLATFORM_DISABLED', AGENT_PLATFORM_DISABLED_MESSAGE, { statusCode: 410 })
   }
   if (!agent.botId) {
     const err = new CozeSyncError('COZE_BOT_ID_MISSING', 'agent.botId 为空，无法定位 Coze 智能体', {
@@ -454,8 +454,8 @@ export interface SyncManyResult {
 }
 
 export async function syncManyCozeAgents(opts: SyncManyOptions = {}): Promise<SyncManyResult> {
-  if (!COZE_INTEGRATION_ENABLED) {
-    throw new CozeSyncError('COZE_DISABLED', COZE_DISABLED_MESSAGE, { statusCode: 410 })
+  if (!AGENT_PLATFORM_INTEGRATION_ENABLED) {
+    throw new CozeSyncError('AGENT_PLATFORM_DISABLED', AGENT_PLATFORM_DISABLED_MESSAGE, { statusCode: 410 })
   }
   // 凭据缺失直接 503，不逐条写库；否则 116 条都会被标成 skipped_no_token。
   await resolveCozeToken()
@@ -574,7 +574,7 @@ export interface CozeAgentConfigView {
   createTime: number | null
   updateTime: number | null
   variables: CozeVariable[]
-  publicCapabilities: ReturnType<typeof toCozePublicCapabilities>
+  publicCapabilities: ReturnType<typeof toAgentPublicCapabilities>
   raw: Record<string, unknown> | null
   snapshots: Array<{
     id: string
@@ -666,7 +666,7 @@ export async function getCozeAgentConfigView(
     createTime: agent.cozeCreateTime ?? null,
     updateTime: agent.cozeUpdateTime ?? null,
     variables,
-    publicCapabilities: toCozePublicCapabilities(agent),
+    publicCapabilities: toAgentPublicCapabilities(agent),
     raw: (agent.cozeConfigRaw as Record<string, unknown> | null) ?? null,
     snapshots,
   }

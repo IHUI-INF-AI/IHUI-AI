@@ -56,7 +56,6 @@ export const IMG_LAZY = { loading: 'lazy', decoding: 'async' } as const
 // n8n 图标纯白 + 透明 → 标 mono 让 SiteFooter/BrandMarquee 应用 invert filter
 export const SUPPORTED: readonly Icon[] = [
   { nameKey: 'platforms.n8n', src: '/footer/awsp/n8n.png', mono: true },
-  { nameKey: 'platforms.coze', src: '/footer/awsp/coze.png' },
 ]
 
 // 模型(8 大主流) — Claude 3x.png 纯白 + 透明 → mono
@@ -197,9 +196,7 @@ export const SCHOOL_BRANDS: readonly {
   mono?: boolean
   darkInvert?: boolean
 }[] = [
-  // 2026-08-06 修复:brands/kouzi.png 文件缺失(404),改用同品牌 Coze 官方 logo
-  { nameKey: 'kouzi', src: '/footer/awsp/coze.png' },
-  { nameKey: 'bbxLogo', src: '/brands/bbx.svg' },
+    { nameKey: 'bbxLogo', src: '/brands/bbx.svg' },
   // brand4.svg 在架构变更中丢失,跳过
   { nameKey: 'zhipu', src: '/brands/zhipu.png' },
   { nameKey: 'brand8', src: '/brands/brand8.png' },

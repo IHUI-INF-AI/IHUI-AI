@@ -1276,9 +1276,9 @@
       "title": "智能体管理",
       "total": "共 {total} 条",
       "updateSuccess": "更新成功",
-      "coze": {
-        "title": "Coze 上游配置",
-        "coverageTitle": "Coze 覆盖率",
+      "agentPlatform": {
+        "title": "智能体 上游配置",
+        "coverageTitle": "智能体 覆盖率",
         "coverageSubtitle": "逐字段核对 116 个上游 Bot 的真实配置同步情况",
         "syncOne": "同步此 Bot",
         "syncSuccess": "同步成功（{status}）",
@@ -1290,7 +1290,7 @@
         "lastSyncedAt": "最近同步",
         "batchHint": "单批默认 {size}，上限 {max}，并发 {concurrency}",
         "credentialsConfigured": "凭据已配置：{envName}",
-        "credentialsMissing": "未配置 Coze 凭据，批量同步会返回 503",
+        "credentialsMissing": "未配置 智能体 凭据，批量同步会返回 503",
         "prompt": "提示词",
         "model": "模型参数",
         "onboarding": "开场白与建议问题",
@@ -1812,22 +1812,22 @@
     "developer": {
       "cancel": "取消",
       "colActions": "操作",
-      "colCozeId": "Coze ID",
+      "col智能体Id": "智能体 ID",
       "colNickname": "昵称",
       "colPlatform": "平台",
       "colSignAccount": "签权账号",
       "colStatus": "状态",
-      "cozeCreate": "新增账号",
-      "cozeCreateTitle": "新增 Coze 账号",
-      "cozeDeleteConfirm": "确认删除账号 \"{cozeId}\" ?",
-      "cozeEditTitle": "编辑 Coze 账号",
-      "cozeExport": "导出 Coze 账号",
-      "cozeSearchPlaceholder": "搜索 Coze ID / 账号 / 昵称...",
-      "cozeSectionTitle": "Coze 开发者账号",
+      "智能体Create": "新增账号",
+      "智能体CreateTitle": "新增 智能体 账号",
+      "智能体DeleteConfirm": "确认删除账号 \"{智能体Id}\" ?",
+      "智能体EditTitle": "编辑 智能体 账号",
+      "智能体Export": "导出 智能体 账号",
+      "智能体SearchPlaceholder": "搜索 智能体 ID / 账号 / 昵称...",
+      "智能体SectionTitle": "智能体 开发者账号",
       "delete": "删除",
       "edit": "编辑",
       "fieldAddress": "地址",
-      "fieldCozeId": "Coze ID *",
+      "field智能体Id": "智能体 ID *",
       "fieldPlatform": "平台",
       "fieldSignAccount": "签权账号 *",
       "fieldSignNickname": "签权昵称",
@@ -7541,7 +7541,7 @@
     "vipExclusive": "VIP 专享",
     "config": "配置",
     "dispatchSubagent": "分发子代理",
-    "coze": {
+    "agentPlatform": {
       "title": "上游能力",
       "prologue": "开场白",
       "suggested": "建议问题",
@@ -8962,30 +8962,6 @@
         "MEDIA_COUNT_EXCEEDED": {
           "title": "媒体文件数量超出限制",
           "action": "精简附件后重试"
-        },
-        "MEMORY_DREAM_FAILED": {
-          "title": "记忆整理失败",
-          "action": "稍后重试；若持续失败，可先继续当前对话"
-        },
-        "MEMORY_FORGET_FAILED": {
-          "title": "记忆删除失败",
-          "action": "稍后重试；删除未生效时不要重复提交"
-        },
-        "MEMORY_PROCEDURAL_SAVE_FAILED": {
-          "title": "流程记忆保存失败",
-          "action": "稍后重试；当前步骤结果不会被记入流程"
-        },
-        "MEMORY_RECALL_FAILED": {
-          "title": "记忆读取失败",
-          "action": "稍后重试；本次回答可能缺少历史上下文"
-        },
-        "MEMORY_SAVE_FAILED": {
-          "title": "记忆保存失败",
-          "action": "稍后重试；本轮内容可能不会被记住"
-        },
-        "MEMORY_TOPICS_FAILED": {
-          "title": "记忆主题读取失败",
-          "action": "稍后重试；不影响当前对话继续"
         },
         "MISSING_DATA": {
           "title": "缺少必填参数",
@@ -10748,7 +10724,7 @@
       "tasks": "任务",
       "progress": "进度",
       "agents": "代理",
-      "coze": "Coze 智能体",
+      "agentPlatform": "智能体 智能体",
       "background": "后台",
       "swarm": "集群",
       "orchestration": "编排",
@@ -10770,13 +10746,13 @@
       "unified": "任务中心",
       "atomicrollback": "整栈回滚"
     },
-    "coze": {
-      "title": "Coze 智能体",
+    "agentPlatform": {
+      "title": "智能体 智能体",
       "hint": "选一个已同步的社区智能体，直接发消息联调。",
       "searchPlaceholder": "搜索智能体",
       "loading": "加载中…",
       "loadFailed": "智能体列表加载失败",
-      "empty": "暂无已同步的 Coze 智能体",
+      "empty": "暂无已同步的 智能体 智能体",
       "switch": "切换",
       "loadingCapabilities": "读取上游能力…",
       "plugins": "插件",
@@ -10794,7 +10770,7 @@
       "failed": "连接失败",
       "closed": "连接已断开",
       "notConnected": "连接尚未就绪，请稍后重试",
-      "connectFailed": "连接 Coze 失败",
+      "connectFailed": "连接 智能体 失败",
       "upstreamFailed": "上游返回失败",
       "publicOnly": "仅展示公开能力，不含提示词与模型参数"
     },
@@ -16411,7 +16387,7 @@
     "heroBadge": "帮助中心",
     "heroSubtitle": "关于 IHUI AI 的 12 个常见问题，30 秒找到答案。",
     "heroTitle": "常见问题",
-    "metaDescription": "智汇 AI 常见问题:平台介绍、与 Dify/Coze/FastGPT 对比、价格、部署、API、模型支持、数据安全等 12 个高频问题。",
+    "metaDescription": "智汇 AI 常见问题:平台介绍、与 Dify/智能体/FastGPT 对比、价格、部署、API、模型支持、数据安全等 12 个高频问题。",
     "metaTitle": "常见问题 — 智汇 AI",
     "q10Answer": "最低配置:2 核 CPU / 4GB RAM / 20GB 磁盘,可支持 10-50 并发用户。推荐配置:4 核 CPU / 8GB RAM / 50GB SSD,可支持 200 并发用户。GPU 不是必需的(纯 LLM 推理走云端 API),如果跑本地模型(7B-13B)需要单卡 24GB 显存。",
     "q10Question": "自托管需要什么硬件?",
@@ -16421,8 +16397,8 @@
     "q12Question": "智汇 AI 会被用于训练你们的模型吗?",
     "q1Answer": "智汇 AI(英文名 IHUI AI)是一站式全栈 AI 操作系统。它把 Agent 设计、知识库 RAG、多模型统一调度、跨端协作和团队运营装进同一个平台,支持 Web、桌面、小程序、浏览器插件、React Native、CLI 共六个客户端同源分发,核心代码 Apache 2.0 开源,可私有化部署。",
     "q1Question": "智汇 AI 是什么?",
-    "q2Answer": "Dify 偏 LLM 应用开发(仅 Web);Coze 闭源(不支持私有化);FastGPT 偏知识库 Q&A。智汇 AI 是当前少数同时覆盖 Agent 市场 + 知识库 + 六端分发 + 团队协作 + 积分计费的开源平台,一个平台顶 Dify + Coze + FastGPT 三件套。",
-    "q2Question": "智汇 AI 与 Dify、Coze、FastGPT 的区别?",
+    "q2Answer": "Dify 偏 LLM 应用开发(仅 Web);智能体 闭源(不支持私有化);FastGPT 偏知识库 Q&A。智汇 AI 是当前少数同时覆盖 Agent 市场 + 知识库 + 六端分发 + 团队协作 + 积分计费的开源平台,一个平台顶 Dify + 智能体 + FastGPT 三件套。",
+    "q2Question": "智汇 AI 与 Dify、智能体、FastGPT 的区别?",
     "q3Answer": "三类用户最受益:AI 开发者(快速搭建/分发/变现 Agent,六端一键发布)、企业 IT(私有化部署,数据不出域,统一 AI 能力中心)、团队 Leader(多人协作,统一知识库,统一计费)。",
     "q3Question": "智汇 AI 适合谁?",
     "q4Answer": "OpenAI(GPT-4o/o1/GPT-4.1)、Anthropic Claude(Opus 4/Sonnet 4)、Google Gemini、阿里通义千问(Qwen-Max/Plus)、DeepSeek(V3/R1)、智谱 GLM-4、文心一言、豆包、Kimi,以及 Ollama 等本地模型和任何 OpenAI 兼容端点。统一计费、自动 fallback、成本路由。",
@@ -16841,7 +16817,7 @@
       "wechat": "微信支付"
     },
     "platforms": {
-      "coze": "Coze",
+      "agentPlatform": "智能体",
       "n8n": "n8n"
     },
     "privacyPolicy": "隐私政策",
@@ -16952,7 +16928,7 @@
       "gork": "Gork",
       "huawei": "华为",
       "jldx": "吉林大学",
-      "kouzi": "扣子",
+      "kouzi": "智能体",
       "openai": "OpenAI",
       "tencent": "腾讯",
       "yuanbaoxiang": "元宝箱",
@@ -27431,7 +27407,7 @@
   },
   "apiSettings": {
     "title": "API 设置",
-    "cozeTitle": "Coze 配置",
+    "智能体Title": "智能体 配置",
     "apiToken": "API Token",
     "tokenPlaceholder": "请输入 API Token",
     "baseUrl": "Base URL",
@@ -28326,20 +28302,7 @@
     "earningsStatusRefunded": "已退款",
     "earningsRefundDetail": "退款 ¥{refund} · 扣回 ¥{clawback}",
     "earningsClawbackMissing": "扣回未记录",
-    "earningsNote": "净分成 = 销售分成 - 退款实际扣回；余额不足未扣回的部分由平台承担。",
-    "settlementTitle": "本月结算参考",
-    "settlementStatus": "状态",
-    "settlementMonth": "账期",
-    "settlementAllPeriods": "全部账期",
-    "settlementNoActivity": "本月暂无技能成交或退款",
-    "settlementSuggested": "参考出款上限",
-    "settlementDisclaimer": "这是只读参考，不创建提现、不发起转账；实际付款仍走提现审核。",
-    "settlementStatusReady": "可进入人工复核",
-    "settlementStatusNoNet": "本月无正净额",
-    "settlementStatusNotWithdrawable": "当前无可提现",
-    "settlementStatusNeedsReview": "需先核查",
-    "settlementFlagCapped": "被可提现余额截断",
-    "settlementFlagNegative": "本月净额为负"
+    "earningsNote": "净分成 = 销售分成 - 退款实际扣回；余额不足未扣回的部分由平台承担。"
   },
   "chatSearchBar": {
     "messageNotFound": "找不到该消息，可能已不在当前列表窗口内",
@@ -30267,6 +30230,10 @@
   "tradeHub": {
     "title": "交易",
     "subtitle": "收益、订单、支付与会员积分"
+  },
+  "personalHub": {
+    "title": "个人中心",
+    "subtitle": "账户、收藏、学习与订阅"
   },
   "developerHub": {
     "title": "开发者",

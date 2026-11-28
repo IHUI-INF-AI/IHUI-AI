@@ -131,7 +131,7 @@ describe('小程序兼容路由空桩真实化(2026-08-31)', () => {
     message: 'ok',
     data: { from: 'kling-image-main-route', taskId: 'task-1' },
   }))
-  server.post('/cozeZhsApi/n8n/addAgent', async () => ({
+  server.post('/agentZhsApi/n8n/addAgent', async () => ({
     code: 0,
     message: 'ok',
     data: { from: 'n8n-addAgent-main-route', agent_id: 'n8n_x', examine_id: 'e1' },
@@ -296,7 +296,7 @@ describe('小程序兼容路由空桩真实化(2026-08-31)', () => {
       expect(body.data.taskId).toBe('task-1')
     })
 
-    it('POST /api/workflows/n8n/create 转发到 /cozeZhsApi/n8n/addAgent 主路由', async () => {
+    it('POST /api/workflows/n8n/create 转发到 /agentZhsApi/n8n/addAgent 主路由', async () => {
       const res = await server.inject({
         method: 'POST',
         url: '/api/workflows/n8n/create',

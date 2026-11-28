@@ -134,7 +134,6 @@ Payment methods: WeChat Pay, Alipay, Stripe (overseas), bank transfer (enterpris
 - **GitHub**: Code hosting platform
 - **LangChain / LangGraph**: AI orchestration framework (technology basis)
 - **Dify**: Competing open-source AI app platform
-- **Coze**: Competing closed-source AI agent platform (by ByteDance)
 - **FastGPT**: Competing open-source knowledge-base Q&A platform
 - **n8n**: Competing open-source workflow automation platform
 

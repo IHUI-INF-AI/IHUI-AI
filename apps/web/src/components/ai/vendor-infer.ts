@@ -119,7 +119,6 @@ export const VENDOR_CODES = [
   'skywork',
   'internlm',
   'bytedance',
-  'coze',
   'tongyi',
   'qingyan',
   'chatglm',
