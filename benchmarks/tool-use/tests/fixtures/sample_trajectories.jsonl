@@ -1,0 +1,7 @@
+{"case_id":"edu-001","tool_calls":[{"name":"edu_list_arrears","arguments":{"keyword":"三年级二班"}}],"turns":2,"input_tokens":1200,"output_tokens":120}
+{"case_id":"edu-005","tool_calls":[{"name":"edu_approve_refund","arguments":{"refundId":"RF-2026-001"}}],"turns":2,"input_tokens":1300,"output_tokens":90}
+{"case_id":"code-003","tool_calls":[{"name":"file_edit","arguments":{"file_path":"config.py","old_string":"timeout=30","new_string":"timeout=60"}}],"turns":3,"input_tokens":2100,"output_tokens":180}
+{"case_id":"web-001","tool_calls":[{"name":"fetch_url","arguments":{"url":"https://aizhs.top"}}],"turns":1,"input_tokens":900,"output_tokens":60}
+{"case_id":"desk-003","tool_calls":[{"name":"computer_mouse_click","arguments":{"x":100,"y":200}}],"turns":2,"input_tokens":800,"output_tokens":70}
+{"case_id":"media-004","tool_calls":[{"name":"image_generation","arguments":{}}],"turns":1,"input_tokens":700,"output_tokens":40}
+{"case_id":"media-014","tool_calls":[{"name":"orchestrate_agents","arguments":{"mode":"parallel","tasks":[{"task":"查代码"},{"task":"查竞品"}]}}],"turns":4,"input_tokens":2600,"output_tokens":300}
