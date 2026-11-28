@@ -929,6 +929,8 @@ export async function getSkillMarketSettlement(input?: {
  */
 export async function getSkillMarketSellerAccounts(input?: {
   month?: string
+  /** 仅聚合指定卖家；用于作者本人的结算参考，避免把其他卖家的行算进汇总。 */
+  sellerUserId?: string
 }): Promise<SkillSellerAccountsResponse> {
   const settlement = await getSkillMarketSettlement(input)
   const zeroTotals = (): SkillMarketSettlementTotals => ({
@@ -956,6 +958,7 @@ export async function getSkillMarketSellerAccounts(input?: {
   >()
   for (const row of settlement.items) {
     if (!row.sellerUserId) continue
+    if (input?.sellerUserId && row.sellerUserId !== input.sellerUserId) continue
     let entry = bySeller.get(row.sellerUserId)
     if (!entry) {
       entry = { sellerNickname: row.sellerNickname, totals: zeroTotals() }
@@ -1188,6 +1191,8 @@ export function computeSkillPayoutManifest(
 
 export async function getSkillMarketPayoutManifest(input?: {
   month?: string
+  /** 仅返回指定卖家的参考行；作者本人接口使用。 */
+  sellerUserId?: string
 }): Promise<SkillPayoutManifestResponse> {
   const accounts = await getSkillMarketSellerAccounts(input)
   return computeSkillPayoutManifest(accounts)

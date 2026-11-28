@@ -28316,7 +28316,20 @@
     "earningsStatusRefunded": "已退款",
     "earningsRefundDetail": "退款 ¥{refund} · 扣回 ¥{clawback}",
     "earningsClawbackMissing": "扣回未記錄",
-    "earningsNote": "淨分成 = 銷售分成 - 退款實際扣回；餘額不足未扣回的部分由平臺承擔。"
+    "earningsNote": "淨分成 = 銷售分成 - 退款實際扣回；餘額不足未扣回的部分由平臺承擔。",
+    "settlementTitle": "本月結算參考",
+    "settlementStatus": "狀態",
+    "settlementMonth": "帳期",
+    "settlementAllPeriods": "全部帳期",
+    "settlementNoActivity": "本月暫無技能成交或退款",
+    "settlementSuggested": "參考出款上限",
+    "settlementDisclaimer": "這是唯讀參考，不建立提現、不發起轉帳；實際付款仍走提現審核。",
+    "settlementStatusReady": "可進入人工複核",
+    "settlementStatusNoNet": "本月無正淨額",
+    "settlementStatusNotWithdrawable": "目前無可提現",
+    "settlementStatusNeedsReview": "需先核查",
+    "settlementFlagCapped": "被可提現餘額截斷",
+    "settlementFlagNegative": "本月淨額為負"
   },
   "chatSearchBar": {
     "messageNotFound": "找不到該訊息，可能已不在目前清單視窗內",

@@ -8,12 +8,20 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { ArrowLeft, ArrowUpRight, Loader2, Receipt, Undo2, Wallet } from 'lucide-react'
+import {
+  ArrowLeft,
+  ArrowUpRight,
+  CalendarDays,
+  Loader2,
+  Receipt,
+  Undo2,
+  Wallet,
+} from 'lucide-react'
 
 import type { SkillEarningsResponse } from '@ihui/shared/skills/market'
 import { Badge } from '@/components/data'
 import { AuthGatePrompt, BackButton } from '@/components/common'
-import { fetchSkillEarnings } from '@/lib/skills-market-api'
+import { fetchMySkillSettlement, fetchSkillEarnings } from '@/lib/skills-market-api'
 import { apiOrThrow } from '@/lib/api'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 
@@ -21,15 +29,30 @@ function yuan(cents: number): string {
   return `¥${(cents / 100).toFixed(2)}`
 }
 
+function shanghaiMonth(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+  }).format(new Date())
+}
+
 export default function SkillEarningsPage() {
   const t = useTranslations('skillMarket')
   const tWallet = useTranslations('wallet')
   const tGate = useTranslations('chatHistory')
   const { allow } = useAuthGate()
+  const [settlementMonth, setSettlementMonth] = React.useState(shanghaiMonth)
 
   const query = useQuery({
     queryKey: ['skills-market', 'earnings'],
     queryFn: () => fetchSkillEarnings(),
+    enabled: allow,
+  })
+
+  const settlementQuery = useQuery({
+    queryKey: ['skills-market', 'settlement-me', settlementMonth],
+    queryFn: () => fetchMySkillSettlement(settlementMonth || undefined),
     enabled: allow,
   })
 
@@ -70,6 +93,116 @@ export default function SkillEarningsPage() {
     }
   })
   const availableCents = Math.max(0, Number(availableQuery.data?.available ?? 0))
+  const settlementRow = settlementQuery.data?.items[0] ?? null
+  const settlementStatus = settlementRow?.status
+  const settlementStatusLabel = settlementStatus
+    ? {
+        ready: t('settlementStatusReady'),
+        no_net: t('settlementStatusNoNet'),
+        not_withdrawable: t('settlementStatusNotWithdrawable'),
+        needs_review: t('settlementStatusNeedsReview'),
+      }[settlementStatus]
+    : ''
+  const settlementFlags = (settlementRow?.flags ?? []).filter(
+    (flag) => flag === 'capped_by_withdrawable' || flag === 'month_negative',
+  )
+  const settlementFlagLabel = (flag: string): string =>
+    flag === 'capped_by_withdrawable' ? t('settlementFlagCapped') : t('settlementFlagNegative')
+  const settlementCard = (
+    <div className="rounded-lg border bg-card p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <CalendarDays className="h-4 w-4" />
+          </div>
+          <div>
+            <div className="text-title font-semibold">{t('settlementTitle')}</div>
+            <div className="text-label text-muted-foreground">
+              {settlementQuery.data?.period.month ?? t('settlementAllPeriods')}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-label text-muted-foreground" htmlFor="settlement-month">
+            {t('settlementMonth')}
+          </label>
+          <input
+            id="settlement-month"
+            type="month"
+            className="h-9 rounded-md border bg-background px-3 text-body"
+            value={settlementMonth}
+            onChange={(event) => setSettlementMonth(event.target.value)}
+          />
+          {settlementMonth && (
+            <button
+              type="button"
+              className="inline-flex h-9 items-center rounded-md border px-3 text-label font-medium hover:bg-muted/40"
+              onClick={() => setSettlementMonth('')}
+            >
+              {t('settlementAllPeriods')}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {settlementQuery.isLoading ? (
+        <div className="mt-4 flex items-center gap-2 text-body text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          {t('loading')}
+        </div>
+      ) : settlementQuery.error ? (
+        <div className="mt-4 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-body text-destructive">
+          {(settlementQuery.error as Error).message || t('loadFailed')}
+        </div>
+      ) : !settlementRow ? (
+        <div className="mt-4 rounded-md border border-dashed px-3 py-4 text-body text-muted-foreground">
+          {t('settlementNoActivity')}
+        </div>
+      ) : (
+        <>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-md border bg-muted/30 p-3">
+              <div className="text-label text-muted-foreground">{t('earningsNet')}</div>
+              <div className="mt-1 text-title font-semibold tabular-nums">
+                {yuan(settlementRow.monthAuthorNetCents)}
+              </div>
+            </div>
+            <div className="rounded-md border bg-muted/30 p-3">
+              <div className="text-label text-muted-foreground">{tWallet('availableAmount')}</div>
+              <div className="mt-1 text-title font-semibold tabular-nums">
+                {yuan(settlementRow.withdrawableCents)}
+              </div>
+            </div>
+            <div className="rounded-md border bg-primary/5 p-3">
+              <div className="text-label text-muted-foreground">{t('settlementSuggested')}</div>
+              <div className="mt-1 text-title font-semibold tabular-nums text-primary">
+                {yuan(settlementRow.suggestedPayoutCents)}
+              </div>
+            </div>
+            <div className="rounded-md border bg-muted/30 p-3">
+              <div className="text-label text-muted-foreground">{t('settlementStatus')}</div>
+              <div className="mt-1 text-body font-medium">{settlementStatusLabel}</div>
+            </div>
+          </div>
+          {settlementFlags.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-1">
+              {settlementFlags.map((flag) => (
+                <span
+                  key={flag}
+                  className="rounded bg-amber-50 px-1.5 py-0.5 text-label text-amber-700"
+                >
+                  {settlementFlagLabel(flag)}
+                </span>
+              ))}
+            </div>
+          )}
+          <p className="mt-3 text-label text-muted-foreground">
+            {settlementQuery.data?.disclaimer}
+          </p>
+        </>
+      )}
+    </div>
+  )
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-5 px-4 py-4">
@@ -103,18 +236,21 @@ export default function SkillEarningsPage() {
           {(query.error as Error).message || t('loadFailed')}
         </div>
       ) : !data || items.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-10 text-center">
-          <Receipt className="mx-auto mb-2 h-10 w-10 opacity-30" />
-          <p className="text-body font-medium">{t('earningsEmpty')}</p>
-          <p className="mt-1 text-label text-muted-foreground">{t('earningsEmptyHint')}</p>
-          <Link
-            href="/skills-market"
-            className="mt-4 inline-flex items-center gap-1 text-label text-primary hover:underline"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            {t('backToMarket')}
-          </Link>
-        </div>
+        <>
+          <div className="rounded-lg border border-dashed p-10 text-center">
+            <Receipt className="mx-auto mb-2 h-10 w-10 opacity-30" />
+            <p className="text-body font-medium">{t('earningsEmpty')}</p>
+            <p className="mt-1 text-label text-muted-foreground">{t('earningsEmptyHint')}</p>
+            <Link
+              href="/skills-market"
+              className="mt-4 inline-flex items-center gap-1 text-label text-primary hover:underline"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              {t('backToMarket')}
+            </Link>
+          </div>
+          {settlementCard}
+        </>
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -140,6 +276,8 @@ export default function SkillEarningsPage() {
               detail={`${yuan(net)} ${t('earningsNet')}`}
             />
           </div>
+
+          {settlementCard}
 
           <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border bg-card p-4">
             <div className="flex items-center gap-3">

@@ -28039,7 +28039,20 @@
     "earningsStatusRefunded": "返金済み",
     "earningsRefundDetail": "返金 ¥{refund} · 回収 ¥{clawback}",
     "earningsClawbackMissing": "回収未記録",
-    "earningsNote": "純分配 = 販売分配 - 返金時の実回収。残高不足で回収できなかった分はプラットフォームが負担します。"
+    "earningsNote": "純分配 = 販売分配 - 返金時の実回収。残高不足で回収できなかった分はプラットフォームが負担します。",
+    "settlementTitle": "今月の精算参考",
+    "settlementStatus": "ステータス",
+    "settlementMonth": "対象月",
+    "settlementAllPeriods": "すべての期間",
+    "settlementNoActivity": "今月のスキル販売・返金はありません",
+    "settlementSuggested": "参考出金上限",
+    "settlementDisclaimer": "これは参照専用です。出金申請の作成や送金は行いません。実際の支払いは出金審査後に処理されます。",
+    "settlementStatusReady": "手動確認へ",
+    "settlementStatusNoNet": "今月の純額なし",
+    "settlementStatusNotWithdrawable": "現在出金不可",
+    "settlementStatusNeedsReview": "要確認",
+    "settlementFlagCapped": "出金可能額で上限調整",
+    "settlementFlagNegative": "今月の純額がマイナス"
   },
   "chatSearchBar": {
     "messageNotFound": "メッセージが見つかりません。現在の表示範囲外の可能性があります",
