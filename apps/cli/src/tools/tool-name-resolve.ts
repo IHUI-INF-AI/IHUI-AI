@@ -70,12 +70,42 @@ export function resolveToolName(name: string, candidates: readonly string[]): st
   return undefined;
 }
 
-/** 名字相似度打分(只用于"没找到，给你几个近名"的建议，不用于执行)。 */
+/** 有界编辑距离:只回答「≤ max 的最近距离」,超过即返回 max+1(不做全局最优)。 */
+function boundedEditDistance(a: string, b: string, max: number): number {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  if (a === b) return 0;
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i += 1) {
+    const row = [i];
+    let rowMin = i;
+    for (let j = 1; j <= b.length; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      const value = Math.min((prev[j - 1] ?? 0) + cost, (prev[j] ?? 0) + 1, (row[j - 1] ?? 0) + 1);
+      row.push(value);
+      if (value < rowMin) rowMin = value;
+    }
+    if (rowMin > max) return max + 1;
+    prev = row;
+  }
+  const dist = prev[b.length] ?? max + 1;
+  return dist > max ? max + 1 : dist;
+}
+
+/** 名字相似度打分(只用于"没找到，给你几个近名"的建议，不用于执行)。
+ *
+ * 2026-11-28 补错拼档:模型把 `lsp_goto_definition` 写成 `lsp_goto_efinition`、
+ * `memory_recall` 写成 `memoryxrecall` 时,旧的整词/子串/词前缀三档全部 0 分 ⇒ 建议为空,
+ * 模型当场没有可改对的落点。这里按归一化键的编辑距离补两档(距离 1 → 4.5,距离 2 → 3.5),
+ * 只影响建议列表,**绝不**据此自动执行。
+ */
 function similarityScore(queryKey: string, candidate: string): number {
   const key = normalizeToolName(candidate);
   if (key === '') return 0;
   if (key === queryKey) return 5;
+  const dist = boundedEditDistance(queryKey, key, 2);
+  if (dist === 1) return 4.5;
   if (key.startsWith(queryKey) || queryKey.startsWith(key)) return 4;
+  if (dist === 2) return 3.5;
   if (key.includes(queryKey) || queryKey.includes(key)) return 3;
   // 词级前缀:query "read" vs candidate "read_file" 已由上面覆盖;
   // 这里兜 "file" vs "write_file" 这类整词命中。
