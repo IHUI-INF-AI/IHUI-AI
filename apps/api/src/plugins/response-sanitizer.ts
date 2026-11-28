@@ -95,10 +95,22 @@ const MASK = '***'
  */
 export const PROTOCOL_NO_MASK_PREFIXES: readonly string[] = ['/oauth/', '/.well-known/']
 
-/** 命中协议豁免前缀则不脱敏;query 串不参与前缀判定。 */
-function isProtocolNoMaskPath(url: string): boolean {
+/**
+ * 公开只读计量数据:响应体里的 `tokens` 是模型用量字段，不是凭据。
+ * 2026-11-28 生产实测:权威榜的 OpenRouter 列、真实用量第一卡片全被
+ * `token` 子串规则打成 `***`，页面看起来像数据缺失。该端点只返回公开榜单，
+ * 不含任何用户凭据，按路径整体豁免。
+ */
+export const PUBLIC_DATA_NO_MASK_PREFIXES: readonly string[] = [
+  '/api/ai-world/authoritative-leaderboard',
+]
+
+/** 命中豁免前缀则不脱敏;query 串不参与前缀判定。 */
+export function isNoMaskPath(url: string): boolean {
   const path = url.split('?', 1)[0] ?? url
-  return PROTOCOL_NO_MASK_PREFIXES.some((p) => path === p.slice(0, -1) || path.startsWith(p))
+  return [...PROTOCOL_NO_MASK_PREFIXES, ...PUBLIC_DATA_NO_MASK_PREFIXES].some(
+    (p) => path === p.slice(0, -1) || path.startsWith(p),
+  )
 }
 
 export interface SanitizerOptions {
@@ -516,8 +528,8 @@ const responseSanitizerPlugin: FastifyPluginAsync<SanitizerOptions> = async (
   function rewritePayload(request: FastifyRequest, reply: FastifyReply, payload: unknown): unknown {
     // 数据主体访问自身数据时跳过脱敏（GDPR 导出等场景）
     if (request.skipResponseSanitization) return payload
-    // OAuth/OIDC 协议面整体豁免(理由见 PROTOCOL_NO_MASK_PREFIXES)
-    if (isProtocolNoMaskPath(request.url)) return payload
+    // OAuth/OIDC 协议面、公开榜单计量数据整体豁免(理由见上方常量)
+    if (isNoMaskPath(request.url)) return payload
     const contentType = reply.getHeader('content-type')
     if (typeof contentType !== 'string' || !contentType.includes('application/json')) {
       return payload
