@@ -17,6 +17,20 @@
 
 param([switch]$DryRun)
 
+# 自隐藏兜底：本脚本常由 ensure 在无控制台链里调用（那时 GetConsoleWindow=0，直接跳过）；
+# 一旦被可见方式拉起（手工排查 / 老式任务直启 / 异常调用方），先把自己的黑框藏掉，
+# 不给"回收器自己变成一个新的可见窗口"留口子。
+try {
+  if (-not ('IHUI.ConsoleHide' -as [type])) {
+    Add-Type -Namespace IHUI -Name ConsoleHide -MemberDefinition @'
+[DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
+[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+'@
+  }
+  $h = [IHUI.ConsoleHide]::GetConsoleWindow()
+  if ($h -ne [IntPtr]::Zero) { [void][IHUI.ConsoleHide]::ShowWindow($h, 0) }
+} catch { }
+
 $Root = 'C:\IHUI-AI'
 $LogDir = Join-Path $Root 'logs'
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
