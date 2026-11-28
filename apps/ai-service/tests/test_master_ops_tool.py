@@ -618,6 +618,54 @@ async def test_run_resume_rejects_non_paused_run() -> None:
 
 
 @pytest.mark.asyncio
+async def test_run_pause_checkpoint_unavailable_still_waits_for_pause(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import app.services.agent_run_control as run_control
+
+    async def fake_pause_session(_session_id: str, _user_id: str):
+        return run_control.PauseResult(
+            outcome=run_control.PauseOutcome.CHECKPOINT_UNAVAILABLE,
+            changed=True,
+            detail="暂停标志已置位但检查点未落盘",
+        )
+
+    monkeypatch.setattr(run_control, "pause_session", fake_pause_session)
+    get_calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        if body.get("action") == "run_get":
+            get_calls["n"] += 1
+            status = "paused" if get_calls["n"] >= 2 else "running"
+            return httpx.Response(
+                200,
+                json={
+                    "code": 0,
+                    "data": {
+                        "action": "run_get",
+                        "result": {
+                            "id": "run-early",
+                            "status": status,
+                            "sessionId": "session-early",
+                            "mode": "single",
+                        },
+                    },
+                },
+            )
+        raise AssertionError(f"unexpected action: {body}")
+
+    envelope = await _tool(handler).handle(
+        {"action": "run_pause", "runId": "run-early"}, user_id="user-1"
+    )
+
+    assert envelope["ok"] is True
+    assert envelope["data"]["outcome"] == "paused"
+    assert envelope["data"]["runStatus"] == "paused"
+    assert envelope["data"]["checkpointPending"] is True
+
+
+@pytest.mark.asyncio
 async def test_run_talk_prefers_local_steer(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(ops_module, "request_local_steer", lambda _run_id, _text: True)
 

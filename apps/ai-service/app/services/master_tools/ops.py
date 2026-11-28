@@ -499,6 +499,16 @@ class AgentOpsTool:
                 data["checkpointId"] = result.checkpoint_id
             if result.outcome == PauseOutcome.PAUSED:
                 await self._await_paused(run_id=run_id, user_id=user_id, data=data)
+            elif (
+                result.outcome == PauseOutcome.CHECKPOINT_UNAVAILABLE
+                and result.changed
+            ):
+                # pause() 在 messages 尚未初始化时拿不到 eager checkpoint，但暂停标志
+                # 已置位，循环会在轮次边界尝试落 boundary checkpoint。此时不能只回
+                # checkpoint_unavailable 就结束：继续等账本落到 paused，并把“恢复点
+                # 待确认”如实带回，避免调用方误以为 run 还在跑。
+                data["checkpointPending"] = True
+                await self._await_paused(run_id=run_id, user_id=user_id, data=data)
             return data
         if action == "run_resume":
             runner = self._make_resume_runner(run, run_id=run_id, user_id=user_id)
