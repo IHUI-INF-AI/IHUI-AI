@@ -85,12 +85,14 @@ probe `e41afe2b8e734080957dcb3ae041fc44`：
 
 ### UI
 
-`/master` 页面此前已用真实 Edge + 测试库 admin 登录态验证：11 个注册表定义、`coder` 运行统计、注册表 API 200；
-截图 `ma-api-e2e/master-authenticated.png`。本轮后端改动不改变 Web 组件与路由。
+`/master` 页面用真实 Edge + 测试库 admin 登录态验收：11 个注册表定义、`coder` 运行统计可见；
+本轮用 fresh token 重跑，`/api/agent-registry/definitions` 与 `/approvals` 均返回 200，
+截图 `ma-api-e2e/master-authenticated.png` 已刷新。页面仍带 Next dev 模式的 `16 Issues` 浮层，
+属于开发模式提示，不影响注册表数据加载。
 
 ## 测试门禁
 
-- 聚焦 Python 回归：`179 passed`（master 全套 + orchestrator + checkpoint + cancel bus + llm gateway 相关）。
+- 聚焦 Python 回归：`179 passed`（master 全套 + orchestrator + checkpoint + cancel bus）。
 - `test_llm_gateway.py`：`122 passed`。
 - ruff：本轮改动 Python 文件全过。
 - API `pnpm --filter @ihui/api typecheck`：通过。
