@@ -77,8 +77,18 @@ describe('工具名解析(执行面)', () => {
     expect(getTool('marker_read')).toBeDefined()
   })
 
-  it('未知工具要给近名建议，模型能在同一轮改对', async () => {
-    clearTools()
+  it('传输包装(functions. / mcp__server__ / _tool)也会被真正执行并改写', async () => {
+    for (const raw of ['functions.marker_read', 'mcp__ihui__marker_read', 'marker_read_tool']) {
+      clearTools()
+      registerTools([fakeTool('marker_read', 'ran')])
+      const call = { name: raw, arguments: { path: 'x' } }
+      const r = await executeToolCall(call, { workspacePath: WS, permissions: {} })
+      expect(r.success, raw).toBe(true)
+      expect(call.name).toBe('marker_read')
+    }
+  })
+
+  it('未知工具要给近名建议，模型能在同一轮改对', async () => {    clearTools()
     registerTools([fakeTool('marker_read', 'ran')])
     const r = await executeToolCall({ name: 'read', arguments: { path: 'x' } }, { workspacePath: WS, permissions: {} })
     expect(r.success).toBe(false)
