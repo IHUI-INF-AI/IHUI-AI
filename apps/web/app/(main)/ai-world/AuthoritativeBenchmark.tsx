@@ -33,18 +33,43 @@ import {
   TableHeader,
   TableRow,
 } from '@ihui/ui-react'
-import type { AiWorldAuthoritativeLeaderboard } from '@ihui/types'
+import type { AiWorldAuthoritativeLeaderboard, AiWorldLeaderboardSourceId } from '@ihui/types'
 import raw from '@/data/authoritative-leaderboard.json'
 import { apiOrThrow } from '@/lib/api'
 
 type Data = AiWorldAuthoritativeLeaderboard
 
 const VIEWS = [
-  { key: 'cross' as const, label: '综合位次', icon: BarChart3 },
+  { key: 'overall' as const, label: '全源平均', icon: Trophy },
+  { key: 'cross' as const, label: '三家交叉', icon: BarChart3 },
   { key: 'aa' as const, label: '智能指数', icon: Sparkles },
   { key: 'lmarena' as const, label: '人类偏好', icon: Users },
   { key: 'openrouter' as const, label: '真实用量', icon: Activity },
   { key: 'boards' as const, label: '更多权威榜', icon: Layers },
+]
+
+const SOURCE_LABEL: Record<AiWorldLeaderboardSourceId, string> = {
+  aa: 'AA',
+  lmarena: 'LMArena',
+  openrouter: 'OR',
+  helm: 'HELM',
+  opencompass: 'OpenCompass',
+  superclue: 'SuperCLUE',
+  livebench: 'LiveBench',
+  swebench: 'SWE',
+  epoch: 'Epoch',
+}
+
+const SOURCE_ORDER: AiWorldLeaderboardSourceId[] = [
+  'aa',
+  'lmarena',
+  'openrouter',
+  'helm',
+  'opencompass',
+  'superclue',
+  'livebench',
+  'swebench',
+  'epoch',
 ]
 
 function rankClass(rank: number): string {
@@ -144,6 +169,86 @@ function SourceValue({ value, sub }: { value: string | null; sub?: string }) {
   )
 }
 
+const VENDOR_LOGO: Record<string, string> = {
+  openai: '/brands/models/openai-lobe.svg',
+  google: '/brands/models/googlegemini.svg',
+  anthropic: '/brands/models/anthropic.svg',
+  deepseek: '/brands/models/deepseek.svg',
+  'moonshot ai': '/brands/models/moonshotai.svg',
+  moonshot: '/brands/models/moonshotai.svg',
+  alibaba: '/brands/models/qwen.svg',
+  qwen: '/brands/models/qwen.svg',
+  mistral: '/brands/models/mistralai.svg',
+  mistralai: '/brands/models/mistralai.svg',
+  meta: '/brands/models/meta.svg',
+  'z ai': '/brands/models/zhipu-lobe.svg',
+  zhipu: '/brands/models/zhipu-lobe.svg',
+  zai: '/brands/models/zhipu-lobe.svg',
+  xai: '/brands/models/xai-lobe.svg',
+  grok: '/brands/models/xai-lobe.svg',
+  minimax: '/brands/models/minimax-lobe.svg',
+  stepfun: '/brands/models/stepfun-lobe.svg',
+  baidu: '/brands/models/baidu-lobe.svg',
+  huawei: '/brands/models/huawei-lobe.svg',
+  tencent: '/brands/models/tencent-lobe.svg',
+}
+
+const VENDOR_COLOR: Record<string, string> = {
+  anthropic: '#D97757',
+  google: '#4285F4',
+  deepseek: '#4D6BFE',
+  'moonshot ai': '#7C3AED',
+  moonshot: '#7C3AED',
+  meta: '#0866FF',
+  mistral: '#FA520F',
+  nvidia: '#76B900',
+  amazon: '#FF9900',
+  microsoft: '#00A4EF',
+  cohere: '#39594D',
+  minimax: '#E5484D',
+  stepfun: '#12A594',
+  xiaomi: '#FF6900',
+  upstage: '#6B46C1',
+  ai21: '#E11D48',
+}
+
+function vendorInitials(vendor: string): string {
+  const words = vendor.trim().split(/[\s.]+/).filter(Boolean)
+  if (words.length >= 2) {
+    const first = words[0] ?? ''
+    const second = words[1] ?? ''
+    return `${first.slice(0, 1)}${second.slice(0, 1)}`.toUpperCase()
+  }
+  return (vendor.trim().slice(0, 2) || 'AI').toUpperCase()
+}
+
+/** 厂商图标：有官方素材用素材，没有则用稳定的首字母色块，不伪造模型专属 logo。 */
+function VendorLogo({ vendor }: { vendor: string }) {
+  const key = vendor.trim().toLowerCase()
+  const src = VENDOR_LOGO[key]
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt={`${vendor} logo`}
+        title={`${vendor} 厂商图标`}
+        className="h-6 w-6 shrink-0 rounded-md border border-border/60 bg-white object-contain p-0.5"
+        loading="lazy"
+      />
+    )
+  }
+  const color = VENDOR_COLOR[key] ?? '#64748B'
+  return (
+    <span
+      title={`${vendor} 厂商徽标`}
+      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[9px] font-semibold text-white"
+      style={{ backgroundColor: color }}
+    >
+      {vendorInitials(vendor)}
+    </span>
+  )
+}
+
 function ModelCell({
   model,
   vendor,
@@ -158,14 +263,17 @@ function ModelCell({
   reasoning?: boolean
 }) {
   return (
-    <div className="min-w-[150px]">
-      <div className="flex flex-wrap items-center gap-1 font-medium">
-        <span>{model}</span>
-        {cn ? <Tag tone="cn">国产</Tag> : null}
-        {openWeights ? <Tag tone="open">开源</Tag> : null}
-        {reasoning ? <Tag>推理</Tag> : null}
+    <div className="flex min-w-[170px] items-start gap-2">
+      <VendorLogo vendor={vendor} />
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-1 font-medium">
+          <span>{model}</span>
+          {cn ? <Tag tone="cn">国产</Tag> : null}
+          {openWeights ? <Tag tone="open">开源</Tag> : null}
+          {reasoning ? <Tag>推理</Tag> : null}
+        </div>
+        <span className="mt-0.5 block text-[10px] text-muted-foreground">{vendor}</span>
       </div>
-      <span className="mt-0.5 block text-[10px] text-muted-foreground">{vendor}</span>
     </div>
   )
 }
@@ -182,6 +290,127 @@ function MetricCard({ label, value, detail }: { label: string; value: string; de
       <div className="mt-0.5 truncate text-[10px] text-muted-foreground" title={detail}>
         {detail}
       </div>
+    </div>
+  )
+}
+
+function OverallAllTable({ data }: { data: Data }) {
+  const all = data.overallAll ?? []
+  const [query, setQuery] = React.useState('')
+  const [visible, setVisible] = React.useState(50)
+  const normalized = query.trim().toLowerCase()
+  const rows = normalized
+    ? all.filter((row) => `${row.model} ${row.vendor}`.toLowerCase().includes(normalized))
+    : all
+  const shown = rows.slice(0, visible)
+  if (all.length === 0) {
+    return (
+      <div className="rounded-md border bg-muted/20 px-3 py-4 text-xs text-muted-foreground">
+        全源平均总榜正在生成；九源快照刷新后自动出现。
+      </div>
+    )
+  }
+  return (
+    <div className="space-y-2">
+      <p className="text-label leading-relaxed text-muted-foreground">
+        九家官方榜全源平均：每家榜内先按名次换百分位（第 1 名=100、末位=0），再对命中的榜等权平均。
+        先按覆盖榜数降序，再按平均百分位降序，未上榜的榜不计 0；SWE-bench 取五个 subset
+        中的最佳名次。
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value)
+            setVisible(50)
+          }}
+          placeholder="搜模型或厂商"
+          className="h-7 w-44 rounded-md border bg-card px-2 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
+        />
+        <span className="text-[11px] text-muted-foreground">
+          {rows.length === all.length
+            ? `共 ${all.length} 个模型，覆盖 9 家官方榜`
+            : `匹配 ${rows.length} / ${all.length} 个模型`}
+        </span>
+      </div>
+      <div className="relative overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="sticky left-0 z-10 w-12 bg-card">位次</TableHead>
+              <TableHead className="sticky left-12 z-10 min-w-52 bg-card">模型</TableHead>
+              <TableHead className="w-24">平均百分位</TableHead>
+              <TableHead className="w-16">覆盖</TableHead>
+              <TableHead className="min-w-[420px]">九源名次</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {shown.map((row) => (
+              <TableRow key={row.key} className="hover:bg-accent/40">
+                <TableCell>
+                  <RankBadge rank={row.rank} />
+                </TableCell>
+                <TableCell>
+                  <ModelCell
+                    model={row.model}
+                    vendor={row.vendor}
+                    openWeights={row.openWeights}
+                    cn={row.cn}
+                  />
+                </TableCell>
+                <TableCell>
+                  <span className="text-sm font-semibold tabular-nums">
+                    {row.averagePercentile.toFixed(1)}
+                  </span>
+                  <span className="ml-0.5 text-[10px] text-muted-foreground">/100</span>
+                </TableCell>
+                <TableCell>
+                  <span
+                    className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium tabular-nums ${
+                      row.coverage >= 5
+                        ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                        : row.coverage >= 3
+                          ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                          : 'bg-muted text-muted-foreground'
+                    }`}
+                  >
+                    {row.coverage}/9
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap gap-1">
+                    {SOURCE_ORDER.map((id) => {
+                      const source = row.sources[id]
+                      if (!source) return null
+                      return (
+                        <span
+                          key={id}
+                          title={`${SOURCE_LABEL[id]} 第 ${source.rank} / ${source.total} 名，百分位 ${source.percentile}`}
+                          className="inline-flex items-center gap-1 rounded bg-muted/50 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                        >
+                          <span className="font-medium text-foreground">{SOURCE_LABEL[id]}</span>
+                          <span className="tabular-nums">#{source.rank}</span>
+                        </span>
+                      )
+                    })}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      {rows.length > visible ? (
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={() => setVisible((value) => value + 50)}
+            className="rounded-md border bg-card px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+          >
+            加载更多（还有 {rows.length - visible} 个）
+          </button>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -804,7 +1033,7 @@ function SourcesFooter({ data }: { data: Data }) {
 }
 
 export function AuthoritativeBenchmark() {
-  const [view, setView] = React.useState<(typeof VIEWS)[number]['key']>('cross')
+  const [view, setView] = React.useState<(typeof VIEWS)[number]['key']>('overall')
   const [data, setData] = React.useState<Data>(raw as Data)
 
   React.useEffect(() => {
@@ -825,19 +1054,11 @@ export function AuthoritativeBenchmark() {
   }, [])
 
   const consensus = data.cross[0]
+  const overallTop = (data.overallAll ?? [])[0]
   const aaTop = data.aa[0]
   const lmTop = data.lmarena.overall[0]
   const lmCnTop = data.lmarena.chinese[0]
   const orTop = data.openrouter[0]
-  const consensusDetail = consensus
-    ? [
-        consensus.aa ? `AA #${consensus.aa.rank}` : null,
-        consensus.lm ? `偏好 #${consensus.lm.rank}` : null,
-        consensus.or ? `用量 #${consensus.or.rank}` : null,
-      ]
-        .filter(Boolean)
-        .join(' · ')
-    : ''
 
   return (
     <Card>
@@ -876,9 +1097,9 @@ export function AuthoritativeBenchmark() {
 
         <div className="grid grid-cols-2 gap-2 min-[1024px]:grid-cols-4">
           <MetricCard
-            label="三榜共识"
-            value={consensus?.model ?? '—'}
-            detail={`${consensus?.coverage ?? 0}/3 覆盖 · ${consensusDetail}`}
+            label="全源平均第一"
+            value={overallTop?.model ?? '—'}
+            detail={`${overallTop ? overallTop.averagePercentile.toFixed(1) : '—'} / 100 · 覆盖 ${overallTop?.coverage ?? 0}/9 · 三交叉 #${consensus?.rank ?? '—'}`}
           />
           <MetricCard
             label="智能指数第一"
@@ -919,6 +1140,7 @@ export function AuthoritativeBenchmark() {
           })}
         </div>
 
+        {view === 'overall' ? <OverallAllTable data={data} /> : null}
         {view === 'cross' ? <CrossTable data={data} /> : null}
         {view === 'aa' ? <AaTable data={data} /> : null}
         {view === 'lmarena' ? <LmarenaTable data={data} /> : null}
@@ -928,9 +1150,9 @@ export function AuthoritativeBenchmark() {
         <div className="flex items-start gap-1.5 rounded-md bg-muted/40 px-2.5 py-2 text-[11px] leading-relaxed text-muted-foreground">
           <Globe2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
-            综合位次仍然只回答“三家可对齐榜单的交集”：AA 看综合能力，LMArena 看人类偏好，OpenRouter
-            看真实用量。HELM、OpenCompass、SuperCLUE、LiveBench、SWE-bench、Epoch
-            各有自己的量纲和评测集，放在“更多权威榜”里单榜全量看，不硬拼成一个总分。
+            “全源平均”把 9 家官方榜的名次百分位等权平均，覆盖榜数优先、再看平均百分位；它是站内综合指数，不是任何一家官方总分。“三家交叉”只回答 AA、LMArena、OpenRouter
+            三家可对齐榜单的交集：AA 看综合能力、LMArena 看人类偏好、OpenRouter 看真实用量。HELM、OpenCompass、SuperCLUE、LiveBench、SWE-bench、Epoch
+            仍保留各自量纲，在“更多权威榜”里单榜全量看。
           </span>
         </div>
 

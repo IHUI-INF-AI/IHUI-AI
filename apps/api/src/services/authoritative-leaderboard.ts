@@ -5,14 +5,16 @@
 /**
  * 权威榜单聚合服务。
  *
- * 输入只有三家官方公开数据：
- * - LMArena 官方 HuggingFace 数据集 text/latest parquet（Bradley-Terry 人类偏好分）
- * - Artificial Analysis 官方 models 榜单页内嵌 JSON（Intelligence Index）
- * - OpenRouter 官方 rankings-daily CSV（真实 token 用量）
+ * 九家官方公开数据：
+ * - LMArena：官方 HuggingFace 数据集 text/latest parquet（Bradley-Terry 人类偏好分）
+ * - Artificial Analysis：官方 models 榜单页内嵌 JSON（Intelligence Index）
+ * - OpenRouter：官方 rankings-daily CSV（真实 token 用量）
+ * - Stanford HELM、OpenCompass、SuperCLUE、LiveBench、SWE-bench、Epoch AI ECI
  *
- * 输出是模型家族级对照：同一模型不同档位/构建在各榜分别取最佳名次；
- * 综合位次先按覆盖榜数降序，再按各榜百分位均值降序。这里不做任何自建评测，
- * 也不生成新的能力分。
+ * 输出分两层：
+ * - overallAll：九家榜内名次百分位的等权平均总榜（覆盖榜数优先）
+ * - cross：AA/LMArena/OpenRouter 三家可对齐榜单的交集位次
+ * 这里不做任何自建评测，也不生成新的能力分。
  */
 
 import { parquetReadObjects } from 'hyparquet'
@@ -27,8 +29,10 @@ import type {
   AiWorldLeaderboardLmCategory,
   AiWorldLeaderboardLmRow,
   AiWorldLeaderboardOrRow,
+  AiWorldLeaderboardOverallRow,
   AiWorldLeaderboardRefresh,
   AiWorldLeaderboardSource,
+  AiWorldLeaderboardSourceId,
 } from '@ihui/types'
 import { logger } from '../utils/logger.js'
 
@@ -45,7 +49,7 @@ const SWEBENCH_PAGE_URL = 'https://www.swebench.com/'
 export const AUTHORITATIVE_REFRESH_CRON =
   process.env.AUTHORITATIVE_LEADERBOARD_CRON || '17 */6 * * *'
 export const AUTHORITATIVE_REFRESH_TIMEZONE = 'Asia/Shanghai'
-export const AUTHORITATIVE_LEADERBOARD_SCHEMA_VERSION = 2
+export const AUTHORITATIVE_LEADERBOARD_SCHEMA_VERSION = 3
 
 /** LMArena 官方分类的展示名；键顺序即页面下拉顺序。 */
 const LMARENA_CATEGORY_LABELS: Record<string, string> = {
@@ -967,6 +971,124 @@ function buildAaVariantsBoard(models: AaRawModel[], asOf: string): AiWorldLeader
   }
 }
 
+const ALL_SOURCE_ORDER: AiWorldLeaderboardSourceId[] = [
+  'aa',
+  'lmarena',
+  'openrouter',
+  'helm',
+  'opencompass',
+  'superclue',
+  'livebench',
+  'swebench',
+  'epoch',
+]
+
+type AllSourceBucket = {
+  key: string
+  model: string
+  vendor: string
+  cn: boolean
+  openWeights: boolean
+  ranks: Map<AiWorldLeaderboardSourceId, { rank: number; total: number }>
+}
+
+/**
+ * 九家官方榜的全源平均总榜。
+ *
+ * 不平均任何原始分，只平均“榜内名次百分位”：同一模型在每张榜里的第 1 名记 100、
+ * 末位记 0，再对命中的榜等权平均。覆盖榜数优先，其次平均百分位，避免只在一个小榜
+ * 露脸的模型冲到总榜前面。SWE-bench 五个 subset 题目集不同，同一模型取五个 subset
+ * 中的最佳名次，不把不同 subset 的分数混成一个。
+ */
+function buildAllSourceOverall(
+  aaRows: AiWorldLeaderboardAaRow[],
+  lmRows: AiWorldLeaderboardLmRow[],
+  orRows: AiWorldLeaderboardOrRow[],
+  boards: AiWorldLeaderboardBoard[],
+): AiWorldLeaderboardOverallRow[] {
+  const buckets = new Map<string, AllSourceBucket>()
+
+  const add = (
+    source: AiWorldLeaderboardSourceId,
+    rows: Array<{
+      model: string
+      vendor: string
+      rank: number
+      cn?: boolean
+      openWeights?: boolean | null
+      open?: boolean
+    }>,
+    total: number,
+  ) => {
+    for (const row of rows) {
+      if (!row.model || !Number.isFinite(row.rank) || row.rank <= 0) continue
+      const key = normalizeModel(row.model)
+      if (!key) continue
+      const existing = buckets.get(key)
+      const vKey = vendorKey(row.vendor)
+      if (!existing) {
+        buckets.set(key, {
+          key,
+          model: baseName(row.model),
+          vendor: row.vendor || 'Unknown',
+          cn: row.cn ?? isCnVendor(vKey),
+          openWeights: row.openWeights ?? row.open ?? false,
+          ranks: new Map([[source, { rank: row.rank, total }]]),
+        })
+        continue
+      }
+      if (existing.vendor === 'Unknown' && row.vendor) existing.vendor = row.vendor
+      if (row.cn || isCnVendor(vKey)) existing.cn = true
+      if (row.openWeights || row.open) existing.openWeights = true
+      const prev = existing.ranks.get(source)
+      if (!prev || row.rank < prev.rank) existing.ranks.set(source, { rank: row.rank, total })
+    }
+  }
+
+  add('aa', aaRows, aaRows.length)
+  add('lmarena', lmRows, lmRows.length)
+  add('openrouter', orRows, orRows.length)
+  for (const board of boards) {
+    if (board.id === 'aa-variants') continue
+    add(board.sourceId, board.rows, board.rows.length)
+  }
+
+  const rows: AiWorldLeaderboardOverallRow[] = []
+  for (const bucket of buckets.values()) {
+    const sources: AiWorldLeaderboardOverallRow['sources'] = {}
+    const percentiles: number[] = []
+    for (const id of ALL_SOURCE_ORDER) {
+      const rank = bucket.ranks.get(id)
+      if (!rank) continue
+      const p = round1(percentile(rank.rank, rank.total) * 100)
+      sources[id] = { rank: rank.rank, total: rank.total, percentile: p }
+      percentiles.push(p)
+    }
+    if (percentiles.length === 0) continue
+    rows.push({
+      rank: 0,
+      key: bucket.key,
+      model: bucket.model,
+      vendor: bucket.vendor,
+      cn: bucket.cn,
+      openWeights: bucket.openWeights,
+      coverage: percentiles.length,
+      averagePercentile: round1(percentiles.reduce((sum, p) => sum + p, 0) / percentiles.length),
+      sources,
+    })
+  }
+
+  rows.sort((a, b) => {
+    if (b.coverage !== a.coverage) return b.coverage - a.coverage
+    if (b.averagePercentile !== a.averagePercentile) return b.averagePercentile - a.averagePercentile
+    return a.model.localeCompare(b.model, 'en')
+  })
+  rows.forEach((row, index) => {
+    row.rank = index + 1
+  })
+  return rows
+}
+
 export function buildAuthoritativeLeaderboard(
   bundle: AuthoritativeSourceBundle,
   options: { generatedAt?: string; refresh?: AiWorldLeaderboardRefresh } = {},
@@ -1001,6 +1123,12 @@ export function buildAuthoritativeLeaderboard(
 
   const aaVariants = buildAaVariantsBoard(bundle.aa.models, bundle.aa.asOf)
   const extraBoards = [...(bundle.boards ?? []), aaVariants]
+  const overallAll = buildAllSourceOverall(
+    aaList,
+    bundle.lmarena.overall,
+    bundle.openrouter.rows,
+    extraBoards,
+  )
 
   const lmOverall = buildLmFamilies(bundle.lmarena.overall)
   if (lmOverall.rows.length < 20)
@@ -1172,11 +1300,12 @@ export function buildAuthoritativeLeaderboard(
     generatedAt,
     title: '全球模型权威榜',
     subtitle:
-      '9 个官方榜单：AA · LMArena · OpenRouter · HELM · OpenCompass · SuperCLUE · LiveBench · SWE-bench · Epoch ECI，不做自建评测',
+      '9 个官方榜单：AA · LMArena · OpenRouter · HELM · OpenCompass · SuperCLUE · LiveBench · SWE-bench · Epoch ECI，不做自建评测；总榜为榜内名次百分位平均',
     sources,
     methodology:
-      '综合位次只覆盖 AA、LMArena、OpenRouter 三家可对齐的能力/偏好/用量榜：先按覆盖榜单数（3/3 优先于 2/3），再按各榜百分位均值降序；百分位 = 1 - (名次-1)/(该榜模型数-1)。只展示覆盖至少两个榜单的模型。新增平台各自量纲不同（HELM 0-1、OpenCompass/SuperCLUE/LiveBench 0-100、SWE-bench % resolved、Epoch ECI 抽象分），只做单榜全量展示，不拼进综合位次。AA 主榜按家族取最高档，另设“全档位”保留全部构建；LMArena 按官方 29 个分类分榜展示；OpenRouter 已输出全部模型家族；OpenRouter 官方 CSV 没有价格/上下文，不能凭空补。',
+      '全源平均总榜覆盖全部 9 家官方榜：同一模型在每张榜内按名次换算百分位（第 1 名=100，末位=0），再对命中的榜等权平均；先按覆盖榜数降序，再按平均百分位降序，未上榜的榜不计 0。SWE-bench 五个 subset 题目集不同，同一模型取五个 subset 中的最佳名次。三家交叉位次仍只覆盖 AA、LMArena、OpenRouter 可对齐的能力/偏好/用量，不把 HELM 0-1、OpenCompass/SuperCLUE/LiveBench 0-100、SWE-bench % resolved、Epoch ECI 抽象分直接平均；新增平台全量单榜展示。AA 主榜按家族取最高档，另设“全档位”保留全部构建；LMArena 按官方 29 个分类分榜展示；OpenRouter 已输出全部模型家族；OpenRouter 官方 CSV 没有价格/上下文，不能凭空补。',
     cross: ranked,
+    overallAll,
     aa: aaList,
     lmarena: {
       overall: bundle.lmarena.overall,
