@@ -142,7 +142,9 @@ export function commitRnTheme(preference: RnThemePreference): boolean {
 export function reloadForTheme(): void {
   if (__DEV__) {
     try {
-      DevSettings?.reload?.('theme')
+      ;(DevSettings as unknown as { reload?: (reason?: string) => void } | undefined)?.reload?.(
+        'theme',
+      )
       return
     } catch {
       // 落到下面的进程重启
