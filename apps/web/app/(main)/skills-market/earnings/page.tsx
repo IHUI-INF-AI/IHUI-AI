@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE).
-// [IHUI-AI-PROVENANCE]:skill-market-earnings-page-2026-11-28
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 'use client'
 
@@ -8,12 +8,13 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { ArrowLeft, Loader2, Receipt, Undo2 } from 'lucide-react'
+import { ArrowLeft, ArrowUpRight, Loader2, Receipt, Undo2, Wallet } from 'lucide-react'
 
 import type { SkillEarningsResponse } from '@ihui/shared/skills/market'
 import { Badge } from '@/components/data'
 import { AuthGatePrompt, BackButton } from '@/components/common'
 import { fetchSkillEarnings } from '@/lib/skills-market-api'
+import { apiOrThrow } from '@/lib/api'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 
 function yuan(cents: number): string {
@@ -22,12 +23,21 @@ function yuan(cents: number): string {
 
 export default function SkillEarningsPage() {
   const t = useTranslations('skillMarket')
+  const tWallet = useTranslations('wallet')
   const tGate = useTranslations('chatHistory')
   const { allow } = useAuthGate()
 
   const query = useQuery({
     queryKey: ['skills-market', 'earnings'],
     queryFn: () => fetchSkillEarnings(),
+    enabled: allow,
+  })
+
+  // 可提现额度是账户级口径（包含技能分成与其他有效佣金），
+  // 与提现页共用同一 queryKey，避免两个页面各自缓存出不同数字。
+  const availableQuery = useQuery({
+    queryKey: ['wallet', 'withdrawal', 'available'],
+    queryFn: () => apiOrThrow<{ available: number }>('/api/finance/withdrawal/available'),
     enabled: allow,
   })
 
@@ -59,6 +69,7 @@ export default function SkillEarningsPage() {
         item.netAuthorShareCents ?? item.authorShareCents - (sellerClawbackCents ?? 0),
     }
   })
+  const availableCents = Math.max(0, Number(availableQuery.data?.available ?? 0))
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-5 px-4 py-4">
@@ -128,6 +139,41 @@ export default function SkillEarningsPage() {
               value={String(refundedCount)}
               detail={`${yuan(net)} ${t('earningsNet')}`}
             />
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border bg-card p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Wallet className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="text-label text-muted-foreground">{tWallet('availableAmount')}</div>
+                <div className="text-title font-semibold tabular-nums">
+                  {availableQuery.isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : availableQuery.error ? (
+                    '—'
+                  ) : (
+                    yuan(availableCents)
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href="/wallet/withdraw"
+                className="inline-flex items-center gap-1 rounded-md bg-primary px-4 py-2 text-label font-medium text-primary-foreground transition-opacity hover:opacity-90"
+              >
+                {tWallet('withdrawBtn')}
+                <ArrowUpRight className="h-3.5 w-3.5" />
+              </Link>
+              <Link
+                href="/wallet/withdraw/records"
+                className="inline-flex items-center gap-1 rounded-md border px-4 py-2 text-label font-medium hover:bg-muted/40"
+              >
+                {tWallet('withdrawRecords')}
+              </Link>
+            </div>
           </div>
 
           <div className="rounded-lg border bg-muted/30 px-4 py-3 text-label text-muted-foreground">
@@ -217,3 +263,4 @@ function SummaryCard({
     </div>
   )
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
