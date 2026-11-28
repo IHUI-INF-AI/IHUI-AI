@@ -16,15 +16,12 @@
  * `dangerLevel: 'dangerous'` 的确认闸兜住,但确认不等于 OS 沙箱。
  */
 
-import { NodePtcRuntime, NodeReplRuntime, PTC_MAX_BINDING_TIMEOUT_MS } from '@ihui/ptc-runtime'
+import { createRequire } from 'node:module'
 import type {
   PtcBindingNamespace,
   PtcJsonValue,
   PtcRuntime,
 } from '@ihui/ptc-runtime'
-
-export { PTC_MAX_BINDING_TIMEOUT_MS }
-
 import { createPtcToolExecutor, PTC_DEFAULT_MAX_BINDING_CALLS, PTC_MAX_BINDING_CALLS, PTC_RUN_CODE_TOOL_NAME } from './ptc-executor.js'
 import type {
   PtcBindingApprover,
@@ -35,6 +32,30 @@ import type {
 } from './ptc-executor.js'
 import type { Tool, ToolContext, ToolResult } from './index.js'
 import type { NativeToolCallRunner, ToolExecutor } from './tool-executor.js'
+
+/**
+ * PTC runtime 是可选依赖:PTC 工具默认关闭,且当前 `packages/ptc-runtime` 只有
+ * package.json(源码/dist 尚未入仓)。为了不让整条 CLI 构建被一个可选能力卡死,
+ * 这里改成运行期惰性加载:正常 native 工具链零影响;真开启 `IHUI_PTC_TOOL=1` 且
+ * 没装 runtime 时,给出明确错误而不是整包构建失败。
+ */
+const ptcRequire = createRequire(import.meta.url)
+const PTC_RUNTIME_MODULE = '@ihui/ptc-runtime'
+
+/** 与旧 runtime 常量对齐(仅在 CLI 参数校验/公告使用,不触发加载)。 */
+export const PTC_MAX_BINDING_TIMEOUT_MS = 600_000
+export const PTC_DEFAULT_BINDING_TIMEOUT_MS = 30_000
+
+function loadPtcRuntime(): typeof import('@ihui/ptc-runtime') {
+  try {
+    return ptcRequire(PTC_RUNTIME_MODULE) as typeof import('@ihui/ptc-runtime')
+  } catch {
+    throw new Error(
+      'PTC runtime 未安装:需要先补齐 packages/ptc-runtime 或安装 @ihui/ptc-runtime;' +
+        '普通工具与设备执行器不受影响,可去掉 IHUI_PTC_TOOL=1 继续使用。',
+    )
+  }
+}
 
 export const PTC_TOOL_ENV = 'IHUI_PTC_TOOL'
 
@@ -134,7 +155,7 @@ export function createPtcReadOnlyExecutor(options: CreateRunCodeToolOptions): To
   const stateOwner =
     options.stateOwner ?? (retainedState ? {} : undefined)
   const retainedRuntime = retainedState
-    ? (options.runtimeFactory?.() ?? new NodeReplRuntime({
+    ? (options.runtimeFactory?.() ?? new (loadPtcRuntime().NodeReplRuntime)({
         maxPendingCalls: pendingLimit,
         ...(options.bindingTimeoutMs === undefined
           ? {}
@@ -161,7 +182,7 @@ export function createPtcReadOnlyExecutor(options: CreateRunCodeToolOptions): To
       // 预算内的调用都能进入 host 队列，越界的那一次由 tool-call-limit 终止。
       const runtime =
         retainedRuntime ??
-        (options.runtimeFactory?.() ?? new NodePtcRuntime({
+        (options.runtimeFactory?.() ?? new (loadPtcRuntime().NodePtcRuntime)({
           maxPendingCalls: pendingLimit,
           ...(options.bindingTimeoutMs === undefined
             ? {}
