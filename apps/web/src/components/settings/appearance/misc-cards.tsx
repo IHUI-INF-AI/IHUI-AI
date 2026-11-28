@@ -18,6 +18,7 @@ import { Accessibility, Download, HardDriveDownload, RotateCcw, Upload } from 'l
 import { toast } from 'sonner'
 
 import { Button } from '@ihui/ui-react'
+import { useConfirm } from '@/hooks/use-confirm'
 import { useAppearanceStore } from '@/stores/appearance-settings'
 import { useAppearancePresetsStore } from '@/stores/appearance-presets'
 import { useAppearanceScopeStore } from '@/stores/appearance-scope'
@@ -193,6 +194,7 @@ export function AccessibilityCard() {
 
 export function DataCard() {
   const t = useTranslations('appearanceSettings')
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const exportConfig = useAppearanceStore((s) => s.exportConfig)
   const importConfig = useAppearanceStore((s) => s.importConfig)
   const resetAll = useAppearanceStore((s) => s.resetAll)
@@ -278,14 +280,18 @@ export function DataCard() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => {
-            if (window.confirm(t('resetConfirm'))) {
-              resetAll()
-              resetScope()
-              setCodeWrap(false)
-              writeFoldPolicyMode('auto')
-              toast.success(t('resetDone'))
-            }
+          onClick={async () => {
+            const ok = await confirm({
+              title: t('resetConfig'),
+              description: t('resetConfirm'),
+              variant: 'destructive',
+            })
+            if (!ok) return
+            resetAll()
+            resetScope()
+            setCodeWrap(false)
+            writeFoldPolicyMode('auto')
+            toast.success(t('resetDone'))
           }}
           data-testid="appearance-reset"
         >
@@ -302,6 +308,7 @@ export function DataCard() {
           tabIndex={-1}
         />
       </div>
+      <ConfirmDialogRenderer />
     </SectionCard>
   )
 }

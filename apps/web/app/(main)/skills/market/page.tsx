@@ -8,6 +8,7 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
+import { useConfirm } from '@/hooks/use-confirm'
 import {
   Search,
   Star,
@@ -55,6 +56,7 @@ const TAGS = ['code', 'content', 'devops', 'design', 'media', 'video', 'ai', 'do
 
 export default function SkillsMarketPage() {
   const t = useTranslations('skills.market')
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const qc = useQueryClient()
   // 登录态门(与签到助手同型):未就绪/未登录不发注定 401 的挂载请求
   const { allow } = useAuthGate()
@@ -189,18 +191,18 @@ export default function SkillsMarketPage() {
               installing={installMut.isPending && installMut.variables?.name === s.name}
               onInstall={() => {
                 const priceCents = s.priceCents ?? 0
-                if (
-                  priceCents > 0 &&
-                  !window.confirm(
-                    t('purchaseConfirm', {
-                      name: s.name,
-                      price: (priceCents / 100).toFixed(2),
-                    }),
-                  )
-                ) {
+                if (priceCents <= 0) {
+                  installMut.mutate(s)
                   return
                 }
-                installMut.mutate(s)
+                void confirm({
+                  title: t('purchaseConfirm', {
+                    name: s.name,
+                    price: (priceCents / 100).toFixed(2),
+                  }),
+                }).then((ok) => {
+                  if (ok) installMut.mutate(s)
+                })
               }}
               onRate={() => setRatingFor(s)}
             />
@@ -240,6 +242,7 @@ export default function SkillsMarketPage() {
       <RatingDialog skill={ratingFor} onClose={() => setRatingFor(null)} />
       <PublishDialog open={publishOpen} onClose={() => setPublishOpen(false)} />
       <NotificationsDialog open={notifOpen} onClose={() => setNotifOpen(false)} />
+      <ConfirmDialogRenderer />
     </div>
   )
 }

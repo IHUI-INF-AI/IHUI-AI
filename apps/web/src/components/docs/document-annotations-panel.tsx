@@ -16,6 +16,7 @@ import {
   type DocumentAnnotationRecord,
 } from '@/lib/document-annotations'
 import { emitAnchorReference } from '@/components/chat/annotation-anchor'
+import { useConfirm } from '@/hooks/use-confirm'
 import { useOptionalPaneId } from '@/stores/chat-pane-context'
 import type { AnnotationAnchor } from '@ihui/shared/chat/annotation-anchors'
 import { cn } from '@/lib/utils'
@@ -77,6 +78,7 @@ export function DocumentAnnotationsPanel({
   const [replyBusy, setReplyBusy] = React.useState(false)
   const asideRef = React.useRef<HTMLElement>(null)
   const paneId = useOptionalPaneId()
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
 
   const load = React.useCallback(async () => {
     setLoading(true)
@@ -184,7 +186,12 @@ export function DocumentAnnotationsPanel({
   }
 
   const removeRoot = async (root: DocumentAnnotationRecord) => {
-    if (!window.confirm('删除这条批注及其全部回复?')) return
+    const ok = await confirm({
+      title: '删除批注',
+      description: '删除这条批注及其全部回复?',
+      variant: 'destructive',
+    })
+    if (!ok) return
     setError('')
     try {
       await deleteDocumentAnnotation(root.id, documentId)
@@ -508,6 +515,7 @@ export function DocumentAnnotationsPanel({
           })
         )}
       </div>
+      <ConfirmDialogRenderer />
     </aside>
   )
 }

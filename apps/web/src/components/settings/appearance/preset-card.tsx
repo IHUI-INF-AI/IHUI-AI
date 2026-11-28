@@ -17,6 +17,7 @@ import { RotateCcw, Save, Sparkles, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button, Input } from '@ihui/ui-react'
+import { useConfirm } from '@/hooks/use-confirm'
 import { BUILT_IN_APPEARANCE_PRESETS } from '@/lib/appearance-presets'
 import {
   getAppearanceConfig,
@@ -33,6 +34,7 @@ import { SectionCard } from './controls'
 
 export function PresetCard() {
   const t = useTranslations('appearanceSettings')
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const update = useAppearanceStore((state) => state.update)
   const resetAll = useAppearanceStore((state) => state.resetAll)
   const presets = useAppearancePresetsStore((state) => state.presets)
@@ -121,8 +123,13 @@ export function PresetCard() {
                     variant="ghost"
                     size="sm"
                     aria-label={`${t('presetDelete')} ${preset.name}`}
-                    onClick={() => {
-                      if (!window.confirm(t('presetDeleteConfirm', { name: preset.name }))) return
+                    onClick={async () => {
+                      const ok = await confirm({
+                        title: `${t('presetDelete')} ${preset.name}`,
+                        description: t('presetDeleteConfirm', { name: preset.name }),
+                        variant: 'destructive',
+                      })
+                      if (!ok) return
                       removePreset(preset.id)
                       toast.success(t('presetDeleted'))
                     }}
@@ -166,8 +173,13 @@ export function PresetCard() {
           type="button"
           variant="ghost"
           size="sm"
-          onClick={() => {
-            if (!window.confirm(t('presetsRestoreConfirm'))) return
+          onClick={async () => {
+            const ok = await confirm({
+              title: t('presetsRestoreDefault'),
+              description: t('presetsRestoreConfirm'),
+              variant: 'destructive',
+            })
+            if (!ok) return
             resetAll()
             toast.success(t('presetsRestored'))
           }}
@@ -177,6 +189,7 @@ export function PresetCard() {
           {t('presetsRestoreDefault')}
         </Button>
       </div>
+      <ConfirmDialogRenderer />
     </SectionCard>
   )
 }
