@@ -102,8 +102,8 @@ const SUMMARY = {
   byModel: [{ model: 'gpt-4o', cost: '9.9000', tokens: 250, calls: 3 }],
   byDay: [{ date: '2026-10-29', cost: '1.2000', tokens: 40, calls: 1 }],
   agentBillings: {
-    note: 'agent_billings 为 Coze 平台级账单,无组织归属列,按模型汇总仅作参考',
-    byModel: [{ modelId: 'coze-a', balance: '-2.0000', tokens: 50, calls: 1 }],
+    note: 'agent_billings 为 智能体平台级账单,无组织归属列,按模型汇总仅作参考',
+    byModel: [{ modelId: 'agent-a', balance: '-2.0000', tokens: 50, calls: 1 }],
   },
 }
 
@@ -146,7 +146,7 @@ const EMPTY_SUMMARY = {
   byMember: [],
   byModel: [],
   byDay: [],
-  agentBillings: { note: 'agent_billings 为 Coze 平台级账单,无组织归属列,按模型汇总仅作参考', byModel: [] },
+  agentBillings: { note: 'agent_billings 为 智能体平台级账单,无组织归属列,按模型汇总仅作参考', byModel: [] },
 }
 
 function ok<T>(data: T) {
@@ -234,7 +234,7 @@ describe('企业治理控制台(G6)', () => {
     expect(model1.textContent).toContain('gpt-4o')
     expect(model1.textContent).toContain('9.9000')
     expect((await screen.findByTestId('org-agent-note')).textContent).toContain('agent_billings 为')
-    expect(screen.getByTestId('org-agent-row-coze-a').textContent).toContain('-2.0000')
+    expect(screen.getByTestId('org-agent-row-agent-a').textContent).toContain('-2.0000')
     expect(screen.getByTestId('org-day-row-2026-10-29').textContent).toContain('1.2000')
 
     // 四键编辑块齐全

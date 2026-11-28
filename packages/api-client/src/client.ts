@@ -789,8 +789,8 @@ function normalizeUrl(url: string, useStreamBase = false, baseOverride?: string 
   if (/^https?:\/\//i.test(url)) return url
   const normalized = (() => {
     if (url.startsWith('/api/') || url.startsWith('/uploads/') || url.startsWith('/ws/')) return url
-    if (url.startsWith('/cozeZhsApi')) {
-      return url.replace(/^\/cozeZhsApi/, '/api')
+    if (url.startsWith('/agentZhsApi')) {
+      return url.replace(/^\/agentZhsApi/, '/api')
     }
     if (url.startsWith('/')) return `/api${url}`
     return `/api/${url}`

@@ -17,10 +17,10 @@ import { buildWsUrl as buildWs } from '@/lib/ws-url'
 export type AIWSProvider = 'qwen' | 'zhipu' | 'deepseek' | 'doubao' | 'generic'
 
 export const PROVIDER_PATHS: Record<AIWSProvider, string> = {
-  qwen: '/cozeZhsApi/ws/qwen/stream',
-  zhipu: '/cozeZhsApi/ws/zhipu/stream',
-  deepseek: '/cozeZhsApi/ws/chatdeepseek/stream',
-  doubao: '/cozeZhsApi/ws/doubao/streamDou',
+  qwen: '/agentZhsApi/ws/qwen/stream',
+  zhipu: '/agentZhsApi/ws/zhipu/stream',
+  deepseek: '/agentZhsApi/ws/chatdeepseek/stream',
+  doubao: '/agentZhsApi/ws/doubao/streamDou',
   generic: '/v1/ai/capabilities/ws/stream',
 }
 

@@ -14,7 +14,7 @@
  *
  * 解析优先级:
  *   1. NEXT_PUBLIC_WS_BASE_URL —— 显式 WS 基址(推荐)。WS 与 REST 常需分域:
- *      实测主域 aizhs.top 对 /cozeZhsApi/*、/v1/ai/capabilities/* 的 WS 升级失败(000),
+ *      实测主域 aizhs.top 对 /agentZhsApi/*、/v1/ai/capabilities/* 的 WS 升级失败(000),
  *      而 api.aizhs.top 全路径返回 101,故生产环境 WS 应指向 api.aizhs.top。
  *   2. 桌面端 + NEXT_PUBLIC_API_BASE_URL —— 由 REST 基址推导(https→wss / http→ws)。
  *   3. 其余(浏览器 dev / 生产)—— 空字符串 = 同源,与改造前行为完全一致(零回归)。

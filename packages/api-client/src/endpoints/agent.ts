@@ -97,7 +97,7 @@ export async function updateAgentBilling(
 }
 
 // =============================================================================
-// 智能体分类字典(对应后端 /cozeZhsApi/cache/agent-category-dict/categories)
+// 智能体分类字典(对应后端 /agentZhsApi/cache/agent-category-dict/categories)
 // 对齐 Uniapp src/service/pay.js categories() 接口,跨端共享
 // =============================================================================
 
@@ -121,7 +121,7 @@ export interface AgentCategories {
  * 失败时调用方应 fallback 到本地静态占位,避免列表为空。
  */
 export async function getAgentCategories(): Promise<ApiResult<AgentCategories>> {
-  return fetchApi<AgentCategories>('/cozeZhsApi/cache/agent-category-dict/categories')
+  return fetchApi<AgentCategories>('/agentZhsApi/cache/agent-category-dict/categories')
 }
 
 // =============================================================================
