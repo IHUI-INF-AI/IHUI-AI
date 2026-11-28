@@ -282,7 +282,7 @@ export function FileViewerDialog({ target, onClose }: Props) {
         </DialogHeader>
         {panel === 'versions' && target?.fileId ? (
           <div className="min-h-0 overflow-y-auto">
-            <FileVersionHistory fileId={target.fileId} />
+            <FileVersionHistory fileId={target.fileId} name={target.name} />
           </div>
         ) : panel === 'revision' && blob && target ? (
           <AiRevisionPanel

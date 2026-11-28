@@ -36,7 +36,7 @@ function formatBytes(bytes: number): string {
   return `${value.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`
 }
 
-export function FileVersionHistory({ fileId }: { fileId: string }) {
+export function FileVersionHistory({ fileId, name }: { fileId: string; name?: string }) {
   const t = useTranslations('docs.projectFiles')
   const [rows, setRows] = React.useState<VersionRow[] | null>(null)
   const [failed, setFailed] = React.useState(false)
@@ -75,7 +75,7 @@ export function FileVersionHistory({ fileId }: { fileId: string }) {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `v${row.version}`
+      a.download = name ? `${name}-v${row.version}` : `v${row.version}`
       document.body.appendChild(a)
       a.click()
       a.remove()
