@@ -80,6 +80,8 @@ export interface SkillMarketListScreenProps {
   onPageChange: (page: number) => void
   /** 点开条目 —— 由宿主 navigate 到详情屏(共享屏不碰导航) */
   onSelect: (item: SkillMarketEntryView) => void
+  /** 打开“我的购买”；未传则不渲染入口（保持既有调用方零改动） */
+  onOpenPurchases?: () => void
   /** 顶部返回 */
   onBack: () => void
   /** 错误态重试 / 空态重新拉取 */
@@ -107,4 +109,59 @@ export interface SkillMarketDetailScreenProps {
   onRetry: () => void
   colorScheme?: 'light' | 'dark'
 }
+
+/** 购买状态：paid = 在购；refunded = 已退款。 */
+export type SkillMyPurchaseStatus = 'paid' | 'refunded'
+
+/** 退款申请状态（与后端 skill_market_refund_requests.status 同值）。 */
+export type SkillRefundRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled'
+
+/** 买家可见的最近一次退款申请摘要（不暴露审核人）。 */
+export interface SkillRefundRequestView {
+  id: string
+  status: SkillRefundRequestStatus
+  reason: string
+  reviewNote: string | null
+  createdAt: string
+  reviewedAt: string | null
+}
+
+/** “我的购买”单行视图，字段与 GET /api/skills/market/purchases 对齐。 */
+export interface SkillMyPurchaseView {
+  id: string
+  skillName: string
+  priceCents: number
+  currency: string
+  status: SkillMyPurchaseStatus
+  createdAt: string
+  refundedAt: string | null
+  refundAmountCents: number
+  refundRequest: SkillRefundRequestView | null
+  canRequestRefund: boolean
+}
+
+/**
+ * SkillMarketPurchasesScreen 受控 props 契约。
+ *
+ * 取数、提交申请、刷新与提示都由宿主负责；本屏只渲染列表和退款原因表单。
+ * 共享屏内部仅保存“哪一行展开了原因输入、输入了什么”，不触碰 API。
+ */
+export interface SkillMarketPurchasesScreenProps {
+  t: TFunction
+  items: SkillMyPurchaseView[]
+  loading: boolean
+  error: string
+  /** 顶部提示；提交成功/失败由宿主写入，共享屏原样展示 */
+  notice: string
+  /** 提示语义色；空串时按普通信息展示 */
+  noticeTone?: '' | 'success' | 'error'
+  /** 正在提交退款的购买 id；非空时禁用该行按钮 */
+  submittingId: string | null
+  onBack: () => void
+  onRetry: () => void
+  /** 提交退款申请；reason 已由共享屏做过 5 字下限校验 */
+  onRequestRefund: (purchaseId: string, reason: string) => void
+  colorScheme?: 'light' | 'dark'
+}
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

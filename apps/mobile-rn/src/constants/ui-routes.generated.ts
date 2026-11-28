@@ -8,12 +8,12 @@
 // 改路由请改 RootNavigator.tsx 后重新生成。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
-// sourceCommit: 16af5d26044ef8b1a24f9bf963ebdc0d8680b4e9
-// inputsSha256: c8ec09d5a302c955f1f2c7042774863e49ca999d67dc234b61de4849c0112ff5
-// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 03af851d7dd0091ea153056d8ced26588f92f0fd9bc36087ce02bd14b33663d1
+// sourceCommit: 9f1f58834e3236db6234fb52ad636dba630d0b06
+// inputsSha256: de4990588d4385f9beffc1ac43c50cc7a0920abd8d975788bcf0541c6daf3e53
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx e8fc979ea9c450aa0d3776c63e603ccb88aa19920ad92af6ddf2ee1f07f2754e
 // input: apps/mobile-rn/src/navigation/linking.ts d003573a24de25dea1e7fc9abe5deb78223e68486d626712ebc1ce1721531cd7
 // skipped: unauthedBranchScreens=8(未登录分支 Screen 不入白名单,桥接挂载时不存在)
-// generatedAt: 2026-11-28T07:51:48.827Z
+// generatedAt: 2026-11-28T09:09:46.048Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航 Screen 条目:name 是 react-navigation 的 screen name(不是 URL 路径) */
@@ -28,7 +28,7 @@ export interface RnUiRouteEntry {
   requiredParams: string[]
 }
 
-/** 全量白名单:前 349 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
+/** 全量白名单:前 350 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
 export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Main', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Login', tab: false, requiresParams: false, requiredParams: [] },
@@ -138,6 +138,7 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'NewsCategory', tab: false, requiresParams: true, requiredParams: ['id'] },
   { name: 'SkillMarketDetail', tab: false, requiresParams: true, requiredParams: ['name'] },
   { name: 'SkillMarketList', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'SkillMarketPurchases', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'ArticleEdit', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'ArticleHot', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'AskEdit', tab: false, requiresParams: false, requiredParams: [] },

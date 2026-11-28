@@ -54,6 +54,7 @@ export type {
   StudyPlanItem,
   StudyPlanScreenProps,
   WalletBalance,
+  WalletOverview,
   WalletRecordType,
   WalletRecordItem,
   WalletFlowItem,

@@ -6,8 +6,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { getBalance, getMarginFlows, type MarginFlowItem } from '@ihui/api-client'
-import { WalletScreen as SharedWalletScreen, type WalletBalance } from '@ihui/rn-app'
+import { fetchApi, getBalance, getMarginFlows, type MarginFlowItem } from '@ihui/api-client'
+import {
+  WalletScreen as SharedWalletScreen,
+  type WalletBalance,
+  type WalletOverview,
+} from '@ihui/rn-app'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -49,6 +53,7 @@ export function WalletScreen() {
   const loggedIn = Boolean(user || token)
   const navigation = useNavigation<NavigationProp>()
   const [balance, setBalance] = useState<WalletBalance | null>(null)
+  const [overview, setOverview] = useState<WalletOverview | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -84,6 +89,7 @@ export function WalletScreen() {
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
+    setOverview(null)
     try {
       const res = await getBalance()
       if (!res.success || !res.data) throw new Error(res.error)
@@ -98,6 +104,15 @@ export function WalletScreen() {
         totalRecharge: Number.isFinite(d.totalRecharge) ? d.totalRecharge / 100 : null,
         totalWithdraw: Number.isFinite(d.totalWithdraw) ? d.totalWithdraw / 100 : null,
       } as WalletBalance)
+
+      // 统一账户总览是增益卡片：单独拉取，失败不拖垮余额主卡。
+      const overviewRes = await fetchApi<{
+        commissionTotalCents: number
+        withdrawableCents: number
+        withdrawalPendingCents: number
+        withdrawnCents: number
+      }>('/api/wallet/overview').catch(() => null)
+      if (overviewRes?.success && overviewRes.data) setOverview(overviewRes.data)
     } catch {
       setError(uniappT('wallet.loadFailed'))
     } finally {
@@ -181,6 +196,7 @@ export function WalletScreen() {
     <SharedWalletScreen
       t={uniappT}
       balance={balance}
+      overview={overview}
       loading={loading}
       error={error}
       onRefresh={() => void load()}

@@ -1408,8 +1408,10 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
             const botName = String(meta?.name ?? '').trim()
             // Coze 时代的人格 = bot 名称 + 描述/指令（Coze 运行时默认把名称注入 system），
             // 本地化后必须显式拼装，否则模型只会看到一句能力描述而自称底层模型。
+            // 身份声明放末尾：长 prompt（几千字角色设定）在前时会淹没前置指令（lost-in-the-middle），
+            // 把「你叫谁」放到最后一行，指令遵循度最高。
             const systemPrompt = botName
-              ? `你的名字是「${botName}」。${basePrompt ? `你的职责：${basePrompt}` : ''}\n回答时始终以「${botName}」的身份和口吻，不要自称其他 AI 产品或模型名。`
+              ? `${basePrompt ? `${basePrompt}\n\n` : ''}你的名字是「${botName}」。回答时始终以「${botName}」的身份和口吻，不要自称其他 AI 产品或模型名。`
               : basePrompt
             const localModel =
               String(meta?.agentModel ?? '').trim() || resolveDefaultChatModel()

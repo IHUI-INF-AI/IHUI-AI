@@ -25355,7 +25355,12 @@
     "convertMinHint": "最低 100 積分（¥1）",
     "convertAlreadyDone": "該兌換請求已處理過，未重複扣款",
     "convertSuccess": "已兌換 {points} AI 積分，當前積分餘額 {balance}",
-    "convertFailed": "兌換失敗，請稍後重試"
+    "convertFailed": "兌換失敗，請稍後重試",
+    "overviewTitle": "統一帳戶",
+    "commissionTotal": "累計佣金",
+    "withdrawable": "可提現佣金",
+    "withdrawalPending": "在途提現",
+    "withdrawn": "已提現"
   },
   "withdrawals": {
     "allStatus": "全部狀態",

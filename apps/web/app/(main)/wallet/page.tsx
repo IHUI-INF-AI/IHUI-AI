@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 
 import { apiOrThrow } from '@/lib/api'
+import type { WalletOverview } from '@ihui/types'
 import {
   Button,
   Table,
@@ -80,10 +81,17 @@ export default function WalletPage() {
       apiOrThrow<FlowsData>(`/api/finance/margin/flows?page=${page}&limit=${PAGE_SIZE}`),
     enabled: allow,
   })
+  // 统一账户总览：佣金累计 / 可提现 / 在途提现 / 已提现
+  const overviewQ = useQuery({
+    queryKey: ['wallet', 'overview'],
+    queryFn: () => apiOrThrow<WalletOverview>('/api/wallet/overview'),
+    enabled: allow,
+  })
 
   const total = flowsQ.data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const items = flowsQ.data?.items ?? []
+  const overview = overviewQ.data
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
     year: 'numeric',
@@ -197,6 +205,27 @@ export default function WalletPage() {
           </div>
         </div>
       )}
+
+      {allow && overview ? (
+        <section className="rounded-lg border bg-card p-3 text-card-foreground shadow-elevation-md">
+          <h2 className="text-body font-semibold">{t('overviewTitle')}</h2>
+          <div className="mt-3 grid grid-cols-2 gap-2 min-[640px]:grid-cols-4">
+            {[
+              { label: t('withdrawable'), value: overview.withdrawableCents, primary: true },
+              { label: t('withdrawalPending'), value: overview.withdrawalPendingCents },
+              { label: t('commissionTotal'), value: overview.commissionTotalCents },
+              { label: t('withdrawn'), value: overview.withdrawnCents },
+            ].map((row) => (
+              <div key={row.label} className="rounded-md bg-muted/50 p-2">
+                <div className="text-label text-muted-foreground">{row.label}</div>
+                <div className={cn('mt-1 text-body font-semibold', row.primary && 'text-primary')}>
+                  {formatCnyCents(row.value, { digits: 2 })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {allow && (
         <div className="rounded-lg border bg-card p-3 text-card-foreground shadow-elevation-md">

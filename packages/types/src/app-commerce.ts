@@ -73,6 +73,22 @@ export interface WalletBalance {
   totalWithdraw: number
 }
 
+/**
+ * 统一账户总览：把钱包余额之外的佣金/提现口径并入同一视图。
+ *
+ * 金额单位与后端一致，全部为「分」；共享屏统一用 formatPrice 转元展示。
+ * - commissionTotalCents：历史已发放佣金总额（status=1）
+ * - withdrawableCents：当前可提现佣金（佣金总额 - 在途/已完成提现毛额）
+ * - withdrawalPendingCents：审核中 + 处理中的提现金额
+ * - withdrawnCents：已完成提现金额
+ */
+export interface WalletOverview {
+  commissionTotalCents: number
+  withdrawableCents: number
+  withdrawalPendingCents: number
+  withdrawnCents: number
+}
+
 /** 钱包记录类型(与后端 /api/wallet/records 契约对齐) */
 export type WalletRecordType =
   'recharge' | 'withdraw' | 'consume' | 'refund' | 'commission' | string
@@ -129,6 +145,8 @@ export interface WalletScreenProps {
   onBack: () => void
   /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
   colorScheme?: 'light' | 'dark'
+  /** 统一账户总览;undefined/null ⇒ 不渲染(旧行为) */
+  overview?: WalletOverview | null
   /** 资金流水分区;undefined ⇒ 不渲染(旧行为) */
   flows?: WalletFlowsState
   /** 流水首屏/重试失败后的重试回调;undefined ⇒ 分区只显示错误文本 */

@@ -25204,7 +25204,12 @@
     "convertMinHint": "Minimum 100 points (¥1)",
     "convertAlreadyDone": "This conversion request was already processed; no duplicate charge was made",
     "convertSuccess": "Converted to {points} AI points; current point balance {balance}",
-    "convertFailed": "Conversion failed, please try again later"
+    "convertFailed": "Conversion failed, please try again later",
+    "overviewTitle": "Account overview",
+    "commissionTotal": "Total commission",
+    "withdrawable": "Withdrawable",
+    "withdrawalPending": "Pending withdrawal",
+    "withdrawn": "Withdrawn"
   },
   "withdrawals": {
     "allStatus": "All Status",

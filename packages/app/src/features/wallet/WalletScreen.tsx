@@ -15,14 +15,14 @@ import {
 import { formatPrice } from '@ihui/shared/utils'
 import { resolveWalletFlowMeta } from '@ihui/shared/utils/wallet-flow-meta'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import type { WalletBalance, WalletFlowItem, WalletScreenProps } from '../../types'
+import type { WalletBalance, WalletFlowItem, WalletOverview, WalletScreenProps } from '../../types'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 钱包/Props 类型 re-export(单一来源 @ihui/types) */
-export type { WalletBalance, WalletScreenProps }
+export type { WalletBalance, WalletOverview, WalletScreenProps }
 
 /** onFlowsPageChange 契约别名换算页码时的回落页大小(与 web / RN 宿主 PAGE_SIZE 一致) */
 const FALLBACK_FLOWS_PAGE_SIZE = 20
@@ -48,6 +48,7 @@ export function WalletScreen({
   onBack,
   colorScheme = 'light',
   flows,
+  overview,
   onRetryFlows,
   onLoadMoreFlows,
   onLogin,
@@ -107,6 +108,33 @@ export function WalletScreen({
             </View>
           ))
         )}
+
+        {overview ? (
+          <View style={styles.overviewSection}>
+            <Text style={styles.overviewTitle}>{t('wallet.overviewTitle')}</Text>
+            <View style={styles.overviewGrid}>
+              {[
+                {
+                  label: t('wallet.withdrawable'),
+                  value: overview.withdrawableCents,
+                  primary: true,
+                },
+                { label: t('wallet.withdrawalPending'), value: overview.withdrawalPendingCents },
+                { label: t('wallet.commissionTotal'), value: overview.commissionTotalCents },
+                { label: t('wallet.withdrawn'), value: overview.withdrawnCents },
+              ].map((row) => (
+                <View key={row.label} style={styles.overviewCard}>
+                  <Text style={styles.overviewLabel}>{row.label}</Text>
+                  <Text
+                    style={[styles.overviewValue, row.primary ? styles.overviewValuePrimary : null]}
+                  >
+                    {fenToYuan(row.value)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
 
         {onAction && balance ? (
           <View style={styles.actions}>
@@ -277,6 +305,35 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     cardValueMuted: { color: tk.text.secondary },
+    overviewSection: {
+      marginBottom: rnSpacing.md,
+      padding: rnSpacing.md,
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: 'transparent',
+      backgroundColor: tk.surface.card,
+    },
+    overviewTitle: {
+      fontSize: rnType.body.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+      marginBottom: rnSpacing.sm,
+    },
+    overviewGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'space-between',
+      rowGap: rnSpacing.sm,
+    },
+    overviewCard: { width: '48%' },
+    overviewLabel: { fontSize: rnType.caption.size, color: tk.text.medium },
+    overviewValue: {
+      marginTop: rnSpacing['2xs'],
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
+    overviewValuePrimary: { color: tk.brandAccent.deep },
     actions: {
       flexDirection: 'row',
       gap: rnSpacing.md,

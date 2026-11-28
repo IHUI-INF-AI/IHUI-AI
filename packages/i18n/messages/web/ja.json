@@ -25041,7 +25041,12 @@
     "convertMinHint": "最小 100ポイント（¥1）",
     "convertAlreadyDone": "この交換リクエストは処理済みです（重複請求なし）",
     "convertSuccess": "{points} AIポイントを交換しました。現在のポイント残高: {balance}",
-    "convertFailed": "交換に失敗しました。後ほど再度お試しください"
+    "convertFailed": "交換に失敗しました。後ほど再度お試しください",
+    "overviewTitle": "アカウント概要",
+    "commissionTotal": "累計報酬",
+    "withdrawable": "出金可能",
+    "withdrawalPending": "出金処理中",
+    "withdrawn": "出金済み"
   },
   "withdrawals": {
     "allStatus": "すべてのステータス",

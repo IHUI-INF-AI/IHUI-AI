@@ -132,6 +132,7 @@ import { NewsArticleScreen } from '../screens/NewsArticleScreen'
 import { NewsCategoryScreen } from '../screens/NewsCategoryScreen'
 import { SkillMarketDetailScreen } from '../screens/SkillMarketDetailScreen'
 import { SkillMarketListScreen } from '../screens/SkillMarketListScreen'
+import { SkillMarketPurchasesScreen } from '../screens/SkillMarketPurchasesScreen'
 import ArticleEditScreen from '../screens/ArticleEditScreen'
 import ArticleHotScreen from '../screens/ArticleHotScreen'
 import AskEditScreen from '../screens/AskEditScreen'
@@ -789,6 +790,7 @@ export type RootStackParamList = {
   NewsArticle: { id: string }
   SkillMarketDetail: { name: string }
   SkillMarketList: undefined
+  SkillMarketPurchases: undefined
   // M3 并行批次(2026-08-26)
   Memory: undefined
   AiWorld: undefined
@@ -1196,6 +1198,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="NewsCategory" component={NewsCategoryScreen} />
             <RootStack.Screen name="SkillMarketDetail" component={SkillMarketDetailScreen} />
             <RootStack.Screen name="SkillMarketList" component={SkillMarketListScreen} />
+            <RootStack.Screen name="SkillMarketPurchases" component={SkillMarketPurchasesScreen} />
             <RootStack.Screen name="ArticleEdit" component={ArticleEditScreen} />
             <RootStack.Screen name="ArticleHot" component={ArticleHotScreen} />
             <RootStack.Screen name="AskEdit" component={AskEditScreen} />

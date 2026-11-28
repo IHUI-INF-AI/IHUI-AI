@@ -25365,7 +25365,12 @@
     "convertMinHint": "最低 100 积分（¥1）",
     "convertAlreadyDone": "该兑换请求已处理过，未重复扣款",
     "convertSuccess": "已兑换 {points} AI 积分，当前积分余额 {balance}",
-    "convertFailed": "兑换失败，请稍后重试"
+    "convertFailed": "兑换失败，请稍后重试",
+    "overviewTitle": "统一账户",
+    "commissionTotal": "累计佣金",
+    "withdrawable": "可提现佣金",
+    "withdrawalPending": "在途提现",
+    "withdrawn": "已提现"
   },
   "withdrawals": {
     "allStatus": "全部状态",
