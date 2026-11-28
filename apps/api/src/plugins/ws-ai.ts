@@ -37,7 +37,7 @@ const touchActivity = (): void => {
  */
 const localChatHistories = new Map<
   string,
-  Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
+  Array<{ role: 'user' | 'assistant'; content: string }>
 >()
 
 const send = (socket: WebSocket, obj: unknown): void => {
@@ -1408,8 +1408,8 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
             if (!conversationId) conversationId = `local_${randomUUID()}`
             const historyKey = `${userId}:${reqBotId}`
             const history = localChatHistories.get(historyKey) ?? []
-            const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = []
-            if (systemPrompt) messages.push({ role: 'system', content: systemPrompt })
+            // system 人格走 system_prompt 字段（ai-service 置顶注入），messages 只放对话，避免被注入链覆盖。
+            const messages: Array<{ role: 'user' | 'assistant'; content: string }> = []
             for (const h of history.slice(-12)) messages.push(h)
             messages.push({ role: 'user', content: queryText })
 
@@ -1419,6 +1419,8 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
               body: JSON.stringify({
                 messages,
                 model: localModel,
+                // 2026-11-28:人格走官方 system_prompt（置顶注入优先级最高），不再塞 messages.system。
+                system_prompt: systemPrompt || undefined,
                 metadata: { userId, provider: 'local' },
               }),
             })
