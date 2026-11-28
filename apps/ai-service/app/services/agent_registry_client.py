@@ -104,7 +104,12 @@ class AgentRegistryClient:
         self._base_url = (base_url or _api_base_url()).rstrip("/")
         self._cache_path = Path(cache_path or _DEFAULT_DISK_PATH)
         self._ttl_seconds = max(1.0, float(ttl_seconds))
-        self._enable_disk_cache = enable_disk_cache
+        # 测试/只读探针可显式关闭磁盘快照：否则上一次真库跑留下的 data/*.json
+        # 会让 mock 快照因版本更低被忽略，测试不再封闭。
+        self._enable_disk_cache = (
+            enable_disk_cache
+            and os.environ.get("AGENT_REGISTRY_DISABLE_DISK_CACHE", "").strip() != "1"
+        )
         self._fetcher = fetcher
         self._clock = clock
         self._snapshot = RegistrySnapshot.empty()

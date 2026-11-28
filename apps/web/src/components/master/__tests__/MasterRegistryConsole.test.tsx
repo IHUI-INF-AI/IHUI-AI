@@ -5,7 +5,7 @@
  * W1 总管控制台契约测试（2026-11-28 立）。
  *
  * 只验控制台与 R1 真实响应形状的接缝，不验后端业务：
- * ① 列表读 `data.list`，搜索参数是 `search` 不是 `q`；
+ * ① 列表读 `data.items`，搜索参数是 `q` 不是 `search`；
  * ② 版本读 `data.items`；
  * ③ 删除预检 → 创建审批（只返回 approvalId）→ 再取审批详情，右侧面板才拿得到 id；
  * ④ 删除动作带 `precheckToken`，批准带 `typedName`。
@@ -58,10 +58,10 @@ afterEach(() => {
 })
 
 describe('MasterRegistryConsole', () => {
-  it('按 R1 响应形状渲染列表，并用 search 传搜索词', async () => {
+  it('按 R1 响应形状渲染列表，并用 q 传搜索词', async () => {
     const calls = installFetch((call) => {
       if (call.url.includes('/approvals')) return jsonResponse({ code: 0, data: { items: [] } })
-      return jsonResponse({ code: 0, data: { list: [definition], total: 1 } })
+      return jsonResponse({ code: 0, data: { items: [definition], total: 1 } })
     })
 
     render(<MasterRegistryConsole />)
@@ -73,8 +73,8 @@ describe('MasterRegistryConsole', () => {
     fireEvent.change(input, { target: { value: 'writer' } })
     await waitFor(() => {
       const last = calls.filter((call) => call.url.includes('/definitions?')).at(-1)
-      expect(last?.url).toContain('search=writer')
-      expect(last?.url).not.toContain('q=writer')
+      expect(last?.url).toContain('q=writer')
+      expect(last?.url).not.toContain('search=writer')
     })
   })
 
@@ -89,7 +89,7 @@ describe('MasterRegistryConsole', () => {
         })
       }
       if (call.url.includes('/approvals')) return jsonResponse({ code: 0, data: { items: [] } })
-      return jsonResponse({ code: 0, data: { list: [definition], total: 1 } })
+      return jsonResponse({ code: 0, data: { items: [definition], total: 1 } })
     })
 
     render(<MasterRegistryConsole />)
@@ -125,7 +125,7 @@ describe('MasterRegistryConsole', () => {
         return jsonResponse({ code: 0, data: { approval: { id: 'a-1', status: 'consumed' } } })
       }
       if (call.url.includes('/approvals')) return jsonResponse({ code: 0, data: { items: [] } })
-      return jsonResponse({ code: 0, data: { list: [definition], total: 1 } })
+      return jsonResponse({ code: 0, data: { items: [definition], total: 1 } })
     })
 
     render(<MasterRegistryConsole />)

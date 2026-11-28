@@ -3,14 +3,16 @@
 
 """总管智能体 · `agent_ops` 工具（P3-05）。
 
-已落地：single / parallel / pipeline / debate / vote / critique / team / recursive 派发真执行；
-运行只读面（run_list/get/logs/artifacts/stats）+ pause/resume/talk + health。
-decomposed 与 stop/retry/cancel 未完成前明确返回 `AGENT_ACTION_NOT_IMPLEMENTED`，不伪造成功。
+已落地九种 dispatch：single / parallel / pipeline / debate / vote / critique /
+team / recursive / decomposed，全部创建父 run、真实执行并写步骤事件；
+另含运行只读面（run_list/get/logs/artifacts/stats）+ pause/resume/talk + health。
+stop/retry/cancel 未完成前明确返回 `AGENT_ACTION_NOT_IMPLEMENTED`，不伪造成功。
 """
 
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import time
 import uuid
@@ -159,6 +161,7 @@ DESCRIPTION = (
 
 _ALLOWED_ARGS = frozenset(INPUT_SCHEMA["properties"].keys())
 _LOCAL_ACTIONS = frozenset({"dispatch", "run_pause", "run_resume", "run_talk"})
+logger = logging.getLogger(__name__)
 
 
 def _api_base_url() -> str:
@@ -177,7 +180,8 @@ def _enum_value(value: Any) -> Any:
 def _now_iso() -> str:
     from datetime import UTC, datetime
 
-    return datetime.now(UTC).isoformat()
+    # API 内部账本用 zod datetime 校验，只接受 Z 结尾；isoformat 的 +00:00 会被 400。
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _resolve_dispatchable(provider: Any, ref: str) -> Any:
@@ -644,17 +648,25 @@ class AgentOpsTool:
                     f"{mode} 至少需要 2 个参与者",
                 )
             agent_ids = [definition.id for definition in resolved]
-            team_tasks = [
-                {
-                    "name": definition.id,
-                    "task": (
-                        str(item.get("goal") or "").strip()
-                        if isinstance(item, dict) and str(item.get("goal") or "").strip()
-                        else goal
-                    ),
-                }
-                for item, definition in zip(items, resolved, strict=True)
-            ]
+            team_tasks = []
+            seen_names: dict[str, int] = {}
+            for item, definition in zip(items, resolved, strict=True):
+                order = seen_names.get(definition.name, 0) + 1
+                seen_names[definition.name] = order
+                team_tasks.append(
+                    {
+                        "name": (
+                            definition.name
+                            if order == 1
+                            else f"{definition.name}#{order}"
+                        ),
+                        "task": (
+                            str(item.get("goal") or "").strip()
+                            if isinstance(item, dict) and str(item.get("goal") or "").strip()
+                            else goal
+                        ),
+                    }
+                )
 
         run_id = str(uuid.uuid4())
         trace_id = f"tr_{uuid.uuid4().hex}"
@@ -746,14 +758,23 @@ class AgentOpsTool:
                                     status="failed",
                                     error=f"{type(error).__name__}: {error}"[:300],
                                 )
+                        # invoke 返回 AgentStepResult（字段是 output），
+                        # 历史 runner 契约是 final_output；两边都接住，避免真跑才炸。
+                        output = str(
+                            getattr(sub, "final_output", None)
+                            or getattr(sub, "output", "")
+                        )
                         return TeamContributor(
                             name=f"{definition.name}#{part}",
                             task=task_text,
                             status="completed" if sub.status == "completed" else "failed",
-                            output=sub.final_output,
+                            output=output,
                             error=None if sub.status == "completed" else "子任务未完成",
-                            duration_ms=sub.total_duration_ms,
-                            conclusion=sub.final_output[:120],
+                            duration_ms=float(
+                                getattr(sub, "total_duration_ms", None)
+                                or getattr(sub, "duration_ms", 0.0)
+                            ),
+                            conclusion=output[:120],
                         )
 
                     return list(
@@ -800,6 +821,7 @@ class AgentOpsTool:
             )
             raise
         except Exception as error:  # noqa: BLE001 -- 失败也要把父 run 收口
+            logger.exception("[master-ops] %s dispatch failed run=%s", mode, run_id)
             await ledger.update_run(
                 run_id,
                 {
@@ -817,15 +839,6 @@ class AgentOpsTool:
 
         registry_status = to_run_registry_status(result.status)
         first_error = next((step for step in result.steps if step.status == "failed"), None)
-        await session.status(
-            registry_status,
-            error_code=(
-                "AGENT_STUB_RESULT"
-                if result.status == "stub"
-                else (first_error.error_code if first_error else None)
-            ),
-            error_message=(first_error.error if first_error else None),
-        )
         for index, step in enumerate(result.steps, start=1):
             await session.append(
                 "step",
@@ -837,6 +850,17 @@ class AgentOpsTool:
                     **({"error": step.error[:500]} if step.error else {}),
                 },
             )
+        # 终态必须落在步骤事件之后：否则 run_logs 先看到 succeeded，再看到 step，
+        # 时间线读起来像“结束后又执行了一次”。
+        await session.status(
+            registry_status,
+            error_code=(
+                "AGENT_STUB_RESULT"
+                if result.status == "stub"
+                else (first_error.error_code if first_error else None)
+            ),
+            error_message=(first_error.error if first_error else None),
+        )
 
         return {
             "runId": run_id,

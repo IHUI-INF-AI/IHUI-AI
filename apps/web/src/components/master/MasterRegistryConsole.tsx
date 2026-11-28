@@ -81,15 +81,17 @@ export function MasterRegistryConsole() {
     setError('')
     try {
       const params = new URLSearchParams({ limit: '30' })
-      if (query.trim()) params.set('search', query.trim())
+      if (query.trim()) params.set('q', query.trim())
       if (status) params.set('status', status)
       const [defs, apps] = await Promise.all([
-        api<{ list: DefinitionView[]; total: number }>(`/api/agent-registry/definitions?${params}`),
+        api<{ items: DefinitionView[]; total: number }>(
+          `/api/agent-registry/definitions?${params}`,
+        ),
         api<{ items?: ApprovalView[] }>(
           '/api/agent-registry/approvals?status=pending&limit=20',
         ).catch(() => ({ items: [] as ApprovalView[] })),
       ])
-      setItems(defs.list)
+      setItems(defs.items)
       setApprovals(apps.items ?? [])
     } catch (err) {
       setError(err instanceof Error ? err.message : '加载失败')

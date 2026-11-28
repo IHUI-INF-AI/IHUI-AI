@@ -199,6 +199,36 @@ class AgentRegistryTool:
                         suggestion="等待用户点击确认；不要重复调用 delete",
                     )
                 )
+        if payload["action"] == "list" and isinstance(result, dict):
+            raw_items = result.get("items")
+            if not isinstance(raw_items, list):
+                raw_items = result.get("list")
+            items = raw_items if isinstance(raw_items, list) else []
+            return envelope(
+                data={
+                    "total": result.get("total", len(items)),
+                    "count": len(items),
+                    "items": [
+                        {
+                            key: item.get(key)
+                            for key in (
+                                "id",
+                                "name",
+                                "displayName",
+                                "scope",
+                                "status",
+                                "isDispatchable",
+                                "version",
+                                "updatedAt",
+                            )
+                            if isinstance(item, dict) and key in item
+                        }
+                        for item in items
+                        if isinstance(item, dict)
+                    ],
+                    "nextCursor": result.get("nextCursor"),
+                }
+            )
         return envelope(data=result)
 
     async def _post_ops(self, payload: dict[str, Any], *, user_id: str) -> Any:

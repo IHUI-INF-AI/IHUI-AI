@@ -14,6 +14,12 @@ import pytest
 from app.services.master_tools.ops import AgentOpsTool
 
 
+@pytest.fixture(autouse=True)
+def _isolate_registry_snapshot(monkeypatch: pytest.MonkeyPatch) -> None:
+    """真库探针会在 data/ 留快照；本文件全部用 mock transport，必须关掉磁盘缓存。"""
+    monkeypatch.setenv("AGENT_REGISTRY_DISABLE_DISK_CACHE", "1")
+
+
 def _tool(handler) -> AgentOpsTool:  # type: ignore[no-untyped-def]
     return AgentOpsTool(base_url="http://test", transport=httpx.MockTransport(handler))
 
@@ -203,7 +209,7 @@ async def test_dispatch_team_aggregates_contributors(monkeypatch: pytest.MonkeyP
     assert envelope["ok"] is True
     assert envelope["data"]["runStatus"] == "succeeded"
     assert captured["strategy"] == "consensus"
-    assert [task["name"] for task in captured["tasks"]] == [d["id"] for d in definitions]
+    assert [task["name"] for task in captured["tasks"]] == [d["name"] for d in definitions]
     assert len(envelope["data"]["steps"]) == 2
 
 

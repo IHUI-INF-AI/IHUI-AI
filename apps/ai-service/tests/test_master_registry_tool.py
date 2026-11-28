@@ -27,7 +27,33 @@ async def test_list_builds_payload_and_unwraps_result() -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         captured.update(json.loads(request.content))
-        return httpx.Response(200, json={"code": 0, "message": "success", "data": {"action": "list", "result": {"items": []}}})
+        return httpx.Response(
+            200,
+            json={
+                "code": 0,
+                "message": "success",
+                "data": {
+                    "action": "list",
+                    "result": {
+                        "list": [
+                            {
+                                "id": "def-1",
+                                "name": "reviewer",
+                                "displayName": "评审",
+                                "scope": "system",
+                                "status": "active",
+                                "isDispatchable": True,
+                                "version": 2,
+                                "updatedAt": "2026-11-28T00:00:00.000Z",
+                                "description": "不应出现在列表摘要里",
+                            }
+                        ],
+                        "total": 11,
+                        "nextCursor": None,
+                    },
+                },
+            },
+        )
 
     tool = _tool(handler)
     envelope = await tool.handle(
@@ -36,7 +62,10 @@ async def test_list_builds_payload_and_unwraps_result() -> None:
     )
 
     assert envelope["ok"] is True
-    assert envelope["data"] == {"items": []}
+    assert envelope["data"]["total"] == 11
+    assert envelope["data"]["count"] == 1
+    assert envelope["data"]["items"][0]["name"] == "reviewer"
+    assert "description" not in envelope["data"]["items"][0]
     assert captured == {"action": "list", "limit": 5, "query": "reviewer"}
     assert "requestId" in envelope["meta"]
 
