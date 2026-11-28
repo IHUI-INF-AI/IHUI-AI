@@ -14969,7 +14969,10 @@
       "reviseRenderCapped": "차이가 {rows}행을 초과하여 앞 {rows}행만 표시합니다",
       "reviseNoChanges": "AI가 수정할 내용을 찾지 못했습니다. 현재 버전이 이미 요구를 충족합니다.",
       "reviseContinue": "이 원고로 계속 수정",
-      "reviseContinueBase": "다음 라운드는 {round}라운드에서 수용한 수정고를 기준으로 이어집니다"
+      "reviseContinueBase": "다음 라운드는 {round}라운드에서 수용한 수정고를 기준으로 이어집니다",
+      "revisePrevHunk": "이전 변경",
+      "reviseNextHunk": "다음 변경",
+      "reviseHunkPosition": "{total}개 중 {current}번째"
     }
   },
   "drama": {

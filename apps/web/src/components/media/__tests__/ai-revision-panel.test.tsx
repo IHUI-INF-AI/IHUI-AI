@@ -120,6 +120,50 @@ describe('AiRevisionPanel', () => {
     expect(await sent.text()).not.toContain('合同正文')
   })
 
+  it('长文逐处导航:上一处/下一处切换定位并高亮当前 hunk', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              code: 0,
+              data: {
+                instruction: '改两处',
+                originalText:
+                  '第一条 甲方应在三日内付款。\n第二条 乙方应交付。\n第三条 保密三年。\n第四条 其他。',
+                revisedText:
+                  '第一条 甲方应在五日内付款。\n第二条 乙方应交付。\n第三条 保密五年。\n第四条 其他。',
+                extractedChars: 48,
+                suspicious: null,
+                model: 'test-model',
+              },
+            }),
+            { status: 200 },
+          ),
+      ),
+    )
+    render(<AiRevisionPanel file={fileOf('合同.txt')} name="合同.txt" />)
+    fireEvent.click(screen.getByText('reviseRun'))
+    await waitFor(() =>
+      expect(screen.getByTestId('revision-hunk-position').textContent).toBe(
+        'reviseHunkPosition:1/2',
+      ),
+    )
+    const hunks = document.querySelectorAll('[data-hunk-id]')
+    expect(hunks.length).toBe(2)
+    expect(hunks[0]?.getAttribute('data-active')).toBe('true')
+
+    fireEvent.click(screen.getByLabelText('reviseNextHunk'))
+    await waitFor(() =>
+      expect(screen.getByTestId('revision-hunk-position').textContent).toBe(
+        'reviseHunkPosition:2/2',
+      ),
+    )
+    expect(document.querySelectorAll('[data-hunk-id]')[1]?.getAttribute('data-active')).toBe('true')
+    expect(screen.getByLabelText('reviseNextHunk').hasAttribute('disabled')).toBe(true)
+  })
+
   it('全部驳回后导出禁用,避免导出与原文相同的“修订稿”', async () => {
     render(<AiRevisionPanel file={fileOf('合同.txt')} name="合同.txt" />)
     fireEvent.click(screen.getByText('reviseRun'))

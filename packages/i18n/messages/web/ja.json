@@ -14969,7 +14969,10 @@
       "reviseRenderCapped": "差分が {rows} 行を超えるため、先頭 {rows} 行のみ表示します",
       "reviseNoChanges": "AI は変更が必要な箇所を見つけませんでした。現在の版は要件を満たしています。",
       "reviseContinue": "この稿を続けて修正",
-      "reviseContinueBase": "次のラウンドは第 {round} ラウンドで採用した修正稿を元に続けます"
+      "reviseContinueBase": "次のラウンドは第 {round} ラウンドで採用した修正稿を元に続けます",
+      "revisePrevHunk": "前の変更",
+      "reviseNextHunk": "次の変更",
+      "reviseHunkPosition": "{total} 件中 {current} 件目"
     }
   },
   "drama": {

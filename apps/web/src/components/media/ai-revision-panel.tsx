@@ -15,7 +15,19 @@
 'use client'
 
 import * as React from 'react'
-import { Check, Columns2, Copy, Download, Loader2, RotateCcw, Rows2, Wand2, X } from 'lucide-react'
+import {
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Columns2,
+  Copy,
+  Download,
+  Loader2,
+  RotateCcw,
+  Rows2,
+  Wand2,
+  X,
+} from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { getBaseUrl, getToken } from '@/lib/api'
@@ -142,12 +154,15 @@ export function AiRevisionPanel({
   const [baseText, setBaseText] = React.useState<string | null>(null)
   const [rootOriginal, setRootOriginal] = React.useState<string | null>(null)
   const [roundNo, setRoundNo] = React.useState(1)
+  // 长文逐处审阅:当前定位到第几处改动(0 基),上一处/下一处负责滚动与高亮。
+  const [activeHunkIndex, setActiveHunkIndex] = React.useState(0)
 
   const abortRef = React.useRef<AbortController | null>(null)
   const timerRef = React.useRef<number | null>(null)
   const bytesRef = React.useRef<Uint8Array | null>(null)
   const requestSeq = React.useRef(0)
   const autoRanRef = React.useRef(false)
+  const panelRef = React.useRef<HTMLElement | null>(null)
 
   const diff = React.useMemo(
     () => (result ? buildRevisionDiff(result.originalText, result.revisedText) : null),
@@ -177,6 +192,21 @@ export function AiRevisionPanel({
       if (timerRef.current !== null) window.clearTimeout(timerRef.current)
     }
   }, [])
+
+  // 每次出新的 diff 都从第一处开始;定位变化时把对应 hunk 滚到视野中间。
+  React.useEffect(() => {
+    setActiveHunkIndex(0)
+  }, [diff])
+
+  React.useEffect(() => {
+    if (!diff || diff.hunks.length === 0) return
+    const hunk = diff.hunks[Math.min(activeHunkIndex, diff.hunks.length - 1)]
+    if (!hunk) return
+    const target = panelRef.current?.querySelector<HTMLElement>(`[data-hunk-id="${hunk.id}"]`)
+    if (target && typeof target.scrollIntoView === 'function') {
+      target.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    }
+  }, [activeHunkIndex, diff])
 
   const stop = () => {
     abortRef.current?.abort()
@@ -345,6 +375,7 @@ export function AiRevisionPanel({
 
   return (
     <section
+      ref={panelRef}
       data-testid="revision-panel"
       aria-label={t('reviseTitle')}
       className={cn(
@@ -494,7 +525,35 @@ export function AiRevisionPanel({
                 {t('reviseSuspicious')}
               </span>
             ) : null}
-            <div className="ml-auto flex items-center gap-1 rounded-full border p-0.5">
+            {totalHunks > 0 ? (
+              <span className="ml-auto flex items-center gap-0.5 text-muted-foreground">
+                <button
+                  type="button"
+                  aria-label={t('revisePrevHunk')}
+                  disabled={activeHunkIndex <= 0}
+                  onClick={() => setActiveHunkIndex((prev) => Math.max(0, prev - 1))}
+                  className="rounded p-0.5 hover:bg-muted disabled:opacity-30"
+                >
+                  <ChevronUp className="h-3 w-3" />
+                </button>
+                <span data-testid="revision-hunk-position" className="tabular-nums">
+                  {t('reviseHunkPosition', {
+                    current: Math.min(activeHunkIndex, totalHunks - 1) + 1,
+                    total: totalHunks,
+                  })}
+                </span>
+                <button
+                  type="button"
+                  aria-label={t('reviseNextHunk')}
+                  disabled={activeHunkIndex >= totalHunks - 1}
+                  onClick={() => setActiveHunkIndex((prev) => Math.min(totalHunks - 1, prev + 1))}
+                  className="rounded p-0.5 hover:bg-muted disabled:opacity-30"
+                >
+                  <ChevronDown className="h-3 w-3" />
+                </button>
+              </span>
+            ) : null}
+            <div className="flex items-center gap-1 rounded-full border p-0.5">
               <button
                 type="button"
                 onClick={() => setViewMode('split')}
@@ -595,6 +654,7 @@ export function AiRevisionPanel({
                           })}
                           acceptLabel={t('reviseAccept')}
                           rejectLabel={t('reviseReject')}
+                          active={hunk.id === diff.hunks[activeHunkIndex]?.id}
                         />
                       ) : null}
                     </React.Fragment>
@@ -647,6 +707,7 @@ export function AiRevisionPanel({
                           })}
                           acceptLabel={t('reviseAccept')}
                           rejectLabel={t('reviseReject')}
+                          active={hunk.id === diff.hunks[activeHunkIndex]?.id}
                           compact
                         />
                       ) : null}
@@ -774,6 +835,8 @@ interface HunkBarProps {
   acceptLabel: string
   rejectLabel: string
   compact?: boolean
+  /** 当前"上一处/下一处"定位到的那一处:加一圈描边,方便在长文里一眼找到。 */
+  active?: boolean
 }
 
 function HunkBar({
@@ -785,14 +848,17 @@ function HunkBar({
   acceptLabel,
   rejectLabel,
   compact = false,
+  active = false,
 }: HunkBarProps) {
   return (
     <div
       data-hunk-id={hunk.id}
       data-accepted={accepted ? 'true' : 'false'}
+      data-active={active ? 'true' : 'false'}
       className={cn(
         'flex flex-wrap items-center justify-between gap-2 border-y border-violet-200/70 bg-violet-50/70 px-3 py-1.5 text-[11px] dark:border-violet-900/50 dark:bg-violet-950/25',
         compact && 'pl-9',
+        active && 'ring-2 ring-inset ring-violet-500/70',
       )}
     >
       <span className="text-violet-700 dark:text-violet-300">

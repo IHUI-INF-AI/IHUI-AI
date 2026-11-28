@@ -14895,7 +14895,10 @@
       "reviseRenderCapped": "Diff exceeds {rows} lines; showing the first {rows}",
       "reviseNoChanges": "AI found nothing to change; the current version already meets the requirements.",
       "reviseContinue": "Continue revising this draft",
-      "reviseContinueBase": "Next round builds on the accepted draft from round {round}"
+      "reviseContinueBase": "Next round builds on the accepted draft from round {round}",
+      "revisePrevHunk": "Previous change",
+      "reviseNextHunk": "Next change",
+      "reviseHunkPosition": "Change {current} of {total}"
     }
   },
   "drama": {

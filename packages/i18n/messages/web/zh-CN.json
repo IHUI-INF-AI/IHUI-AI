@@ -14949,7 +14949,10 @@
       "reviseRenderCapped": "差异超过 {rows} 行，仅渲染前 {rows} 行",
       "reviseNoChanges": "AI 没有给出需要修改的内容，当前版本已经符合要求。",
       "reviseContinue": "在此稿上继续修订",
-      "reviseContinueBase": "下一轮将基于第 {round} 轮已接受的修订稿继续修改"
+      "reviseContinueBase": "下一轮将基于第 {round} 轮已接受的修订稿继续修改",
+      "revisePrevHunk": "上一处",
+      "reviseNextHunk": "下一处",
+      "reviseHunkPosition": "第 {current}/{total} 处"
     }
   },
   "drama": {
