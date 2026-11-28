@@ -402,12 +402,27 @@ export async function checkAuthOrInternalService(
   request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<boolean> {
+  return checkAuthOrInternalServiceWithScope(request, reply)
+}
+
+/**
+ * 带用途绑定的混合鉴权。
+ *
+ * 与两参版本分开导出，而不是给原函数加第三参：原函数被直接当 Fastify preHandler
+ * 使用，加可选第三参会与 hook 的 done 回调签名不兼容（mail.ts 曾因此整片类型报错）。
+ * 内部票调用点用本函数显式声明 scope，普通 JWT 路径行为不变。
+ */
+export async function checkAuthOrInternalServiceWithScope(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  scope?: import('./internal-service-ticket.js').InternalTicketScope,
+): Promise<boolean> {
   // 延迟导入避免循环依赖
   const { hasInternalServiceToken, checkInternalServiceToken } =
     await import('./internal-service-token.js')
 
   if (hasInternalServiceToken(request)) {
-    return checkInternalServiceToken(request, reply)
+    return checkInternalServiceToken(request, reply, { scope })
   }
 
   return checkAuth(request, reply)

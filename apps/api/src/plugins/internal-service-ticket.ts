@@ -54,6 +54,7 @@ export const INTERNAL_TICKET_SCOPES = [
   'self-evolution', // clawdbot 自进化回写
   'registry-sync', // 注册表漂移检测
   'agent-registry', // 总管智能体注册表内部读写（R2 解析/运行回写）
+  'team-memory', // 总管 master_memory 团队作用域（R3 团队长期记忆）
   // ── X-Internal-Secret 族票据化(2026-11-06)新增用途 ──
   'knowledge-card', // ai-service 经验抽取写卡
   'skills-market', // clawdbot 自进化发布 skill 到市场

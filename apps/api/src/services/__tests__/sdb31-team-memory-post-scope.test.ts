@@ -22,7 +22,7 @@ vi.hoisted(() => {
   process.env.JWT_SECRET ??= 'test-jwt-secret-for-vitest-at-least-32-chars'
 })
 
-const authState = vi.hoisted(() => ({ fail: false, userId: 'user-1' }))
+const authState = vi.hoisted(() => ({ fail: false, userId: 'user-1', roleId: 0 }))
 
 vi.mock('../../plugins/auth.js', () => ({
   authenticate: vi.fn(async (request: { userId?: string }) => {
@@ -30,6 +30,21 @@ vi.mock('../../plugins/auth.js', () => ({
     request.userId = authState.userId
     return undefined
   }),
+  // 2026-11-28:R3 团队记忆内部票接入后,路由改用 checkAuthOrInternalService。
+  checkAuthOrInternalServiceWithScope: vi.fn(
+    async (
+      request: { userId?: string },
+      reply: { status: (code: number) => { send: (body: unknown) => void } },
+    ) => {
+      if (authState.fail) {
+        reply.status(401).send({ code: 401, message: '请先登录' })
+        return false
+      }
+      request.userId = authState.userId
+      ;(request as { internalUserRoleId?: number }).internalUserRoleId = authState.roleId
+      return true
+    },
+  ),
 }))
 
 vi.mock('@ihui/database', () => ({
@@ -152,6 +167,7 @@ describe('SDB-31 团队记忆 POST 的 scope 成员校验', () => {
     store.reset()
     authState.fail = false
     authState.userId = 'user-1'
+    authState.roleId = 0
   })
 
   it('非团队成员 POST 团队作用域 → 403,且不写库', async () => {
@@ -164,6 +180,18 @@ describe('SDB-31 团队记忆 POST 的 scope 成员校验', () => {
     })
     expect(res.statusCode).toBe(403)
     expect(store.insertValues).toHaveLength(0)
+  })
+
+  it('内部票注入的 roleId>=1 管理员即使非团队成员也放行', async () => {
+    authState.roleId = 1 // 与 require-permission.ts 的任意管理员档一致；旧路由只读 jwtPayload，会误判为 0
+    store.insertQueue.push([makeMemory(TEAM_UUID)])
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/team-memory',
+      payload: { scopeId: TEAM_UUID, kind: 'convention', title: 'x', content: '管理员写入' },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(store.insertValues).toHaveLength(1)
   })
 
   it('团队成员 POST 团队作用域 → 200 且写入', async () => {

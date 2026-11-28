@@ -29,12 +29,27 @@ vi.hoisted(() => {
 // ─────────────────────────────────────────────────────────────
 const authState = vi.hoisted(() => ({ fail: false, userId: 'user-1' }))
 
+// 2026-11-28:R3 团队记忆内部票接入后,路由改用 checkAuthOrInternalService。
+// 测试保持同一 authState:失败=401,成功注入 userId;内部票分支由真实插件用例覆盖。
 vi.mock('../../plugins/auth.js', () => ({
   authenticate: vi.fn(async (request: { userId?: string }) => {
     if (authState.fail) throw new Error('unauthorized')
     request.userId = authState.userId
     return undefined
   }),
+  checkAuthOrInternalServiceWithScope: vi.fn(
+    async (
+      request: { userId?: string },
+      reply: { status: (code: number) => { send: (body: unknown) => void } },
+    ) => {
+      if (authState.fail) {
+        reply.status(401).send({ code: 401, message: '请先登录' })
+        return false
+      }
+      request.userId = authState.userId
+      return true
+    },
+  ),
 }))
 
 // ─────────────────────────────────────────────────────────────
