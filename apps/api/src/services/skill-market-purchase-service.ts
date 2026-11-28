@@ -1,5 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * 技能市场购买与作者分成服务（2026-11-28 立）。
@@ -15,13 +16,16 @@
  */
 import { and, eq, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
+import { createCommissionFlow } from '../db/commission-queries.js'
 import { skillMarketPurchases, tokenFlows, userMargins } from '@ihui/database'
 import type { SkillMarketEntry } from '@ihui/shared/skills/market'
 
 const DEFAULT_AUTHOR_SHARE_BPS = 7000
 
 /** 平台作者分成比例（basis points）。非法/缺省回落 70%，0 是合法值（全归平台）。 */
-export function resolveSkillAuthorShareBps(raw = process.env.SKILL_MARKET_AUTHOR_SHARE_BPS): number {
+export function resolveSkillAuthorShareBps(
+  raw = process.env.SKILL_MARKET_AUTHOR_SHARE_BPS,
+): number {
   if (raw === undefined || raw.trim() === '') return DEFAULT_AUTHOR_SHARE_BPS
   const value = Number(raw)
   if (!Number.isInteger(value) || value < 0 || value > 10000) return DEFAULT_AUTHOR_SHARE_BPS
@@ -77,8 +81,7 @@ export async function purchasePaidSkill(input: {
     throw new Error('purchasePaidSkill requires a positive priceCents')
   }
 
-  const sellerUserId =
-    entry.ownerId && entry.ownerId !== buyerUserId ? entry.ownerId : null
+  const sellerUserId = entry.ownerId && entry.ownerId !== buyerUserId ? entry.ownerId : null
   const revenueShareBps = Number.isInteger(entry.revenueShareBps)
     ? (entry.revenueShareBps as number)
     : resolveSkillAuthorShareBps()
@@ -188,6 +191,22 @@ export async function purchasePaidSkill(input: {
         remark: `skill_market_author_share:${entry.name}`.slice(0, 255),
         relatedOrderNo: inserted.id,
       })
+
+      // 把作者分成登记为“可提现佣金”:钱包余额已经入账,但现有提现入口按
+      // commission_flows 统计可提额度;不补这笔,作者只能看到余额却提不出来。
+      // token=0:钱已在上面入账,这里只增加佣金可提额度,不再重复加钱。
+      await createCommissionFlow(
+        {
+          beneficiaryId: sellerUserId,
+          invitedUserId: buyerUserId,
+          amount: authorShareCents,
+          token: 0,
+          type: 3,
+          remark: `skill_market_author_share:${entry.name}`.slice(0, 255),
+        },
+        null,
+        tx,
+      )
     }
 
     return {
@@ -285,3 +304,4 @@ export async function getSkillEarnings(sellerUserId: string): Promise<{
     })),
   }
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
