@@ -23,6 +23,8 @@ import { Card, CardContent } from '@ihui/ui-react'
 import { CAPABILITY_COUNT } from '@ihui/shared/capabilities'
 
 import { StartCommandBar } from '@/components/start/start-command-bar'
+import { StartReview } from '@/components/start/StartReview'
+import { SchedulerBanner, type SchedulerSnapshot } from '@/components/publish/SchedulerBanner'
 import { START_SERVICES, type StartServiceIcon } from '@/config/start-services'
 import { fetchApi } from '@/lib/api'
 
@@ -44,11 +46,22 @@ export default function StartClient() {
     failed: number
     running: number
   } | null>(null)
+  const [overdue, setOverdue] = React.useState(0)
+  const [nextScheduledAt, setNextScheduledAt] = React.useState<string | null>(null)
+  const [scheduler, setScheduler] = React.useState<SchedulerSnapshot | undefined>()
 
   React.useEffect(() => {
     let cancelled = false
     void fetchApi<{
-      tasks?: { draft?: number; scheduled?: number; failed?: number; running?: number }
+      tasks?: {
+        draft?: number
+        scheduled?: number
+        failed?: number
+        running?: number
+        overdue?: number
+        nextScheduledAt?: string | null
+      }
+      scheduler?: SchedulerSnapshot
     }>('/api/publish/stats?days=30')
       .then((r) => {
         if (cancelled || !r.success || !r.data?.tasks) return
@@ -58,6 +71,9 @@ export default function StartClient() {
           failed: r.data.tasks.failed ?? 0,
           running: r.data.tasks.running ?? 0,
         })
+        setOverdue(r.data.tasks.overdue ?? 0)
+        setNextScheduledAt(r.data.tasks.nextScheduledAt ?? null)
+        setScheduler(r.data.scheduler)
       })
       .catch(() => {
         // 队列只是加速入口;统计不可用时静默隐藏,不阻塞八卡。
@@ -84,11 +100,20 @@ export default function StartClient() {
 
       {queue && (
         <section className="mt-8" aria-labelledby="start-queue-title">
+          {scheduler && (
+            <div className="mb-3">
+              <SchedulerBanner
+                scheduler={scheduler}
+                overdue={overdue}
+                nextScheduledAt={nextScheduledAt}
+              />
+            </div>
+          )}
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 id="start-queue-title" className="text-body font-medium">
-              今日队列
+              近 30 天队列
             </h2>
-            <span className="text-caption text-muted-foreground">最近 30 天</span>
+            <span className="text-caption text-muted-foreground">按状态直达</span>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
@@ -113,6 +138,10 @@ export default function StartClient() {
           </div>
         </section>
       )}
+
+      <section className="mt-6" aria-label="最近 7 天复盘">
+        <StartReview />
+      </section>
 
       <section className="mt-10" aria-labelledby="start-services-title">
         <h2 id="start-services-title" className="text-body font-medium">
