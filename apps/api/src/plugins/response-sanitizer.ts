@@ -77,6 +77,13 @@ export const SAFE_KEYS: ReadonlySet<string> = new Set([
   // 此前被 "token" 子串误伤成 "***",桌面端拿不到可用的 device_token,整条
   // G5 自助接入链路在生产上不可用(与 pair-exchange 同因)。
   'device_token',
+  // 2026-11-28:注册表治理 E2E 真跑抓到两处同类误伤:
+  // - precheckToken 是删除预检签发给客户端的**一次性凭据本体**,打码后
+  //   DELETE 必然校验失败(400 VALIDATION_FAILED),整条删除审批链不可用;
+  // - maxTokens 是模型输出上限配置,不是计费量,打码后定义详情/版本回放失真。
+  // 两者都不属于需要隐藏的凭据或用户数据,按精确键名放行。
+  'prechecktoken',
+  'maxtokens',
 ])
 
 const MASK = '***'

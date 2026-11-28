@@ -83,6 +83,19 @@ describe('response-sanitizer — isSensitiveKey', () => {
     expect(isSensitiveKey('hasRefreshToken', keys)).toBe(false)
     expect(sanitizeData(row, keys)).toEqual(row)
   })
+
+  // 2026-11-28:注册表治理 E2E 真跑抓到 "token" 子串误伤:
+  // precheckToken 被打码后 DELETE 必然 400,删除审批链不可用;
+  // maxTokens 是模型输出配置,打码会让定义详情失真。
+  it('注册表 precheckToken 与 maxTokens 不得打码', () => {
+    const row = {
+      precheckToken: 'pc_abcdefghijklmnopqrstuvwxyz012345',
+      maxTokens: 8192,
+    }
+    expect(isSensitiveKey('precheckToken', keys)).toBe(false)
+    expect(isSensitiveKey('maxTokens', keys)).toBe(false)
+    expect(sanitizeData(row, keys)).toEqual(row)
+  })
 })
 
 describe('response-sanitizer — maskValue (旧版简单脱敏)', () => {
