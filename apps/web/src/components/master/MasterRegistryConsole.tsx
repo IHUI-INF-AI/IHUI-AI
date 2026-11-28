@@ -393,13 +393,7 @@ export function MasterRegistryConsole() {
             })}
           </nav>
 
-          <div className="mt-7 space-y-0.5 px-3 text-[11px] leading-5 text-[#a49b8f]">
-            <p>固定人格 · 三工具</p>
-            <p>删除与回滚需要你确认</p>
-            <p>控制面只作用于 single run</p>
-          </div>
-
-          <div className="mt-10 flex items-center justify-between px-2 text-[13px] text-[#948c80]">
+          <div className="mt-40 flex items-center justify-between px-2 text-[13px] text-[#948c80]">
             <span className="inline-flex items-center gap-1">
               项目
               <ChevronDown className="h-3.5 w-3.5" />
