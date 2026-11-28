@@ -16,6 +16,12 @@
  *   ihui sessions                 # 列出历史会话
  */
 
+// Windows Node 默认 verbatim DNS 顺序,api.aizhs.top 的 AAAA 记录若不可达会让
+// fetch 偶发 "fetch failed"(PowerShell/curl 走 IPv4 却正常)。统一 IPv4 优先:
+// 设备派单的认领/心跳/流式上报都走 fetch,一次解析踩空就是一条空任务。
+import { setDefaultResultOrder } from 'node:dns'
+setDefaultResultOrder('ipv4first')
+
 import 'dotenv/config';
 import { Command, type OptionValues } from 'commander';
 import chalk from 'chalk';

@@ -273,7 +273,23 @@ function createStreamer(deviceToken: string, taskId: string, log: (line: string)
         void push(true)
       }
     },
-    finalize: () => push(true),
+    finalize: async () => {
+      // 终态快照不能"只发一次"。生产实测网络抖动时 push 的 catch 把异常吞了,
+      // 任务仍报 completed、会话却是空气泡。这里带退避重发,直到正文/推理/计划
+      // 与服务端已收版本对齐(最多 4 次,约 15s,不阻塞任务终态太久)。
+      for (let attempt = 0; attempt < 4; attempt++) {
+        await push(true)
+        const settled =
+          sent === full.length &&
+          sentReasoningChars === reasoning.length &&
+          sentPlanVersion === planVersion &&
+          sentActivityVersion === activityVersion
+        if (settled) return true
+        await new Promise((resolve) => setTimeout(resolve, 1500 * 2 ** attempt))
+      }
+      log(`终态快照重发后仍未对齐(正文 ${sent}/${full.length} 字符)`)
+      return false
+    },
     progress: () => progress,
     text: () => full,
   }
