@@ -249,8 +249,26 @@
   `running → step ×2 → paused → running → step ×2 → paused → running → step → succeeded`，
   四份 checkpoint 的 eager/boundary 与 owner 均正确。`max_event_seq` 同步改为按
   `afterSeq` 翻页，避免长 run 只读首页时停在中间 seq。
+- 已落（2026-11-28）: 跨实例 `run_talk` Redis steer 真跑通过。控制进程 B 没有该 run 的本地控制句柄，
+  `run_talk` 写 `ihui:agent:run-steer:<runId>` 队列并返回 `outcome=queued / remote=true`；
+  执行进程 A 的 watcher 在下一轮 LLM 前 `lpop` 并调用本地 `steer()`。实测 run
+  `bdcb3255-6d65-497e-8ea0-77d9a8c2b717`：B 返回 `queued`，A 第 3 轮 LLM 输入已出现
+  “请补充风险点”，最终 `succeeded`。队列用 list + TTL，控制句柄暂不可接收时把文本放回队首，
+  不 pop 即丢。
+- 已落（2026-11-28）: 早停边界补齐。`pause()` 在 messages 尚未初始化时拿不到 eager checkpoint，
+  但暂停标志已置位；`run_pause` 现在继续等账本落到 `paused`，并带 `checkpointPending=true`，
+  不再只回 `checkpoint_unavailable`。实测 run `fd0534b0-37b4-46c8-8b92-847db0b4b021`：
+  `paused → resumed → succeeded`，事件 `running → step → paused → running → step ×3 → succeeded`。
+- 已落（2026-11-28）: Windows Proactor 下的 checkpoint 其余 PG 分支全部走线程内同步连接：
+  工具回执 CAS、running→paused 归位 CAS、删除、过期清理。真库 probe 验证
+  `record_tool_receipt` 落盘 `resume_receipts.rev=1`，`reconcile_for_resume` 把 running
+  归位 paused，fresh manager 能读回，`delete_checkpoint` 真删。
+- 已落（2026-11-28）: 总管默认模型收口。`POST /api/v1/ai/master/chat` 不传 `model` 时走
+  `default_chat_model()`，不再把 `None` 丢给 gateway 自动路由；实测默认请求返回
+  `model=agnes-2.5-flash` 与真实文本，`persona=master`、三工具不变。
 - 没落: `master_memory` 的 agent 作用域仍明确拒绝（`agent_memory.py` 只是进程内缓存，不是长期 DB 权威）；
   `run_stop` 只到“轮次边界”粒度，工具批中途不硬砍；`run_pause` / `run_resume` 只支持 `mode=single`，
-  multi 模式显式返回 `AGENT_RUN_PAUSE_UNSUPPORTED`；`run_talk` 跨实例仍只有 `wake_session` 回退，
-  没有 Redis steer 通道。
+  multi 模式显式返回 `AGENT_RUN_PAUSE_UNSUPPORTED`（边界见 `docs/MASTER-MULTI-BOUNDARY.md`）；
+  `run_talk` 的跨实例队列只覆盖执行实例 watcher 在跑的 run，执行进程已退出时仍回退 `wake_session`。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
