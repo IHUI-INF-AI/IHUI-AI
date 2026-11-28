@@ -26,7 +26,7 @@ export type TaskZone = 'progress' | 'activity' | 'results' | 'auxiliary'
  *  - activity 执行活动:agent 执行过程的实时监控与留痕 —— progress(子代理活动流)/
  *    agents(代理派发+AgentManager)/background(后台代理)/swarm(集群拓扑)/
  *    orchestration(编排中心)/trace(执行轨迹)/checkpoints(检查点)/runtime(运行时)/
- *    agenttasks(agent 运行任务)/hooks(钩子事件)
+ *    hooks(钩子事件)。agenttasks 已收进 unified 任务中心，不再单独成 tab。
  *  - results 结果与来源:产出物、对照与出处 —— bestof(择优对比)/worlds(世界线对比)/
  *    atomicrollback(整栈回滚)/tokens(token 用量)/spec(规格)/wiki(知识库来源)。
  *    区首另挂 D175「任务内容聚合」三分组(产出/网页查阅/来源,`TaskContentGroupsView`):
@@ -46,7 +46,6 @@ export const TASK_MONITOR_ZONES: Readonly<Record<TaskZone, readonly ToolTabKey[]
     'trace',
     'checkpoints',
     'runtime',
-    'agenttasks',
     'hooks',
   ],
   results: ['bestof', 'worlds', 'atomicrollback', 'tokens', 'spec', 'wiki'],

@@ -42,6 +42,7 @@ import {
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { permissionManager } from '../services/workspace-ai-service.js'
+import { SAFE_TEMPLATES } from '../services/workspace-permission-presets.js'
 import type { WorkspacePermission } from '@ihui/database'
 import { findUserPreferences, upsertUserPreference } from '../db/user-preferences-queries.js'
 import {
@@ -130,54 +131,11 @@ const toWirePermission = (row: WorkspacePermission): WorkspacePermission => ({
 })
 
 // =============================================================================
-// 预置安全模板 (24 条规则)
+// 预置安全模板
 // =============================================================================
 
-interface RuleTemplate {
-  ruleType: 'path' | 'command' | 'tool'
-  pattern: string
-  operation?: string
-  decision: 'allow' | 'deny'
-}
-
-const SAFE_TEMPLATES: RuleTemplate[] = [
-  // 路径放行:开发常读写的源码目录
-  { ruleType: 'path', pattern: 'src/**', operation: 'read', decision: 'allow' },
-  { ruleType: 'path', pattern: 'src/**', operation: 'write', decision: 'allow' },
-  { ruleType: 'path', pattern: 'src/**', operation: 'edit', decision: 'allow' },
-  { ruleType: 'path', pattern: 'apps/**', operation: 'read', decision: 'allow' },
-  { ruleType: 'path', pattern: 'apps/**', operation: 'write', decision: 'allow' },
-  { ruleType: 'path', pattern: 'packages/**', operation: 'read', decision: 'allow' },
-  { ruleType: 'path', pattern: 'packages/**', operation: 'write', decision: 'allow' },
-  { ruleType: 'path', pattern: 'docs/**', operation: 'read', decision: 'allow' },
-  { ruleType: 'path', pattern: 'tests/**', operation: 'read', decision: 'allow' },
-  { ruleType: 'path', pattern: 'tests/**', operation: 'write', decision: 'allow' },
-  { ruleType: 'path', pattern: 'scripts/**', operation: 'read', decision: 'allow' },
-  { ruleType: 'path', pattern: 'scripts/**', operation: 'write', decision: 'allow' },
-  { ruleType: 'path', pattern: '**/桌面/**', operation: 'read', decision: 'allow' },
-  { ruleType: 'path', pattern: '**/桌面/**', operation: 'write', decision: 'allow' },
-  // 路径放行:配置文件
-  { ruleType: 'path', pattern: '*.json', operation: 'read', decision: 'allow' },
-  { ruleType: 'path', pattern: '*.md', operation: 'read', decision: 'allow' },
-  { ruleType: 'path', pattern: '*.ts', operation: 'read', decision: 'allow' },
-  { ruleType: 'path', pattern: '*.tsx', operation: 'read', decision: 'allow' },
-  // 路径拒绝:敏感文件
-  { ruleType: 'path', pattern: '.env*', operation: 'read', decision: 'deny' },
-  { ruleType: 'path', pattern: '.env*', operation: 'write', decision: 'deny' },
-  { ruleType: 'path', pattern: '**/*.key', operation: 'read', decision: 'deny' },
-  { ruleType: 'path', pattern: '**/*.pem', operation: 'read', decision: 'deny' },
-  { ruleType: 'path', pattern: '**/credentials*', operation: 'read', decision: 'deny' },
-  // 命令放行:常用开发命令
-  { ruleType: 'command', pattern: 'pnpm', operation: 'run', decision: 'allow' },
-  { ruleType: 'command', pattern: 'git status', operation: 'run', decision: 'allow' },
-  { ruleType: 'command', pattern: 'git diff', operation: 'run', decision: 'allow' },
-  // 命令拒绝:高危命令
-  { ruleType: 'command', pattern: 'rm -rf', operation: 'run', decision: 'deny' },
-  { ruleType: 'command', pattern: 'git push --force', operation: 'run', decision: 'deny' },
-  { ruleType: 'command', pattern: 'git reset --hard', operation: 'run', decision: 'deny' },
-  { ruleType: 'command', pattern: 'DROP TABLE', operation: 'run', decision: 'deny' },
-  { ruleType: 'command', pattern: 'DELETE FROM', operation: 'run', decision: 'deny' },
-]
+// 2026-11-28:模板移到 services/workspace-permission-presets.ts —— 路由与自动默认工作区
+// 初始化共用同一份，避免两处 26 条规则漂移。
 
 // =============================================================================
 // 路由

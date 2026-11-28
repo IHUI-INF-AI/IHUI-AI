@@ -5,7 +5,9 @@
 'use client'
 
 import * as React from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslations } from 'next-intl'
+import { X } from 'lucide-react'
 
 import {
   getAgentTokenUsage,
@@ -54,9 +56,8 @@ import { BestOfCompare } from '@/components/ai/best-of-compare'
 import { MemoryGraphPanel } from '@/components/ai/memory-graph-panel'
 import { AtomicRollbackPanel } from '@/components/ai/atomic-rollback-panel'
 import { WorldsCompare } from '@/components/ai/worlds-compare'
-import { AgentTasksPanel } from '@/components/ai/agent-tasks-panel'
 // D25(2026-09-19 立):统一任务运行时看板(四源聚合+搜索/启动/停止/改名+@任务消息)
-import { UnifiedTaskDashboard } from '@/components/agents/UnifiedTaskDashboard'
+import { TaskCenterPanel } from '@/components/agent-tasks/task-center-panel'
 // D6 #2(2026-09-19 立):挂载 DB 持久化 + SSE 的 KanbanBoard,作为统一 agent 任务数据层
 import { KanbanBoard } from '@/components/agents/KanbanBoard'
 import { GoalCard } from '@/components/ai/goal-card'
@@ -111,7 +112,6 @@ export type ToolTabKey =
   | 'memorygraph'
   | 'atomicrollback'
   | 'worlds'
-  | 'agenttasks'
   | 'unified'
   | 'kanban'
   | 'hooks'
@@ -140,7 +140,6 @@ const TAB_KEYS: ToolTabKey[] = [
   'memorygraph',
   'atomicrollback',
   'worlds',
-  'agenttasks',
   'unified',
   'kanban',
   'hooks',
@@ -171,7 +170,6 @@ const TAB_LABEL_KEY: Record<ToolTabKey, string> = {
   memorygraph: 'tabs.memorygraph',
   atomicrollback: 'tabs.atomicrollback',
   worlds: 'tabs.worlds',
-  agenttasks: 'tabs.agenttasks',
   unified: 'tabs.unified',
   kanban: 'tabs.kanban',
   hooks: 'tabs.hooks',
@@ -318,13 +316,33 @@ function dispatchToBgStatus(d: SubagentDispatch): BackgroundAgent['status'] {
  */
 export function AiSidePanelTools() {
   const t = useTranslations('aiToolsPanel')
+  // 2026-11-27 整合：任务中心聚焦视图的返回文案属于 agentTaskCenter 命名空间
+  const tCenter = useTranslations('agentTaskCenter')
   // D52:任务监控分区文案(「展示方式」/ 四区名)
   const tm = useTranslations('taskMonitor')
   // 票60 片3(2026-10-21):展开态按窗格分家(键含 paneId),数据面走本窗格的 chat store ——
   // 此前一个窗格展开会点亮所有窗格,且 tab 里读到的一律是根窗格的会话。
   const toolsPanelStore = usePaneAiToolsPanelStore()
   const open = toolsPanelStore((s) => s.open)
-  const [activeTab, setActiveTab] = React.useState<ToolTabKey>('plan')
+  const activeTab = toolsPanelStore((s) => s.activeTab) as ToolTabKey
+  const setStoreActiveTab = toolsPanelStore((s) => s.setActiveTab)
+  const setActiveTab = React.useCallback(
+    (tab: ToolTabKey) => setStoreActiveTab(tab),
+    [setStoreActiveTab],
+  )
+  const rootRef = React.useRef<HTMLDivElement>(null)
+  const [overlayHost, setOverlayHost] = React.useState<HTMLElement | null>(null)
+  // 任务中心全屏视图的宿主 = 当前 AI 面板 aside；没有宿主(单测/非面板场景)时退回本地面板。
+  React.useEffect(() => {
+    if (!open || activeTab !== 'unified') {
+      setOverlayHost(null)
+      return
+    }
+    const host = rootRef.current?.closest(
+      '[data-testid="ai-side-panel-aside"]',
+    ) as HTMLElement | null
+    setOverlayHost(host)
+  }, [open, activeTab])
   // D52:展示方式(sections 分区视图默认 / tabs 平铺旧行为),persist 持久化
   const displayMode = useTaskMonitorStore((s) => s.displayMode)
   const setDisplayMode = useTaskMonitorStore((s) => s.setDisplayMode)
@@ -760,12 +778,10 @@ export function AiSidePanelTools() {
             }}
           />
         )
-      // P3 #44 阶段3 前端宿主(2026-09-17 立):agent 运行任务列表 + 中途插话
-      case 'agenttasks':
-        return <AgentTasksPanel />
-      // D25(2026-09-19 立):统一任务运行时看板(四源聚合:kanban/后台派单/本地 agentLoop/云端运行)
+      // 2026-11-27 整合：任务中心主视图改为普通用户可读的 TaskCenterPanel；
+      // 四源技术看板收进其“技术视图”，不再作为并列入口；旧 agenttasks 入口已收掉。
       case 'unified':
-        return <UnifiedTaskDashboard />
+        return <TaskCenterPanel />
       // D6 第 2 步(2026-09-19 立):挂载 DB 持久化 + SSE 的 KanbanBoard,作为统一 agent 任务数据层
       case 'kanban':
         return <KanbanBoard />
@@ -789,12 +805,48 @@ export function AiSidePanelTools() {
     }
   }
 
+  const taskCenterOverlay = (
+    <div
+      data-testid="task-center-overlay"
+      className="absolute inset-0 z-30 flex min-h-0 flex-col bg-shell-panel"
+    >
+      <div className="flex shrink-0 items-center justify-between border-b border-border/60 bg-muted/30 px-3 py-2">
+        <button
+          type="button"
+          data-testid="task-center-back-to-tools"
+          onClick={() => setActiveTab('plan')}
+          className="rounded-md px-2 py-1 text-label text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+        >
+          ← {tCenter('backToTools')}
+        </button>
+        <button
+          type="button"
+          data-testid="task-center-close"
+          aria-label={tCenter('close')}
+          title={tCenter('close')}
+          onClick={() => toolsPanelStore.getState().closePanel()}
+          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <div data-testid="task-center-focus" className="min-h-0 flex-1 overflow-y-auto p-3">
+        <TaskCenterPanel />
+      </div>
+    </div>
+  )
+
   return (
-    <div data-testid="ai-side-panel-tools" className={open ? undefined : 'hidden'}>
+    <div ref={rootRef} data-testid="ai-side-panel-tools" className={open ? undefined : 'hidden'}>
+      {/* 任务中心全屏覆盖整个 AI 面板：普通用户不再看到聊天头、输入框和高级监控区。 */}
+      {open &&
+        activeTab === 'unified' &&
+        (overlayHost ? createPortal(taskCenterOverlay, overlayHost) : taskCenterOverlay)}
+
       {/* 派发子代理对话框(agents tab 触发) */}
       <DispatchSubagentDialog open={dispatchOpen} onOpenChange={setDispatchOpen} />
 
-      {open && (
+      {open && activeTab !== 'unified' && (
         <>
           {/* 展示方式切换器(D52):紧凑胶囊,sections 分区视图(默认)/ tabs 平铺旧行为 */}
           <div className="flex items-center gap-2 bg-muted/40 px-2 py-1.5">

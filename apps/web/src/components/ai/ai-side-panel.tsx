@@ -2979,7 +2979,7 @@ export function AISidePanel() {
             // (scrollbar-width: none + ::-webkit-scrollbar { display: none })完全隐藏滚动条,不会透色,
             // 恢复 bg-shell-panel 安全。
             className={cn(
-              'flex h-full flex-col overflow-hidden bg-shell-panel',
+              'relative flex h-full flex-col overflow-hidden bg-shell-panel',
               // 手机全屏浮窗:无圆角;桌面/平板浮窗 + docked:保持 rounded-xl
               // (手机端的安全区内边距由 globals.css 的 `.ai-panel-root.fixed.inset-0 > aside`
               //  统一给,别在这里再写一份 Tailwind padding —— 两处同时生效会出现双份来源)
