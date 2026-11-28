@@ -17,7 +17,7 @@
 import { and, eq, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { createCommissionFlow } from '../db/commission-queries.js'
-import { skillMarketPurchases, tokenFlows, userMargins } from '@ihui/database'
+import { commissionFlows, skillMarketPurchases, tokenFlows, userMargins } from '@ihui/database'
 import type { SkillMarketEntry } from '@ihui/shared/skills/market'
 
 const DEFAULT_AUTHOR_SHARE_BPS = 7000
@@ -202,7 +202,7 @@ export async function purchasePaidSkill(input: {
           amount: authorShareCents,
           token: 0,
           type: 3,
-          remark: `skill_market_author_share:${entry.name}`.slice(0, 255),
+          remark: `skill_market_author_share:${inserted.id}:${entry.name}`.slice(0, 255),
         },
         null,
         tx,
@@ -233,6 +233,158 @@ export async function hasPurchasedSkill(buyerUserId: string, skillName: string):
     )
     .limit(1)
   return Boolean(row)
+}
+
+export class SkillPurchaseNotFoundError extends Error {
+  constructor() {
+    super('skill purchase not found')
+    this.name = 'SkillPurchaseNotFoundError'
+  }
+}
+
+export class SkillPurchaseStateError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'SkillPurchaseStateError'
+  }
+}
+
+export interface RefundSkillPurchaseResult {
+  alreadyRefunded: boolean
+  purchaseId: string
+  skillName: string
+  buyerUserId: string
+  refundedAmountCents: number
+  sellerClawbackCents: number
+  buyerBalanceAfter: number | null
+}
+
+/**
+ * 管理员退款：买家全额退回，卖家已分成尽量扣回（余额不足扣到 0，平台承担差额），
+ * 同时把作者分成对应的可提现佣金置为失效。整个过程在一个事务里，购买行 FOR UPDATE
+ * 串行化并发退款；退款后 status=refunded，部分唯一索引释放，可再次购买。
+ */
+export async function refundSkillPurchase(input: {
+  purchaseId: string
+  reason?: string
+  operatorId: string | null
+}): Promise<RefundSkillPurchaseResult> {
+  return db.transaction(async (tx) => {
+    const [purchase] = await tx
+      .select()
+      .from(skillMarketPurchases)
+      .where(eq(skillMarketPurchases.id, input.purchaseId))
+      .for('update')
+
+    if (!purchase) throw new SkillPurchaseNotFoundError()
+
+    if (purchase.status === 'refunded') {
+      return {
+        alreadyRefunded: true,
+        purchaseId: purchase.id,
+        skillName: purchase.skillName,
+        buyerUserId: purchase.buyerUserId,
+        refundedAmountCents: purchase.refundAmountCents,
+        sellerClawbackCents: 0,
+        buyerBalanceAfter: null,
+      }
+    }
+    if (purchase.status !== 'paid') {
+      throw new SkillPurchaseStateError(`不支持退款的购买状态: ${purchase.status}`)
+    }
+
+    const priceCents = purchase.priceCents
+    // 买家全额退回：即使 margin 行不存在也补建，保证退款不会因账号没余额行而失败。
+    const [buyer] = await tx
+      .insert(userMargins)
+      .values({ userId: purchase.buyerUserId, tokenQuantity: priceCents, frozenQuantity: 0 })
+      .onConflictDoUpdate({
+        target: userMargins.userId,
+        set: {
+          tokenQuantity: sql`${userMargins.tokenQuantity} + ${priceCents}`,
+          updatedAt: new Date(),
+        },
+      })
+      .returning({ tokenQuantity: userMargins.tokenQuantity })
+
+    await tx.insert(tokenFlows).values({
+      userId: purchase.buyerUserId,
+      opType: 0,
+      quantity: priceCents,
+      balanceAfter: buyer?.tokenQuantity ?? priceCents,
+      remark: `skill_market_refund:${purchase.skillName}`.slice(0, 255),
+      relatedOrderNo: `skillrefund:${purchase.id}`,
+    })
+
+    let sellerClawbackCents = 0
+    if (purchase.sellerUserId && purchase.authorShareCents > 0) {
+      const [seller] = await tx
+        .select({ tokenQuantity: userMargins.tokenQuantity })
+        .from(userMargins)
+        .where(eq(userMargins.userId, purchase.sellerUserId))
+        .for('update')
+
+      const before = seller?.tokenQuantity ?? 0
+      sellerClawbackCents = Math.min(before, purchase.authorShareCents)
+      let sellerBalanceAfter = before
+      if (sellerClawbackCents > 0) {
+        const [updated] = await tx
+          .update(userMargins)
+          .set({
+            tokenQuantity: before - sellerClawbackCents,
+            updatedAt: new Date(),
+          })
+          .where(eq(userMargins.userId, purchase.sellerUserId))
+          .returning({ tokenQuantity: userMargins.tokenQuantity })
+        sellerBalanceAfter = updated?.tokenQuantity ?? before - sellerClawbackCents
+
+        await tx.insert(tokenFlows).values({
+          userId: purchase.sellerUserId,
+          opType: 3,
+          quantity: sellerClawbackCents,
+          balanceAfter: sellerBalanceAfter,
+          remark: `skill_market_refund_clawback:${purchase.skillName}`.slice(0, 255),
+          relatedOrderNo: `skillrefund:${purchase.id}:seller`,
+        })
+      }
+
+      // 购买时写入的佣金记录按 purchase id 精确定位；退款后置失效，防止作者继续提现
+      // 已退回的分成。早期无 purchase id 的历史记录匹配不到，余额仍会按上面扣回。
+      await tx
+        .update(commissionFlows)
+        .set({ status: 0, updatedAt: new Date(), updatedBy: input.operatorId })
+        .where(
+          and(
+            eq(commissionFlows.beneficiaryId, purchase.sellerUserId),
+            eq(
+              commissionFlows.remark,
+              `skill_market_author_share:${purchase.id}:${purchase.skillName}`.slice(0, 255),
+            ),
+          ),
+        )
+    }
+
+    await tx
+      .update(skillMarketPurchases)
+      .set({
+        status: 'refunded',
+        refundedAt: new Date(),
+        refundAmountCents: priceCents,
+        refundReason: input.reason?.slice(0, 255),
+        refundedBy: input.operatorId,
+      })
+      .where(eq(skillMarketPurchases.id, purchase.id))
+
+    return {
+      alreadyRefunded: false,
+      purchaseId: purchase.id,
+      skillName: purchase.skillName,
+      buyerUserId: purchase.buyerUserId,
+      refundedAmountCents: priceCents,
+      sellerClawbackCents,
+      buyerBalanceAfter: buyer?.tokenQuantity ?? priceCents,
+    }
+  })
 }
 
 interface EarningsSummaryRow {

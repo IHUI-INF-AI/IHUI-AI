@@ -30,12 +30,16 @@ import type {
   SkillSubscriptionResponse,
   SkillNotification,
   SkillPurchaseResponse,
+  SkillPurchaseRefundResponse,
 } from '@ihui/shared/skills/market'
 import {
   InsufficientSkillFundsError,
+  SkillPurchaseNotFoundError,
+  SkillPurchaseStateError,
   getSkillEarnings,
   hasPurchasedSkill,
   purchasePaidSkill,
+  refundSkillPurchase,
   resolveSkillAuthorShareBps,
 } from '../services/skill-market-purchase-service.js'
 import { checkAuth } from '../plugins/auth.js'
@@ -598,10 +602,7 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
    * 安装一个市场条目到用户私有库并启用。
    * install 与 purchase 共用同一份写入逻辑，避免“购买成功但没装进去”的双轨。
    */
-  async function installMarketEntry(
-    userId: string,
-    entry: SkillMarketEntry,
-  ): Promise<number> {
+  async function installMarketEntry(userId: string, entry: SkillMarketEntry): Promise<number> {
     entry.installCount += 1
     entry.updatedAt = new Date().toISOString()
     // 市场条目计数是读改写；并发安装可能少记，但用户库写入必须成功。
@@ -953,10 +954,7 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
           return reply
             .status(402)
             .send(
-              error(
-                402,
-                `钱包余额不足:需要 ${err.requiredCents} 分,当前 ${err.balanceCents} 分`,
-              ),
+              error(402, `钱包余额不足:需要 ${err.requiredCents} 分,当前 ${err.balanceCents} 分`),
             )
         }
         throw err
@@ -1010,6 +1008,65 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
       await writeMarket(server.redis, MARKET_KEY, entries)
 
       return reply.send(success({ name: removed.name, unlisted: true }))
+    },
+  )
+
+  // POST /admin/skills-market/purchases/:id/refund — 管理员退款并回收安装资格。
+  // 退款在 DB 事务里完成；事务提交后再撤 Redis 用户库/启用集，撤失败不回滚退款，
+  // 但购买状态已变成 refunded，后续重新安装会被付费闸挡住。
+  server.post<{ Params: { id: string } }>(
+    '/admin/skills-market/purchases/:id/refund',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const idParsed = z
+        .object({ id: z.uuid({ error: '无效的购买记录 ID' }) })
+        .safeParse(request.params)
+      if (!idParsed.success) {
+        return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const bodyParsed = z
+        .object({ reason: z.string().max(255).optional() })
+        .safeParse(request.body ?? {})
+      if (!bodyParsed.success) {
+        return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
+      }
+
+      let result
+      try {
+        result = await refundSkillPurchase({
+          purchaseId: idParsed.data.id,
+          reason: bodyParsed.data.reason,
+          operatorId: request.userId ?? null,
+        })
+      } catch (err) {
+        if (err instanceof SkillPurchaseNotFoundError) {
+          return reply.status(404).send(error(404, '购买记录不存在'))
+        }
+        if (err instanceof SkillPurchaseStateError) {
+          return reply.status(409).send(error(409, err.message))
+        }
+        throw err
+      }
+
+      // 退款后买家不应继续持有已安装的技能；撤不掉只记日志，购买状态已阻断再次安装。
+      const userKey = `skills:${result.buyerUserId}`
+      const installed = await readSkills(server.redis, userKey)
+      const remaining = installed.filter((s) => s.name !== result.skillName)
+      if (remaining.length !== installed.length) {
+        await writeSkills(server.redis, userKey, remaining)
+      }
+      await removeEnabled(server.redis, enabledKey(result.buyerUserId), result.skillName)
+
+      const resp: SkillPurchaseRefundResponse = {
+        purchaseId: result.purchaseId,
+        skillName: result.skillName,
+        buyerUserId: result.buyerUserId,
+        alreadyRefunded: result.alreadyRefunded,
+        refundedAmountCents: result.refundedAmountCents,
+        sellerClawbackCents: result.sellerClawbackCents,
+        buyerBalanceAfter: result.buyerBalanceAfter,
+      }
+      return reply.send(success(resp))
     },
   )
 
