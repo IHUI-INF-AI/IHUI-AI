@@ -195,6 +195,14 @@ class PublishScheduler:
         self._last_due_count = 0
         # 指标回收失败冷却:避免同一个失败任务每轮都占住 LIMIT 队首,饿死后面的任务。
         self._metrics_failed_until: dict[tuple[str, str], datetime] = {}
+        # 自动回收心跳:让 /publish/stats 能证明后台循环真的跑过,而不是只看进程活着。
+        self._metrics_last_at: datetime | None = None
+        self._metrics_next_at: datetime | None = None
+        self._metrics_last_scanned = 0
+        self._metrics_last_attempted = 0
+        self._metrics_last_collected = 0
+        self._metrics_last_failed = 0
+        self._metrics_last_error: str | None = None
         # 持有 spawn 出的 task 引用,避免 CPython GC 回收未完成的 task
         self._pending_tasks: set[asyncio.Task[None]] = set()
 
@@ -312,6 +320,16 @@ class PublishScheduler:
             "pollIntervalSec": _POLL_INTERVAL_SEC,
             "dueCount": self._last_due_count,
             "runningCount": len(self._running),
+            "metrics": {
+                "lastRunAt": self._metrics_last_at.isoformat() if self._metrics_last_at else None,
+                "nextRunAt": self._metrics_next_at.isoformat() if self._metrics_next_at else None,
+                "scanned": self._metrics_last_scanned,
+                "attempted": self._metrics_last_attempted,
+                "collected": self._metrics_last_collected,
+                "failed": self._metrics_last_failed,
+                "lastError": self._metrics_last_error,
+                "intervalSec": _METRICS_LOOP_INTERVAL_SEC,
+            },
         }
 
     # ===== DB 连接 =====
@@ -451,17 +469,30 @@ class PublishScheduler:
                     "[publish.metrics.auto] round failed: %s: %s",
                     type(e).__name__, e,
                 )
+                self._metrics_last_error = f"{type(e).__name__}: {e}"
+            finally:
+                self._metrics_next_at = datetime.now(UTC) + timedelta(
+                    seconds=_METRICS_LOOP_INTERVAL_SEC
+                )
             await asyncio.sleep(_METRICS_LOOP_INTERVAL_SEC)
 
     async def _metrics_once(self) -> None:
         """补采一批最近成功、但 6 小时内没有快照的内容。
 
         只挑 collector 明确支持的平台;每轮 3 篇,避免同时拉起多个浏览器。
-        采集失败不写入 0 快照,下一轮还会重试,不会把失败“洗白”。
+        采集失败不写入 0 快照,该 task+platform 进入 60 分钟冷却后再重试,
+        避免失败任务每轮占住队首。
         """
         await _ensure_metrics_table()
+        self._metrics_last_at = datetime.now(UTC)
+        self._metrics_last_scanned = 0
+        self._metrics_last_attempted = 0
+        self._metrics_last_collected = 0
+        self._metrics_last_failed = 0
+        self._metrics_last_error = None
         conn = await self._get_conn()
         if conn is None:
+            self._metrics_last_error = "db unavailable"
             return
         try:
             rows = await conn.fetch(
@@ -560,6 +591,10 @@ class PublishScheduler:
             self._metrics_failed_until.pop(key, None)
             collected += 1
         duration_ms = int((datetime.now(UTC) - started_at).total_seconds() * 1000)
+        self._metrics_last_scanned = len(rows)
+        self._metrics_last_attempted = attempted
+        self._metrics_last_collected = collected
+        self._metrics_last_failed = failed
         if rows:
             logger.info(
                 "[publish.metrics.auto] scanned=%d attempted=%d collected=%d failed=%d duration_ms=%d",
