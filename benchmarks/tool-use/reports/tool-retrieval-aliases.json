@@ -1,0 +1,8 @@
+{
+  "cases": 100,
+  "recall@1": 0.73,
+  "recall@5": 1.0,
+  "mrr": 0.8495,
+  "misses": [],
+  "aliases": "benchmarks/tool-use/data/tool-aliases.json"
+}
