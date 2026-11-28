@@ -7452,7 +7452,7 @@
   "devices": {
     "title": "기기 관리",
     "pairTitle": "페어링 코드",
-    "pairHint": "로그인 상태가 없는 머신(CLI / 서버) 전용입니다. 대상 머신에서 ihui device pair <코드>를 실행하세요. 이 PC의 데스크톱 앱은 코드가 필요 없으며 위의 ‘원클릭 사용’을 누르면 됩니다.",
+    "pairHint": "로그인 상태가 없는 머신(CLI / 서버) 전용입니다. 대상 머신에서 ihui device pair 「코드」를 실행하세요. 이 PC의 데스크톱 앱은 코드가 필요 없으며 위의 ‘원클릭 사용’을 누르면 됩니다.",
     "pairGenerate": "코드 생성",
     "pairRegenerate": "다시 생성",
     "pairFailed": "코드 생성 실패",

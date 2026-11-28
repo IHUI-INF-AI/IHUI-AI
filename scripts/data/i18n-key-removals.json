@@ -4587,6 +4587,12 @@
       "keys": ["marketing.miniappModal.brand", "marketing.miniappModal.connect", "marketing.miniappModal.content", "marketing.miniappModal.explore", "marketing.miniappModal.qrAlt", "marketing.miniappModal.scanTip", "marketing.miniappModal.title", "marketing.miniappModal.typewriter.ctaPrimary", "marketing.miniappModal.typewriter.ctaSecondary", "marketing.miniappModal.typewriter.miniappBtn", "marketing.qrAlt", "marketing.scanTip", "marketing.typewriter.miniappBtn", "marketing.typewriter.qrAlt", "marketing.typewriter.scanTip", "marketing.typewriter.typewriter.ctaPrimary", "marketing.typewriter.typewriter.ctaSecondary", "marketing.typewriter.typewriter.miniappBtn", "typewriter.miniappBtn"],
       "reason": "zh-CN과 동일: 2026-11-12 오너 지시로 홈 hero의 WeChat 미니프로그램 버튼과 QR 모달을 삭제. TypewriterHero 정리 후 19개 miniapp 키는 참조가 0인 고아 키가 되어 5개 언어에서 동일하게 삭제해 parity 유지. 재유입 조건: 미니프로그램 진입점을 되살릴 경우 별도 티켓으로 5개 언어 문구를 함께 보강할 것.",
       "until": "2027-11-12"
+    },
+    {
+      "file": "packages/i18n/messages/web/zh-CN.json",
+      "keys": ["ringtoneNames.dingdong", "ringtoneNames.tritone", "ringtoneNames.waterdrop", "ringtoneNames.doublebell", "ringtoneNames.bubble", "ringtoneNames.marimba", "ringtoneNames.chime", "ringtoneNames.knock"],
+      "reason": "ringtoneNames.* 顶层副本是孤儿键：通知设置页实际走 useTranslations('settings') 读取 settings.ringtoneNames.*，根级同名对象自引入起零消费。2026-11-28 删除根级 8 键、保留 settings.ringtoneNames 五语正文，消除 JSON 同名双份与 parity 噪声。回潮判据：若将来确有页面改为根级 t('ringtoneNames.*')，应先改消费点并同步五语，不得只补根级副本。",
+      "until": "2027-11-28"
     }
   ]
 }

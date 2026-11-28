@@ -67,6 +67,13 @@ const { getConnectors, listExternalServers, getMcpStore } = vi.hoisted(() => ({
 
 vi.mock('@ihui/api-client/endpoints/connectors', () => ({
   getConnectors,
+  getConnectorCatalog: vi.fn(async () => ({ success: true as const, data: { templates: [] } })),
+  getWecomRobotStatus: vi.fn(async () => ({
+    success: true as const,
+    data: { authorized: false, capability: '', expired: false, message: '' },
+  })),
+  authorizeWecomRobot: vi.fn(),
+  listWecomRobotTools: vi.fn(async () => ({ success: true as const, data: { tools: [] } })),
   saveConnectorConfig: vi.fn(),
   syncConnector: vi.fn(),
   fetchConnectorDoc: vi.fn(),

@@ -2586,7 +2586,7 @@
   "devices": {
     "title": "裝置管理",
     "pairTitle": "配對碼",
-    "pairHint": "只給沒有登入狀態的機器用(純命令列 / 伺服器):在目標機器執行 ihui device pair <碼>。本機桌面端不需要配對碼,點上方「一鍵啟用」即可。",
+    "pairHint": "只給沒有登入狀態的機器用(純命令列 / 伺服器):在目標機器執行 ihui device pair 「碼」。本機桌面端不需要配對碼,點上方「一鍵啟用」即可。",
     "pairGenerate": "產生配對碼",
     "pairRegenerate": "重新產生",
     "pairFailed": "配對碼產生失敗",
