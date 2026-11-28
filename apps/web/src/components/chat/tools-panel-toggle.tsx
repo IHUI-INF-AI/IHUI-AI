@@ -4,7 +4,7 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
-import { Check, Wrench } from 'lucide-react'
+import { Check, ListChecks, Wrench } from 'lucide-react'
 import { usePaneAiToolsPanelStore } from '@/stores/ai-tools-panel'
 import { cn } from '@/lib/utils'
 import {
@@ -46,6 +46,38 @@ export function ToolsPanelToggle({ disabled = false }: { disabled?: boolean }) {
         {toolsPanelOpen ? t('toolsPanelClose') : t('toolsPanelOpen')}
       </span>
       {toolsPanelOpen && <Check className="h-3.5 w-3.5 shrink-0" />}
+    </button>
+  )
+}
+
+/**
+ * 「+」菜单里的任务中心直达行(2026-11-28 立)。
+ *
+ * 缺陷本体:空会话没有消息/会话 id,工具面板默认收起时,用户只能先开「工具面板」
+ * 再横滑到第 20 个页签找「任务中心」,实际表现为“空会话看不到任务中心入口”。
+ * 这里把 openTaskCenter 提到 + 菜单第一层:一次点击同时展开面板并切到 unified,
+ * 与工具面板同一窗格实例,不新建第二套状态。
+ */
+export function TaskCenterToggle({ disabled = false }: { disabled?: boolean }) {
+  const tCenter = useTranslations('agentTaskCenter')
+  const toolsPanelStore = usePaneAiToolsPanelStore()
+  const openTaskCenter = toolsPanelStore((s) => s.openTaskCenter)
+  const isTaskCenter = toolsPanelStore((s) => s.open && s.activeTab === 'unified')
+
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      data-testid="menu-task-center"
+      data-panel-open={isTaskCenter}
+      aria-pressed={isTaskCenter}
+      onClick={() => openTaskCenter()}
+      className={cn(COMPOSER_MENU_ROW_CLASS, isTaskCenter && 'bg-accent text-accent-foreground')}
+    >
+      <ListChecks className={COMPOSER_MENU_ROW_ICON_CLASS} />
+      <span className="min-w-0 flex-1 truncate">{tCenter('panelTitle')}</span>
+      <span className={COMPOSER_MENU_ROW_VALUE_CLASS}>{tCenter('menuSubtitle')}</span>
+      {isTaskCenter && <Check className="h-3.5 w-3.5 shrink-0" />}
     </button>
   )
 }

@@ -55,7 +55,7 @@ import {
   AgentProgressShortcutHost,
 } from '@/components/ai/agent-progress-trigger'
 import { SamplingParamsButton, SamplingParamsPanel } from '@/components/chat/sampling-params-panel'
-import { ToolsPanelToggle } from '@/components/chat/tools-panel-toggle'
+import { TaskCenterToggle, ToolsPanelToggle } from '@/components/chat/tools-panel-toggle'
 // D130(2026-09-30 立):推理强度第三轴 —— 输入区的档位控件。摘掉下面 JSX 里那一行挂载,
 // 档位就永远进不了请求(展示件、store、发送链全都还在,typecheck/lint 一路绿),
 //  apps/web/src/components/chat/__tests__/reasoning-effort-axis-mount.test.tsx 的①③正是守这一行。
@@ -1693,6 +1693,7 @@ export function MessageInput({
                         />
                         <AgentPicker variant="row" />
                         <ToolsPanelToggle disabled={isStreaming} />
+                        <TaskCenterToggle disabled={isStreaming} />
                       </div>
                     </div>
                   }

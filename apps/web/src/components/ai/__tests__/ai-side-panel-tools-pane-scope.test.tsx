@@ -10,7 +10,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => key,
@@ -59,6 +59,9 @@ vi.mock('@/stores/ide-workspace', () => ({
   useIDEWorkspace: (sel: (s: { fileTree: unknown[]; fetchFileTree: () => void }) => unknown) =>
     sel({ fileTree: [], fetchFileTree: vi.fn() }),
 }))
+vi.mock('@/components/agent-tasks/task-center-panel', () => ({
+  TaskCenterPanel: () => <div data-testid="stub-task-center" />,
+}))
 
 import { AiSidePanelTools } from '@/components/ai/ai-side-panel-tools'
 import { ChatPaneProvider } from '@/stores/chat-pane-context'
@@ -88,7 +91,7 @@ beforeEach(() => {
   resetAiToolsPanelPaneStores()
   // 平铺档:内容区直接是 ai-panel-content-<tab>,不经分区折叠
   useTaskMonitorStore.setState({ displayMode: 'tabs' })
-  useAiToolsPanelStore.setState({ open: true })
+  useAiToolsPanelStore.setState({ open: true, activeTab: 'plan' })
   useChatStore.setState({ messages: [], conversationId: null, subAgentActivities: [] })
 })
 
@@ -178,6 +181,31 @@ describe('AiSidePanelTools 数据面窗格化(片3)', () => {
       getAiToolsPanelStoreForPane('pane-open-c').setState({ open: true })
     })
     expect(screen.getAllByTestId('ai-panel-content-plan').length).toBeGreaterThan(0)
+  })
+
+  it('⑤ 任务中心是聚焦视图:进入后收起其它监控区，可返回工具面板', () => {
+    render(<AiSidePanelTools />)
+    fireEvent.click(screen.getByTestId('ai-panel-tab-unified'))
+    expect(screen.getByTestId('task-center-focus')).toBeTruthy()
+    expect(screen.getByTestId('stub-task-center')).toBeTruthy()
+    expect(screen.queryByTestId('task-monitor-display-mode')).toBeNull()
+    fireEvent.click(screen.getByTestId('task-center-back-to-tools'))
+    expect(screen.getByTestId('ai-panel-content-plan')).toBeTruthy()
+    expect(screen.queryByTestId('task-center-focus')).toBeNull()
+  })
+
+  it('⑥ 空会话直达任务中心:openTaskCenter 展开面板并切到 unified，不依赖消息或会话 id', () => {
+    useChatStore.setState({ conversationId: null, messages: [] })
+    render(<AiSidePanelTools />)
+    expect(screen.getByTestId('ai-panel-content-plan')).toBeTruthy()
+
+    act(() => {
+      useAiToolsPanelStore.getState().openTaskCenter()
+    })
+
+    expect(screen.getByTestId('task-center-focus')).toBeTruthy()
+    expect(screen.getByTestId('stub-task-center')).toBeTruthy()
+    expect(screen.queryByTestId('ai-panel-content-plan')).toBeNull()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

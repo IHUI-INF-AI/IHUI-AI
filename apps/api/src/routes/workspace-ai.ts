@@ -11,7 +11,8 @@
 
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
-import { appendFileSync, existsSync, readFileSync } from 'node:fs'
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import { checkpointAvailabilityEvent } from '@ihui/types'
 // 权限档唯一真源(G-161):授权入参必须先归一再判定,认不出即 400
@@ -19,7 +20,14 @@ import { PERMISSION_MODES, normalizePermissionMode } from '@ihui/types/permissio
 import { authenticate } from '../plugins/auth.js'
 import { recordAuditLog } from '../services/audit-log-service.js'
 import { success, error } from '../utils/response.js'
-import { canonicalMimeOfExtension } from '../utils/file-type-validator.js'
+import { aiServiceFetch } from '../utils/ai-service-fetch.js'
+import { resolveDefaultChatModel } from '../utils/retired-providers.js'
+import {
+  readMaxCompletionTokens,
+  reserveLlmPoints,
+  settleLlmPointsUsage,
+} from '../services/ai-points-billing.js'
+import { releasePointsHold } from '../services/points-service.js'
 import {
   swarmManager,
   subagentManager,
@@ -38,7 +46,13 @@ import {
   fsBridge,
   SubagentWorkspaceAccessError,
   SubagentLinkError,
+  type AgentLlmRequest,
+  type AgentLlmResult,
+  normalizeAgentToolCalls,
+  buildAgentPermissionDecision,
 } from '../services/workspace-ai-service.js'
+import { listAgentTaskArchive } from '../services/agent-task-archive.js'
+import { ensureDefaultWorkspacePermission } from '../services/workspace-permission-presets.js'
 import { buildChangeRequestSnapshot } from '../services/change-request-service.js'
 import { GitWorkspaceError, gitWorkspace } from '../services/git-workspace.js'
 import { FsWatcherError, fsWatcherRegistry } from '../services/fs-watcher.js'
@@ -71,6 +85,21 @@ const checkpointIdSchema = z
   .min(1)
   .max(64)
   .refine(isSafeCheckpointId, 'checkpointId 只允许字母、数字、下划线、连字符')
+
+/** 计费拒绝:保留 HTTP 状态与稳定错误码,AgentLoop 落 task.errorCode 后路由可如实映射。 */
+class WorkspaceAgentBillingError extends Error {
+  readonly code: string
+  readonly status: number
+  readonly data?: Record<string, unknown>
+
+  constructor(code: string, message: string, status: number, data?: Record<string, unknown>) {
+    super(message)
+    this.name = 'WorkspaceAgentBillingError'
+    this.code = code
+    this.status = status
+    this.data = data
+  }
+}
 
 export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   // 鉴权：复用 workspace.ts 的模式
@@ -111,7 +140,13 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   const assertWorkspacePermission = async (
     request: FastifyRequest,
     reply: FastifyReply,
-    ctx: { workspacePath: string; tool: string; args: Record<string, unknown> },
+    ctx: {
+      workspacePath: string
+      tool: string
+      args: Record<string, unknown>
+      /** 只读枚举/工作区准入：不把“待人工确认”升级成阻塞等待，硬拒绝仍生效 */
+      enumerateOnly?: boolean
+    },
   ): Promise<Error | null> => {
     if (!request.userId) return new Error('未登录')
     const decision = await permissionManager.checkWorkspace({
@@ -119,6 +154,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       workspacePath: ctx.workspacePath,
       tool: ctx.tool,
       args: ctx.args,
+      ...(ctx.enumerateOnly === true ? { enumerateOnly: true } : {}),
     })
     if (decision.allowed) return null
     // configured=false(未配置权限)→ 401 引导用户先调 /fs/open 完成 setup;其他 → 403
@@ -255,44 +291,6 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     try {
       const result = fsBridge.read(body)
       return reply.send(success(result))
-    } catch (e) {
-      return reply.status(400).send(error(400, (e as Error).message))
-    }
-  })
-
-  /**
-   * POST /fs/raw — 读取工作区文件原始字节(2026-11-26,IDE/工作区二进制预览)。
-   * 空值校验 + 权限闸与 /fs/read 同源;只换"回什么"(字节流而不是 UTF-8 文本)。
-   */
-  server.post('/fs/raw', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
-    const body = z.object({ path: z.string(), workspacePath: z.string() }).parse(request.body)
-    if (!body.path || !body.workspacePath)
-      return reply.status(400).send(error(400, 'path 和 workspacePath 不能为空'))
-    if (
-      (await assertWorkspacePermission(request, reply, {
-        workspacePath: body.workspacePath,
-        tool: 'fs.read',
-        args: { path: body.path },
-      })) !== null
-    )
-      return
-    try {
-      const { buffer } = fsBridge.readBinary(body)
-      const ext = body.path.split('.').pop()?.toLowerCase() ?? ''
-      const isHtml = ext === 'html' || ext === 'htm'
-      const mime = isHtml
-        ? 'text/plain; charset=utf-8'
-        : ext === 'svg'
-          ? 'image/svg+xml'
-          : (canonicalMimeOfExtension(ext) ?? 'application/octet-stream')
-      const res = reply
-        .header('Content-Type', mime)
-        .header('Content-Length', String(buffer.byteLength))
-        .header('X-Content-Type-Options', 'nosniff')
-      if (isHtml || ext === 'svg') res.header('Content-Security-Policy', 'sandbox')
-      return res.send(buffer)
     } catch (e) {
       return reply.status(400).send(error(400, (e as Error).message))
     }
@@ -1880,30 +1878,56 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
 
   const agentRunSchema = z.object({
-    goal: z.string().min(1),
-    sessionId: z.string().optional(),
-    model: z.string().optional(),
+    goal: z.string().trim().min(1).max(20_000),
+    sessionId: z.string().min(1).max(128).optional(),
+    /** 发起任务的聊天会话；任务中心用它把运行态投影回左侧会话行 */
+    conversationId: z.string().min(1).max(128).optional(),
+    model: z.string().trim().min(1).max(200).optional(),
     maxIterations: z.number().int().min(1).max(100).optional(),
-    tools: z.array(z.string()).max(100).optional(),
-    workspacePath: z.string().optional(),
+    maxTokens: z.number().int().min(128).max(8192).optional(),
+    tools: z.array(z.string().min(1).max(80)).max(100).optional(),
+    // true = 立即返回 taskId,任务在后台继续;false/缺省 = 等任务终态再返回(适合脚本/测试)
+    background: z.boolean().optional(),
+    // 工作区是执行边界,必须显式给出;缺省会让工具落到 API 进程 cwd,等于越权。
+    workspacePath: z.string().trim().min(1),
   })
 
   server.post(
     '/agent/run',
     {
-      // F-306 契约面:执行链路未接入前只声明 501,不再挂 200 ——
-      // 旧契约只写 `200 Default Response`,等于对调用方谎报存在成功路径。
       schema: {
         response: {
+          200: { type: 'object', additionalProperties: true },
+          202: { type: 'object', additionalProperties: true },
           400: {
             type: 'object',
             properties: { code: { type: 'number' }, message: { type: 'string' } },
             description: '请求体校验失败',
           },
-          501: {
+          401: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+            description: '未登录或工作区未授权',
+          },
+          402: {
             type: 'object',
             additionalProperties: true,
-            description: '该端点暂未接入执行层',
+            description: '积分不足',
+          },
+          403: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+            description: '工作区权限拒绝',
+          },
+          503: {
+            type: 'object',
+            additionalProperties: true,
+            description: '模型未定价或计费服务不可用',
+          },
+          500: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+            description: 'Agent 执行异常',
           },
         },
       },
@@ -1914,15 +1938,378 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       const parsed = agentRunSchema.safeParse(request.body)
       if (!parsed.success)
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      // F-306:此前 agentLoop.run 的 ai-service 调用缺 `/api` 前缀恒 404,却落伪成功分支,
-      // 任何登录用户都能拿到 200 + completed + 「Agent 第 N 轮思考」,实际零执行。
-      // 工具执行/计费/配额尚未接入该链路前显式 501,不再保留「200 但什么也没做」的路径。
-      // 恢复时须同时接回 agentLoop.run 并按调用用户身份接计费/配额。
-      return reply
-        .status(501)
-        .send(error(501, 'Workspace Agent 执行链路未接入 ai-service 计费/配额,已停用伪成功返回'))
+
+      const body = parsed.data
+      const userId = request.userId
+      // run_command 的解释器闸只认服务端算出的身份,模型自报的 __isAdmin 会被 AgentLoop 覆盖
+      const isAdminUser =
+        resolveAdminRoleId(request, { includeInternalChannel: false }) >= ADMIN_ROLE_ID
+      const denied = await assertWorkspacePermission(request, reply, {
+        workspacePath: body.workspacePath,
+        // agent_run 是“进入工作区”的准入，不是一个具体工具动作；这里用只读枚举档
+        // 只校验已配置/硬拒绝，真正的读写/命令由每个工具调用单独过 checkAgentTool。
+        tool: 'fs.browse',
+        args: { path: body.workspacePath },
+        enumerateOnly: true,
+      })
+      if (denied) return
+
+      const model = body.model ?? resolveDefaultChatModel()
+      const maxTokens = readMaxCompletionTokens(request.body, 4096)
+      const maxIterations = body.maxIterations ?? 10
+      const toolNames =
+        body.tools && body.tools.length > 0
+          ? body.tools
+          : agentLoop.listTools().map((tool) => tool.name)
+      const toolDefs = agentLoop
+        .listTools()
+        .filter((tool) => toolNames.includes(tool.name))
+        .map((tool) => ({
+          type: 'function',
+          function: {
+            name: tool.name,
+            description: tool.description,
+            parameters: tool.parameters ?? {
+              type: 'object',
+              properties: {},
+              additionalProperties: true,
+            },
+          },
+        }))
+      const systemPrompt =
+        '你是 IHUI 工作区执行 Agent。必须用工具真实操作文件/命令，完成目标后给出简洁最终答复。' +
+        `当前工作区: ${body.workspacePath}`
+      const estimateChars = systemPrompt.length + body.goal.length + JSON.stringify(toolDefs).length
+      const estimatedPromptTokens = Math.max(1, Math.ceil(estimateChars / 2))
+      const taskId = randomUUID().replace(/-/g, '').slice(0, 12)
+      const firstReferenceId = `workspace-agent:${taskId}:1`
+
+      let preflight
+      try {
+        preflight = await reserveLlmPoints({
+          userId,
+          modelId: model,
+          promptTokens: estimatedPromptTokens,
+          maxCompletionTokens: maxTokens,
+          source: 'workspace_agent',
+          referenceId: firstReferenceId,
+        })
+      } catch (e) {
+        request.log.error({ err: e, userId, model }, '[workspace-agent] 积分预检异常')
+        return reply.status(503).send({
+          code: 503,
+          errorCode: 'POINTS_SERVICE_UNAVAILABLE',
+          message: '积分服务暂不可用,请稍后重试',
+        })
+      }
+      if (!preflight.ok) {
+        reply.raw.statusCode = preflight.status
+        return reply.send({
+          code: preflight.status,
+          errorCode: preflight.errorCode,
+          message: preflight.message,
+          ...(preflight.data ? { data: preflight.data } : {}),
+        })
+      }
+
+      let firstHoldSettled = false
+      const runLlm = async (ctx: AgentLlmRequest): Promise<AgentLlmResult> => {
+        let holdReferenceId = firstReferenceId
+        if (ctx.iteration > 1) {
+          const hold = await reserveLlmPoints({
+            userId,
+            modelId: model,
+            promptTokens: Math.max(
+              1,
+              Math.ceil(JSON.stringify(ctx.messages).length / 2) +
+                Math.ceil(JSON.stringify(ctx.tools).length / 2),
+            ),
+            maxCompletionTokens: maxTokens,
+            source: 'workspace_agent',
+            referenceId: `workspace-agent:${taskId}:${ctx.iteration}`,
+          })
+          if (!hold.ok) {
+            throw new WorkspaceAgentBillingError(
+              hold.errorCode,
+              hold.message,
+              hold.status,
+              hold.data,
+            )
+          }
+          holdReferenceId = hold.referenceId
+        }
+
+        let settled = false
+        try {
+          const upstreamBody: Record<string, unknown> = {
+            messages: ctx.messages,
+            ...(model ? { model } : {}),
+            ...(ctx.tools.length > 0 ? { tools: ctx.tools, tool_choice: 'auto' } : {}),
+            temperature: 0.2,
+            max_tokens: maxTokens,
+            metadata: { workspaceAgentTaskId: taskId, workspacePath: body.workspacePath },
+          }
+          let resp = await aiServiceFetch(request, '/api/llm/complete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(upstreamBody),
+            timeoutMs: 90_000,
+          })
+          // 受限模型（agnes/stepfun/groq…）在 ai-service 只对系统管理员开放。
+          // 工作区任务面向普通用户：用户 token 被 403 拒绝时，去掉显式模型让
+          // ai-service 用平台默认可用档跑完这次任务，而不是让整个任务直接失败。
+          if (resp.status === 403 && model) {
+            const fallbackBody = { ...upstreamBody }
+            delete fallbackBody.model
+            resp = await aiServiceFetch(request, '/api/llm/complete', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(fallbackBody),
+              timeoutMs: 90_000,
+            })
+          }
+          if (!resp.ok) {
+            throw new Error(`ai-service /api/llm/complete 返回 ${resp.status}`)
+          }
+          const data = (await resp.json()) as Record<string, unknown>
+          if (data['error']) {
+            throw new Error(String(data['error_message'] ?? data['message'] ?? 'LLM 调用失败'))
+          }
+
+          const usageRaw =
+            typeof data['usage'] === 'object' && data['usage'] !== null
+              ? (data['usage'] as Record<string, unknown>)
+              : null
+          const content = String(
+            data['content'] ??
+              (data['choices'] as Array<{ message?: { content?: string } }> | undefined)?.[0]
+                ?.message?.content ??
+              '',
+          )
+          const promptTokens = Math.max(
+            0,
+            Number(usageRaw?.['prompt_tokens'] ?? estimatedPromptTokens) || 0,
+          )
+          const completionTokens = Math.max(
+            0,
+            Number(usageRaw?.['completion_tokens'] ?? 0) || Math.ceil(content.length / 2),
+          )
+          await settleLlmPointsUsage({
+            userId,
+            modelId: String(data['model'] ?? model),
+            promptTokens,
+            completionTokens,
+            source: 'workspace_agent',
+            description: `workspace agent ${taskId} iteration ${ctx.iteration}`,
+            referenceId: `workspace-agent:${taskId}:${ctx.iteration}`,
+            holdReferenceId,
+          })
+          settled = true
+          if (ctx.iteration === 1) firstHoldSettled = true
+
+          const usage =
+            usageRaw && Number.isFinite(Number(usageRaw['total_tokens']))
+              ? {
+                  promptTokens,
+                  completionTokens,
+                  totalTokens: Math.max(
+                    0,
+                    Number(usageRaw['total_tokens'] ?? promptTokens + completionTokens),
+                  ),
+                }
+              : {
+                  promptTokens,
+                  completionTokens,
+                  totalTokens: promptTokens + completionTokens,
+                }
+          return {
+            content,
+            toolCalls: normalizeAgentToolCalls(data['tool_calls'], ctx.iteration),
+            usage,
+            model: typeof data['model'] === 'string' ? data['model'] : undefined,
+          }
+        } catch (e) {
+          if (!settled) {
+            await releasePointsHold({
+              userId,
+              source: 'workspace_agent',
+              referenceId: holdReferenceId,
+            }).catch(() => undefined)
+            if (ctx.iteration === 1) firstHoldSettled = true
+          }
+          throw e
+        }
+      }
+
+      const runParams = {
+        taskId,
+        goal: body.goal,
+        userId,
+        sessionId: body.sessionId,
+        conversationId: body.conversationId,
+        model,
+        maxIterations,
+        tools: toolNames,
+        workspacePath: body.workspacePath,
+        isAdmin: isAdminUser,
+        llmRunner: runLlm,
+        authorizeTool: async (ctx: {
+          tool: string
+          args: Record<string, unknown>
+          onApprovalRequested?: (requestId: string) => void
+        }) => {
+          try {
+            const decision = await permissionManager.checkAgentTool({
+              userId,
+              workspacePath: body.workspacePath,
+              tool: ctx.tool,
+              args: ctx.args,
+              onApprovalRequest: ctx.onApprovalRequested,
+            })
+            const permissionDecision = buildAgentPermissionDecision({
+              taskId,
+              tool: ctx.tool,
+              workspacePath: body.workspacePath,
+              allowed: decision.allowed,
+              mode: decision.mode,
+              reason: decision.reason,
+              ...(decision.matchedRule ? { matchedRule: decision.matchedRule } : {}),
+              ...(decision.requestId ? { requestId: decision.requestId } : {}),
+            })
+            return {
+              allowed: decision.allowed,
+              reason: decision.reason,
+              decision: decision.allowed ? ('allow' as const) : ('deny' as const),
+              ...(decision.matchedRule ? { matchedRule: decision.matchedRule } : {}),
+              ...(decision.requestId ? { requestId: decision.requestId } : {}),
+              permissionDecision,
+            }
+          } catch (e) {
+            request.log.warn(
+              { err: e, taskId, tool: ctx.tool },
+              '[workspace-agent] 工具授权检查异常',
+            )
+            return { allowed: false, reason: '权限服务暂不可用,工具未执行' }
+          }
+        },
+      }
+      const releaseFirstHold = async () => {
+        if (firstHoldSettled) return
+        firstHoldSettled = true
+        await releasePointsHold({
+          userId,
+          source: 'workspace_agent',
+          referenceId: firstReferenceId,
+        }).catch(() => undefined)
+      }
+
+      if (body.background === true) {
+        // 先同步把任务放进 agentLoop 内存表(agentLoop.run 在首个 await 前已登记),
+        // 再立即回 202;后续轮次在后台继续,前端用 /agent/tasks/:id 轮询。
+        void agentLoop
+          .run(runParams)
+          .then(async (task) => {
+            if (!firstHoldSettled && task.steps.length === 0) await releaseFirstHold()
+          })
+          .catch(async (e) => {
+            await releaseFirstHold()
+            request.log.error({ err: e, userId, taskId }, '[workspace-agent] 后台任务异常')
+          })
+        return reply.code(202).send(success({ taskId, status: 'running' }))
+      }
+
+      try {
+        const task = await agentLoop.run(runParams)
+        // 首轮未走到 LLM(取消/参数错误)时也要退掉冻结,避免占着用户余额。
+        await releaseFirstHold()
+        // 零步骤的计费拒绝按 HTTP 语义返回,不再伪装成 200 完成任务。
+        if (task.status === 'failed' && task.steps.length === 0 && task.errorCode) {
+          if (task.errorCode === 'INSUFFICIENT_POINTS') {
+            return reply.status(402).send({
+              code: 402,
+              errorCode: task.errorCode,
+              message: task.error ?? '积分不足',
+            })
+          }
+          if (
+            task.errorCode === 'MODEL_PRICING_MISSING' ||
+            task.errorCode === 'MODEL_PRICING_INVALID'
+          ) {
+            return reply.status(503).send({
+              code: 503,
+              errorCode: task.errorCode,
+              message: task.error ?? '模型未定价',
+            })
+          }
+        }
+        return reply.send(success(task))
+      } catch (e) {
+        await releaseFirstHold()
+        request.log.error({ err: e, userId, taskId }, '[workspace-agent] 执行异常')
+        return reply.code(500).send(error(500, 'Agent 执行异常,请稍后重试'))
+      }
     },
   )
+
+  /**
+   * P2 整合（2026-11-27）：自动准备工作区。
+   *
+   * 普通用户从会话发起后台任务时，不应该先被“选目录 + 配权限”拦住。
+   * 这里只在服务端已登记的工作区根内创建一个专用默认目录，并初始化**该目录**的
+   * accept-edits 权限：文件写/改走模板自动放行，任意 shell 仍按白名单/人工审计。
+   * 用户自选目录不经过这里，不会被静默改档。
+   */
+  server.post('/agent/default-workspace', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const roots = getRegisteredWorkspaceRoots()
+    if (roots.length === 0) {
+      return reply
+        .status(400)
+        .send(error(400, `自动工作区不可用：服务端未登记工作区根（${WORKSPACE_ROOTS_ENV} 为空）`))
+    }
+    const safeUserId = request.userId.replace(/[^a-zA-Z0-9_-]/g, '_')
+    const workspacePath = realpathOrResolve(
+      join(roots[0]!, '.ihui', 'agent-workspaces', safeUserId),
+    )
+    const name = 'AI 默认工作区'
+    try {
+      mkdirSync(workspacePath, { recursive: true, mode: 0o700 })
+      const permission = await ensureDefaultWorkspacePermission({
+        userId: request.userId,
+        workspacePath,
+        name,
+      })
+      return reply.send(
+        success({
+          workspacePath,
+          name,
+          permissionMode: permission.mode,
+          permissionChanged: permission.changed,
+        }),
+      )
+    } catch (e) {
+      request.log.error({ err: e, userId: request.userId }, '[workspace-agent] 默认工作区创建失败')
+      return reply.status(500).send(error(500, '默认工作区准备失败，请手动选择工作区'))
+    }
+  })
+
+  // P2：已落盘终态任务的只读回放；内存态任务仍走 /agent/tasks。
+  server.get('/agent/history', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = z
+      .object({ limit: z.coerce.number().int().min(1).max(200).optional() })
+      .safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const tasks = listAgentTaskArchive({
+      userId: request.userId,
+      limit: parsed.data.limit ?? 50,
+    })
+    return reply.send(success({ tasks }))
+  })
 
   server.get('/agent/tasks', async (request, reply) => {
     await requireAuth(request, reply)

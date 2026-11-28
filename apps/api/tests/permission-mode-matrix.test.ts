@@ -163,6 +163,23 @@ describe('permissionManager.checkWorkspace(Agent 工具的真实闸门,G-163 上
     ).toBe(false)
   })
 
+  it('deny 优先于 allow:allow 即使更新、排在更前，也不能压过敏感文件拒绝', async () => {
+    stubConfirmation()
+    mockGetPermission.mockResolvedValue({ mode: 'acceptEdits' })
+    // listRules 真实按 createdAt DESC:较新的 `**` allow 会排在较旧的 `.env*` deny 前面
+    mockListRules.mockResolvedValue([
+      { ruleType: 'path', pattern: '**', operation: 'write', decision: 'allow' },
+      { ruleType: 'path', pattern: '.env*', operation: 'write', decision: 'deny' },
+    ])
+    const r = await permissionManager.checkWorkspace({
+      ...base,
+      tool: 'write',
+      args: { path: '.env.production' },
+    })
+    expect(r.allowed).toBe(false)
+    expect(r.reason).toContain('deny')
+  })
+
   it('认不出的档位不得被当成某个已列档位放行(按 default 最严)', async () => {
     stubConfirmation()
     mockGetPermission.mockResolvedValue({ mode: 'yolo-mode' })

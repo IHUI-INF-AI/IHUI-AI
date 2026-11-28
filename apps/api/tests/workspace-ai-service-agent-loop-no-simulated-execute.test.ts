@@ -36,7 +36,6 @@ vi.mock('../src/utils/ai-service-fetch.js', () => ({
 import { agentLoop, fsBridge, type AgentTask } from '../src/services/workspace-ai-service.js'
 
 /** 演示路径未执行声明的关键字(轨迹必须自陈"没执行",不得写成已执行) */
-const NOT_EXECUTED = '未执行'
 
 const createdTaskIds: string[] = []
 
@@ -54,7 +53,7 @@ afterEach(() => {
 })
 
 describe('agentLoop.run 演示路径 · 只登记不执行', () => {
-  it('① tools=[探针] → 轨迹留 tool_call/tool_result 成对两行,但 execute 零调用', async () => {
+  it('① tools=[探针] → LLM 未发 tool_call 时探针零调用、轨迹零 tool_*', async () => {
     const seen: unknown[] = []
     agentLoop.registerTool({
       name: 'probe_demo_leg',
@@ -67,18 +66,11 @@ describe('agentLoop.run 演示路径 · 只登记不执行', () => {
 
     const task = takeTask(await agentLoop.run({ goal: 'g-demo', tools: ['probe_demo_leg'] }))
 
-    // 探针从未被执行 ⇒ 副作用集合恒空(执行过一次就会留下一条)
+    // LLM 只回内容、未发 tool_call ⇒ 探针从不执行，副作用集合恒空。
     expect(seen).toEqual([])
     expect(JSON.stringify(task.steps)).not.toContain('SIDE_EFFECT_HAPPENED')
-
-    const call = task.steps.find((s) => s.type === 'tool_call')
-    const result = task.steps.find((s) => s.type === 'tool_result')
-    expect(call?.tool).toBe('probe_demo_leg')
-    expect(result?.tool).toBe('probe_demo_leg')
-    expect(call?.content).toContain(NOT_EXECUTED)
-    expect(result?.content).toContain(NOT_EXECUTED)
+    expect(task.steps.filter((s) => s.type === 'tool_call' || s.type === 'tool_result')).toEqual([])
     expect(task.status).toBe('completed')
-    // LLM 思考腿仍在(摘的是模拟执行腿,不是整条循环)
     expect(llmFetch.fetch).toHaveBeenCalledTimes(1)
   })
 
@@ -101,16 +93,13 @@ describe('agentLoop.run 演示路径 · 只登记不执行', () => {
     expect(seen).toEqual([{ path: 'a.txt' }])
   })
 
-  it('③ tools=[write_file] → 演示路径不触碰 fsBridge.write(空参落盘腿)', async () => {
+  it('③ tools=[write_file] → LLM 未发 tool_call 时不触碰 fsBridge.write', async () => {
     const writeSpy = vi.spyOn(fsBridge, 'write')
 
     const task = takeTask(await agentLoop.run({ goal: 'g-write', tools: ['write_file'] }))
 
     expect(writeSpy).not.toHaveBeenCalled()
-    const result = task.steps.find((s) => s.type === 'tool_result')
-    expect(result?.tool).toBe('write_file')
-    expect(result?.content).toContain(NOT_EXECUTED)
-    // 改动前空参落盘会把任务打成 failed;现在必须是正常完成
+    expect(task.steps.filter((s) => s.type === 'tool_call' || s.type === 'tool_result')).toEqual([])
     expect(task.status).toBe('completed')
     expect(task.error).toBeNull()
   })

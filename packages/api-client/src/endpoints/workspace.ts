@@ -243,6 +243,29 @@ export async function getRecentWorkspaces(): Promise<ApiResult<{ workspaces: Rec
   return fetchApi<{ workspaces: RecentWorkspace[] }>('/api/workspace/fs/recent')
 }
 
+/**
+ * 为后台任务准备一个服务端默认工作区。
+ *
+ * 2026-11-28:服务端除了建目录，还会把该目录初始化为 accept-edits（文件写/改按模板
+ * 自动放行，任意 shell 仍审计；用户自选目录不受影响）。返回值带 permissionMode，
+ * 前端不再把它当成“无权限目录”。
+ */
+export async function ensureAgentDefaultWorkspace(): Promise<
+  ApiResult<{
+    workspacePath: string
+    name: string
+    permissionMode?: string
+    permissionChanged?: boolean
+  }>
+> {
+  return fetchApi<{
+    workspacePath: string
+    name: string
+    permissionMode?: string
+    permissionChanged?: boolean
+  }>('/api/workspace/agent/default-workspace', { method: 'POST' })
+}
+
 // =============================================================================
 // FS Bridge Read/Write/Edit/Delete — 文件读写编辑删除
 // =============================================================================

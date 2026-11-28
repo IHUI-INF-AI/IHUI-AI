@@ -24,6 +24,12 @@ import { useOptionalPaneId } from '@/stores/chat-pane-context'
 interface AiToolsPanelState {
   /** 工具面板是否展开 */
   open: boolean
+  /** 当前工具页签;unified = 任务中心。2026-11-28 从组件本地 state 收到 store,
+   * 让“+ 菜单任务中心”在空会话也能一次点到位,并随窗格各自寻址。 */
+  activeTab: string
+  setActiveTab: (tab: string) => void
+  /** 直接打开任务中心:展开面板并切到 unified。 */
+  openTaskCenter: () => void
   toggle: () => void
   openPanel: () => void
   closePanel: () => void
@@ -47,6 +53,9 @@ function buildAiToolsPanelStore(persistName: string) {
     persist(
       (set) => ({
         open: false,
+        activeTab: 'plan',
+        setActiveTab: (tab: string) => set({ activeTab: tab }),
+        openTaskCenter: () => set({ open: true, activeTab: 'unified' }),
         toggle: () => set((s) => ({ open: !s.open })),
         openPanel: () => set({ open: true }),
         closePanel: () => set({ open: false }),

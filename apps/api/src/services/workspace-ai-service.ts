@@ -9,7 +9,7 @@
  * 所有模块采用内存存储 + 文件持久化（~/.ihui/ 风格），最小化外部依赖。
  */
 
-import { exec, execFile } from 'node:child_process'
+import { exec, execFile, spawn } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 import { judgeBoundedSystemJob, type BoundedJobVerdict } from '../utils/process-probe.js'
@@ -59,11 +59,15 @@ import {
 // 远程沙箱后端(2026-11-20):显式 opt-in,缺配置即关(见模块头注)
 import { executeRemoteSandbox, resolveRemoteSandbox } from './remote-sandbox.js'
 import { budgetWithSpill, TOOL_OUTPUT_MAX_CHARS } from './output-spill.js'
+import { compactAgentContext, resolveAgentContextMaxChars } from './agent-context-budget.js'
+import { archiveAgentTask } from './agent-task-archive.js'
 import { promisify } from 'node:util'
+import { ApprovalChannel } from '@ihui/agent-sdk'
 import { hasNestedQuantifier } from './rules-service.js'
 // 规则级审批引擎(纯函数)+ 授权/历史记忆:静态导入,避免在 FS Bridge 热路径上
 // 每次判定都多一次动态 import 的模块加载延迟(既有用例按"一个 tick"断言 pending)。
-import { computeFacts, decideApproval } from '@ihui/shared/permission'
+import { assertPermissionDecision, computeFacts, decideApproval } from '@ihui/shared/permission'
+import type { PermissionDecision } from '@ihui/shared/permission'
 import { listApprovalHistory, recordApprovalHistory } from './permission-grants.js'
 // 读前写保护(工具层护栏):观察态只在内存,不跨会话持久(§0.12 复现 dsh fs-observation-policy)
 import { FsObservationStore, isFsObservationEnforced } from './fs-observation-policy.js'
@@ -712,6 +716,23 @@ export interface AgentStep {
   content: string
   tool?: string
   args?: unknown
+  /** 工具授权快照（P0-A 第二段）：decision/reason/matchedRule/requestId 进任务轨迹，便于回读“凭什么放行/拒绝”。 */
+  permission?: {
+    decision: 'allow' | 'deny'
+    reason?: string
+    matchedRule?: string
+    requestId?: string
+    /** P0-A 正式决策对象：带 scope/sessionId/expiresAt/evidenceRef，和 L01 同一个形态。 */
+    permissionDecision?: PermissionDecision
+  }
+  /** L03 审批事件：走 ApprovalChannel 的 approval 队列，seq/requestId/state 进任务轨迹。 */
+  approval?: {
+    queue: 'approval'
+    seq: number
+    requestId: string
+    state: 'pending' | 'allowed' | 'denied'
+    note?: string
+  }
 }
 
 export interface AgentTask {
@@ -719,6 +740,11 @@ export interface AgentTask {
   /** 任务发起人;list/status/cancel/inject 一律按此归属过滤(F-39) */
   userId: string
   sessionId: string
+  /**
+   * 发起该任务的聊天会话。普通用户的任务中心以会话为主入口，
+   * 运行态通过这个字段投影回左侧会话行；历史任务可能没有该字段。
+   */
+  conversationId?: string
   goal: string
   status: AgentTaskStatus
   /** P3 #44 阶段1:running 起始时间(瓶颈高亮数据源);终态任务保留原值 */
@@ -729,20 +755,127 @@ export interface AgentTask {
   steps: AgentStep[]
   result: string
   error: string | null
+  /** 失败归因码(计费/权限/上游/迭代上限);成功为 undefined */
+  errorCode?: string
+  /** 本次任务累计的真实 token 用量;拿不到 usage 时缺省 */
+  usage?: { promptTokens: number; completionTokens: number; totalTokens: number }
+  /** 本次任务实际使用的模型(由上游响应回填) */
+  model?: string
+  /** P0-C：最近一次发给 LLM 的上下文预算快照；用于判断是否触发压缩 */
+  contextBudget?: {
+    maxChars: number
+    beforeChars: number
+    afterChars: number
+    compacted: boolean
+  }
+  /** 任务绑定的工作区;工具入参里的 workspacePath 一律被它覆盖 */
+  workspacePath?: string
   createdAt: string
   updatedAt: string
 }
 
-interface ToolHandler {
+export interface AgentToolCall {
+  id: string
+  name: string
+  /** OpenAI function.arguments 原样 JSON 字符串;执行前统一解析 */
+  arguments: string
+}
+
+export interface AgentLlmRequest {
+  taskId: string
+  iteration: number
+  messages: Array<Record<string, unknown>>
+  tools: Array<Record<string, unknown>>
+  model?: string
+  workspacePath?: string
+}
+
+export interface AgentLlmResult {
+  content: string
+  toolCalls: AgentToolCall[]
+  usage?: { promptTokens: number; completionTokens: number; totalTokens: number }
+  model?: string
+}
+
+export interface AgentToolAuthorizationContext {
+  taskId: string
+  iteration: number
+  tool: string
+  args: Record<string, unknown>
+  /**
+   * L03 pending：授权钩子在真正阻塞等待人工审批时先回调 requestId。
+   * AgentLoop 用它把 `state:'pending'` 立即写进轨迹，而不是等决策完才补快照。
+   */
+  onApprovalRequested?: (requestId: string) => void
+}
+
+export interface AgentToolAuthorization {
+  allowed: boolean
+  reason?: string
+  /** 授权决策快照，供 AgentStep.permission 回读；不参与执行判定 */
+  decision?: 'allow' | 'deny'
+  matchedRule?: string
+  requestId?: string
+  /** P0-A 正式决策对象；由路由按实际 workspace 档位/规则/审批生成。 */
+  permissionDecision?: PermissionDecision
+}
+
+export interface AgentToolExecutionContext {
+  /** 任务取消信号：工具应尽快停止并在结果里说明；不强制所有工具实现 */
+  signal?: AbortSignal
+}
+
+export interface ToolHandler {
   name: string
   description: string
-  execute: (args: Record<string, unknown>) => Promise<string>
+  /** OpenAI function parameters JSON Schema;缺省时模型只能盲调,故内置工具必须提供 */
+  parameters?: Record<string, unknown>
+  execute: (args: Record<string, unknown>, context?: AgentToolExecutionContext) => Promise<string>
+}
+
+/** 把 OpenAI / 旧版 agent 两种 tool_calls 形态统一成 {id,name,arguments(JSON 字符串)}。 */
+export function normalizeAgentToolCalls(raw: unknown, iteration = 1): AgentToolCall[] {
+  if (!Array.isArray(raw)) return []
+  const calls: AgentToolCall[] = []
+  for (const [index, item] of raw.entries()) {
+    if (typeof item !== 'object' || item === null) continue
+    const row = item as Record<string, unknown>
+    const fn =
+      typeof row['function'] === 'object' && row['function'] !== null
+        ? (row['function'] as Record<string, unknown>)
+        : null
+    const name = String(fn?.['name'] ?? row['name'] ?? '').trim()
+    if (!name) continue
+    const rawArgs = fn?.['arguments'] ?? row['args'] ?? row['arguments'] ?? {}
+    const argsText =
+      typeof rawArgs === 'string'
+        ? rawArgs
+        : (() => {
+            try {
+              return JSON.stringify(rawArgs)
+            } catch {
+              return '{}'
+            }
+          })()
+    calls.push({
+      id: String(row['id'] ?? `call_${iteration}_${index}`),
+      name,
+      arguments: argsText,
+    })
+  }
+  return calls
+}
+
+/** 取消是外部写入的终态;用 string 比较绕开 TS 对局部 status 的收窄(否则会判“不可能”)。 */
+function isAgentTaskCanceled(task: AgentTask): boolean {
+  return (task.status as string) === 'canceled'
 }
 
 class AgentLoopRuntime {
   private tasks = new Map<string, AgentTask>()
   private tools = new Map<string, ToolHandler>()
   private injections = new Map<string, string[]>()
+  private taskAborts = new Map<string, AbortController>()
 
   private static readonly TERMINAL_TTL_MS = 60 * 60 * 1000
 
@@ -771,9 +904,13 @@ class AgentLoopRuntime {
     if (!task || task.userId !== userId || task.status !== 'running') return false
     const trimmed = content.trim()
     if (!trimmed) return false
+    const queued = trimmed.slice(0, 2000)
     const queue = this.injections.get(taskId) ?? []
-    queue.push(trimmed.slice(0, 2000))
+    queue.push(queued)
     this.injections.set(taskId, queue)
+    // AgentTask.injections 是状态查询的可见快照;此前只写私有队列,status/list
+    // 永远回 []，前端无法区分“已接收待消费”和“没收到”。消费时同步清空。
+    task.injections = [...queue]
     return true
   }
 
@@ -781,6 +918,8 @@ class AgentLoopRuntime {
     const queue = this.injections.get(taskId)
     if (!queue || queue.length === 0) return []
     this.injections.set(taskId, [])
+    const task = this.tasks.get(taskId)
+    if (task) task.injections = []
     return queue
   }
 
@@ -811,8 +950,82 @@ class AgentLoopRuntime {
     const task = this.tasks.get(taskId)
     if (!task || task.userId !== userId || task.status !== 'running') return false
     task.status = 'canceled'
+    // P0-B：先置终态再 abort，保证工具内 signal 监听看到的 task 状态已是 canceled；
+    // 工具实现可据此停止长任务；未实现的工具至少不会把任务再改回 completed。
+    this.taskAborts.get(taskId)?.abort()
     task.updatedAt = nowIso()
     return true
+  }
+
+  private normalizeToolCalls(raw: unknown, iteration: number): AgentToolCall[] {
+    return normalizeAgentToolCalls(raw, iteration)
+  }
+
+  private buildToolDefinitions(names: string[]): Array<Record<string, unknown>> {
+    return names
+      .map((name) => this.tools.get(name))
+      .filter((tool): tool is ToolHandler => Boolean(tool))
+      .map((tool) => ({
+        type: 'function',
+        function: {
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.parameters ?? {
+            type: 'object',
+            properties: {},
+            additionalProperties: true,
+          },
+        },
+      }))
+  }
+
+  /** 默认 LLM 出口:走 ai-service /api/llm/complete 的 OpenAI function calling。 */
+  private async defaultLlmRunner(request: AgentLlmRequest): Promise<AgentLlmResult> {
+    const resp = await aiServiceSystemFetch('/api/llm/complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: request.messages,
+        ...(request.model ? { model: request.model } : {}),
+        ...(request.tools.length > 0 ? { tools: request.tools, tool_choice: 'auto' } : {}),
+        temperature: 0.2,
+        max_tokens: 4096,
+      }),
+      signal: AbortSignal.timeout(90_000),
+    })
+    if (!resp.ok) {
+      const detail = await resp.text().catch(() => '')
+      throw new Error(
+        `ai-service /api/llm/complete 返回 ${resp.status}${detail ? `: ${detail.slice(0, 240)}` : ''}`,
+      )
+    }
+    const data = (await resp.json()) as Record<string, unknown>
+    if (data['error']) {
+      throw new Error(String(data['error_message'] ?? data['message'] ?? 'LLM 调用失败'))
+    }
+    const usageRaw =
+      typeof data['usage'] === 'object' && data['usage'] !== null
+        ? (data['usage'] as Record<string, unknown>)
+        : null
+    const usage =
+      usageRaw && Number.isFinite(Number(usageRaw['total_tokens']))
+        ? {
+            promptTokens: Math.max(0, Number(usageRaw['prompt_tokens'] ?? 0)),
+            completionTokens: Math.max(0, Number(usageRaw['completion_tokens'] ?? 0)),
+            totalTokens: Math.max(0, Number(usageRaw['total_tokens'] ?? 0)),
+          }
+        : undefined
+    return {
+      content: String(
+        data['content'] ??
+          (data['choices'] as Array<{ message?: { content?: string } }> | undefined)?.[0]?.message
+            ?.content ??
+          '',
+      ),
+      toolCalls: this.normalizeToolCalls(data['tool_calls'], request.iteration),
+      usage,
+      model: typeof data['model'] === 'string' ? data['model'] : undefined,
+    }
   }
 
   async run(params: {
@@ -820,18 +1033,36 @@ class AgentLoopRuntime {
     /** 任务发起人(F-39):写入任务并作为后续 list/status/cancel/inject 的归属键 */
     userId: string
     sessionId?: string
+    /** 发起任务的聊天会话；缺省时任务只作为后台任务存在 */
+    conversationId?: string
     model?: string
     maxIterations?: number
     tools?: string[]
     workspacePath?: string
+    /** 路由预生成的 taskId;缺省时自生成。仅用于让计费引用在 run 之前就能绑定。 */
+    taskId?: string
+    /** LLM 调用出口;路由注入计费版,测试注入 fake。缺省走 ai-service。 */
+    llmRunner?: (request: AgentLlmRequest) => Promise<AgentLlmResult>
+    /** 每个工具执行前的授权钩子;返回 denied 时记录 tool_result 并继续给模型纠偏机会。 */
+    authorizeTool?: (
+      context: AgentToolAuthorizationContext,
+    ) => Promise<AgentToolAuthorization> | AgentToolAuthorization
+    /** 是否把工具暴露给模型;缺省仅当有 workspacePath 时才开(无工作区=无执行边界)。 */
+    allowTools?: boolean
+    /** 当前用户是否管理员:只决定 run_command 的解释器闸;模型自报的同名参数会被覆盖。 */
+    isAdmin?: boolean
+    /** 每轮最多执行多少个工具调用,防止模型一次输出几十个副作用调用 */
+    maxToolCallsPerIteration?: number
   }): Promise<AgentTask> {
-    const taskId = randomUUID().replace(/-/g, '').slice(0, 12)
+    const taskId = params.taskId ?? randomUUID().replace(/-/g, '').slice(0, 12)
     const sessionId = params.sessionId ?? randomUUID().replace(/-/g, '').slice(0, 12)
-    const maxIter = params.maxIterations ?? 10
+    const maxIter = Math.max(1, Math.min(100, params.maxIterations ?? 10))
+    const maxToolCalls = Math.max(1, Math.min(32, params.maxToolCallsPerIteration ?? 8))
     const task: AgentTask = {
       taskId,
       userId: params.userId,
       sessionId,
+      ...(params.conversationId ? { conversationId: params.conversationId } : {}),
       goal: params.goal,
       status: 'running',
       startedAt: nowIso(),
@@ -840,120 +1071,345 @@ class AgentLoopRuntime {
       steps: [],
       result: '',
       error: null,
+      ...(params.model ? { model: params.model } : {}),
+      ...(params.workspacePath ? { workspacePath: params.workspacePath } : {}),
       createdAt: nowIso(),
       updatedAt: nowIso(),
     }
     this.pruneTerminalTasks()
     this.tasks.set(taskId, task)
+    // P0-B：每个任务一个 AbortController；cancel() 会触发它，工具可选接收
+    const abortController = new AbortController()
+    this.taskAborts.set(taskId, abortController)
+    // L03：每个任务一个审批通道；requestId 来自 workspace.permission.request，
+    // 入队/决策后把 seq/state 写进 tool_call step，重连补发与审计走同一协议。
+    const approvalChannel = new ApprovalChannel()
+    const contextMaxChars = resolveAgentContextMaxChars()
+
+    const toolsAllowed = params.allowTools ?? Boolean(params.workspacePath)
+    const toolNames = !toolsAllowed
+      ? []
+      : params.tools && params.tools.length > 0
+        ? params.tools.filter((name) => this.tools.has(name))
+        : this.listTools().map((tool) => tool.name)
+    const toolDefinitions = this.buildToolDefinitions(toolNames)
+    const llmRunner =
+      params.llmRunner ?? ((request: AgentLlmRequest) => this.defaultLlmRunner(request))
+    const messages: Array<Record<string, unknown>> = [
+      {
+        role: 'system',
+        content:
+          '你是 IHUI 工作区执行 Agent。你必须用提供的工具真实操作文件/命令，不能声称已执行却未调用工具。' +
+          '每轮只做当前必要的一步；工具结果会回到你手里。完成目标后给出简洁的最终答复，不要再调用工具。' +
+          (params.workspacePath
+            ? `当前工作区: ${params.workspacePath}。所有文件路径都相对于该工作区。`
+            : ''),
+      },
+      { role: 'user', content: params.goal },
+    ]
+    let sawFinalAnswer = false
 
     try {
-      // F-306:LLM 真实失败时禁止落伪成功分支(completed + 伪造「第 N 轮思考」)。
-      let llmError: string | null = null
       for (let i = 0; i < maxIter; i++) {
-        if (task.status === 'canceled') break
+        if (isAgentTaskCanceled(task)) break
         task.iterations = i + 1
-        // P3 #44 阶段3:消费中途插话,拼进本轮思考 prompt
         const injected = this.drainInjections(taskId)
         if (injected.length > 0) {
           for (const msg of injected) {
             task.steps.push({ iteration: i + 1, type: 'llm', content: `[用户中途插话] ${msg}` })
           }
-        }
-        const injectionBlock =
-          injected.length > 0
-            ? `\n用户中途插话(请优先响应):\n${injected.map((m) => `- ${m}`).join('\n')}`
-            : ''
-        // LLM 思考步骤 — F-306:ai-service 的 llm 路由只挂在 `/api` 前缀下
-        // (apps/ai-service/app/main.py include_router(llm.router, prefix="/api")),
-        // 旧写法 `/llm/chat` 恒 404;404 又落伪成功分支,任务被置 completed。
-        let llmContent: string
-        try {
-          const llmResp = await aiServiceSystemFetch('/api/llm/complete', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              messages: [
-                { role: 'system', content: `你是一个任务执行 Agent。目标: ${params.goal}` },
-                {
-                  role: 'user',
-                  content: `第 ${i + 1} 轮迭代，请思考下一步行动。已完成步骤: ${task.steps.map((s) => s.content).join('; ') || '无'}${injectionBlock}`,
-                },
-              ],
-              stream: false,
-            }),
-            signal: AbortSignal.timeout(60_000),
+          messages.push({
+            role: 'user',
+            content: `用户中途插话(请优先响应):\n${injected.map((m) => `- ${m}`).join('\n')}`,
           })
-          if (llmResp.ok) {
-            const llmData = (await llmResp.json()) as {
-              content?: string
-              choices?: { message?: { content: string } }[]
-            }
-            llmContent =
-              llmData.content ?? llmData.choices?.[0]?.message?.content ?? `第 ${i + 1} 轮思考完成`
-          } else {
-            llmError = `ai-service /api/llm/complete 返回 ${llmResp.status}`
-            llmContent = `[LLM 调用失败] ${llmError}`
-          }
-        } catch (e) {
-          llmError = `ai-service /api/llm/complete 调用异常: ${(e as Error).message}`
-          llmContent = `[LLM 调用失败] ${llmError}`
         }
-        // F-306:上游失败时不得把「LLM 调用失败」写进助手轨迹/result —— 那会被消费方
-        // 当成一条正常产出(伪成功)。失败信息只落 task.error,steps/result 保持未产出。
-        if (llmError) break
-        task.steps.push({ iteration: i + 1, type: 'llm', content: llmContent })
 
-        // 工具调用登记（演示路径：只记轨迹、零执行。2026-10-26 摘掉"模拟执行腿"）
-        // 立因（守门 115 点名本文件原第 505 行 `tool.execute` 空参站点）：这一带此前用空对象
-        // 直接落到注册工具上，等于**结构上绕过工具入参校验** —— 而本 run 循环的 LLM 步骤产出的
-        // 是自由文本，全程没有任何结构化工具入参来源，于是空参执行必然打到有真实副作用的注册工具
-        // （write_file 落盘 / run_command 起子进程 / atomic_checkpoint 全栈快照）。
-        // 带校验的真执行出口只有一份：apps/cli 侧 shadowValidateToolArguments → validateToolArguments
-        // （AGENTS.md §0.6 单一真相源，本文件禁止自写第二把判据）；而 apps/api 既未依赖 @ihui/cli，
-        // `routes/workspace-ai.ts` 的 agentRunSchema 也只透传 `tools: string[]`（无入参面）。
-        // 所以演示路径的正解是"登记这次调用意图"，不是"替它执行一次"：轨迹两行（tool_call +
-        // tool_result）形态不变，内容显式声明未执行，消费方（GET /agent/tasks、web 面板）不受影响。
-        if (params.tools && params.tools.length > 0 && i === 0) {
-          const toolName = params.tools[0]!
-          const tool = this.tools.get(toolName)
-          if (tool) {
+        const context = compactAgentContext(messages, contextMaxChars)
+        task.contextBudget = {
+          maxChars: contextMaxChars,
+          beforeChars: context.beforeChars,
+          afterChars: context.afterChars,
+          compacted: context.compacted,
+        }
+        const llmResult = await llmRunner({
+          taskId,
+          iteration: i + 1,
+          messages: context.messages,
+          tools: toolDefinitions,
+          model: params.model,
+          workspacePath: params.workspacePath,
+        })
+        if (isAgentTaskCanceled(task)) break
+        if (llmResult.model) task.model = llmResult.model
+        if (llmResult.usage) {
+          const prev = task.usage ?? { promptTokens: 0, completionTokens: 0, totalTokens: 0 }
+          task.usage = {
+            promptTokens: prev.promptTokens + llmResult.usage.promptTokens,
+            completionTokens: prev.completionTokens + llmResult.usage.completionTokens,
+            totalTokens: prev.totalTokens + llmResult.usage.totalTokens,
+          }
+        }
+        const content = llmResult.content.trim()
+        const calls = llmResult.toolCalls.slice(0, maxToolCalls)
+        if (content || calls.length === 0) {
+          task.steps.push({
+            iteration: i + 1,
+            type: 'llm',
+            content: content || '[LLM 未返回内容]',
+          })
+        }
+
+        if (calls.length === 0) {
+          if (!content) {
+            task.status = 'failed'
+            task.error = 'LLM 未返回内容或工具调用'
+            task.errorCode = 'EMPTY_LLM_RESPONSE'
+            break
+          }
+          task.result = content
+          sawFinalAnswer = true
+          break
+        }
+
+        const assistantToolCalls = calls.map((call) => ({
+          id: call.id,
+          type: 'function',
+          function: { name: call.name, arguments: call.arguments },
+        }))
+        messages.push({
+          role: 'assistant',
+          content: content || null,
+          tool_calls: assistantToolCalls,
+        })
+
+        for (const call of calls) {
+          if (isAgentTaskCanceled(task)) break
+          const tool = this.tools.get(call.name)
+          let args: Record<string, unknown> = {}
+          try {
+            const parsed = call.arguments.trim() ? JSON.parse(call.arguments) : {}
+            if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+              throw new Error('工具参数必须是 JSON 对象')
+            }
+            args = parsed as Record<string, unknown>
+          } catch (e) {
+            const result = JSON.stringify({
+              ok: false,
+              code: 'TOOL_BAD_ARGUMENTS',
+              error: (e as Error).message,
+            })
             task.steps.push({
               iteration: i + 1,
               type: 'tool_call',
-              content: `登记工具调用 ${toolName}（未执行：本路径无结构化工具入参，不代为执行）`,
-              tool: toolName,
+              content: `调用 ${call.name}（参数解析失败）`,
+              tool: call.name,
+              args: call.arguments,
             })
-            // 只登记不执行：这里**不得**调 tool.execute（空参形态既绕过入参校验，又会落到
-            // write_file 落盘 / run_command 起子进程这类有真实副作用的工具上）。结果行由本路径
-            // 自陈"未执行 + 为什么"，与上面那条 tool_call 成对，消费方形态不变。
             task.steps.push({
               iteration: i + 1,
               type: 'tool_result',
-              content: `工具 ${toolName} 未执行：本路径无结构化工具入参，不代为执行（只登记调用意图）`,
-              tool: toolName,
+              content: result,
+              tool: call.name,
             })
+            messages.push({ role: 'tool', tool_call_id: call.id, content: result })
+            continue
           }
+          // 工作区是任务级不可变边界:模型传什么 workspacePath 都覆盖掉,避免跨工作区读写
+          if (params.workspacePath) args['workspacePath'] = params.workspacePath
+          // 模型自报的身份标记一律丢弃;真正的 isAdmin 由 run 参数注入 executionArgs
+          delete args['__isAdmin']
+          const toolStep: AgentStep = {
+            iteration: i + 1,
+            type: 'tool_call',
+            content: `调用 ${call.name}`,
+            tool: call.name,
+            args,
+          }
+          task.steps.push(toolStep)
+          // 解释器闸的身份由服务端覆盖:模型不能靠自报 __isAdmin 绕过 node/pnpm 的 admin 限制;
+          // 单独的 executionArgs 避免把内部标记写进任务轨迹。
+          const executionArgs = { ...args, __isAdmin: params.isAdmin === true }
+
+          let resultText: string
+          if (!tool) {
+            resultText = JSON.stringify({
+              ok: false,
+              code: 'TOOL_NOT_FOUND',
+              error: `工具 ${call.name} 不存在`,
+            })
+          } else {
+            const approvalRequestRef: {
+              current: { requestId: string; seq: number } | null
+            } = { current: null }
+            const auth = params.authorizeTool
+              ? await params.authorizeTool({
+                  taskId,
+                  iteration: i + 1,
+                  tool: call.name,
+                  args,
+                  onApprovalRequested: (requestId: string) => {
+                    if (approvalRequestRef.current) return
+                    try {
+                      const envelope = approvalChannel.enqueue({
+                        kind: 'approval',
+                        sessionId: taskId,
+                        requestId,
+                        payload: {
+                          tool: call.name,
+                          iteration: i + 1,
+                          args,
+                          reason: '等待人工审批',
+                        },
+                      })
+                      approvalRequestRef.current = { requestId, seq: envelope.seq }
+                      toolStep.approval = {
+                        queue: 'approval',
+                        seq: envelope.seq,
+                        requestId,
+                        state: 'pending',
+                      }
+                    } catch (e) {
+                      logger.warn(
+                        `[workspace-agent] pending 审批入轨迹失败 taskId=${taskId} requestId=${requestId}: ${(e as Error).message}`,
+                      )
+                    }
+                  },
+                })
+              : { allowed: true }
+            if (params.authorizeTool) {
+              toolStep.permission = {
+                decision: auth.allowed ? 'allow' : 'deny',
+                ...(auth.reason ? { reason: auth.reason } : {}),
+                ...(auth.matchedRule ? { matchedRule: auth.matchedRule } : {}),
+                ...(auth.requestId ? { requestId: auth.requestId } : {}),
+                ...(auth.permissionDecision ? { permissionDecision: auth.permissionDecision } : {}),
+              }
+              const requestedApproval = approvalRequestRef.current
+              const approvalState: 'allowed' | 'denied' = auth.allowed ? 'allowed' : 'denied'
+              try {
+                // 先收掉 pending（同一 requestId 就复用它的 seq，不同则把旧事件按最终状态闭合）。
+                if (requestedApproval && requestedApproval.requestId !== auth.requestId) {
+                  approvalChannel.decide(requestedApproval.seq, approvalState, auth.reason)
+                  toolStep.approval = {
+                    queue: 'approval',
+                    seq: requestedApproval.seq,
+                    requestId: requestedApproval.requestId,
+                    state: approvalState,
+                    ...(auth.reason ? { note: auth.reason } : {}),
+                  }
+                }
+                if (auth.requestId) {
+                  let seq =
+                    requestedApproval?.requestId === auth.requestId
+                      ? requestedApproval.seq
+                      : undefined
+                  if (seq === undefined) {
+                    const envelope = approvalChannel.enqueue({
+                      kind: 'approval',
+                      sessionId: taskId,
+                      requestId: auth.requestId,
+                      payload: {
+                        tool: call.name,
+                        iteration: i + 1,
+                        args,
+                        reason: auth.reason ?? null,
+                      },
+                    })
+                    seq = envelope.seq
+                  }
+                  const decided = approvalChannel.decide(seq, approvalState, auth.reason)
+                  toolStep.approval = {
+                    queue: 'approval',
+                    seq: decided.seq,
+                    requestId: decided.requestId,
+                    state: approvalState,
+                    ...(decided.note ? { note: decided.note } : {}),
+                  }
+                } else if (requestedApproval && toolStep.approval?.state === 'pending') {
+                  // 走到这里说明授权钩子已发 pending 但没回 requestId；用最终判定闭合，避免轨迹停在 pending。
+                  const decided = approvalChannel.decide(
+                    requestedApproval.seq,
+                    approvalState,
+                    auth.reason,
+                  )
+                  toolStep.approval = {
+                    queue: 'approval',
+                    seq: decided.seq,
+                    requestId: decided.requestId,
+                    state: approvalState,
+                    ...(decided.note ? { note: decided.note } : {}),
+                  }
+                }
+              } catch (e) {
+                // requestId 重复/通道异常不能把工具授权判定改写；只丢事件，不丢 decision。
+                logger.warn(
+                  `[workspace-agent] 审批事件入轨迹失败 taskId=${taskId} requestId=${auth.requestId ?? requestedApproval?.requestId}: ${(e as Error).message}`,
+                )
+              }
+            }
+            if (!auth.allowed) {
+              resultText = JSON.stringify({
+                ok: false,
+                code: 'TOOL_PERMISSION_DENIED',
+                error: auth.reason ?? '该工具调用未获授权',
+              })
+            } else {
+              try {
+                resultText = await tool.execute(executionArgs, {
+                  signal: abortController.signal,
+                })
+              } catch (e) {
+                resultText = JSON.stringify({
+                  ok: false,
+                  code: 'TOOL_EXECUTION_FAILED',
+                  error: (e as Error).message,
+                })
+              }
+            }
+          }
+          task.steps.push({
+            iteration: i + 1,
+            type: 'tool_result',
+            content: resultText.slice(0, TOOL_OUTPUT_MAX_CHARS),
+            tool: call.name,
+          })
+          messages.push({
+            role: 'tool',
+            tool_call_id: call.id,
+            content: resultText.slice(0, TOOL_OUTPUT_MAX_CHARS),
+          })
         }
-        task.result = llmContent
-        // 简化：单轮即完成（避免无限循环）
-        break
+        if (isAgentTaskCanceled(task)) break
       }
-      if (task.status !== 'canceled') {
-        // F-306:LLM 未真正返回内容时置 failed;completed 只属于真实产出的一轮。
-        if (llmError) {
-          task.status = 'failed'
-          task.error = llmError
-        } else {
+
+      if (isAgentTaskCanceled(task)) {
+        // 用户中止是终态,不是失败;保留已有步骤与部分结果
+      } else if (task.status === 'running') {
+        if (sawFinalAnswer) {
           task.status = 'completed'
+        } else {
+          task.status = 'failed'
+          task.error = `达到最大迭代次数(${maxIter})仍未给出最终答复`
+          task.errorCode = 'MAX_ITERATIONS_EXCEEDED'
         }
       }
     } catch (e) {
       task.status = 'failed'
       task.error = (e as Error).message
+      const code = (e as Error & { code?: unknown }).code
+      if (typeof code === 'string' && code) task.errorCode = code
     }
     // 终态即释放插话队列;任务本体按 TTL 由 pruneTerminalTasks 回收
     this.injections.delete(taskId)
+    this.taskAborts.delete(taskId)
     task.updatedAt = nowIso()
+    // P2：终态任务落 JSONL，API 重启后仍可回放；落盘失败只告警，不改任务终态。
+    const archived = archiveAgentTask(task)
+    if (!archived.ok && archived.error !== 'archive-disabled') {
+      logger.warn(
+        `[workspace-agent] 任务轨迹落盘失败 taskId=${taskId}: ${archived.error ?? 'unknown'}`,
+      )
+    }
     return task
   }
 }
@@ -1366,6 +1822,45 @@ export type DependencyInstallRun = (plan: DependencyInstallPlan) => Promise<{
   exitCode: number | null
 }>
 
+/**
+ * P0-B：终止进程树。Windows 用 `taskkill /T /F`，Unix 先尝试进程组再退单进程。
+ * 失败不抛：取消是 best-effort，不能让清理失败把已经 canceled 的任务翻成 failed。
+ */
+export function killProcessTree(pid: number): void {
+  if (!Number.isFinite(pid) || pid <= 0) return
+  if (process.platform === 'win32') {
+    try {
+      const killer = spawn('taskkill', ['/PID', String(pid), '/T', '/F'], {
+        windowsHide: true,
+        stdio: 'ignore',
+      })
+      killer.on('error', () => {
+        try {
+          process.kill(pid, 'SIGKILL')
+        } catch {
+          // 进程已退出
+        }
+      })
+    } catch {
+      try {
+        process.kill(pid, 'SIGKILL')
+      } catch {
+        // 进程已退出
+      }
+    }
+    return
+  }
+  try {
+    process.kill(-pid, 'SIGKILL')
+  } catch {
+    try {
+      process.kill(pid, 'SIGKILL')
+    } catch {
+      // 进程已退出
+    }
+  }
+}
+
 class SandboxExecutor {
   resolveMode(mode: string): SandboxMode {
     const map: Record<string, SandboxMode> = {
@@ -1390,7 +1885,15 @@ class SandboxExecutor {
 
   checkNetworkCommand(command: string, mode: SandboxMode): boolean {
     if (!this.isNetworkRestricted(mode)) return false
-    return NETWORK_COMMANDS.some((c) => command.toLowerCase().includes(c.toLowerCase()))
+    // 只认 argv[0] 的可执行名,不做整串 includes —— 后者会把 `readFileSync`
+    // 里的 `nc` 之类参数文本误判成外连命令,让正常脚本无端 126。
+    // 解析失败不在这里背锅:execute 紧接着会用同一解析器拒绝非法字符(仍 fail-closed)。
+    const tokens = parseShellCommand(command)
+    if (!tokens || tokens.length === 0) return false
+    const binary = basename(tokens[0]!)
+      .toLowerCase()
+      .replace(/\.(exe|cmd|bat)$/i, '')
+    return NETWORK_COMMANDS.some((name) => name.toLowerCase() === binary)
   }
 
   private cleanEnv(): NodeJS.ProcessEnv {
@@ -1403,6 +1906,15 @@ class SandboxExecutor {
       if (SENSITIVE_ENV_KEYS.some((s) => key.toUpperCase().includes(s))) continue
       env[key] = val
     }
+    // Windows 默认 PATH 没有 Git 的 usr/bin,导致白名单里的 cat/ls/cp 全是 ENOENT;
+    // 这里只追加一个固定受信任目录(仍受二进制白名单/路径闸/网络闸约束),不读用户 PATH 之外的目录。
+    if (process.platform === 'win32') {
+      const programFiles = process.env.ProgramFiles ?? 'C:\\Program Files'
+      const gitUsrBin = join(programFiles, 'Git', 'usr', 'bin')
+      if (existsSync(gitUsrBin)) {
+        env.PATH = `${gitUsrBin};${env.PATH ?? process.env.PATH ?? ''}`
+      }
+    }
     return env
   }
 
@@ -1414,6 +1926,8 @@ class SandboxExecutor {
     timeoutMs?: number
     /** 2026-10-31 R8 复评 F1:解释器族仅 admin(路由层经 resolveAdminRoleId 判) */
     isAdmin?: boolean
+    /** P0-B：任务取消信号；AbortSignal 触发时终止直接子进程 */
+    signal?: AbortSignal
   }): Promise<{
     stdout: string
     stderr: string
@@ -1424,6 +1938,8 @@ class SandboxExecutor {
     /** 2026-11-23:截止先到时显式回结构化超时,不再只留 exitCode=null 让调用方猜。 */
     timedOut?: boolean
     timeoutMs?: number
+    /** P0-B：任务取消导致的中断（不是命令失败） */
+    aborted?: boolean
     error?: { name: 'ToolTimeoutError'; code: 'TOOL_TIMEOUT'; message: string }
   }> {
     const mode = params.mode ?? 'workspace-write'
@@ -1570,16 +2086,25 @@ class SandboxExecutor {
 
     const env = this.cleanEnv()
     const timeout = clampSandboxTimeout(params.timeoutMs)
+    let aborted = false
 
     try {
       // 用 execFile 替代 exec,绕过 shell 直接传递参数,无 shell 注入风险
+      let child: ReturnType<typeof execFile> | null = null
       const { stdout, stderr } = await new Promise<{ stdout: string; stderr: string }>(
         (resolve, reject) => {
-          execFile(
+          const onAbort = () => {
+            aborted = true
+            if (child?.pid) killProcessTree(child.pid)
+          }
+          if (params.signal?.aborted) onAbort()
+          else params.signal?.addEventListener('abort', onAbort, { once: true })
+          child = execFile(
             binary,
             tokens.slice(1),
             { cwd, env, timeout, maxBuffer: 1024 * 1024, shell: false, windowsHide: true },
             (err, out, errOut) => {
+              params.signal?.removeEventListener('abort', onAbort)
               if (err) {
                 ;(err as Error & { stdout?: string; stderr?: string }).stdout = out
                 ;(err as Error & { stdout?: string; stderr?: string }).stderr = errOut
@@ -1589,6 +2114,8 @@ class SandboxExecutor {
               resolve({ stdout: out, stderr: errOut })
             },
           )
+          // signal 在 spawn 前已 abort 时 child 还没 pid，这里补一次
+          if (params.signal?.aborted && child.pid) killProcessTree(child.pid)
         },
       )
       const verdict = settleSandboxJob({
@@ -1605,13 +2132,22 @@ class SandboxExecutor {
         mode,
       }
     } catch (e) {
+      if (aborted || params.signal?.aborted) {
+        return {
+          stdout: '',
+          stderr: '任务已取消',
+          exitCode: null,
+          mode,
+          aborted: true,
+        }
+      }
       const err = e as Error & {
         stdout?: string
         stderr?: string
         code?: unknown
         killed?: unknown
       }
-      const stderrText = err.stderr ?? err.message
+      const stderrText = err.stderr || err.message || '命令执行失败(无错误输出)'
       const verdict = settleSandboxJob({
         timeoutMs: timeout,
         killed: err.killed,
@@ -1727,7 +2263,7 @@ class SandboxExecutor {
         code?: unknown
         killed?: unknown
       }
-      const stderrText = err.stderr ?? err.message
+      const stderrText = err.stderr || err.message || '命令执行失败(无错误输出)'
       const verdict = settleSandboxJob({
         timeoutMs: plan.timeout,
         killed: err.killed,
@@ -2683,6 +3219,8 @@ const READ_TOOL_NAMES: ReadonlySet<string> = new Set([
   'view',
   'tree',
   'stat',
+  'read_file',
+  'list_dir',
 ])
 
 const EDIT_TOOL_NAMES: ReadonlySet<string> = new Set([
@@ -2693,6 +3231,8 @@ const EDIT_TOOL_NAMES: ReadonlySet<string> = new Set([
   'replace',
   'multi_edit',
   'notebook_edit',
+  'write_file',
+  'edit_file',
 ])
 
 /** 执行/删除类:改的是工作区之外的状态,任何档位都不该静默放行(除 bypassPermissions)。 */
@@ -2708,6 +3248,7 @@ const EXEC_TOOL_NAMES: ReadonlySet<string> = new Set([
   'mkdir',
   'chmod',
   'git',
+  'run_command',
 ])
 
 export function permissionToolFamilyOf(tool: string): PermissionToolFamily {
@@ -2716,6 +3257,66 @@ export function permissionToolFamilyOf(tool: string): PermissionToolFamily {
   if (EDIT_TOOL_NAMES.has(t)) return 'edit'
   if (EXEC_TOOL_NAMES.has(t)) return 'exec'
   return 'unknown'
+}
+
+/** AgentLoop 工具参数判定视图归一：path/file_path/filePath 与 dir/directory 都收敛到 path。 */
+export function normalizeAgentPermissionArgs(
+  tool: string,
+  args: Record<string, unknown>,
+): Record<string, unknown> {
+  const t = tool.trim().toLowerCase()
+  const normalized = { ...args }
+  if (t === 'read_file' || t === 'write_file' || t === 'edit_file') {
+    const path = args['path'] ?? args['file_path'] ?? args['filePath']
+    if (path !== undefined && normalized['path'] === undefined) normalized['path'] = path
+  }
+  if (t === 'list_dir') {
+    const path = args['path'] ?? args['dir'] ?? args['directory']
+    if (path !== undefined && normalized['path'] === undefined) normalized['path'] = path
+  }
+  return normalized
+}
+
+/**
+ * P0-A 正式决策对象：把 workspace 权限结果收敛成 L01 的 `PermissionDecision`。
+ *
+ * `allow` 必须有可回查凭据：规则命中 → `rule`；人工审批 → `grant`(requestId)；
+ * bypassPermissions/自身授权行 → `grant`(workspace-permission:<mode>:<path>)。
+ * 没有凭据的 allow 由 `assertPermissionDecision` 当场判死，绝不进轨迹。
+ */
+export function buildAgentPermissionDecision(input: {
+  taskId: string
+  tool: string
+  workspacePath: string
+  allowed: boolean
+  mode: string | null
+  reason: string
+  matchedRule?: string
+  requestId?: string
+  now?: number
+}): PermissionDecision {
+  const now = input.now ?? Date.now()
+  const decision: PermissionDecision = {
+    scope: 'builtin',
+    kind: input.allowed ? 'allow' : 'deny',
+    tool: input.tool,
+    sessionId: input.taskId,
+    expiresAt: now + 60_000,
+    reason: input.reason,
+    evidenceRef: input.allowed
+      ? input.matchedRule
+        ? { kind: 'rule', ref: input.matchedRule, note: input.reason }
+        : input.requestId
+          ? { kind: 'grant', ref: input.requestId, note: input.reason }
+          : {
+              kind: 'grant',
+              ref: `workspace-permission:${input.mode ?? 'unknown'}:${input.workspacePath}`,
+              note: input.reason,
+            }
+      : null,
+  }
+  assertPermissionDecision(decision, now)
+  return decision
 }
 
 /**
@@ -2779,7 +3380,7 @@ class PermissionManager {
     string,
     {
       req: PermissionRequest
-      resolve: (result: { allowed: boolean; reason: string }) => void
+      resolve: (result: { allowed: boolean; reason: string; requestId: string }) => void
       timer: ReturnType<typeof setTimeout>
     }
   >()
@@ -2946,6 +3547,35 @@ class PermissionManager {
    * "改了一条忘了另一条",而这条被忘的那条随时可能被人接进 fsBridge enforcement。
    * 现保留符号(契约不破)但实现委托给唯一活路径 checkWorkspace,重复梯子消除。
    */
+  /**
+   * AgentLoop 专用入口：先把工具入参的 path 别名归一，再走同一条 workspace 授权梯。
+   *
+   * 与 `checkWorkspace` 的区别只在“判定视图”：Agent 模型会给 `file_path`/`filePath`，
+   * 而规则表的 path 规则只读 `args.path`。工具执行层仍拿原始参数，避免把归一字段
+   * 当成模型输入的一部分回灌。工具名本身（read_file/write_file/edit_file/run_command）
+   * 已进入 `permissionToolFamilyOf`，因此 plan/acceptEdits/default 的档位语义一致。
+   */
+  async checkAgentTool(params: {
+    userId: string
+    workspacePath: string
+    tool: string
+    args: Record<string, unknown>
+    /** L03：人工审批真正阻塞前先回调 requestId，供 AgentLoop 落 pending 事件。 */
+    onApprovalRequest?: (requestId: string) => void
+  }): Promise<{
+    allowed: boolean
+    mode: string | null
+    configured: boolean
+    reason: string
+    matchedRule?: string
+    requestId?: string
+  }> {
+    return this.checkWorkspace({
+      ...params,
+      args: normalizeAgentPermissionArgs(params.tool, params.args),
+    })
+  }
+
   async checkWithDb(params: {
     userId: string
     workspacePath: string
@@ -2971,12 +3601,15 @@ class PermissionManager {
    * 与 requestConfirmation 不同:返回 Promise,等待 resolveWorkspace() 被调用才解锁。
    * 60s 超时自动拒绝,WebSocket 不可用立即拒绝。
    */
-  private requestWorkspaceConfirmation(params: {
-    userId: string
-    workspacePath: string
-    tool: string
-    args: Record<string, unknown>
-  }): Promise<{ allowed: boolean; reason: string }> {
+  private requestWorkspaceConfirmation(
+    params: {
+      userId: string
+      workspacePath: string
+      tool: string
+      args: Record<string, unknown>
+    },
+    onApprovalRequest?: (requestId: string) => void,
+  ): Promise<{ allowed: boolean; reason: string; requestId: string }> {
     const requestId = randomUUID().slice(0, 12)
     const req: PermissionRequest = {
       requestId,
@@ -2988,10 +3621,10 @@ class PermissionManager {
       resolvedAt: null,
     }
 
-    return new Promise<{ allowed: boolean; reason: string }>((resolve) => {
+    return new Promise<{ allowed: boolean; reason: string; requestId: string }>((resolve) => {
       const timer = setTimeout(() => {
         this.workspacePending.delete(requestId)
-        resolve({ allowed: false, reason: '人工审计超时(60s)' })
+        resolve({ allowed: false, reason: '人工审计超时(60s)', requestId })
       }, PermissionManager.WORKSPACE_AUDIT_TIMEOUT_MS)
 
       this.workspacePending.set(requestId, { req, resolve, timer })
@@ -3006,11 +3639,13 @@ class PermissionManager {
           args: params.args,
           createdAt: Date.now(),
         })
+        // L03：推送成功才代表真的进入等待；先回调让 AgentLoop 落 pending。
+        onApprovalRequest?.(requestId)
       } else {
         // WebSocket 不可用 → 立即拒绝,避免挂死
         clearTimeout(timer)
         this.workspacePending.delete(requestId)
-        resolve({ allowed: false, reason: 'WebSocket 不可用,无法人工审计' })
+        resolve({ allowed: false, reason: 'WebSocket 不可用,无法人工审计', requestId })
       }
     })
   }
@@ -3029,6 +3664,7 @@ class PermissionManager {
     entry.resolve({
       allowed: approved,
       reason: approved ? (reason ?? '用户允许') : (reason ?? '用户拒绝'),
+      requestId,
     })
     return true
   }
@@ -3135,6 +3771,8 @@ class PermissionManager {
      * 不发起阻塞式确认,按「未被拒绝」放行;硬 deny(未配置/plan 非只读/规则拒绝)不变。
      */
     enumerateOnly?: boolean
+    /** 真正发起 workspace.permission.request 时先回调 requestId。 */
+    onApprovalRequest?: (requestId: string) => void
   }): Promise<{
     allowed: boolean
     /**
@@ -3210,44 +3848,52 @@ class PermissionManager {
     // accept-edits → 查 DB 规则
     if (permMode === 'acceptEdits') {
       const dbRules = await listRules(params.userId, params.workspacePath)
-      for (const r of dbRules) {
-        if (
-          this.workspaceRuleMatches(r.ruleType, r.pattern, r.operation, params.tool, params.args)
-        ) {
-          if (r.decision === 'allow') {
-            await appendAuditLog({
-              userId: params.userId,
-              workspacePath: params.workspacePath,
-              toolName: params.tool,
-              args: JSON.stringify(params.args).slice(0, 1000),
-              decision: 'allow',
-              reason: `白名单 allow 匹配: ${r.pattern}`,
-            })
-            return {
-              allowed: true,
-              mode: permModeWire,
-              configured: true,
-              reason: `白名单 allow 匹配: ${r.pattern}`,
-              matchedRule: r.pattern,
-            }
-          }
-          if (r.decision === 'deny') {
-            await appendAuditLog({
-              userId: params.userId,
-              workspacePath: params.workspacePath,
-              toolName: params.tool,
-              args: JSON.stringify(params.args).slice(0, 1000),
-              decision: 'deny',
-              reason: `白名单 deny 匹配: ${r.pattern}`,
-            })
-            return {
-              allowed: false,
-              mode: permModeWire,
-              configured: true,
-              reason: `白名单 deny 匹配: ${r.pattern}`,
-              matchedRule: r.pattern,
-            }
-          }
+      // 2026-11-28 安全修正:deny 必须优先于 allow。
+      // `listRules` 按 createdAt DESC 返回,过去逐条匹配 ⇒ 较新的宽 allow 会压过较旧的
+      // `.env*` / `*.pem` deny，等于“加一条根目录放行就把敏感文件保护冲掉”。这里先扫
+      // deny,再扫 allow,规则顺序不再能改写安全结论。
+      const matchedDeny = dbRules.find(
+        (r) =>
+          r.decision === 'deny' &&
+          this.workspaceRuleMatches(r.ruleType, r.pattern, r.operation, params.tool, params.args),
+      )
+      if (matchedDeny) {
+        await appendAuditLog({
+          userId: params.userId,
+          workspacePath: params.workspacePath,
+          toolName: params.tool,
+          args: JSON.stringify(params.args).slice(0, 1000),
+          decision: 'deny',
+          reason: `白名单 deny 匹配: ${matchedDeny.pattern}`,
+        })
+        return {
+          allowed: false,
+          mode: permModeWire,
+          configured: true,
+          reason: `白名单 deny 匹配: ${matchedDeny.pattern}`,
+          matchedRule: matchedDeny.pattern,
+        }
+      }
+      const matchedAllow = dbRules.find(
+        (r) =>
+          r.decision === 'allow' &&
+          this.workspaceRuleMatches(r.ruleType, r.pattern, r.operation, params.tool, params.args),
+      )
+      if (matchedAllow) {
+        await appendAuditLog({
+          userId: params.userId,
+          workspacePath: params.workspacePath,
+          toolName: params.tool,
+          args: JSON.stringify(params.args).slice(0, 1000),
+          decision: 'allow',
+          reason: `白名单 allow 匹配: ${matchedAllow.pattern}`,
+        })
+        return {
+          allowed: true,
+          mode: permModeWire,
+          configured: true,
+          reason: `白名单 allow 匹配: ${matchedAllow.pattern}`,
+          matchedRule: matchedAllow.pattern,
         }
       }
       // 无匹配 → 规则级闸门(2026-11-04):授权记忆/自动复核可放行,风险规则可拒绝,
@@ -3304,12 +3950,15 @@ class PermissionManager {
           matchedRule: gate.matchedRule,
         }
       }
-      const audit = await this.requestWorkspaceConfirmation({
-        userId: params.userId,
-        workspacePath: params.workspacePath,
-        tool: params.tool,
-        args: params.args,
-      })
+      const audit = await this.requestWorkspaceConfirmation(
+        {
+          userId: params.userId,
+          workspacePath: params.workspacePath,
+          tool: params.tool,
+          args: params.args,
+        },
+        params.onApprovalRequest,
+      )
       await this.recordApprovalOutcome({
         userId: params.userId,
         workspacePath: params.workspacePath,
@@ -3332,6 +3981,7 @@ class PermissionManager {
         configured: true,
         reason: audit.reason,
         matchedRule: gate.matchedRule,
+        requestId: audit.requestId,
       }
     }
 
@@ -3389,12 +4039,15 @@ class PermissionManager {
         matchedRule: gate.matchedRule,
       }
     }
-    const audit = await this.requestWorkspaceConfirmation({
-      userId: params.userId,
-      workspacePath: params.workspacePath,
-      tool: params.tool,
-      args: params.args,
-    })
+    const audit = await this.requestWorkspaceConfirmation(
+      {
+        userId: params.userId,
+        workspacePath: params.workspacePath,
+        tool: params.tool,
+        args: params.args,
+      },
+      params.onApprovalRequest,
+    )
     await this.recordApprovalOutcome({
       userId: params.userId,
       workspacePath: params.workspacePath,
@@ -3417,29 +4070,33 @@ class PermissionManager {
       configured: true,
       reason: audit.reason,
       matchedRule: gate.matchedRule,
+      requestId: audit.requestId,
     }
   }
 
   /**
    * workspace 规则匹配:支持 path / command / operation 三种 ruleType。
-   * 与 SAFE_TEMPLATES 的 24 条预置规则格式兼容。
+   * 与 workspace-permission-presets 的预置规则格式兼容。
    */
   private workspaceRuleMatches(
     ruleType: string,
     pattern: string,
-    _operation: string | null | undefined,
+    operation: string | null | undefined,
     tool: string,
     args: Record<string, unknown>,
   ): boolean {
     if (ruleType === 'path') {
       const filePath = String(args.path ?? '')
       if (!filePath) return false
+      // 2026-11-28:path 规则过去完全忽略 operation,于是 `** write` 同时放行 read/edit/delete。
+      // 现在按工具族对齐 operation,accept-edits 的“写/改”不再顺带放行删除。
+      if (operation && !this.operationMatchesTool(operation, tool)) return false
       return this.matchPath(filePath, pattern)
     }
     if (ruleType === 'command') {
       // command 规则:execute_command:cmd_prefix 或 旧式 tool 名(read_file 等)
       if (pattern.startsWith('execute_command:')) {
-        if (tool !== 'fs.run') return false
+        if (tool !== 'fs.run' && tool !== 'run_command') return false
         const cmdPrefix = pattern.slice('execute_command:'.length)
         const cmd = String(args.command ?? '')
         if (cmdPrefix.endsWith(' *')) {
@@ -3480,15 +4137,44 @@ class PermissionManager {
     return false
   }
 
+  /** 工具名 → 规则 operation(read / write / edit / delete / execute)。同时收住旧式短名。 */
   private deriveOperation(tool: string): string {
-    if (tool === 'fs.read' || tool === 'fs.grep' || tool === 'fs.glob' || tool === 'fs.browse') {
+    if (tool === 'read' || tool === 'write' || tool === 'edit' || tool === 'delete') return tool
+    if (tool === 'run') return 'execute'
+    if (
+      tool === 'fs.read' ||
+      tool === 'fs.grep' ||
+      tool === 'fs.glob' ||
+      tool === 'fs.browse' ||
+      tool === 'read_file' ||
+      tool === 'list_directory' ||
+      tool === 'search_files'
+    ) {
       return 'read'
     }
-    if (tool === 'fs.write' || tool === 'fs.edit' || tool === 'fs.mkdir' || tool === 'fs.move')
+    if (
+      tool === 'fs.write' ||
+      tool === 'fs.mkdir' ||
+      tool === 'fs.move' ||
+      tool === 'write_file' ||
+      tool === 'create_file'
+    ) {
       return 'write'
-    if (tool === 'fs.delete') return 'delete'
-    if (tool === 'fs.run') return 'execute'
+    }
+    if (tool === 'fs.edit' || tool === 'edit_file' || tool === 'multi_edit') return 'edit'
+    if (tool === 'fs.delete' || tool === 'delete_file') return 'delete'
+    if (tool === 'fs.run' || tool === 'run_command') return 'execute'
     return 'unknown'
+  }
+
+  /** path 规则的 operation 对齐:write 与 edit 分开,delete 不会被 write 规则放行。 */
+  private operationMatchesTool(operation: string, tool: string): boolean {
+    const current = this.deriveOperation(tool)
+    if (operation === 'write') return current === 'write'
+    if (operation === 'edit') return current === 'edit'
+    if (operation === 'read') return current === 'read'
+    if (operation === 'delete') return current === 'delete'
+    return true
   }
 }
 
@@ -4275,20 +4961,6 @@ class FSBridge {
     return { content, lines: lines.length, path: params.path }
   }
 
-  /**
-   * 读取文件原始字节(2026-11-26,二进制预览:图片/PDF/Office/音视频等)。
-   * 越界与登记校验仍由 resolvePath 单点承载;预览面只加一道体积闸(64MB),
-   * 超限明确报错而不是把整个文件读进内存。
-   */
-  readBinary(params: { path: string; workspacePath: string }): { buffer: Buffer; size: number } {
-    const full = this.resolvePath(params.path, params.workspacePath)
-    if (!existsSync(full)) throw new Error(`文件不存在: ${params.path}`)
-    const st = statSync(full)
-    if (!st.isFile()) throw new Error('不是文件')
-    if (st.size > 64 * 1024 * 1024) throw new Error('文件过大(>64MB),无法在线预览')
-    return { buffer: readFileSync(full), size: st.size }
-  }
-
   write(params: { path: string; workspacePath: string; content: string; createDirs?: boolean }): {
     path: string
     size: number
@@ -4641,12 +5313,16 @@ class FSBridge {
     mode?: SandboxMode
     /** 2026-10-31 R8 复评 F1:解释器族仅 admin,由路由层透传 */
     isAdmin?: boolean
+    /** P0-B：任务取消信号；到 execFile 后由 Node 终止直接子进程 */
+    signal?: AbortSignal
   }): Promise<{
     stdout: string
     stderr: string
     exitCode: number | null
     timedOut?: boolean
     timeoutMs?: number
+    /** P0-B：任务取消导致的中断（不是命令失败） */
+    aborted?: boolean
     error?: { name: 'ToolTimeoutError'; code: 'TOOL_TIMEOUT'; message: string }
   }> {
     return sandboxExecutor.execute({
@@ -4656,6 +5332,7 @@ class FSBridge {
       mode: params.mode ?? 'workspace-write',
       timeoutMs: params.timeoutMs,
       isAdmin: params.isAdmin,
+      signal: params.signal,
     })
   }
 
@@ -4952,8 +5629,25 @@ const READ_TRUNCATE_CHARS = 120_000
 agentLoop.registerTool({
   name: 'read_file',
   description: '读取文件内容（支持 startLine/endLine 分段读；二进制与超大文件有护栏）',
+  parameters: {
+    type: 'object',
+    properties: {
+      path: { type: 'string', description: '相对工作区的文件路径' },
+      startLine: { type: 'number', description: '起始行(1 基,可选)' },
+      endLine: { type: 'number', description: '结束行(1 基,可选)' },
+    },
+    required: ['path'],
+    additionalProperties: false,
+  },
   execute: async (args) => {
-    const path = String(args['path'] ?? '')
+    const path = String(args['path'] ?? args['file_path'] ?? args['filePath'] ?? '')
+    if (!path) {
+      return JSON.stringify({
+        ok: false,
+        code: 'TOOL_BAD_ARGUMENTS',
+        error: '缺少 path：read_file 需要相对工作区的文件路径',
+      })
+    }
     const workspacePath = String(args['workspacePath'] ?? process.cwd())
     const full = fsBridge.resolvePath(path, workspacePath)
     const raw = readFileSync(full, 'utf-8')
@@ -5000,8 +5694,16 @@ agentLoop.registerTool({
   name: 'list_dir',
   description:
     '列出目录内容（默认最多 200 条；返回 {ok,total,truncated,entries}，truncated=true 时用更具体的 path 深入或先 grep 定位）',
+  parameters: {
+    type: 'object',
+    properties: {
+      path: { type: 'string', description: '相对工作区的目录路径,缺省为工作区根' },
+      limit: { type: 'number', description: '返回条数上限(默认 200,最高 1000)' },
+    },
+    additionalProperties: false,
+  },
   execute: async (args) => {
-    const entries = fsBridge.browse(String(args['path'] ?? ''))
+    const entries = fsBridge.browse(String(args['path'] ?? args['dir'] ?? args['directory'] ?? ''))
     const rawLimit = Number(args['limit'] ?? Number.NaN)
     const limit =
       Number.isFinite(rawLimit) && rawLimit > 0
@@ -5046,6 +5748,24 @@ agentLoop.registerTool({
     '在目录里按正则搜内容（默认不区分大小写）：content 回命中行，files_with_matches 回文件清单，count 回每文件条数。' +
     '可传 contextLines=0-5 带上下文；跳过 node_modules 等忽略目录与二进制/超大文件；' +
     '默认最多 100 条命中、单文件最多 20 条，回包带 {ok,total,omitted,totalMatches,exact,truncated} 与续查指引',
+  parameters: {
+    type: 'object',
+    properties: {
+      pattern: { type: 'string', description: '正则表达式' },
+      path: { type: 'string', description: '搜索目录,缺省为工作区根' },
+      glob: { type: 'string', description: '文件名过滤,如 *.ts' },
+      outputMode: {
+        type: 'string',
+        enum: ['content', 'files_with_matches', 'count'],
+        description: '输出形态',
+      },
+      contextLines: { type: 'number', description: '上下文行数(0-5)' },
+      caseSensitive: { type: 'boolean', description: '是否区分大小写' },
+      limit: { type: 'number', description: '返回条数上限(默认 100)' },
+    },
+    required: ['pattern'],
+    additionalProperties: false,
+  },
   execute: async (args) => {
     const limit = readLimitArg(args['limit'], GREP_DEFAULT_LIMIT, GREP_HARD_LIMIT)
     const mode = String(args['outputMode'] ?? 'content')
@@ -5125,6 +5845,16 @@ agentLoop.registerTool({
   description:
     '按通配符找文件（支持 ** 递归，如 src/**/*.ts）：跳过忽略目录，默认最多 200 个文件，' +
     '回包带 {ok,total,truncated,files}；比 list_dir 多一层递归，比 grep 便宜（不读内容）',
+  parameters: {
+    type: 'object',
+    properties: {
+      pattern: { type: 'string', description: '通配符,如 src/**/*.ts' },
+      path: { type: 'string', description: '搜索目录,缺省为工作区根' },
+      limit: { type: 'number', description: '返回文件数上限(默认 200)' },
+    },
+    required: ['pattern'],
+    additionalProperties: false,
+  },
   execute: async (args) => {
     const limit = readLimitArg(args['limit'], GLOB_DEFAULT_LIMIT, GLOB_HARD_LIMIT)
     const result = fsBridge.glob({
@@ -5154,8 +5884,24 @@ agentLoop.registerTool({
 agentLoop.registerTool({
   name: 'write_file',
   description: '写入文件（覆盖已存在文件前必须先 read_file 观察当前内容）',
+  parameters: {
+    type: 'object',
+    properties: {
+      path: { type: 'string', description: '相对工作区的目标路径' },
+      content: { type: 'string', description: '完整文件内容' },
+    },
+    required: ['path', 'content'],
+    additionalProperties: false,
+  },
   execute: async (args) => {
-    const path = String(args['path'] ?? '')
+    const path = String(args['path'] ?? args['file_path'] ?? args['filePath'] ?? '')
+    if (!path) {
+      return JSON.stringify({
+        ok: false,
+        code: 'TOOL_BAD_ARGUMENTS',
+        error: '缺少 path：write_file 需要相对工作区的目标路径',
+      })
+    }
     const workspacePath = String(args['workspacePath'] ?? process.cwd())
     const content = String(args['content'] ?? '')
     const full = fsBridge.resolvePath(path, workspacePath)
@@ -5198,8 +5944,41 @@ agentLoop.registerTool({
     '在已读过的文件里做替换：默认唯一匹配（oldText 必须唯一命中），replaceAll 可整批替换；' +
     '也可一次提交 edits[] 做原子多编辑（任一失败则整批不落、文件不动）；dryRun 只预览命中数不写盘。' +
     '行尾自动对齐文件实际 EOL（CRLF 文件可用 LF 片段匹配，写回保持原行尾）',
+  parameters: {
+    type: 'object',
+    properties: {
+      path: { type: 'string', description: '相对工作区的目标路径' },
+      oldText: { type: 'string', description: '要被替换的原文片段(单处编辑)' },
+      newText: { type: 'string', description: '替换后的内容(单处编辑)' },
+      replaceAll: { type: 'boolean', description: '是否替换全部命中' },
+      dryRun: { type: 'boolean', description: '只预览不写盘' },
+      edits: {
+        type: 'array',
+        description: '原子多编辑列表;提供后忽略 oldText/newText',
+        items: {
+          type: 'object',
+          properties: {
+            oldText: { type: 'string' },
+            newText: { type: 'string' },
+            replaceAll: { type: 'boolean' },
+          },
+          required: ['oldText', 'newText'],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ['path'],
+    additionalProperties: false,
+  },
   execute: async (args) => {
-    const path = String(args['path'] ?? '')
+    const path = String(args['path'] ?? args['file_path'] ?? args['filePath'] ?? '')
+    if (!path) {
+      return JSON.stringify({
+        ok: false,
+        code: 'TOOL_BAD_ARGUMENTS',
+        error: '缺少 path：edit_file 需要相对工作区的目标路径',
+      })
+    }
     const workspacePath = String(args['workspacePath'] ?? process.cwd())
     const dryRun = args['dryRun'] === true
     const rawEdits = args['edits']
@@ -5343,8 +6122,26 @@ agentLoop.registerTool({
   description:
     '执行命令（沙箱隔离，默认 workspace-write；可传 cwd/timeoutMs/mode=read-only 或 workspace-write；' +
     '截止先到时回 timedOut + TOOL_TIMEOUT 错误；' +
-    '输出超过 32000 字符时保留头尾并标 truncated，同时把全文落盘到 .ihui-agent/tool-spill 并回 spills）',
-  execute: async (args) => {
+    '输出超过 32000 字符时保留头尾并标 truncated，同时把全文落盘到 .ihui-agent/tool-spill 并回 spills）。' +
+    '只接受 argv 白名单命令（cat/head/tail/grep/rg/ls/find/wc/git 等）；' +
+    'Windows 下 type/dir 是 cmd 内建、不在此列，读文件优先用 read_file，列目录用 list_dir；' +
+    'node/npm/pnpm 等解释器仅管理员可用。',
+  parameters: {
+    type: 'object',
+    properties: {
+      command: { type: 'string', description: '要执行的命令' },
+      cwd: { type: 'string', description: '相对工作区的执行目录(可选)' },
+      timeoutMs: { type: 'number', description: '超时毫秒(可选)' },
+      mode: {
+        type: 'string',
+        enum: ['read-only', 'workspace-write'],
+        description: '沙箱模式',
+      },
+    },
+    required: ['command'],
+    additionalProperties: false,
+  },
+  execute: async (args, context) => {
     const rawMode = String(args['mode'] ?? 'workspace-write')
     // 工具层不放行 danger-full-access：该档意味着放行网络与任意写，只允许路由/管理员通道
     const mode = rawMode === 'read-only' ? 'read-only' : 'workspace-write'
@@ -5356,6 +6153,8 @@ agentLoop.registerTool({
       cwd: typeof args['cwd'] === 'string' && args['cwd'] ? String(args['cwd']) : undefined,
       timeoutMs: Number.isFinite(rawTimeout) && rawTimeout > 0 ? Math.floor(rawTimeout) : undefined,
       mode,
+      isAdmin: args['__isAdmin'] === true,
+      signal: context?.signal,
     })
     const out = budgetWithSpill(result.stdout, RUN_OUTPUT_MAX_CHARS, {
       workspacePath,
@@ -5374,6 +6173,7 @@ agentLoop.registerTool({
     }
     return JSON.stringify({
       ...result,
+      ...(result.aborted ? { ok: false, code: 'TOOL_ABORTED', error: '任务已取消' } : {}),
       stdout: out.text,
       stderr: err.text,
       ...(truncated

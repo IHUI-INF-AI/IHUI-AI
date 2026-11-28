@@ -38,7 +38,7 @@ vi.mock('../../db/workspace-permission-queries.js', () => ({
 const flushTick = () => new Promise<void>((r) => setTimeout(r, 0))
 
 // permissionManager 是单例,必须在 mock 设置完成后再 import
-const { permissionManager } = await import('../workspace-ai-service.js')
+const { permissionManager, decideByPermissionMode } = await import('../workspace-ai-service.js')
 
 // 类型断言访问私有成员(用于重置内部状态 + 直接测试 private 方法)
 type PMInternal = {
@@ -54,17 +54,20 @@ type PMInternal = {
         createdAt: number
         resolvedAt: number | null
       }
-      resolve: (result: { allowed: boolean; reason: string }) => void
+      resolve: (result: { allowed: boolean; reason: string; requestId: string }) => void
       timer: ReturnType<typeof setTimeout>
     }
   >
   pushFn: ((userId: string, payload: unknown) => void) | null
-  requestWorkspaceConfirmation: (params: {
-    userId: string
-    workspacePath: string
-    tool: string
-    args: Record<string, unknown>
-  }) => Promise<{ allowed: boolean; reason: string }>
+  requestWorkspaceConfirmation: (
+    params: {
+      userId: string
+      workspacePath: string
+      tool: string
+      args: Record<string, unknown>
+    },
+    onApprovalRequest?: (requestId: string) => void,
+  ) => Promise<{ allowed: boolean; reason: string; requestId: string }>
 }
 const pm = permissionManager as unknown as PMInternal
 
@@ -331,6 +334,147 @@ describe('PermissionManager.checkWorkspace', () => {
       vi.useRealTimers()
     }
   }, 30_000)
+})
+
+describe('PermissionManager.checkAgentTool（P0-A）', () => {
+  beforeEach(() => {
+    resetPermissionManager()
+  })
+
+  it('case 7: plan 档按 Agent 工具族硬判：读放行,写/命令拒绝', async () => {
+    mockGetPermission.mockResolvedValue({
+      userId: USER,
+      workspacePath: WORKSPACE,
+      name: 'Test WS',
+      techStack: null,
+      mode: 'plan',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastAccessedAt: new Date(),
+    } as never)
+
+    const read = decideByPermissionMode('plan', 'read_file')
+    expect(read.verdict).toBe('allow')
+    expect(read.reason).toContain('plan 档只读工具放行')
+
+    const write = await permissionManager.checkAgentTool({
+      userId: USER,
+      workspacePath: WORKSPACE,
+      tool: 'write_file',
+      args: { file_path: '/workspace/src/a.ts' },
+    })
+    expect(write.allowed).toBe(false)
+    expect(write.reason).toContain('plan 档为硬只读')
+
+    const run = await permissionManager.checkAgentTool({
+      userId: USER,
+      workspacePath: WORKSPACE,
+      tool: 'run_command',
+      args: { command: 'echo p0a-plan' },
+    })
+    expect(run.allowed).toBe(false)
+    expect(run.reason).toContain('plan 档为硬只读')
+    expect(mockPushFn).not.toHaveBeenCalled()
+  })
+
+  it('case 8: default 档 run_command 走人工审批,事件保留原始工具名', async () => {
+    setPermissionMode('default')
+    const onApprovalRequest = vi.fn()
+    const promise = permissionManager.checkAgentTool({
+      userId: USER,
+      workspacePath: WORKSPACE,
+      tool: 'run_command',
+      args: { command: 'echo p0a-approval' },
+      onApprovalRequest,
+    })
+    await flushTick()
+
+    expect(mockPushFn).toHaveBeenCalledTimes(1)
+    expect(mockPushFn).toHaveBeenCalledWith(
+      USER,
+      expect.objectContaining({
+        type: 'workspace.permission.request',
+        tool: 'run_command',
+        args: { command: 'echo p0a-approval' },
+      }),
+    )
+    expect(pm.workspacePending.size).toBe(1)
+
+    const pendingReq = permissionManager.listWorkspacePending(USER)[0]!
+    expect(onApprovalRequest).toHaveBeenCalledWith(pendingReq.requestId)
+    permissionManager.resolveWorkspace(pendingReq.requestId, USER, true)
+
+    const result = await promise
+    expect(result.allowed).toBe(true)
+    expect(result.mode).toBe('default')
+    expect(result.requestId).toBe(pendingReq.requestId)
+  })
+
+  it('case 9: path 规则命中模型给的 file_path 别名 → deny 不被字段名绕过', async () => {
+    setPermissionMode('accept-edits')
+    mockListRules.mockResolvedValue([
+      {
+        id: 'r-env',
+        userId: USER,
+        workspacePath: WORKSPACE,
+        ruleType: 'path',
+        pattern: '/workspace/.env*',
+        operation: null,
+        decision: 'deny',
+        builtin: false,
+        createdAt: new Date(),
+      } as never,
+    ])
+    const result = await permissionManager.checkAgentTool({
+      userId: USER,
+      workspacePath: WORKSPACE,
+      tool: 'read_file',
+      args: { file_path: '/workspace/.env.production' },
+    })
+    expect(result.allowed).toBe(false)
+    expect(result.matchedRule).toBe('/workspace/.env*')
+    expect(mockPushFn).not.toHaveBeenCalled()
+  })
+
+  it('case 10: path 规则命中 filePath 别名 → allow 正常生效', async () => {
+    setPermissionMode('accept-edits')
+    mockListRules.mockResolvedValue([
+      {
+        id: 'r-src',
+        userId: USER,
+        workspacePath: WORKSPACE,
+        ruleType: 'path',
+        pattern: '/workspace/src/*',
+        operation: null,
+        decision: 'allow',
+        builtin: false,
+        createdAt: new Date(),
+      } as never,
+    ])
+    const result = await permissionManager.checkAgentTool({
+      userId: USER,
+      workspacePath: WORKSPACE,
+      tool: 'read_file',
+      args: { filePath: '/workspace/src/a.ts' },
+    })
+    expect(result.allowed).toBe(true)
+    expect(result.matchedRule).toBe('/workspace/src/*')
+    expect(mockPushFn).not.toHaveBeenCalled()
+  })
+
+  it('case 11: /agent/run 工作区准入用 enumerateOnly,default 档不阻塞', async () => {
+    setPermissionMode('default')
+    const result = await permissionManager.checkWorkspace({
+      userId: USER,
+      workspacePath: WORKSPACE,
+      tool: 'fs.browse',
+      args: { path: WORKSPACE },
+      enumerateOnly: true,
+    })
+    expect(result.allowed).toBe(true)
+    expect(result.mode).toBe('default')
+    expect(mockPushFn).not.toHaveBeenCalled()
+  })
 })
 
 describe('PermissionManager.resolveWorkspace', () => {
