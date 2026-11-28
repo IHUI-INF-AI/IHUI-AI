@@ -2227,6 +2227,12 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-28**
+- 📚 문서:同步 README 提交记录 (432eb92a11)
+- 📚 문서:记录 b410e589f6 深链修复提交 (edcf7f3ecb)
+- 🐞 수정:修复子包深链首帧空白并更新验收证据 (b410e589f6)
+- 📚 문서:对外读数只写模型官方名,不写接入平台/网关名 (060b742614)
+- 🐞 수정:API Key 发布代理补签内部 JWT (71a7c23104)
+- 🐞 수정:清两端样式守门存量——描边旧名/圆角档/按钮高度/图标语义/emoji/阴影命名/按压反馈/原生弹窗 (f7ab33e19f)
 - 🐞 수정:补齐 publish:submit 权限点标签映射 (6041210595)
 - 📚 문서:同步 README 最近提交记录 (0a848fcc62)
 - 📚 문서:更新 dist 版 weapp 体积与 CSS 门读数 (824237c9a2)

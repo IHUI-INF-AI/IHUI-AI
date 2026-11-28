@@ -1391,7 +1391,8 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
 
           let newConversationId: string | null = null
           try {
-            const resp = await fetch(`${cozeBaseUrl.replace(/\/+$/, '')}/v1/chat`, {
+            // Coze Chat v3：/v3/chat + additional_messages；/v1/chat 已被上游下线（404 code=4000）。
+            const resp = await fetch(`${cozeBaseUrl.replace(/\/+$/, '')}/v3/chat`, {
               method: 'POST',
               headers: {
                 Authorization: `Bearer ${cozeToken}`,
@@ -1401,9 +1402,12 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
                 bot_id: reqBotId,
                 // F-112(2026-11-08):不向 Coze 透传客户端自报的 user_id。
                 user_id: reqUserId,
-                query: queryText,
-                conversation_id: conversationId,
                 stream: true,
+                auto_save_history: true,
+                additional_messages: [
+                  { role: 'user', content: queryText, content_type: 'text' },
+                ],
+                ...(conversationId ? { conversation_id: conversationId } : {}),
               }),
             })
             if (!resp.ok || !resp.body) {
