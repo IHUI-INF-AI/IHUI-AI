@@ -480,6 +480,8 @@ class PublishScheduler:
         """补采一批最近成功、但 6 小时内没有快照的内容。
 
         只挑 collector 明确支持的平台;每轮 3 篇,避免同时拉起多个浏览器。
+        候选顺序:未采过的优先(其中新发布优先),已采过的按上次采集时间
+        从旧到新,避免新内容持续插队把老内容饿死。
         采集失败不写入 0 快照,该 task+platform 进入 60 分钟冷却后再重试,
         避免失败任务每轮占住队首。
         """
@@ -501,17 +503,25 @@ class PublishScheduler:
                        t.user_id, t.targets
                 FROM publish_history h
                 JOIN publish_tasks t ON t.task_id = h.task_id
+                LEFT JOIN LATERAL (
+                  SELECT MAX(m.collected_at) AS last_collected_at
+                  FROM publish_metrics m
+                  WHERE m.task_id = h.task_id
+                    AND m.platform = h.platform
+                ) pm ON true
                 WHERE h.success = true
                   AND h.platform = ANY($1::text[])
                   AND h.platform_content_id IS NOT NULL
                   AND h.created_at >= NOW() - ($3 * INTERVAL '1 day')
-                  AND NOT EXISTS (
-                    SELECT 1 FROM publish_metrics m
-                    WHERE m.task_id = h.task_id
-                      AND m.platform = h.platform
-                      AND m.collected_at > NOW() - ($4 * INTERVAL '1 hour')
+                  AND (
+                    pm.last_collected_at IS NULL
+                    OR pm.last_collected_at <= NOW() - ($4 * INTERVAL '1 hour')
                   )
-                ORDER BY h.created_at DESC
+                ORDER BY
+                  (pm.last_collected_at IS NULL) DESC,
+                  CASE WHEN pm.last_collected_at IS NULL THEN h.created_at END DESC,
+                  pm.last_collected_at ASC,
+                  h.created_at ASC
                 LIMIT $2
                 """,
                 list(_METRICS_PLATFORMS),
