@@ -1457,7 +1457,10 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
               return
             }
 
-            const resp = await aiServiceFetchStream(request, '/api/llm/complete/stream', {
+            // 传 null 让 aiServiceFetchStream 注入内部系统票据：agnes/ 等模型在 ai-service
+            // 属于「受限模型，仅系统管理员可用」，透传普通用户 JWT 会被 403；WS 的鉴权已在
+            // wsAuth 完成，计费/身份仍按 userId 走本地逻辑（与 /api/chat/coze/stream 同口径）。
+            const resp = await aiServiceFetchStream(null, '/api/llm/complete/stream', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
