@@ -2227,6 +2227,16 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-28**
+- 🚀 機能/改善:接入 OAuth JWT 长期凭据，修复 jose v6 私钥与过期时间缓存 (48421336ef)
+- 🐞 修正:恢复验收面板引用（组件已由 origin 补齐） (bd3b06f1f1)
+- 🐞 修正:移除 publish monitor 对不存在 AcceptancePanel 的引用，修复生产构建 (89bbb0faee)
+- 🐞 修正:补入验收面板文件，修复 clean-build 缺文件 (aaf0fcf6cc)
+- 🐞 修正:账号池 cookie 按域还原，修复非知乎平台未登录；新增抖音/百家号/小红书指标采集 (9fa2b9df57)
+- 🚀 機能/改善:全部 AI 预审结论一键交给主 AI；409 业务错误不再重试 (88e2cafe94)
+- 🚀 機能/改善:指标面落地——通过率之外第一次有轮次/token/p50-p99/失败分类 (7cd53cc6f8)
+- 🚀 機能/改善:add public HumanEval leaderboard page and executors (dce936537f)
+- 🚀 機能/改善:首页接上调度状态与 7 天复盘 (8d302cb428)
+- 🚀 機能/改善:入口收敛三项 + 指标回流多平台 + 失败自愈 (60d8e877f3)
 - 🐞 修正:补齐社区/导航文案键并让 RN 社区卡片消费真实封面 (57dde470c2)
 - 📚 ドキュメント:补记 d0a5f97e 提交回执与收口边界 (5d48a03f0c)
 - 🚀 機能/改善:BankCard 已登录 E2E + 提现选卡 + OpenAPI/路由契约全量收口 (d0a5f97e4a)
