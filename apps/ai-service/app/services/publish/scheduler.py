@@ -69,6 +69,19 @@ _CAPTCHA_MARKERS = ("验证码", "captcha", "slider", "滑块", "人机", "turns
 _QUOTA_MARKERS = ("配额", "quota", "还能发 0", "次数已用完", "limit reached")
 
 
+def _decode_json_field(value: Any, expected_type: type, default: Any) -> Any:
+    """asyncpg 的 json/jsonb 列在部分连接配置下返回 str,这里统一解码。
+
+    重试接口只读不写,不能因为驱动把 JSONB 当字符串就误判成"没有目标"。
+    """
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except (TypeError, ValueError):
+            return default
+    return value if isinstance(value, expected_type) else default
+
+
 def _classify_failure(
     result: PublishResult,
     platform: str,
@@ -1536,26 +1549,28 @@ class PublishScheduler:
             )
             if not row:
                 return {"ok": False, "error": f"task not found: {task_id}"}
-            results = row["results"] if isinstance(row["results"], list) else []
+            results = _decode_json_field(row["results"], list, [])
             failed_platforms = {
-                r["platform"] for r in results if not r.get("success")
+                r["platform"] for r in results
+                if isinstance(r, dict) and not r.get("success")
             }
             target_platforms = set(platforms) if platforms else failed_platforms
             new_targets = [
-                t for t in (row["targets"] if isinstance(row["targets"], list) else [])
-                if t.get("platform") in target_platforms
+                t for t in _decode_json_field(row["targets"], list, [])
+                if isinstance(t, dict) and t.get("platform") in target_platforms
             ]
             if not new_targets:
                 return {"ok": False, "error": "no targets to retry"}
 
+            content_raw = _decode_json_field(row["content"], dict, {})
             content = PublishContent(
                 format=row["format"],
                 title=row["title"],
-                text=row["content"].get("text") if isinstance(row["content"], dict) else None,
-                file_path=row["content"].get("file_path") if isinstance(row["content"], dict) else None,
-                cover_path=row["content"].get("cover_path") if isinstance(row["content"], dict) else None,
-                html=row["content"].get("html") if isinstance(row["content"], dict) else None,
-                images=row["content"].get("images", []) if isinstance(row["content"], dict) else [],
+                text=content_raw.get("text"),
+                file_path=content_raw.get("file_path"),
+                cover_path=content_raw.get("cover_path"),
+                html=content_raw.get("html"),
+                images=content_raw.get("images", []),
             )
             retry_task_id = f"{task_id}-retry-{int(datetime.now(UTC).timestamp())}"
             # 2026-08-17 修复:参数顺序错误 _run_task(task_id, user_id, content, targets),
