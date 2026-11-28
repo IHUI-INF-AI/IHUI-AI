@@ -12,7 +12,7 @@
  * - Stanford HELM、OpenCompass、SuperCLUE、LiveBench、SWE-bench、Epoch AI ECI
  *
  * 输出分两层：
- * - overallAll：九家榜内名次百分位的等权平均总榜（覆盖榜数优先）
+ * - overallAll：九家榜内名次百分位的等权平均总榜（覆盖 ≥5 家进主榜，主榜按平均百分位排序）
  * - cross：AA/LMArena/OpenRouter 三家可对齐榜单的交集位次
  * 这里不做任何自建评测，也不生成新的能力分。
  */
@@ -49,7 +49,7 @@ const SWEBENCH_PAGE_URL = 'https://www.swebench.com/'
 export const AUTHORITATIVE_REFRESH_CRON =
   process.env.AUTHORITATIVE_LEADERBOARD_CRON || '17 */6 * * *'
 export const AUTHORITATIVE_REFRESH_TIMEZONE = 'Asia/Shanghai'
-export const AUTHORITATIVE_LEADERBOARD_SCHEMA_VERSION = 3
+export const AUTHORITATIVE_LEADERBOARD_SCHEMA_VERSION = 4
 
 /** LMArena 官方分类的展示名；键顺序即页面下拉顺序。 */
 const LMARENA_CATEGORY_LABELS: Record<string, string> = {
@@ -983,6 +983,9 @@ const ALL_SOURCE_ORDER: AiWorldLeaderboardSourceId[] = [
   'epoch',
 ]
 
+/** 主榜门槛：覆盖至少 5 家官方榜；覆盖不足 5 家的进长尾参考。 */
+const OVERALL_MAIN_COVERAGE = 5
+
 type AllSourceBucket = {
   key: string
   model: string
@@ -996,9 +999,14 @@ type AllSourceBucket = {
  * 九家官方榜的全源平均总榜。
  *
  * 不平均任何原始分，只平均“榜内名次百分位”：同一模型在每张榜里的第 1 名记 100、
- * 末位记 0，再对命中的榜等权平均。覆盖榜数优先，其次平均百分位，避免只在一个小榜
- * 露脸的模型冲到总榜前面。SWE-bench 五个 subset 题目集不同，同一模型取五个 subset
- * 中的最佳名次，不把不同 subset 的分数混成一个。
+ * 末位记 0，再对命中的榜等权平均。
+ *
+ * 排序按两层：
+ * - 主榜：覆盖 ≥5 家（若本次只有 3 家核心源则门槛自动降到可用源数），组内按平均百分位降序；
+ * - 长尾参考：覆盖 <5 家，组内先按覆盖数降序，再按平均百分位降序，避免单榜高分误冲到主榜。
+ *
+ * SWE-bench 五个 subset 题目集不同，同一模型取五个 subset 中的最佳名次，不把不同
+ * subset 的分数混成一个。
  */
 function buildAllSourceOverall(
   aaRows: AiWorldLeaderboardAaRow[],
@@ -1007,6 +1015,8 @@ function buildAllSourceOverall(
   boards: AiWorldLeaderboardBoard[],
 ): AiWorldLeaderboardOverallRow[] {
   const buckets = new Map<string, AllSourceBucket>()
+  const availableSourceCount = 3 + boards.filter((board) => board.id !== 'aa-variants').length
+  const mainCoverageThreshold = Math.min(OVERALL_MAIN_COVERAGE, availableSourceCount)
 
   const add = (
     source: AiWorldLeaderboardSourceId,
@@ -1073,14 +1083,25 @@ function buildAllSourceOverall(
       cn: bucket.cn,
       openWeights: bucket.openWeights,
       coverage: percentiles.length,
+      tier: percentiles.length >= mainCoverageThreshold ? 'main' : 'longtail',
       averagePercentile: round1(percentiles.reduce((sum, p) => sum + p, 0) / percentiles.length),
       sources,
     })
   }
 
   rows.sort((a, b) => {
-    if (b.coverage !== a.coverage) return b.coverage - a.coverage
-    if (b.averagePercentile !== a.averagePercentile) return b.averagePercentile - a.averagePercentile
+    if (a.tier !== b.tier) return a.tier === 'main' ? -1 : 1
+    if (a.tier === 'main') {
+      if (b.averagePercentile !== a.averagePercentile) {
+        return b.averagePercentile - a.averagePercentile
+      }
+      if (b.coverage !== a.coverage) return b.coverage - a.coverage
+    } else {
+      if (b.coverage !== a.coverage) return b.coverage - a.coverage
+      if (b.averagePercentile !== a.averagePercentile) {
+        return b.averagePercentile - a.averagePercentile
+      }
+    }
     return a.model.localeCompare(b.model, 'en')
   })
   rows.forEach((row, index) => {
@@ -1300,10 +1321,10 @@ export function buildAuthoritativeLeaderboard(
     generatedAt,
     title: '全球模型权威榜',
     subtitle:
-      '9 个官方榜单：AA · LMArena · OpenRouter · HELM · OpenCompass · SuperCLUE · LiveBench · SWE-bench · Epoch ECI，不做自建评测；总榜为榜内名次百分位平均',
+      '9 个官方榜单：AA · LMArena · OpenRouter · HELM · OpenCompass · SuperCLUE · LiveBench · SWE-bench · Epoch ECI，不做自建评测；总榜为榜内名次百分位平均，覆盖≥5 家进主榜',
     sources,
     methodology:
-      '全源平均总榜覆盖全部 9 家官方榜：同一模型在每张榜内按名次换算百分位（第 1 名=100，末位=0），再对命中的榜等权平均；先按覆盖榜数降序，再按平均百分位降序，未上榜的榜不计 0。SWE-bench 五个 subset 题目集不同，同一模型取五个 subset 中的最佳名次。三家交叉位次仍只覆盖 AA、LMArena、OpenRouter 可对齐的能力/偏好/用量，不把 HELM 0-1、OpenCompass/SuperCLUE/LiveBench 0-100、SWE-bench % resolved、Epoch ECI 抽象分直接平均；新增平台全量单榜展示。AA 主榜按家族取最高档，另设“全档位”保留全部构建；LMArena 按官方 29 个分类分榜展示；OpenRouter 已输出全部模型家族；OpenRouter 官方 CSV 没有价格/上下文，不能凭空补。',
+      '全源平均总榜覆盖全部 9 家官方榜：同一模型在每张榜内按名次换算百分位（第 1 名=100，末位=0），再对命中的榜等权平均；覆盖≥5 家进入主榜，主榜按平均百分位降序；覆盖不足 5 家放长尾参考，先按覆盖数降序再按平均百分位降序，未上榜的榜不计 0。SWE-bench 五个 subset 题目集不同，同一模型取五个 subset 中的最佳名次。三家交叉位次仍只覆盖 AA、LMArena、OpenRouter 可对齐的能力/偏好/用量，不把 HELM 0-1、OpenCompass/SuperCLUE/LiveBench 0-100、SWE-bench % resolved、Epoch ECI 抽象分直接平均；新增平台全量单榜展示。AA 主榜按家族取最高档，另设“全档位”保留全部构建；LMArena 按官方 29 个分类分榜展示；OpenRouter 已输出全部模型家族；OpenRouter 官方 CSV 没有价格/上下文，不能凭空补。',
     cross: ranked,
     overallAll,
     aa: aaList,

@@ -144,6 +144,8 @@ export interface AiWorldLeaderboardOverallRow {
   openWeights: boolean
   /** 命中的官方榜数（0-9）。 */
   coverage: number
+  /** main=覆盖 ≥5 家主榜；longtail=覆盖不足 5 家的长尾参考。 */
+  tier: 'main' | 'longtail'
   /** 九家榜内百分位的等权平均值，0-100。 */
   averagePercentile: number
   sources: Partial<Record<AiWorldLeaderboardSourceId, AiWorldLeaderboardOverallSource>>
@@ -261,7 +263,7 @@ export interface AiWorldAuthoritativeLeaderboard {
   sources: AiWorldLeaderboardSource[]
   methodology: string
   cross: AiWorldLeaderboardCrossRow[]
-  /** 九家官方榜全源百分位平均总榜；覆盖榜数优先，再按平均百分位排序。 */
+  /** 九家官方榜全源百分位平均总榜；覆盖≥5 家主榜按平均百分位排序，不足 5 家进长尾参考。 */
   overallAll: AiWorldLeaderboardOverallRow[]
   aa: AiWorldLeaderboardAaRow[]
   lmarena: {
