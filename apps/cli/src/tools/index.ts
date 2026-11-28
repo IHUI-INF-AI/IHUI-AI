@@ -76,6 +76,7 @@ import {
 } from '../utils/tool-denial.js';
 import { injectHostSection } from '../utils/prompt-injection-registry.js';
 import { buildToolSurface, renderStablePrefix, renderToolSchema } from './tool-surface.js';
+import { resolveToolName, suggestToolNames } from './tool-name-resolve.js';
 import { auditToolRegistrationDecision, normalizeToolRegistration, permissionDecisionForRegistration, type ToolRegistration } from './tool-registration.js';
 import { BROWSER_TOOLS } from './browser.js';
 import { BROWSER_PAGE_TOOLS } from './browser-page.js';
@@ -842,6 +843,20 @@ export function registerBrowserTools(): void {
 
 export function getTool(name: string): Tool | undefined {
   return registry.get(name);
+}
+
+/**
+ * 按注册名解析工具:精确优先;精确失败后只接受**格式差异**的归一化命中
+ * (`git-merge` / `GitMerge` → `git_merge`)。跨词映射(Read→read_file)不在此处,
+ * 那属于语义猜测,只走"未知工具 + 近名建议"这条路。
+ */
+function resolveRegisteredTool(name: string): { tool: Tool; normalized: boolean } | undefined {
+  const exact = getTool(name);
+  if (exact !== undefined) return { tool: exact, normalized: false };
+  const canonical = resolveToolName(name, Array.from(registry.keys()));
+  if (canonical === undefined) return undefined;
+  const tool = getTool(canonical);
+  return tool === undefined ? undefined : { tool, normalized: true };
 }
 
 export function listTools(): Tool[] {
@@ -1647,9 +1662,18 @@ async function executeToolCallInner(
       // ToolNotFoundError: fallback 到原 getTool + 执行路径
     }
   }
-  const tool = getTool(call.name);
-  if (!tool) {
-    return { success: false, output: '', error: `未知工具: ${call.name}`, errorType: 'not_found' };
+  const resolved = resolveRegisteredTool(call.name);
+  if (!resolved) {
+    // 没命中不可怕,给不出下一步才可怕:近名建议是让模型在同一轮就能改对(而不是盲猜重发)。
+    const suggestions = suggestToolNames(call.name, Array.from(registry.keys()));
+    const tail = suggestions.length > 0 ? `; closest matches: ${suggestions.join(', ')}` : '';
+    return { success: false, output: '', error: `未知工具: ${call.name}${tail}`, errorType: 'not_found' };
+  }
+  const { tool } = resolved;
+  if (resolved.normalized) {
+    // 只差格式时按注册名执行,并把 call.name 改写成注册名 —— 后续权限判定、审计台账、
+    // PostToolUse 钩子看到的都必须是**真被执行的那个工具**,不能一半旧名一半新名。
+    call.name = tool.name;
   }
   // 注册三段式①:静态 deny 先于参数校验/装饰/任何执行分支 —— 被下架的工具不该再泄露 schema 细节。
   // 归因复用 permission-rule/rule-deny(注册声明就是一条静态规则,不新造 decider 档)。
