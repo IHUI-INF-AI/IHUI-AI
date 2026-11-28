@@ -118,6 +118,11 @@ function formatSeconds(n: number | null | undefined): string | null {
   return `${n.toFixed(2)}s`
 }
 
+function formatDuration(n: number | null | undefined): string | null {
+  if (n === null || n === undefined || !Number.isFinite(n)) return null
+  return n >= 120 ? `${(n / 60).toFixed(1)} 分钟` : `${n.toFixed(1)}s`
+}
+
 function PriceCell({ row }: { row: { inputPrice?: number | null; outputPrice?: number | null } }) {
   const input = formatPrice(row.inputPrice)
   const output = formatPrice(row.outputPrice)
@@ -353,15 +358,14 @@ function AaTable({ data }: { data: Data }) {
                   value={selected.outputSpeed ? `${selected.outputSpeed.toFixed(1)} tok/s` : null}
                 />
                 <DetailMetric label="首 token" value={formatSeconds(selected.ttft)} />
+                <DetailMetric label="首答案 token" value={formatSeconds(selected.ttfa)} />
                 <DetailMetric label="上下文" value={formatContext(selected.contextWindow)} />
                 <DetailMetric label="输入价格 / M" value={formatPrice(selected.inputPrice)} />
                 <DetailMetric label="输出价格 / M" value={formatPrice(selected.outputPrice)} />
                 <DetailMetric label="缓存命中 / M" value={formatPrice(selected.cacheHitPrice)} />
+                <DetailMetric label="缓存写入 / M" value={formatPrice(selected.cacheWritePrice)} />
                 <DetailMetric label="单任务成本" value={formatPrice(selected.costPerTask)} />
-                <DetailMetric
-                  label="单任务耗时"
-                  value={selected.timePerTask ? `${selected.timePerTask.toFixed(1)}s` : null}
-                />
+                <DetailMetric label="单任务耗时" value={formatDuration(selected.timePerTask)} />
                 <DetailMetric label="参数档位" value={selected.paramClass ?? null} />
                 <DetailMetric label="价格档位" value={selected.priceClass ?? null} />
               </div>
@@ -381,7 +385,9 @@ function AaTable({ data }: { data: Data }) {
                         className="flex items-center justify-between gap-2 rounded border bg-muted/20 px-2 py-1.5"
                         title={b.key}
                       >
-                        <span className="truncate text-[11px] text-muted-foreground">{b.label}</span>
+                        <span className="truncate text-[11px] text-muted-foreground">
+                          {b.label}
+                        </span>
                         <span className="shrink-0 text-[11px] font-medium tabular-nums">
                           {b.score.toFixed(1)}
                           {b.unit === 'percent' ? '%' : ''}
@@ -440,8 +446,8 @@ function LmarenaTable({ data }: { data: Data }) {
           ))}
         </select>
         <span className="text-[11px] text-muted-foreground">
-          {active?.count ?? 0} 个模型 · {formatVotes(active?.votes ?? 0)} 票 · 本页前{' '}
-          {rows.length} 名
+          {active?.count ?? 0} 个模型 · {formatVotes(active?.votes ?? 0)} 票 · 本页前 {rows.length}{' '}
+          名
         </span>
       </div>
       <p className="text-label leading-relaxed text-muted-foreground">
