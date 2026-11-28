@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -212,28 +213,94 @@ class CsdnAdapter(BasePlatformAdapter):
     needs_browser = True
 
     def _cookies(self, credentials: dict[str, Any]) -> list[SetCookieParam]:
-        return [
-            {
-                "name": "UserName",
-                "value": credentials.get("UserName", ""),
-                "domain": ".csdn.net",
-                "path": "/",
-            },
-            {
-                "name": "UserToken",
-                "value": credentials.get("UserToken", ""),
-                "domain": ".csdn.net",
-                "path": "/",
-                "httpOnly": True,
-            },
-            {
-                "name": "UserSecret",
-                "value": credentials.get("UserSecret", ""),
-                "domain": ".csdn.net",
-                "path": "/",
-                "httpOnly": True,
-            },
-        ]
+        # CSDN 发布鉴权靠一整组 cookie: UserName/UserToken/UserInfo/SESSION/UN/BT/…
+        # 旧实现只注 UserName/UserToken/UserSecret(且 UserSecret 根本没有),
+        # 编辑器能开、正文能导入，但一点“发布文章”就弹登录框(2026-11-26 实测)。
+        # 有完整 cookie jar 时必须整组注入，domain/path/expires 原样保留。
+        jar = credentials.get("__cookie_jar__")
+        cookies: list[SetCookieParam] = []
+        if isinstance(jar, list):
+            for item in jar:
+                if not isinstance(item, dict):
+                    continue
+                name = str(item.get("name") or "").strip()
+                value = item.get("value")
+                if not name or value is None or str(value) == "":
+                    continue
+                cookie: dict[str, Any] = {
+                    "name": name,
+                    "value": str(value),
+                    "domain": str(item.get("domain") or ".csdn.net"),
+                    "path": str(item.get("path") or "/"),
+                }
+                expires = item.get("expires")
+                if isinstance(expires, (int, float)) and expires > 0:
+                    cookie["expires"] = float(expires)
+                if item.get("httpOnly"):
+                    cookie["httpOnly"] = True
+                if item.get("secure"):
+                    cookie["secure"] = True
+                same_site = str(item.get("sameSite") or "Lax")
+                if same_site in ("Strict", "Lax", "None"):
+                    cookie["sameSite"] = same_site
+                cookies.append(cookie)  # type: ignore[arg-type]
+
+        # 顶层字段兜底：jar 缺失或没带 UserName/UserToken 时仍能工作
+        present = {(c["name"], c.get("domain")) for c in cookies}
+        for name, key, http_only in (
+            ("UserName", "UserName", False),
+            ("UserToken", "UserToken", True),
+            ("UserSecret", "UserSecret", True),
+        ):
+            value = str(credentials.get(key) or "").strip()
+            if value and not any(n == name for n, _ in present):
+                cookies.append({  # type: ignore[arg-type]
+                    "name": name,
+                    "value": value,
+                    "domain": ".csdn.net",
+                    "path": "/",
+                    "httpOnly": http_only,
+                })
+        if not cookies:
+            raise ValueError("missing CSDN cookies (__cookie_jar__ empty)")
+        return cookies
+
+    async def _add_modal_tag(self, page: Page, tag: str) -> bool:
+        """在 CSDN 发布弹层内添加一个文章标签。
+
+        文章标签是弹层里的必填项（页面有红色星号）；不填时点「发布文章」只会
+        触发 passport 状态检查，不会产生 saveArticle 请求（2026-11-26 实测）。
+        标签输入框只在点「添加文章标签」后出现，placeholder 明确写了 Enter 可建自定义标签。
+        """
+        add_btn = page.locator(".modal__publish-article button:has-text('添加文章标签')").first
+        if await add_btn.count() == 0:
+            return False
+        await add_btn.click()
+        await page.wait_for_timeout(400)
+        tag_input = page.locator('.modal__publish-article input[placeholder*="Enter键入"]').first
+        if await tag_input.count() == 0:
+            tag_input = page.locator('.modal__publish-article .form-tag-box input.el-input__inner').first
+        if await tag_input.count() == 0:
+            return False
+        await tag_input.click()
+        await tag_input.fill(str(tag))
+        await page.wait_for_timeout(900)
+        # 优先点平台给出的同名建议；没有建议时 Enter 建自定义标签。
+        options = page.locator(".el-autocomplete-suggestion li:visible")
+        for i in range(min(await options.count(), 12)):
+            text = (await options.nth(i).inner_text() or "").strip()
+            if text == str(tag) or str(tag) in text:
+                await options.nth(i).click()
+                break
+        else:
+            await tag_input.press("Enter")
+        await page.wait_for_timeout(500)
+        chips = page.locator(".modal__publish-article .form-tag-box .el-tag")
+        for i in range(await chips.count()):
+            if str(tag) in (await chips.nth(i).inner_text() or ""):
+                return True
+        return False
+
 
     async def verify_credentials(self, credentials: dict[str, Any]) -> tuple[bool, str]:
         if not _HAS_PLAYWRIGHT:
@@ -296,7 +363,11 @@ class CsdnAdapter(BasePlatformAdapter):
             )
 
         title = (content.title or "Untitled")[:100]
-        tags = platform_config.get("tags", [])[:5]
+        tags_raw = platform_config.get("tags", [])
+        if isinstance(tags_raw, str):
+            tags = [tags_raw]
+        else:
+            tags = [str(t).strip() for t in list(tags_raw or []) if str(t).strip()][:5]
         category = platform_config.get("category", "")
         content.cover_path or platform_config.get("cover", "")
 
@@ -340,13 +411,18 @@ class CsdnAdapter(BasePlatformAdapter):
                     await asyncio.to_thread(md_tmp.write_text, md_text, encoding="utf-8")
                     try:
                         await page.set_input_files(import_selector, str(md_tmp))
-                        # 导入是异步解析:等编辑器内容真的换上我们的文本,而不是等固定时长
+                        # 导入是异步解析:等编辑器内容真的换上我们的文本,而不是等固定时长。
+                        # CSDN 会在段落之间多插空行,直接用 md_text[:24] 比对会被 \n 数量差卡死
+                        # (2026-11-26 实测任务超时 20s);两侧都去掉所有空白再比前 24 字。
+                        needle = re.sub(r"\s+", "", md_text)[:24]
                         await page.wait_for_function(
                             """(needle) => {
                                 const ed = document.querySelector('.editor__inner');
-                                return !!ed && (ed.innerText || '').includes(needle);
+                                if (!ed) return false;
+                                const text = (ed.innerText || '').replace(/\\s+/g, '');
+                                return !!needle && text.includes(needle);
                             }""",
-                            arg=md_text[:24],
+                            arg=needle,
                             timeout=20000,
                         )
                     finally:
@@ -375,22 +451,10 @@ class CsdnAdapter(BasePlatformAdapter):
                         )
                     await human_pause(0.5, 1.5)
 
-                    # 填标签
-                    if tags:
-                        try:
-                            tag_selector = 'input[placeholder*="标签"], #tag-input'
-                            tag_input = page.locator(tag_selector).first
-                            for tag in tags:
-                                if await tag_input.count() > 0:
-                                    logger.debug("[%s] 人类化操作中...", self.platform_id)
-                                    await human_type(page, str(tag), selector=tag_selector)
-                                    await page.keyboard.press("Enter")
-                                    await page.wait_for_timeout(300)
-                        except Exception as e:
-                            logger.warning("[csdn] tag input failed: %s", e)
-
-                    # 点发布(人类化点击)
-                    publish_selector = 'button:has-text("发布"), button.publish-btn, .btn-publish'
+                    # 打开发布弹层：点编辑器底部「发布文章」。
+                    # 旧实现直接等 article/details 跳转，但 CSDN 现在先弹发布设置层；
+                    # 不经过弹层就不会有任何 saveArticle 请求（2026-11-26 实测）。
+                    publish_selector = 'button.btn-publish'
                     publish_btn = page.locator(publish_selector).first
                     if await publish_btn.count() == 0:
                         return PublishResult(
@@ -399,14 +463,57 @@ class CsdnAdapter(BasePlatformAdapter):
                         )
                     logger.debug("[%s] 人类化操作中...", self.platform_id)
                     await human_click(page, selector=publish_selector)
-                    await human_pause(0.5, 1.5)
-
-                    # 等待跳转
                     try:
-                        await page.wait_for_url("**/article/details/**", timeout=30000)
+                        await page.wait_for_selector(".modal__publish-article", state="visible", timeout=10000)
+                    except Exception:
+                        scene_url, scene_markers = await _collect_login_wall_scene(page)
+                        verdict = classify_publish_timeout(scene_url, scene_markers)
+                        return PublishResult(
+                            success=False, platform=self.platform_id,
+                            error_message=f"publish modal not shown; {verdict.error_message}",
+                        )
+                    await human_pause(0.5, 1.0)
+
+                    # 文章标签是弹层必填项（页面有红色星号）。没有标签 chip 时
+                    # 点「发布文章」只会触发 passport 检查，不会提交文章。
+                    tag_candidates: list[str] = ["人工智能"]
+                    for item in tags:
+                        text = str(item or "").strip()
+                        if text and text not in tag_candidates:
+                            tag_candidates.append(text)
+                    added_tags: list[str] = []
+                    for tag in tag_candidates[:3]:
+                        try:
+                            if await self._add_modal_tag(page, tag):
+                                added_tags.append(tag)
+                                if len(added_tags) >= 2:
+                                    break
+                        except Exception as e:
+                            logger.warning("[csdn] add tag %s failed: %s", tag, e)
+                    if not added_tags:
+                        return PublishResult(
+                            success=False, platform=self.platform_id,
+                            error_message="publish tag required but could not add any tag",
+                        )
+
+                    # 弹层内确认发布。
+                    modal_pub = page.locator(".modal__publish-article button:has-text('发布文章')").last
+                    if await modal_pub.count() == 0:
+                        return PublishResult(
+                            success=False, platform=self.platform_id,
+                            error_message="modal publish button not found",
+                        )
+                    await modal_pub.click()
+
+                    # 成功页形如 /mp_blog/creation/success/<articleId>；
+                    # 少数情况下平台直接跳公开文章页 /article/details/<articleId>。
+                    try:
+                        await page.wait_for_url(
+                            re.compile(r".*(?:creation/success|article/details)/\d+.*"),
+                            timeout=30000,
+                        )
                     except Exception as e:
                         logger.warning("csdn.publish wait_for_url 失败: %s", e, exc_info=True)
-                        # 检查是否有错误对话框
                         err_dialog = page.locator('.error-msg, .el-message--error').first
                         if await err_dialog.count() > 0:
                             err_text = await err_dialog.text_content() or "unknown error"
@@ -414,9 +521,6 @@ class CsdnAdapter(BasePlatformAdapter):
                                 success=False, platform=self.platform_id,
                                 error_message=f"publish error: {err_text}",
                             )
-                        # 现场定性:同样是"没跳转",被踢回登录页与编辑器改版是两种病,
-                        # 处置动作相反(前者要用户重新扫码,后者要我们改选择器)。
-                        # 采集零新增等待、异常一律降级,判不出就逐字退回原文案。
                         scene_url, scene_markers = await _collect_login_wall_scene(page)
                         verdict = classify_publish_timeout(scene_url, scene_markers)
                         if verdict.category == LOGIN_WALL_CATEGORY:
@@ -430,15 +534,20 @@ class CsdnAdapter(BasePlatformAdapter):
                         )
 
                     raw_url = page.url
-                    # 与知乎同形:按末段取 id 在 `?spm=…`/`#comment` 出现时会把尾巴带进 id。
-                    article_id = content_id_after_segment(raw_url, "details")
-                    published_url = public_view_url(raw_url, segment="details", content_id=article_id)
+                    match = re.search(r"(?:creation/success|article/details)/(\d+)", raw_url)
+                    if not match:
+                        return PublishResult(
+                            success=False, platform=self.platform_id,
+                            error_message=f"publish succeeded but article id not found in url: {raw_url}",
+                        )
+                    article_id = match.group(1)
+                    published_url = f"https://blog.csdn.net/{username}/article/details/{article_id}"
 
                     return PublishResult(
                         success=True, platform=self.platform_id,
                         published_url=published_url,
                         platform_content_id=article_id,
-                        payload={"title": title, "tags": tags, "category": category},
+                        payload={"title": title, "tags": added_tags, "category": category},
                     )
                 finally:
                     await close_stealth_context(browser, context)
