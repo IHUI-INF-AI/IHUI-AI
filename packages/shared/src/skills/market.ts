@@ -326,10 +326,7 @@ export interface SkillMarketSettlementResponse {
 
 /** 卖家账户对账标记（只提示，不自动改账）。 */
 export type SkillSellerAccountFlag =
-  | 'platform_borne'
-  | 'clawback_missing'
-  | 'negative_wallet'
-  | 'commission_mismatch'
+  'platform_borne' | 'clawback_missing' | 'negative_wallet' | 'commission_mismatch'
 
 /**
  * 技能市场卖家账户对账行（GET /admin/skills-market/seller-accounts）。
@@ -384,6 +381,53 @@ export interface SkillSellerAccountsResponse {
   summary: SkillSellerAccountsSummary
   currency: 'CNY'
   period: SkillMarketSettlementPeriod
+}
+
+/** 人工出款参考状态；只描述“是否适合进入人工付款复核”，不代表已付款。 */
+export type SkillPayoutManifestStatus = 'ready' | 'no_net' | 'not_withdrawable' | 'needs_review'
+
+/** 人工出款参考标记；在卖家对账标记之外补“月净额为负/被可提现上限截断”。 */
+export type SkillPayoutManifestFlag =
+  SkillSellerAccountFlag | 'month_negative' | 'capped_by_withdrawable'
+
+/**
+ * 人工出款参考行（GET /admin/skills-market/settlement/payout-manifest）。
+ *
+ * 只读：`suggestedPayoutCents = max(0, min(monthAuthorNetCents, withdrawableCents))`，
+ * 是“本月净分成在当前可提现余额内的参考上限”，不是付款指令。
+ * 实际打款仍必须走提现申请审核；该值不会写到任何账户或流水。
+ */
+export interface SkillPayoutManifestRow {
+  sellerUserId: string
+  sellerNickname: string | null
+  /** 该账期内作者净分成；退款多的卖家可能为负。 */
+  monthAuthorNetCents: number
+  /** 当前账户全部有效佣金扣除提现占用后的可提现余额。 */
+  withdrawableCents: number
+  pendingWithdrawalCents: number
+  completedWithdrawalCents: number
+  /** 参考上限，不超过当前可提现余额，也不超过本月净分成。 */
+  suggestedPayoutCents: number
+  status: SkillPayoutManifestStatus
+  flags: SkillPayoutManifestFlag[]
+}
+
+export interface SkillPayoutManifestSummary {
+  sellers: number
+  monthAuthorNetCents: number
+  suggestedPayoutCents: number
+  readyCount: number
+  needsReviewCount: number
+  notWithdrawableCount: number
+}
+
+export interface SkillPayoutManifestResponse {
+  items: SkillPayoutManifestRow[]
+  summary: SkillPayoutManifestSummary
+  currency: 'CNY'
+  period: SkillMarketSettlementPeriod
+  /** 固定提示：只读参考，不发起转账。 */
+  disclaimer: string
 }
 
 /** 作者收益明细单条（不暴露买家身份；退款按实际扣回冲减）。 */

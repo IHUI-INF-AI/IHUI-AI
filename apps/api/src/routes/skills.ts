@@ -36,6 +36,7 @@ import type {
   SkillMarketPurchaseAdminListResponse,
   SkillMarketSettlementResponse,
   SkillSellerAccountsResponse,
+  SkillPayoutManifestResponse,
   SkillMyPurchasesResponse,
   SkillRefundRequestCreateResponse,
 } from '@ihui/shared/skills/market'
@@ -50,6 +51,7 @@ import {
   getSkillEarnings,
   getSkillMarketSettlement,
   getSkillMarketSellerAccounts,
+  getSkillMarketPayoutManifest,
   hasPurchasedSkill,
   listSkillMyPurchases,
   listSkillMarketPurchasesAdmin,
@@ -63,6 +65,10 @@ import {
   buildSkillMarketSettlementCsv,
   settlementCsvFilename,
 } from '../services/skill-settlement-csv.js'
+import {
+  buildSkillPayoutManifestCsv,
+  payoutManifestCsvFilename,
+} from '../services/skill-payout-manifest-csv.js'
 import { checkAuth } from '../plugins/auth.js'
 import { authorizeInternalSecretCall } from '../plugins/internal-secret-auth.js'
 import { db } from '../db/index.js'
@@ -906,17 +912,11 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
       }
       const bodyParsed = z
         .object({
-          reason: z
-            .string()
-            .trim()
-            .min(5, '退款原因至少 5 个字')
-            .max(500, '退款原因最多 500 个字'),
+          reason: z.string().trim().min(5, '退款原因至少 5 个字').max(500, '退款原因最多 500 个字'),
         })
         .safeParse(request.body ?? {})
       if (!bodyParsed.success) {
-        return reply
-          .status(400)
-          .send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
+        return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
       }
 
       let result: SkillRefundRequestCreateResponse
@@ -1131,6 +1131,57 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
         month: parsed.data.month,
       })
       return reply.send(success(result))
+    },
+  )
+
+  // GET /admin/skills-market/settlement/payout-manifest — 人工出款参考清单。
+  // 只读：不发起转账、不创建提现；参考上限不超过当前可提现余额。
+  server.get(
+    '/admin/skills-market/settlement/payout-manifest',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const parsed = z
+        .object({
+          month: z
+            .string()
+            .regex(/^\d{4}-(0[1-9]|1[0-2])$/, '账期格式必须为 YYYY-MM')
+            .optional(),
+        })
+        .safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const result: SkillPayoutManifestResponse = await getSkillMarketPayoutManifest({
+        month: parsed.data.month,
+      })
+      return reply.send(success(result))
+    },
+  )
+
+  // GET /admin/skills-market/settlement/payout-manifest/export — 同一口径的参考清单 CSV。
+  server.get(
+    '/admin/skills-market/settlement/payout-manifest/export',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const parsed = z
+        .object({
+          month: z
+            .string()
+            .regex(/^\d{4}-(0[1-9]|1[0-2])$/, '账期格式必须为 YYYY-MM')
+            .optional(),
+        })
+        .safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const data = await getSkillMarketPayoutManifest({ month: parsed.data.month })
+      const filename = payoutManifestCsvFilename(data.period.month)
+      return reply
+        .header('Content-Type', 'text/csv; charset=utf-8')
+        .header('Content-Disposition', `attachment; filename="${filename}"`)
+        .header('Cache-Control', 'no-store')
+        .header('X-Content-Type-Options', 'nosniff')
+        .send(buildSkillPayoutManifestCsv(data))
     },
   )
 
