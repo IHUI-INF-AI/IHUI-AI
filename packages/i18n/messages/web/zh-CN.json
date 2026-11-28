@@ -28326,7 +28326,20 @@
     "earningsStatusRefunded": "已退款",
     "earningsRefundDetail": "退款 ¥{refund} · 扣回 ¥{clawback}",
     "earningsClawbackMissing": "扣回未记录",
-    "earningsNote": "净分成 = 销售分成 - 退款实际扣回；余额不足未扣回的部分由平台承担。"
+    "earningsNote": "净分成 = 销售分成 - 退款实际扣回；余额不足未扣回的部分由平台承担。",
+    "settlementTitle": "本月结算参考",
+    "settlementStatus": "状态",
+    "settlementMonth": "账期",
+    "settlementAllPeriods": "全部账期",
+    "settlementNoActivity": "本月暂无技能成交或退款",
+    "settlementSuggested": "参考出款上限",
+    "settlementDisclaimer": "这是只读参考，不创建提现、不发起转账；实际付款仍走提现审核。",
+    "settlementStatusReady": "可进入人工复核",
+    "settlementStatusNoNet": "本月无正净额",
+    "settlementStatusNotWithdrawable": "当前无可提现",
+    "settlementStatusNeedsReview": "需先核查",
+    "settlementFlagCapped": "被可提现余额截断",
+    "settlementFlagNegative": "本月净额为负"
   },
   "chatSearchBar": {
     "messageNotFound": "找不到该消息，可能已不在当前列表窗口内",

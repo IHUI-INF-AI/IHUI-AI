@@ -891,6 +891,28 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(await getSkillEarnings(userId)))
   })
 
+  // GET /skills/market/settlement/me — 当前作者自己的月度结算参考。
+  // 只读，复用管理员清单同一口径；只返回本人的行，不泄露其他卖家。
+  server.get('/skills/market/settlement/me', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const parsed = z
+      .object({
+        month: z
+          .string()
+          .regex(/^\d{4}-(0[1-9]|1[0-2])$/, '账期格式必须为 YYYY-MM')
+          .optional(),
+      })
+      .safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const result: SkillPayoutManifestResponse = await getSkillMarketPayoutManifest({
+      month: parsed.data.month,
+      sellerUserId: request.userId!,
+    })
+    return reply.send(success(result))
+  })
+
   // GET /skills/market/purchases — 当前买家的购买记录与最近一次退款申请。
   server.get('/skills/market/purchases', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return

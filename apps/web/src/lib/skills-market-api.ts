@@ -15,6 +15,7 @@ import type {
   SkillNotification,
   SkillPurchaseResponse,
   SkillEarningsResponse,
+  SkillPayoutManifestResponse,
   SkillMyPurchasesResponse,
   SkillRefundRequestCreateResponse,
 } from '@ihui/shared/skills/market'
@@ -47,6 +48,12 @@ export function purchaseSkill(name: string): Promise<SkillPurchaseResponse> {
 /** 当前用户的技能分成收益（金额单位：分）。 */
 export function fetchSkillEarnings(): Promise<SkillEarningsResponse> {
   return apiOrThrow<SkillEarningsResponse>('/api/skills/market/earnings')
+}
+
+/** 当前作者自己的月度结算参考；只读，不发起提现或付款。 */
+export function fetchMySkillSettlement(month?: string): Promise<SkillPayoutManifestResponse> {
+  const qs = month ? `?month=${encodeURIComponent(month)}` : ''
+  return apiOrThrow<SkillPayoutManifestResponse>(`/api/skills/market/settlement/me${qs}`)
 }
 
 /** 当前买家的购买记录与最近一次退款申请。 */

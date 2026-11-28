@@ -28165,7 +28165,20 @@
     "earningsStatusRefunded": "Refunded",
     "earningsRefundDetail": "Refund ¥{refund} · Clawback ¥{clawback}",
     "earningsClawbackMissing": "Clawback not recorded",
-    "earningsNote": "Net share = sales share minus actual refund clawback; any shortfall is borne by the platform."
+    "earningsNote": "Net share = sales share minus actual refund clawback; any shortfall is borne by the platform.",
+    "settlementTitle": "Current-month settlement reference",
+    "settlementStatus": "Status",
+    "settlementMonth": "Period",
+    "settlementAllPeriods": "All periods",
+    "settlementNoActivity": "No skill sales or refunds this month",
+    "settlementSuggested": "Suggested payout cap",
+    "settlementDisclaimer": "This is a read-only reference. It does not create withdrawals or send payments; actual payouts still go through withdrawal review.",
+    "settlementStatusReady": "Ready for manual review",
+    "settlementStatusNoNet": "No net amount",
+    "settlementStatusNotWithdrawable": "Not withdrawable yet",
+    "settlementStatusNeedsReview": "Review required",
+    "settlementFlagCapped": "Capped by withdrawable balance",
+    "settlementFlagNegative": "Negative net this month"
   },
   "chatSearchBar": {
     "messageNotFound": "Message not found — it may be outside the current list",
