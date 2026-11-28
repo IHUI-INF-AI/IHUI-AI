@@ -7,10 +7,12 @@ from __future__ import annotations
 
 import json
 from typing import Any
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
 
+import app.services.master_tools.ops as ops_module
 from app.services.master_tools.ops import AgentOpsTool
 
 
@@ -573,7 +575,14 @@ async def test_health_is_passthrough() -> None:
 
 
 @pytest.mark.asyncio
-async def test_run_cancel_without_local_task_is_not_local() -> None:
+async def test_run_cancel_without_local_task_is_not_local(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def no_remote_cancel(*_args: Any, **_kwargs: Any) -> bool:
+        return False
+
+    monkeypatch.setattr(ops_module, "request_remote_cancel", no_remote_cancel)
+
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith("/ops"):
             return httpx.Response(
@@ -599,6 +608,54 @@ async def test_run_cancel_without_local_task_is_not_local() -> None:
     assert envelope["ok"] is True
     assert envelope["data"]["outcome"] == "not_local"
     assert envelope["data"]["runStatus"] == "running"
+    assert "跨实例取消位不可用" in envelope["data"]["reason"]
+
+
+@pytest.mark.asyncio
+async def test_run_cancel_remote_waits_for_ledger_terminal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = {"run_get": 0}
+
+    async def remote_task(*_args: Any, **_kwargs: Any) -> bool:
+        return True
+
+    async def append_event(**_kwargs: Any) -> bool:
+        return True
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content) if request.content else {}
+        if request.url.path.endswith("/ops") and payload.get("action") == "run_get":
+            calls["run_get"] += 1
+            status = "running" if calls["run_get"] == 1 else "canceled"
+            return httpx.Response(
+                200,
+                json={
+                    "code": 0,
+                    "data": {
+                        "result": {
+                            "id": "run-remote",
+                            "status": status,
+                            "sessionId": "session-remote",
+                        }
+                    },
+                },
+            )
+        return httpx.Response(404, json={"code": 404, "message": "not found"})
+
+    monkeypatch.setattr(ops_module, "request_remote_cancel", remote_task)
+    monkeypatch.setattr(ops_module, "_REMOTE_CANCEL_TIMEOUT_SECONDS", 1.0)
+    monkeypatch.setattr(ops_module, "_REMOTE_CANCEL_POLL_SECONDS", 0.01)
+    tool = _tool(handler)
+    tool._append_cancel_event = AsyncMock(side_effect=append_event)  # type: ignore[method-assign]
+
+    envelope = await tool.handle({"action": "run_cancel", "runId": "run-remote"}, user_id="user-1")
+
+    assert envelope["ok"] is True
+    assert envelope["data"]["outcome"] == "cancelled"
+    assert envelope["data"]["runStatus"] == "canceled"
+    assert envelope["data"]["remoteRequested"] is True
+    assert envelope["data"]["cancelEventWritten"] is True
 
 
 @pytest.mark.asyncio

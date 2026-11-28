@@ -6,7 +6,7 @@
 已落地九种 dispatch：single / parallel / pipeline / debate / vote / critique /
 team / recursive / decomposed，全部创建父 run、真实执行并写步骤事件；
 另含运行只读面（run_list/get/logs/artifacts/stats）+ pause/resume/talk +
-run_cancel/run_stop（当前进程硬取消，跨进程明确 not_local）+ run_retry（按 dispatchPayload 重建）。
+run_cancel/run_stop（当前进程硬取消，跨进程通过 Redis 取消位通知执行实例）+ run_retry（按 dispatchPayload 重建）。
 """
 
 from __future__ import annotations
@@ -25,6 +25,11 @@ from ...core.internal_ticket import (
     InternalServiceCredentialError,
     internal_service_headers,
 )
+from ..agent_run_cancel_bus import (
+    request_remote_cancel,
+    start_remote_cancel_watch,
+    stop_remote_cancel_watch,
+)
 from ..agent_task_registry import (
     cancel_tasks,
     register_task,
@@ -34,6 +39,10 @@ from ..agent_task_registry import (
 )
 
 TOOL_NAME = "agent_ops"
+
+# 跨实例取消发出后等待执行实例收口的时间；超时如实返回 remote_requested，不冒充已停。
+_REMOTE_CANCEL_TIMEOUT_SECONDS = 10.0
+_REMOTE_CANCEL_POLL_SECONDS = 0.5
 
 ACTION_VALUES = [
     "dispatch",
@@ -167,7 +176,7 @@ DESCRIPTION = (
     "查看和控制智能体运行：dispatch 支持 single / parallel / pipeline / debate / vote / critique / team / recursive / decomposed，"
     "会创建父 run、真实执行并写步骤事件；run_list/run_get/run_logs/run_artifacts/run_stats 可查；"
     "run_pause/run_resume/run_talk 可操作当前实例的在飞会话；"
-    "run_cancel/run_stop 硬取消当前进程登记的任务，跨进程返回 not_local；"
+    "run_cancel/run_stop 硬取消：本进程直接 cancel，跨进程通过 Redis 取消位通知执行实例；"
     "run_retry 按创建 run 时保存的 dispatchPayload 重建新 run。"
     "health 查运行时。"
 )
@@ -476,10 +485,10 @@ class AgentOpsTool:
         user_id: str,
         action: str,
     ) -> dict[str, Any]:
-        """硬取消当前进程内登记的 run/session 任务。
+        """硬取消 run：本进程有任务直接 cancel；没有任务则写跨实例取消位。
 
-        没有登记任务时绝不改数据库冒充“已停”：返回 not_local，让调用方知道这个 run
-        不属于当前 AI 进程，需要跨实例控制面来收口。
+        两种情况都不改数据库冒充“已停”：本进程取消由执行任务的 CancelledError
+        路径收口；跨实例由执行侧 watcher 取消任务后收口，控制侧只等待账本终态。
         """
         status = str(run.get("status") or "") if isinstance(run, dict) else ""
         terminal = {"succeeded", "failed", "canceled", "timeout"}
@@ -527,13 +536,25 @@ class AgentOpsTool:
                     "cancelEventWritten": event_written,
                     "reason": "paused",
                 }
-            return {
-                "runId": run_id,
-                "outcome": "not_local",
-                "runStatus": status,
-                "cancelledTasks": 0,
-                "reason": "该 run 不在当前 AI 进程，未改数据库冒充已停",
-            }
+            remote_requested = await request_remote_cancel(
+                run_id,
+                session_id=session_id,
+                action=action,
+            )
+            if not remote_requested:
+                return {
+                    "runId": run_id,
+                    "outcome": "not_local",
+                    "runStatus": status,
+                    "cancelledTasks": 0,
+                    "reason": "该 run 不在当前 AI 进程，且跨实例取消位不可用",
+                }
+            return await self._await_remote_cancel(
+                run_id=run_id,
+                user_id=user_id,
+                action=action,
+                initial_status=status,
+            )
         if result["pending"] > 0:
             return {
                 "runId": run_id,
@@ -558,6 +579,72 @@ class AgentOpsTool:
             "cancelledTasks": result["done"],
             "cancelEventWritten": event_written,
         }
+
+    async def _await_remote_cancel(
+        self,
+        *,
+        run_id: str,
+        user_id: str,
+        action: str,
+        initial_status: str,
+    ) -> dict[str, Any]:
+        """等待远端执行实例收口；超时/轮询失败一律如实返回未完成，不冒充已停。"""
+        deadline = time.monotonic() + _REMOTE_CANCEL_TIMEOUT_SECONDS
+        status = initial_status
+        while True:
+            try:
+                after = await self._post_ops(
+                    {"action": "run_get", "runId": run_id}, user_id=user_id
+                )
+                status = str(after.get("status") or "") if isinstance(after, dict) else status
+            except Exception as error:  # noqa: BLE001 -- 取消位已发出，查询失败不能反过来说没发
+                logger.warning(
+                    "[master-ops] remote cancel poll failed run=%s: %s", run_id, error
+                )
+                return {
+                    "runId": run_id,
+                    "outcome": "remote_requested",
+                    "runStatus": status,
+                    "cancelledTasks": 0,
+                    "remoteRequested": True,
+                    "reason": "取消位已写入，但运行账本暂时不可查",
+                }
+
+            if status == "canceled":
+                event_written = False
+                with contextlib.suppress(Exception):
+                    event_written = await self._append_cancel_event(
+                        run_id=run_id, user_id=user_id
+                    )
+                requested = "stopped" if action == "run_stop" else "cancelled"
+                return {
+                    "runId": run_id,
+                    "outcome": requested,
+                    "runStatus": "canceled",
+                    "cancelledTasks": 0,
+                    "cancelEventWritten": event_written,
+                    "remoteRequested": True,
+                    "reason": "remote",
+                }
+            if status in {"succeeded", "failed", "timeout"}:
+                return {
+                    "runId": run_id,
+                    "outcome": "cancel_incomplete",
+                    "runStatus": status,
+                    "cancelledTasks": 0,
+                    "remoteRequested": True,
+                    "reason": "取消位到达前 run 已进入其它终态",
+                }
+            if time.monotonic() >= deadline:
+                return {
+                    "runId": run_id,
+                    "outcome": "remote_requested",
+                    "runStatus": status,
+                    "cancelledTasks": 0,
+                    "remoteRequested": True,
+                    "reason": "取消位已写入，等待执行实例收口超时",
+                }
+            await asyncio.sleep(_REMOTE_CANCEL_POLL_SECONDS)
 
     async def _retry_run(self, run: Any, *, run_id: str, user_id: str) -> dict[str, Any]:
         """按创建 run 时保存的 dispatch 快照重建一次新 run；旧 run 不改状态。"""
@@ -728,6 +815,7 @@ class AgentOpsTool:
         )
         task = asyncio.current_task()
         register_task(run_task_key(run_id), task)
+        watcher = start_remote_cancel_watch(run_id, session_id)
         try:
             try:
                 result = await orchestrator.invoke(
@@ -766,6 +854,7 @@ class AgentOpsTool:
                 ) from error
         finally:
             unregister_task(run_task_key(run_id), task)
+            await stop_remote_cancel_watch(watcher)
 
 
         return {
@@ -958,6 +1047,7 @@ class AgentOpsTool:
         )
         task = asyncio.current_task()
         register_task(run_task_key(run_id), task)
+        watcher = start_remote_cancel_watch(run_id, session_id)
         try:
             if mode == "parallel":
                 result = await orchestrator.run_parallel(
@@ -1122,6 +1212,7 @@ class AgentOpsTool:
             ) from error
         finally:
             unregister_task(run_task_key(run_id), task)
+            await stop_remote_cancel_watch(watcher)
 
         registry_status = to_run_registry_status(result.status)
         first_error = next((step for step in result.steps if step.status == "failed"), None)
