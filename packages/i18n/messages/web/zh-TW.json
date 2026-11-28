@@ -14902,7 +14902,9 @@
       "reviseExportDocxNote": "匯出會把已接受的行寫回原 Word 段落，保留現有樣式。",
       "reviseExportNote": "該格式暫不做二進位寫回，匯出為 Markdown 修訂稿。",
       "reviseRenderCapped": "差異超過 {rows} 行，僅渲染前 {rows} 行",
-      "reviseNoChanges": "AI 沒有給出需要修改的內容，目前版本已符合要求。"
+      "reviseNoChanges": "AI 沒有給出需要修改的內容，目前版本已符合要求。",
+      "reviseContinue": "在此稿上繼續修訂",
+      "reviseContinueBase": "下一輪將基於第 {round} 輪已接受的修訂稿繼續修改"
     }
   },
   "drama": {

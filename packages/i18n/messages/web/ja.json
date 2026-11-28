@@ -14967,7 +14967,9 @@
       "reviseExportDocxNote": "承認した行を元の Word 段落へ書き戻し、既存の書式を保持します。",
       "reviseExportNote": "この形式はバイナリ書き戻しに未対応のため、Markdown 改訂稿として書き出します。",
       "reviseRenderCapped": "差分が {rows} 行を超えるため、先頭 {rows} 行のみ表示します",
-      "reviseNoChanges": "AI は変更が必要な箇所を見つけませんでした。現在の版は要件を満たしています。"
+      "reviseNoChanges": "AI は変更が必要な箇所を見つけませんでした。現在の版は要件を満たしています。",
+      "reviseContinue": "この稿を続けて修正",
+      "reviseContinueBase": "次のラウンドは第 {round} ラウンドで採用した修正稿を元に続けます"
     }
   },
   "drama": {

@@ -135,6 +135,11 @@ export function AiRevisionPanel({
   const [viewMode, setViewMode] = React.useState<'split' | 'unified'>('split')
   const [exporting, setExporting] = React.useState(false)
   const [copied, setCopied] = React.useState(false)
+  // 多轮修订:baseText 非空 ⇒ 下一轮以"上一轮已接受的合并稿"为输入,而不是原文件;
+  // rootOriginal 始终保留第一轮原文 —— docx 回写要靠它与原文件段落 1:1 对齐。
+  const [baseText, setBaseText] = React.useState<string | null>(null)
+  const [rootOriginal, setRootOriginal] = React.useState<string | null>(null)
+  const [roundNo, setRoundNo] = React.useState(1)
 
   const abortRef = React.useRef<AbortController | null>(null)
   const timerRef = React.useRef<number | null>(null)
@@ -155,6 +160,9 @@ export function AiRevisionPanel({
     setError(null)
     setInstruction(initialInstruction?.trim() || t('reviseDefaultInstruction'))
     bytesRef.current = null
+    setBaseText(null)
+    setRootOriginal(null)
+    setRoundNo(1)
     // 文件名/字节变化才重置;t 只影响默认文案,不参与身份判定。
     autoRanRef.current = false
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -173,7 +181,11 @@ export function AiRevisionPanel({
   }
 
   const run = async (overrideInstruction?: string) => {
-    if (file.size > MAX_FILE_BYTES) {
+    const sourceName = baseText ? `${name.replace(/\.[^.]+$/, '')}.txt` : name
+    const sourceBlob: Blob = baseText
+      ? new File([baseText], sourceName, { type: 'text/plain' })
+      : file
+    if (sourceBlob.size > MAX_FILE_BYTES) {
       setError(t('reviseTooLarge'))
       return
     }
@@ -190,8 +202,8 @@ export function AiRevisionPanel({
     setAccepted(new Set())
     try {
       const data = await requestRevision({
-        file,
-        name,
+        file: sourceBlob,
+        name: sourceName,
         instruction: (overrideInstruction ?? instruction).trim(),
         signal: controller.signal,
       })
@@ -201,6 +213,8 @@ export function AiRevisionPanel({
         return
       }
       const nextDiff = buildRevisionDiff(data.originalText, data.revisedText)
+      // 第一轮才记根原文;后续轮次的 data.originalText 是上一轮合并稿,不能拿来对齐 docx。
+      if (!baseText) setRootOriginal(data.originalText)
       setResult(data)
       setAccepted(allHunkIds(nextDiff))
     } catch (err) {
@@ -244,6 +258,16 @@ export function AiRevisionPanel({
     })
   }
 
+  /** 把本轮"已接受的合并稿"顶成下一轮输入:再改一版,导出仍以第一轮原文对齐 docx。 */
+  const continueRevision = () => {
+    if (!mergedText) return
+    setBaseText(mergedText)
+    setRoundNo((prev) => prev + 1)
+    setResult(null)
+    setAccepted(new Set())
+    setError(null)
+  }
+
   const copyMerged = async () => {
     if (!mergedText) return
     try {
@@ -268,7 +292,7 @@ export function AiRevisionPanel({
       }
       const exported = await exportRevision({
         name,
-        originalText: result.originalText,
+        originalText: rootOriginal ?? result.originalText,
         mergedText,
         originalBytes,
       })
@@ -321,6 +345,14 @@ export function AiRevisionPanel({
       </header>
 
       <div className="space-y-2 border-b border-border/60 px-3 py-2.5">
+        {baseText ? (
+          <p
+            data-testid="revision-base-hint"
+            className="rounded-md bg-violet-100/70 px-2 py-1 text-[11px] text-violet-800 dark:bg-violet-950/40 dark:text-violet-200"
+          >
+            {t('reviseContinueBase', { round: roundNo - 1 })}
+          </p>
+        ) : null}
         <label
           htmlFor="ai-revision-instruction"
           className="block text-[11px] font-medium text-muted-foreground"
@@ -609,6 +641,15 @@ export function AiRevisionPanel({
               {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
               {copied ? t('reviseCopied') : t('reviseCopy')}
             </button>
+            {result && mergedText ? (
+              <button
+                type="button"
+                onClick={continueRevision}
+                className="rounded-md border border-violet-300/70 px-2.5 py-1 text-[11px] text-violet-700 hover:bg-violet-50 dark:border-violet-800 dark:text-violet-300 dark:hover:bg-violet-950/40"
+              >
+                {t('reviseContinue')}
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => void exportFile()}

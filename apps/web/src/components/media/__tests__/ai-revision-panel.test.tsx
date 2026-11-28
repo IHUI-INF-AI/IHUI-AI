@@ -93,6 +93,24 @@ describe('AiRevisionPanel', () => {
     )
   })
 
+  it('接受后可在此稿上继续修订:第二轮以合并稿为输入,不是重新读原文件', async () => {
+    render(<AiRevisionPanel file={fileOf('合同.docx')} name="合同.docx" />)
+    fireEvent.click(screen.getByText('reviseRun'))
+    await screen.findByText('第一条 甲方应在五个工作日内付款。')
+
+    fireEvent.click(screen.getByText('reviseContinue'))
+    expect(screen.getByTestId('revision-base-hint')).toBeTruthy()
+
+    fireEvent.click(screen.getByText('reviseRun'))
+    await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2))
+    const init = vi.mocked(fetch).mock.calls[1]?.[1] as RequestInit
+    const body = init.body as FormData
+    const sent = body.get('file') as File
+    expect(sent.name).toBe('合同.txt')
+    expect(await sent.text()).toContain('第一条 甲方应在五个工作日内付款。')
+    expect(await sent.text()).not.toContain('合同正文')
+  })
+
   it('全部驳回后导出禁用,避免导出与原文相同的“修订稿”', async () => {
     render(<AiRevisionPanel file={fileOf('合同.txt')} name="合同.txt" />)
     fireEvent.click(screen.getByText('reviseRun'))

@@ -14947,7 +14947,9 @@
       "reviseExportDocxNote": "导出会把已接受的行写回原 Word 段落，保留现有样式。",
       "reviseExportNote": "该格式暂不做二进制写回，导出为 Markdown 修订稿。",
       "reviseRenderCapped": "差异超过 {rows} 行，仅渲染前 {rows} 行",
-      "reviseNoChanges": "AI 没有给出需要修改的内容，当前版本已经符合要求。"
+      "reviseNoChanges": "AI 没有给出需要修改的内容，当前版本已经符合要求。",
+      "reviseContinue": "在此稿上继续修订",
+      "reviseContinueBase": "下一轮将基于第 {round} 轮已接受的修订稿继续修改"
     }
   },
   "drama": {
