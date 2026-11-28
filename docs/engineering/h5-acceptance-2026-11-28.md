@@ -75,3 +75,9 @@ RN/小程序提现接卡链路已通过 **H5 验收**：Taro H5 产物成功构�
 ## H5 路由注意
 
 Taro H5 首帧直接打开子包深链 `#/pages/distribution/withdraw` 时页面不挂载（标题已变但 body 为空）；验收采用「先打开 `#/pages/index/index`，再切 hash 到提现页」的等价路径。若要让用户直接打开提现深链，需要单独补 Taro H5 子包首帧路由初始化，不在本次 H5 验收范围内。
+
+## 提交
+
+- `e684f740ac`：H5 构建编译面、`@rn-components` alias、提现页 `AppConfirmHost`、`feeHint` 插值与首版验收文档。
+- `bf15f38a38`：rn-compat Modal / BottomPops 宽度修复、真实指针确认、成功态保留选卡、确认态截图与文档终版。
+- production 代码 HEAD 仍为 `f03d92b6cb`；本轮只涉及小程序 H5 / weapp / RN 壳层，不触发生产 Web/API 部署。
