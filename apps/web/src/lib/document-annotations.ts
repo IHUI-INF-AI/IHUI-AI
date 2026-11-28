@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]: document-annotation-pin-bridge
 
+import type { AnnotationAnchor } from '@ihui/shared/chat/annotation-anchors'
 import { fetchApi } from '@/lib/api'
 
 /**
@@ -232,6 +233,63 @@ export async function reviewDocumentBlocks(input: {
   })
   if (!res.success) throw new Error(res.error)
   return res.data.findings
+}
+
+/** 批量交接时固定的执行 prompt:要求主 AI 直接给可落地计划,而不是泛泛总结。 */
+export const AI_ALL_HANDOFF_PROMPT =
+  '请基于这份文档的全部 AI 预审结论，按优先级给出可执行的修订计划，并逐项标注对应的段落/单元格；同时列出需要补充的证据和复核动作。'
+
+export interface AiAllHandoffSummary {
+  text: string
+  anchor: AnnotationAnchor
+  page?: number
+  slide?: number
+  element?: string
+  paragraph?: number
+  sheet?: string
+  range?: string
+  excerpt?: string
+  note: string
+  count: number
+}
+
+/**
+ * 把多条 AI 预审结论打包成一次主对话交接。
+ *
+ * 这里刻意不做“摘要成一段散文”:每条都保留自己的坐标 label 和正文,
+ * 主 AI 才能按 P0/P1/P2 逐项对应回段落/单元格;首批锚点只用于输入框的
+ * 纹理引用(定位高亮),完整上下文在 text 中。
+ */
+export function buildAiAllHandoffSummary(
+  records: readonly DocumentAnnotationRecord[],
+  documentTitle?: string,
+): AiAllHandoffSummary | null {
+  const aiRoots = records.filter(
+    (record) => !record.parentId && record.origin === 'ai' && record.anchor,
+  )
+  const first = aiRoots[0]
+  if (!first?.anchor) return null
+  const rawAnchor = first.anchor as Record<string, unknown>
+  const lines = aiRoots.map(
+    (root, index) => `${index + 1}. [${root.label || 'AI 预审'}] ${root.body.slice(0, 1000)}`,
+  )
+  return {
+    text: [
+      `【${documentTitle || '文档'} · AI 全文预审，共 ${aiRoots.length} 条】`,
+      ...lines,
+      AI_ALL_HANDOFF_PROMPT,
+    ].join('\n\n'),
+    anchor: first.anchor as unknown as AnnotationAnchor,
+    page: typeof rawAnchor.page === 'number' ? rawAnchor.page : undefined,
+    slide: typeof rawAnchor.slide === 'number' ? rawAnchor.slide : undefined,
+    element: typeof rawAnchor.element === 'string' ? rawAnchor.element : undefined,
+    paragraph: typeof rawAnchor.paragraph === 'number' ? rawAnchor.paragraph : undefined,
+    sheet: typeof rawAnchor.sheet === 'string' ? rawAnchor.sheet : undefined,
+    range: typeof rawAnchor.range === 'string' ? rawAnchor.range : undefined,
+    excerpt: first.excerpt ?? undefined,
+    note: `全部 AI 预审结论 ${aiRoots.length} 条`,
+    count: aiRoots.length,
+  }
 }
 
 /** 把 AI findings 落成页内 pin;同一位置同一结论由服务端去重。 */

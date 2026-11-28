@@ -1,0 +1,1427 @@
+{
+  "total": 41,
+  "passed": 0,
+  "pass_rate": 0.0,
+  "metrics": {
+    "total": 41,
+    "passed": 0,
+    "pass_rate": 0.0,
+    "iterations": {
+      "p50": 1.0,
+      "p90": 7.0,
+      "p99": 9.6,
+      "mean": 2.88,
+      "max": 10.0,
+      "total": 118.0
+    },
+    "duration_ms": {
+      "p50": 3874.9,
+      "p90": 67536.0,
+      "p99": 110811.22,
+      "mean": 25330.12,
+      "max": 114126.1,
+      "total": 1038535.1
+    },
+    "tokens": {
+      "p50": 50.0,
+      "p90": 779.0,
+      "p99": 2429.8,
+      "mean": 347.8,
+      "max": 3161.0,
+      "total": 14260.0,
+      "samples": 41,
+      "tasks_with_zero_tokens": 0
+    },
+    "tool_calls": {
+      "p50": 0.0,
+      "p90": 7.0,
+      "p99": 10.6,
+      "mean": 2.07,
+      "max": 11.0,
+      "total": 85.0,
+      "tasks_with_zero_calls": 25
+    },
+    "failure_taxonomy": {
+      "pass": 0,
+      "execution_error": 25,
+      "timeout": 0,
+      "cancelled": 0,
+      "budget_exceeded": 0,
+      "iteration_exhausted": 1,
+      "no_tool_calls": 0,
+      "no_checks": 0,
+      "checks_failed": 15
+    },
+    "failures": [
+      {
+        "id": "fix-calc-divzero",
+        "category": "fix",
+        "class": "checks_failed",
+        "detail": "失败检查: pytest_pass"
+      },
+      {
+        "id": "fix-calc-percent",
+        "category": "fix",
+        "class": "checks_failed",
+        "detail": "失败检查: pytest_pass"
+      },
+      {
+        "id": "fix-calc-multiply",
+        "category": "fix",
+        "class": "checks_failed",
+        "detail": "失败检查: pytest_pass"
+      },
+      {
+        "id": "fix-cli-import",
+        "category": "fix",
+        "class": "checks_failed",
+        "detail": "失败检查: pytest_pass"
+      },
+      {
+        "id": "fix-cli-deadcode",
+        "category": "fix",
+        "class": "checks_failed",
+        "detail": "失败检查: file_not_contains"
+      },
+      {
+        "id": "fix-text-reverse",
+        "category": "fix",
+        "class": "checks_failed",
+        "detail": "失败检查: pytest_pass"
+      },
+      {
+        "id": "fix-report-avg",
+        "category": "fix",
+        "class": "checks_failed",
+        "detail": "失败检查: pytest_pass"
+      },
+      {
+        "id": "fix-report-total",
+        "category": "fix",
+        "class": "checks_failed",
+        "detail": "失败检查: pytest_pass"
+      },
+      {
+        "id": "test-text-slugify",
+        "category": "test",
+        "class": "checks_failed",
+        "detail": "失败检查: file_contains"
+      },
+      {
+        "id": "test-calc-edge",
+        "category": "test",
+        "class": "checks_failed",
+        "detail": "失败检查: pytest_file_exists"
+      },
+      {
+        "id": "test-cli-errors",
+        "category": "test",
+        "class": "checks_failed",
+        "detail": "失败检查: pytest_file_exists"
+      },
+      {
+        "id": "test-report-empty",
+        "category": "test",
+        "class": "checks_failed",
+        "detail": "失败检查: pytest_file_exists"
+      },
+      {
+        "id": "test-text-wordcount",
+        "category": "test",
+        "class": "checks_failed",
+        "detail": "失败检查: pytest_file_exists"
+      },
+      {
+        "id": "refactor-report-common",
+        "category": "refactor",
+        "class": "checks_failed",
+        "detail": "失败检查: file_contains,pytest_pass"
+      },
+      {
+        "id": "refactor-calc-validate",
+        "category": "refactor",
+        "class": "iteration_exhausted",
+        "detail": "失败检查: file_contains,pytest_pass"
+      },
+      {
+        "id": "refactor-cli-dispatch",
+        "category": "refactor",
+        "class": "checks_failed",
+        "detail": "失败检查: file_contains,pytest_pass"
+      },
+      {
+        "id": "refactor-text-normalize",
+        "category": "refactor",
+        "class": "execution_error",
+        "detail": "失败检查: file_contains,pytest_pass"
+      },
+      {
+        "id": "multifile-report-split",
+        "category": "multifile",
+        "class": "execution_error",
+        "detail": "失败检查: file_contains,pytest_pass"
+      },
+      {
+        "id": "multifile-cli-parser",
+        "category": "multifile",
+        "class": "execution_error",
+        "detail": "失败检查: file_contains,pytest_pass"
+      },
+      {
+        "id": "multifile-calc-split",
+        "category": "multifile",
+        "class": "execution_error",
+        "detail": "失败检查: file_contains,pytest_pass"
+      },
+      {
+        "id": "fix-calc-multiply-percent",
+        "category": "fix",
+        "class": "execution_error",
+        "detail": "失败检查: pytest_pass"
+      },
+      {
+        "id": "feature-calc-power",
+        "category": "feature",
+        "class": "execution_error",
+        "detail": "失败检查: file_contains,pytest_pass"
+      },
+      {
+        "id": "test-calc-divide-suite",
+        "category": "test",
+        "class": "execution_error",
+        "detail": "失败检查: pytest_file_exists"
+      },
+      {
+        "id": "feature-text-truncate",
+        "category": "feature",
+        "class": "execution_error",
+        "detail": "失败检查: file_contains,pytest_pass"
+      },
+      {
+        "id": "feature-text-title-case",
+        "category": "feature",
+        "class": "execution_error",
+        "detail": "失败检查: file_contains,pytest_pass"
+      },
+      {
+        "id": "test-text-uppercase-edge",
+        "category": "test",
+        "class": "execution_error",
+        "detail": "失败检查: pytest_file_exists"
+      },
+      {
+        "id": "fix-report-both-bugs",
+        "category": "fix",
+        "class": "execution_error",
+        "detail": "失败检查: pytest_pass"
+      },
+      {
+        "id": "feature-report-count",
+        "category": "feature",
+        "class": "execution_error",
+        "detail": "失败检查: file_contains,pytest_pass"
+      },
+      {
+        "id": "test-report-summarize-extra",
+        "category": "test",
+        "class": "execution_error",
+        "detail": "失败检查: pytest_file_exists"
+      },
+      {
+        "id": "fix-cli-greet",
+        "category": "fix",
+        "class": "execution_error",
+        "detail": "失败检查: pytest_pass"
+      },
+      {
+        "id": "feature-cli-main-exit-code",
+        "category": "feature",
+        "class": "execution_error",
+        "detail": "失败检查: pytest_pass"
+      },
+      {
+        "id": "fix-cli-full-clean",
+        "category": "fix",
+        "class": "execution_error",
+        "detail": "失败检查: file_not_contains,pytest_pass"
+      },
+      {
+        "id": "feature-cli-add-command",
+        "category": "feature",
+        "class": "execution_error",
+        "detail": "失败检查: file_contains,pytest_pass"
+      },
+      {
+        "id": "test-calc-add-subtract",
+        "category": "test",
+        "class": "execution_error",
+        "detail": "失败检查: pytest_file_exists"
+      },
+      {
+        "id": "test-cli-greet-format",
+        "category": "test",
+        "class": "execution_error",
+        "detail": "失败检查: pytest_file_exists"
+      },
+      {
+        "id": "test-report-avg-edge",
+        "category": "test",
+        "class": "execution_error",
+        "detail": "失败检查: pytest_file_exists"
+      },
+      {
+        "id": "test-text-reverse-edge",
+        "category": "test",
+        "class": "execution_error",
+        "detail": "失败检查: pytest_file_exists"
+      },
+      {
+        "id": "refactor-calc-docstrings",
+        "category": "refactor",
+        "class": "execution_error",
+        "detail": "失败检查: file_not_contains,pytest_pass"
+      },
+      {
+        "id": "refactor-cli-type-hints",
+        "category": "refactor",
+        "class": "execution_error",
+        "detail": "失败检查: file_contains,pytest_pass"
+      },
+      {
+        "id": "refactor-report-avg-safe",
+        "category": "refactor",
+        "class": "execution_error",
+        "detail": "失败检查: file_contains,pytest_pass"
+      },
+      {
+        "id": "refactor-text-reverse-normalize",
+        "category": "refactor",
+        "class": "execution_error",
+        "detail": "失败检查: file_contains,pytest_pass"
+      }
+    ],
+    "by_category": {
+      "fix": {
+        "total": 12,
+        "passed": 0,
+        "pass_rate": 0.0,
+        "iterations_p50": 3.5
+      },
+      "test": {
+        "total": 12,
+        "passed": 0,
+        "pass_rate": 0.0,
+        "iterations_p50": 1.0
+      },
+      "refactor": {
+        "total": 8,
+        "passed": 0,
+        "pass_rate": 0.0,
+        "iterations_p50": 1.0
+      },
+      "multifile": {
+        "total": 3,
+        "passed": 0,
+        "pass_rate": 0.0,
+        "iterations_p50": 1.0
+      },
+      "feature": {
+        "total": 6,
+        "passed": 0,
+        "pass_rate": 0.0,
+        "iterations_p50": 1.0
+      }
+    }
+  },
+  "tasks": [
+    {
+      "id": "fix-calc-divzero",
+      "title": "修复计算器除零崩溃",
+      "category": "fix",
+      "fixture": "fixture_calculator",
+      "iterations": 4,
+      "duration_ms": 48162.7,
+      "tokens_used": 375,
+      "tool_calls": 3,
+      "tool_errors": 2,
+      "stop_reason": "completed",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=1 (1 failed in 0.13s)"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 1,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_fix-calc-divzero"
+    },
+    {
+      "id": "fix-calc-percent",
+      "title": "修复百分比计算放大 100 倍",
+      "category": "fix",
+      "fixture": "fixture_calculator",
+      "iterations": 6,
+      "duration_ms": 62344.7,
+      "tokens_used": 510,
+      "tool_calls": 5,
+      "tool_errors": 3,
+      "stop_reason": "completed",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=1 (1 failed in 0.12s)"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 1,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_fix-calc-percent"
+    },
+    {
+      "id": "fix-calc-multiply",
+      "title": "修复乘法写成加法",
+      "category": "fix",
+      "fixture": "fixture_calculator",
+      "iterations": 5,
+      "duration_ms": 53678.4,
+      "tokens_used": 551,
+      "tool_calls": 4,
+      "tool_errors": 3,
+      "stop_reason": "completed",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=1 (1 failed in 0.10s)"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 1,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_fix-calc-multiply"
+    },
+    {
+      "id": "fix-cli-import",
+      "title": "移除坏 import 让模块可导入",
+      "category": "fix",
+      "fixture": "fixture_cli_tools",
+      "iterations": 4,
+      "duration_ms": 19759.8,
+      "tokens_used": 324,
+      "tool_calls": 3,
+      "tool_errors": 2,
+      "stop_reason": "completed",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=2 (1 error in 0.21s)"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 1,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_fix-cli-import"
+    },
+    {
+      "id": "fix-cli-deadcode",
+      "title": "删除死代码函数",
+      "category": "fix",
+      "fixture": "fixture_cli_tools",
+      "iterations": 8,
+      "duration_ms": 67536.0,
+      "tokens_used": 749,
+      "tool_calls": 7,
+      "tool_errors": 4,
+      "stop_reason": "completed",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_not_contains",
+          "pass": false,
+          "detail": "仍包含子串: 'dead_code_helper'"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 1,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_fix-cli-deadcode"
+    },
+    {
+      "id": "fix-text-reverse",
+      "title": "修复字符串反转步长",
+      "category": "fix",
+      "fixture": "fixture_text_utils",
+      "iterations": 3,
+      "duration_ms": 96249.8,
+      "tokens_used": 221,
+      "tool_calls": 2,
+      "tool_errors": 1,
+      "stop_reason": "completed",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=1 (1 failed in 0.10s)"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 1,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_fix-text-reverse"
+    },
+    {
+      "id": "fix-report-avg",
+      "title": "修复平均金额除以 1 的 bug",
+      "category": "fix",
+      "fixture": "fixture_data_report",
+      "iterations": 3,
+      "duration_ms": 14525.8,
+      "tokens_used": 264,
+      "tool_calls": 2,
+      "tool_errors": 1,
+      "stop_reason": "completed",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=1 (1 failed in 0.18s)"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 1,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_fix-report-avg"
+    },
+    {
+      "id": "fix-report-total",
+      "title": "修复合计 off-by-one 累加",
+      "category": "fix",
+      "fixture": "fixture_data_report",
+      "iterations": 5,
+      "duration_ms": 42950.5,
+      "tokens_used": 597,
+      "tool_calls": 4,
+      "tool_errors": 2,
+      "stop_reason": "completed",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=1 (1 failed in 0.11s)"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 1,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_fix-report-total"
+    },
+    {
+      "id": "test-text-slugify",
+      "title": "为 slugify 补测试",
+      "category": "test",
+      "fixture": "fixture_text_utils",
+      "iterations": 5,
+      "duration_ms": 29271.2,
+      "tokens_used": 545,
+      "tool_calls": 4,
+      "tool_errors": 2,
+      "stop_reason": "completed",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": false,
+          "detail": "不包含子串: 'def test_slugify'"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 1,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_test-text-slugify"
+    },
+    {
+      "id": "test-calc-edge",
+      "title": "为计算器补充边界测试",
+      "category": "test",
+      "fixture": "fixture_calculator",
+      "iterations": 7,
+      "duration_ms": 67863.0,
+      "tokens_used": 1229,
+      "tool_calls": 7,
+      "tool_errors": 3,
+      "stop_reason": "completed",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_file_exists",
+          "pass": false,
+          "detail": "不存在: tests/test_calc_edge.py"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 1,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_test-calc-edge"
+    },
+    {
+      "id": "test-cli-errors",
+      "title": "为 CLI 错误路径补测试",
+      "category": "test",
+      "fixture": "fixture_cli_tools",
+      "iterations": 6,
+      "duration_ms": 62116.8,
+      "tokens_used": 957,
+      "tool_calls": 6,
+      "tool_errors": 3,
+      "stop_reason": "completed",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_file_exists",
+          "pass": false,
+          "detail": "不存在: tests/test_cli_errors.py"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 1,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_test-cli-errors"
+    },
+    {
+      "id": "test-report-empty",
+      "title": "为数据汇总补空输入测试",
+      "category": "test",
+      "fixture": "fixture_data_report",
+      "iterations": 7,
+      "duration_ms": 49757.1,
+      "tokens_used": 779,
+      "tool_calls": 7,
+      "tool_errors": 3,
+      "stop_reason": "completed",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_file_exists",
+          "pass": false,
+          "detail": "不存在: tests/test_report_empty.py"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 1,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_test-report-empty"
+    },
+    {
+      "id": "test-text-wordcount",
+      "title": "为词数统计补更多测试",
+      "category": "test",
+      "fixture": "fixture_text_utils",
+      "iterations": 9,
+      "duration_ms": 105838.9,
+      "tokens_used": 3161,
+      "tool_calls": 10,
+      "tool_errors": 3,
+      "stop_reason": "completed",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_file_exists",
+          "pass": false,
+          "detail": "不存在: tests/test_text_wordcount.py"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 1,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_test-text-wordcount"
+    },
+    {
+      "id": "refactor-report-common",
+      "title": "提取重复的货币格式化逻辑",
+      "category": "refactor",
+      "fixture": "fixture_data_report",
+      "iterations": 6,
+      "duration_ms": 114126.1,
+      "tokens_used": 1333,
+      "tool_calls": 6,
+      "tool_errors": 2,
+      "stop_reason": "completed",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=1 (2 failed, 2 passed in 0.09s)"
+        },
+        {
+          "type": "file_contains",
+          "pass": false,
+          "detail": "文件不存在: common.py"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 2,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_refactor-report-common"
+    },
+    {
+      "id": "refactor-calc-validate",
+      "title": "提取数值校验辅助函数",
+      "category": "refactor",
+      "fixture": "fixture_calculator",
+      "iterations": 10,
+      "duration_ms": 51687.2,
+      "tokens_used": 675,
+      "tool_calls": 11,
+      "tool_errors": 2,
+      "stop_reason": "max_iterations",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=1 (3 failed, 5 passed in 0.08s)"
+        },
+        {
+          "type": "file_contains",
+          "pass": false,
+          "detail": "不包含子串: 'def _is_number'"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 2,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_refactor-calc-validate"
+    },
+    {
+      "id": "refactor-cli-dispatch",
+      "title": "提取命令分发逻辑",
+      "category": "refactor",
+      "fixture": "fixture_cli_tools",
+      "iterations": 5,
+      "duration_ms": 58889.6,
+      "tokens_used": 740,
+      "tool_calls": 4,
+      "tool_errors": 3,
+      "stop_reason": "completed",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=2 (1 error in 0.21s)"
+        },
+        {
+          "type": "file_contains",
+          "pass": false,
+          "detail": "不包含子串: 'def dispatch'"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 2,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_refactor-cli-dispatch"
+    },
+    {
+      "id": "refactor-text-normalize",
+      "title": "提取空白归一化辅助函数",
+      "category": "refactor",
+      "fixture": "fixture_text_utils",
+      "iterations": 1,
+      "duration_ms": 4214.5,
+      "tokens_used": 50,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "stop_reason": "error",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=1 (1 failed, 3 passed in 0.08s)"
+        },
+        {
+          "type": "file_contains",
+          "pass": false,
+          "detail": "不包含子串: 'def normalize_whitespace'"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 2,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_refactor-text-normalize"
+    },
+    {
+      "id": "multifile-report-split",
+      "title": "拆分报表为数据与格式化两个模块",
+      "category": "multifile",
+      "fixture": "fixture_data_report",
+      "iterations": 1,
+      "duration_ms": 4082.0,
+      "tokens_used": 50,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "stop_reason": "error",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=1 (2 failed, 2 passed in 0.12s)"
+        },
+        {
+          "type": "file_contains",
+          "pass": false,
+          "detail": "文件不存在: data.py"
+        },
+        {
+          "type": "file_contains",
+          "pass": false,
+          "detail": "文件不存在: format.py"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 3,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_multifile-report-split"
+    },
+    {
+      "id": "multifile-cli-parser",
+      "title": "将参数解析移到独立模块",
+      "category": "multifile",
+      "fixture": "fixture_cli_tools",
+      "iterations": 1,
+      "duration_ms": 3581.4,
+      "tokens_used": 50,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "stop_reason": "error",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=2 (1 error in 0.13s)"
+        },
+        {
+          "type": "file_contains",
+          "pass": false,
+          "detail": "文件不存在: parser.py"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 2,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_multifile-cli-parser"
+    },
+    {
+      "id": "multifile-calc-split",
+      "title": "拆分计算器为运算与 IO 两模块",
+      "category": "multifile",
+      "fixture": "fixture_calculator",
+      "iterations": 1,
+      "duration_ms": 3802.7,
+      "tokens_used": 50,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "stop_reason": "error",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=1 (3 failed, 5 passed in 0.09s)"
+        },
+        {
+          "type": "file_contains",
+          "pass": false,
+          "detail": "文件不存在: ops.py"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 2,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_multifile-calc-split"
+    },
+    {
+      "id": "fix-calc-multiply-percent",
+      "title": "一次修复乘法与百分比两个 bug",
+      "category": "fix",
+      "fixture": "fixture_calculator",
+      "iterations": 1,
+      "duration_ms": 3512.8,
+      "tokens_used": 50,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "stop_reason": "error",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=1 (1 failed in 0.10s)"
+        },
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=1 (1 failed in 0.08s)"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 2,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_fix-calc-multiply-percent"
+    },
+    {
+      "id": "feature-calc-power",
+      "title": "为计算器新增 power 幂运算",
+      "category": "feature",
+      "fixture": "fixture_calculator",
+      "iterations": 1,
+      "duration_ms": 4030.9,
+      "tokens_used": 50,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "stop_reason": "error",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": false,
+          "detail": "不包含子串: 'def power'"
+        },
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=1 (3 failed, 5 passed in 0.09s)"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 2,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_feature-calc-power"
+    },
+    {
+      "id": "test-calc-divide-suite",
+      "title": "为 divide 补完整测试套件",
+      "category": "test",
+      "fixture": "fixture_calculator",
+      "iterations": 1,
+      "duration_ms": 3499.4,
+      "tokens_used": 50,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "stop_reason": "error",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_file_exists",
+          "pass": false,
+          "detail": "不存在: tests/test_calc_divide.py"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 1,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_test-calc-divide-suite"
+    },
+    {
+      "id": "feature-text-truncate",
+      "title": "新增 truncate 文本截断函数",
+      "category": "feature",
+      "fixture": "fixture_text_utils",
+      "iterations": 1,
+      "duration_ms": 3578.0,
+      "tokens_used": 50,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "stop_reason": "error",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": false,
+          "detail": "不包含子串: 'def truncate'"
+        },
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=1 (1 failed, 3 passed in 0.08s)"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 2,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_feature-text-truncate"
+    },
+    {
+      "id": "feature-text-title-case",
+      "title": "新增 title_case 首字母大写函数",
+      "category": "feature",
+      "fixture": "fixture_text_utils",
+      "iterations": 1,
+      "duration_ms": 3637.0,
+      "tokens_used": 50,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "stop_reason": "error",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": false,
+          "detail": "不包含子串: 'def title_case'"
+        },
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=1 (1 failed, 3 passed in 0.08s)"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 2,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_feature-text-title-case"
+    },
+    {
+      "id": "test-text-uppercase-edge",
+      "title": "为 to_uppercase 补边界测试",
+      "category": "test",
+      "fixture": "fixture_text_utils",
+      "iterations": 1,
+      "duration_ms": 3770.5,
+      "tokens_used": 50,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "stop_reason": "error",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_file_exists",
+          "pass": false,
+          "detail": "不存在: tests/test_text_upper_edge.py"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 1,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_test-text-uppercase-edge"
+    },
+    {
+      "id": "fix-report-both-bugs",
+      "title": "一次修复报表合计与平均值两个 bug",
+      "category": "fix",
+      "fixture": "fixture_data_report",
+      "iterations": 1,
+      "duration_ms": 3653.8,
+      "tokens_used": 50,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "stop_reason": "error",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=1 (1 failed in 0.08s)"
+        },
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=1 (1 failed in 0.08s)"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 2,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_fix-report-both-bugs"
+    },
+    {
+      "id": "feature-report-count",
+      "title": "新增 count_rows 行数统计函数",
+      "category": "feature",
+      "fixture": "fixture_data_report",
+      "iterations": 1,
+      "duration_ms": 3708.9,
+      "tokens_used": 50,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "stop_reason": "error",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": false,
+          "detail": "不包含子串: 'def count_rows'"
+        },
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=1 (2 failed, 2 passed in 0.09s)"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 2,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_feature-report-count"
+    },
+    {
+      "id": "test-report-summarize-extra",
+      "title": "为 summarize 补补充用例",
+      "category": "test",
+      "fixture": "fixture_data_report",
+      "iterations": 1,
+      "duration_ms": 3705.5,
+      "tokens_used": 50,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "stop_reason": "error",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_file_exists",
+          "pass": false,
+          "detail": "不存在: tests/test_report_summarize.py"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 1,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_test-report-summarize-extra"
+    },
+    {
+      "id": "fix-cli-greet",
+      "title": "让 greet 测试恢复可通过",
+      "category": "fix",
+      "fixture": "fixture_cli_tools",
+      "iterations": 1,
+      "duration_ms": 3727.3,
+      "tokens_used": 50,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "stop_reason": "error",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=4 (1 error in 0.08s)"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 1,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_fix-cli-greet"
+    },
+    {
+      "id": "feature-cli-main-exit-code",
+      "title": "让 main 退出码测试恢复可通过",
+      "category": "feature",
+      "fixture": "fixture_cli_tools",
+      "iterations": 1,
+      "duration_ms": 3874.9,
+      "tokens_used": 50,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "stop_reason": "error",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=4 (1 error in 0.08s)"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 1,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_feature-cli-main-exit-code"
+    },
+    {
+      "id": "fix-cli-full-clean",
+      "title": "彻底清理 cli 坏 import 与死代码",
+      "category": "fix",
+      "fixture": "fixture_cli_tools",
+      "iterations": 1,
+      "duration_ms": 3701.6,
+      "tokens_used": 50,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "stop_reason": "error",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=2 (1 error in 0.12s)"
+        },
+        {
+          "type": "file_not_contains",
+          "pass": false,
+          "detail": "仍包含子串: 'nonexistent_fake_module'"
+        },
+        {
+          "type": "file_not_contains",
+          "pass": false,
+          "detail": "仍包含子串: 'dead_code_helper'"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 3,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_fix-cli-full-clean"
+    },
+    {
+      "id": "feature-cli-add-command",
+      "title": "为 CLI 新增 add 子命令",
+      "category": "feature",
+      "fixture": "fixture_cli_tools",
+      "iterations": 1,
+      "duration_ms": 3774.0,
+      "tokens_used": 50,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "stop_reason": "error",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": false,
+          "detail": "不包含子串: 'def cmd_add'"
+        },
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=2 (1 error in 0.14s)"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 2,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_feature-cli-add-command"
+    },
+    {
+      "id": "test-calc-add-subtract",
+      "title": "为 add/subtract 补组合测试",
+      "category": "test",
+      "fixture": "fixture_calculator",
+      "iterations": 1,
+      "duration_ms": 4199.1,
+      "tokens_used": 50,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "stop_reason": "error",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_file_exists",
+          "pass": false,
+          "detail": "不存在: tests/test_calc_add_sub.py"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 1,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_test-calc-add-subtract"
+    },
+    {
+      "id": "test-cli-greet-format",
+      "title": "为 greet 输出格式补测试",
+      "category": "test",
+      "fixture": "fixture_cli_tools",
+      "iterations": 1,
+      "duration_ms": 3673.4,
+      "tokens_used": 50,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "stop_reason": "error",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_file_exists",
+          "pass": false,
+          "detail": "不存在: tests/test_cli_greet_fmt.py"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 1,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_test-cli-greet-format"
+    },
+    {
+      "id": "test-report-avg-edge",
+      "title": "为 avg_amount 补边界测试",
+      "category": "test",
+      "fixture": "fixture_data_report",
+      "iterations": 1,
+      "duration_ms": 3608.5,
+      "tokens_used": 50,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "stop_reason": "error",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_file_exists",
+          "pass": false,
+          "detail": "不存在: tests/test_report_avg_edge.py"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 1,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_test-report-avg-edge"
+    },
+    {
+      "id": "test-text-reverse-edge",
+      "title": "为 reverse 补边界测试",
+      "category": "test",
+      "fixture": "fixture_text_utils",
+      "iterations": 1,
+      "duration_ms": 3644.1,
+      "tokens_used": 50,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "stop_reason": "error",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_file_exists",
+          "pass": false,
+          "detail": "不存在: tests/test_text_reverse_edge.py"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 1,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_test-text-reverse-edge"
+    },
+    {
+      "id": "refactor-calc-docstrings",
+      "title": "清理 calc.py 的 bug 注释并全绿",
+      "category": "refactor",
+      "fixture": "fixture_calculator",
+      "iterations": 1,
+      "duration_ms": 3608.8,
+      "tokens_used": 50,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "stop_reason": "error",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=1 (3 failed, 5 passed in 0.12s)"
+        },
+        {
+          "type": "file_not_contains",
+          "pass": false,
+          "detail": "仍包含子串: '故意埋设的 bug'"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 2,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_refactor-calc-docstrings"
+    },
+    {
+      "id": "refactor-cli-type-hints",
+      "title": "为 cli.py 补全类型注解",
+      "category": "refactor",
+      "fixture": "fixture_cli_tools",
+      "iterations": 1,
+      "duration_ms": 3570.1,
+      "tokens_used": 50,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "stop_reason": "error",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=2 (1 error in 0.15s)"
+        },
+        {
+          "type": "file_contains",
+          "pass": false,
+          "detail": "不包含子串: 'argv: list[str]'"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 2,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_refactor-cli-type-hints"
+    },
+    {
+      "id": "refactor-report-avg-safe",
+      "title": "为 avg_amount 添加空列表保护",
+      "category": "refactor",
+      "fixture": "fixture_data_report",
+      "iterations": 1,
+      "duration_ms": 3827.0,
+      "tokens_used": 50,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "stop_reason": "error",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=1 (1 failed in 0.08s)"
+        },
+        {
+          "type": "file_contains",
+          "pass": false,
+          "detail": "不包含子串: 'if not rows'"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 2,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_refactor-report-avg-safe"
+    },
+    {
+      "id": "refactor-text-reverse-normalize",
+      "title": "修复 reverse 并提取空白归一化",
+      "category": "refactor",
+      "fixture": "fixture_text_utils",
+      "iterations": 1,
+      "duration_ms": 3791.3,
+      "tokens_used": 50,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "stop_reason": "error",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=1 (1 failed, 3 passed in 0.08s)"
+        },
+        {
+          "type": "file_contains",
+          "pass": false,
+          "detail": "不包含子串: 'def _normalize_words'"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 2,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_qvlrrghm\\task_refactor-text-reverse-normalize"
+    }
+  ]
+}

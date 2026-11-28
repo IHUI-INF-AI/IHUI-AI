@@ -9,6 +9,8 @@ import { Check, Loader2, MessageSquare, RefreshCw, RotateCcw, Send, Sparkles, Tr
 import { Button } from '@ihui/ui-react'
 
 import {
+  AI_ALL_HANDOFF_PROMPT,
+  buildAiAllHandoffSummary,
   createDocumentAnnotation,
   deleteDocumentAnnotation,
   fetchDocumentAnnotations,
@@ -203,29 +205,23 @@ export function DocumentAnnotationsPanel({
    * 主 AI 才能按优先级给出一份可执行修订计划,而不是泛泛建议。
    */
   const handoffAllAi = () => {
-    const first = aiRoots[0]
-    if (!first?.anchor) return
-    const rawAnchor = first.anchor as Record<string, unknown>
-    const lines = aiRoots.map(
-      (root, index) =>
-        `${index + 1}. [${root.label || 'AI 预审'}] ${root.body.slice(0, 1000)}`,
-    )
+    const summary = buildAiAllHandoffSummary(items, documentTitle)
+    if (!summary) return
     emitAnchorReference({
-      text: [
-        `【${documentTitle || '文档'} · AI 全文预审，共 ${aiRoots.length} 条】`,
-        ...lines,
-        '请基于以上全部 AI 预审结论，按优先级给出可执行的修订计划，并逐项标注对应的段落/单元格；同时列出需要补充的证据和复核动作。',
-      ].join('\n\n'),
-      anchor: first.anchor as unknown as AnnotationAnchor,
+      text: summary.text,
+      anchor: summary.anchor,
       source: 'ai-finding',
       paneId,
-      page: typeof rawAnchor.page === 'number' ? rawAnchor.page : undefined,
-      slide: typeof rawAnchor.slide === 'number' ? rawAnchor.slide : undefined,
-      element: typeof rawAnchor.element === 'string' ? rawAnchor.element : undefined,
-      excerpt: first.excerpt ?? undefined,
-      note: `全部 AI 预审结论 ${aiRoots.length} 条`,
+      page: summary.page,
+      slide: summary.slide,
+      element: summary.element,
+      paragraph: summary.paragraph,
+      sheet: summary.sheet,
+      range: summary.range,
+      excerpt: summary.excerpt,
+      note: summary.note,
       autoSend: true,
-      autoSendPrompt: '请基于这份文档的全部 AI 预审结论，按优先级给出可执行的修订计划，并逐项标注对应的段落/单元格。',
+      autoSendPrompt: AI_ALL_HANDOFF_PROMPT,
     })
   }
 

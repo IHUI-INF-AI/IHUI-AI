@@ -14,12 +14,14 @@
 import ThemeRoot from '@/components/ThemeRoot'
 import AuthReadyGate from '@/components/AuthReadyGate'
 import { WithdrawScreen as WithdrawScreenShell } from '@rn-shells/WithdrawScreen'
+import { AppConfirmHost } from '@rn-components/BottomPops'
 
 export default function WithdrawPage() {
   return (
     <ThemeRoot>
       <AuthReadyGate>
         <WithdrawScreenShell />
+        <AppConfirmHost />
       </AuthReadyGate>
     </ThemeRoot>
   )

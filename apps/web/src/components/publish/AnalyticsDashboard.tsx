@@ -13,9 +13,11 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
+import { ExternalLink } from 'lucide-react'
 import { Card, CardContent, Button, Badge } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { splitDisplayNameParts } from '@/lib/publish/display-name'
+import type { ContentPerformance } from '@/lib/publish/top-content'
 
 export type AnalyticsPeriod = '7d' | '30d' | '90d'
 
@@ -73,6 +75,8 @@ export interface AnalyticsDashboardProps {
   readonly onPeriodChange: (period: AnalyticsPeriod) => void
   readonly overview: AnalyticsOverview | null
   readonly accounts: AccountHealth[]
+  /** 逐篇阅读/播放快照,按周期过滤后取前 5;无指标时为空 */
+  readonly topContent?: ReadonlyArray<ContentPerformance>
 }
 
 const PERIODS: readonly AnalyticsPeriod[] = ['7d', '30d', '90d']
@@ -101,6 +105,7 @@ export function AnalyticsDashboard({
   onPeriodChange,
   overview,
   accounts,
+  topContent = [],
 }: AnalyticsDashboardProps) {
   const t = useTranslations('publish')
 
@@ -180,6 +185,65 @@ export function AnalyticsDashboard({
                 还没有指标快照，去「发布监测」页对已发布内容点一次刷新指标。
               </p>
             )}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {/* 内容复盘:从平台汇总下钻到具体一篇 */}
+      {topContent.length > 0 ? (
+        <Card>
+          <CardContent className="min-[640px]:p-3 p-3">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="text-label font-medium text-muted-foreground">
+                内容复盘（按阅读 / 播放排序）
+              </h3>
+              <span className="text-label text-muted-foreground">前 {topContent.length} 篇</span>
+            </div>
+            <div className="space-y-1.5">
+              {topContent.map((item, index) => (
+                <div
+                  key={`${item.taskId}-${item.platform}`}
+                  className={cn(
+                    'flex items-center gap-2 rounded-md px-2 py-2',
+                    index % 2 === 1 && 'bg-muted/20',
+                  )}
+                >
+                  <span className="w-5 shrink-0 text-center font-mono text-label text-muted-foreground">
+                    {index + 1}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-label font-medium">{item.title}</div>
+                    <div className="text-[10px] text-muted-foreground">{item.platform}</div>
+                  </div>
+                  <div className="shrink-0 text-right text-label tabular-nums">
+                    <div>
+                      {item.views.toLocaleString('zh-CN')} 阅读
+                      <span className="ml-2 text-muted-foreground">
+                        {item.likes.toLocaleString('zh-CN')} 赞
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">
+                      {item.comments.toLocaleString('zh-CN')} 评 ·{' '}
+                      {item.shares.toLocaleString('zh-CN')} 转
+                    </div>
+                  </div>
+                  {item.publishedUrl ? (
+                    <a
+                      href={item.publishedUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="shrink-0 text-muted-foreground hover:text-primary"
+                      aria-label={`打开 ${item.title}`}
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                    </a>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+            <p className="mt-2 text-label text-muted-foreground">
+              只看周期内已采集到快照的内容；没有数据的篇目去「发布监测」页刷新指标。
+            </p>
           </CardContent>
         </Card>
       ) : null}

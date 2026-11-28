@@ -26,7 +26,7 @@ const require = createRequire(import.meta.url)
 const wasmPath = require.resolve('sql.js/dist/sql-wasm.wasm')
 
 async function makeCcSwitchDb(): Promise<Buffer> {
-  const SQL = await initSqlJs({ locateFile: () => wasmPath, useOldExtensionFunctions: false })
+  const SQL = await initSqlJs({ locateFile: () => wasmPath })
   const db = new SQL.Database()
   try {
     db.run('PRAGMA user_version = 16')

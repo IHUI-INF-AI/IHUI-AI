@@ -21,9 +21,13 @@ import pytest
 from bench.metrics import (
     FAILURE_CLASSES,
     classify_failure,
+    metrics_from_report,
     percentile,
     render_markdown,
     summarize,
+)
+from bench.metrics import (
+    main as metrics_main,
 )
 
 # ---------------------------------------------------------------------------
@@ -199,6 +203,14 @@ def test_summarize_taxonomy_is_conserved() -> None:
     ]
 
 
+def test_summarize_tool_error_counts() -> None:
+    records = _sample_results()
+    records[1]["tool_errors"] = 2
+    metrics = summarize(records)
+    assert metrics["tool_errors"]["tasks_with_errors"] == 1
+    assert metrics["tool_errors"]["total"] == 2.0
+
+
 def test_summarize_by_category() -> None:
     metrics = summarize(_sample_results())
     fix = metrics["by_category"]["fix"]
@@ -230,6 +242,43 @@ def test_render_markdown_contains_readouts() -> None:
 # ---------------------------------------------------------------------------
 # D. 报告接线
 # ---------------------------------------------------------------------------
+
+def test_metrics_from_report_prefers_stored_or_recomputes() -> None:
+    tasks = _sample_results()
+    stored = summarize(tasks)
+    assert metrics_from_report({"metrics": stored, "tasks": []}) == stored
+    # 老报告没有 metrics 键 ⇒ 按 tasks 现场重算，不读成 0
+    recomputed = metrics_from_report({"total": 3, "tasks": tasks})
+    assert recomputed["passed"] == 2
+    assert recomputed["failure_taxonomy"]["iteration_exhausted"] == 1
+    # 同名不同义：检索报告的 metrics 是 recall@k，不得当成 bench 读数
+    retrieval_like = {"metrics": {"recall@1": 0.71}, "tasks": tasks}
+    assert metrics_from_report(retrieval_like)["passed"] == 2
+
+
+def test_metrics_cli_refuses_foreign_report(tmp_path: Path, capsys) -> None:
+    report = tmp_path / "retrieval.json"
+    report.write_text(json.dumps({"metrics": {"recall@1": 0.7}}), encoding="utf-8")
+    assert metrics_main([str(report)]) == 2
+    assert "不猜、不重算成 0" in capsys.readouterr().out
+
+
+def test_metrics_cli_renders_readout(tmp_path: Path, capsys) -> None:
+    report = tmp_path / "report.json"
+    report.write_text(
+        json.dumps({"total": 3, "tasks": _sample_results()}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    assert metrics_main([str(report)]) == 0
+    out = capsys.readouterr().out
+    assert "## 指标面" in out
+    assert "`iteration_exhausted`: 1" in out
+
+    assert metrics_main([str(report), "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["total"] == 3
+    assert payload["tokens"]["samples"] == 2
+
 
 def test_write_reports_embeds_metrics(tmp_path: Path) -> None:
     from bench.run_bench import _write_reports

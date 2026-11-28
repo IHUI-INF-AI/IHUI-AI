@@ -120,8 +120,13 @@ JSON 汇总多一个 `metrics` 键(`bench/metrics.py`,纯函数,不碰网络/磁
 | 耗时(ms)    | 同上                                              |
 | token(估算) | 同上,且只统计非零样本(golden 档不跑模型,不参与) |
 | 工具调用数  | 同上 + 零调用任务计数                             |
+| 工具错误数  | 同上 + 带工具错误任务计数                         |
 | 失败分类    | 九类闭集,一条记录只归一类                         |
 | 分类别      | 每类的通过率与轮次 p50                            |
+
+归档报告不重跑也能补读:`python -m bench.metrics bench/reports/<x>.json`(`--json` 出结构化)。
+它只认本模块写的 `metrics`(有 `failure_taxonomy` + `iterations` 两键);检索报告的 `metrics`
+是 recall@k 一族,同名不同义 ⇒ 拒判 exit 2,不猜、不重算成 0。
 
 失败分类判序(先判跑没跑成,再判改没改动,最后判改得对不对):
 

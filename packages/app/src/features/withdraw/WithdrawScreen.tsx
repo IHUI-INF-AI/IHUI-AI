@@ -191,7 +191,7 @@ export function WithdrawScreen({
                 : (tx.submit ?? t('withdraw.submit'))}
             </Text>
           </TouchableOpacity>
-          <Text style={styles.hint}>{tx.feeHint ?? t('withdraw.feeHint')}</Text>
+          <Text style={styles.hint}>{tx.feeHint ?? t('withdraw.feeHint', { fee: '0' })}</Text>
           {seg.showRecords ? (
             <TouchableOpacity onPress={onRecords} style={styles.recordsRow}>
               <Text style={styles.recordsText}>{recordsLabel}</Text>

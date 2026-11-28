@@ -46,6 +46,7 @@ export type OpenableCapabilityScope =
   | 'codebase:write'
   | 'skills:read'
   | 'webhooks:manage'
+  | 'publish:submit'
 
 /** 作者写下的单条开放声明(尚未附加目录派生字段)。 */
 interface OpenCapabilityDeclaration {
@@ -156,6 +157,14 @@ const DECLARATIONS = {
       '/api/developer/webhooks/subscriptions/:id/test',
     ],
     scope: 'webhooks:manage',
+  },
+  // O6 发布通道(2026-11-28):只放行创建任务/读任务详情,账号池与凭据端点仍 403。
+  // 任务归属人 = API Key 归属人;路由层继续用 request.userId 做 owner 过滤。
+  'publish-submit': {
+    description: '以 API Key 归属人的自有账号创建发布任务并读回任务状态',
+    methods: ['POST', 'GET'],
+    paths: ['/api/publish/tasks', '/api/publish/tasks/:taskId'],
+    scope: 'publish:submit',
   },
 } as const satisfies Record<string, OpenCapabilityDeclaration>
 
