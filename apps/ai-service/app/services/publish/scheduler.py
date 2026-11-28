@@ -54,6 +54,7 @@ from .credential_compat import normalize_credentials
 from .credentials_crypto import decrypt
 from .db_write_guard import log_db_write_failure
 from .image_uploader import process_external_images
+from .metrics_collector import _ensure_metrics_table, collect_metrics
 from .platform_rules import truncate_to_platform, validate_content
 from .web_fallback import get_web_fallback
 
@@ -153,6 +154,17 @@ _POLL_INTERVAL_SEC = 60
 # DB 连接失败指数退避(2026-08-13 立,修复 Postgres 未启动时每 62s 空转重试)
 _DB_BACKOFF_BASE_SEC = 5.0
 _DB_BACKOFF_MAX_SEC = 300.0
+
+# 指标自动回收(2026-11-28 恢复):只处理 collector 真支持的平台,每轮最多 3 篇,避免同时拉起
+# 多个 Playwright 浏览器把发布轮询拖慢。同一 task+platform 6 小时内只采一次。
+_METRICS_PLATFORMS = (
+    "zhihu", "bilibili", "weibo", "wechat", "douyin", "baijiahao", "xiaohongshu",
+)
+_METRICS_LOOP_INTERVAL_SEC = 30 * 60
+_METRICS_LOOP_WARMUP_SEC = 90
+_METRICS_BATCH_SIZE = 3
+_METRICS_MIN_GAP_HOURS = 6
+_METRICS_LOOKBACK_DAYS = 14
 # 历史保留上限(内存 LRU)
 _HISTORY_LIMIT = 200
 
@@ -162,6 +174,7 @@ class PublishScheduler:
 
     def __init__(self) -> None:
         self._poll_task: asyncio.Task[None] | None = None
+        self._metrics_task: asyncio.Task[None] | None = None
         self._running: dict[str, asyncio.Task[None]] = {}  # task_id -> asyncio.Task
         self._user_running: dict[str, int] = {}  # user_id -> 正在执行的任务数
         # AIS-023:spawn 之后到协程真正启动之间存在窗口,仅靠 `_running` 去重会漏;
@@ -219,6 +232,7 @@ class PublishScheduler:
             return
         self._started = True
         self._poll_task = asyncio.create_task(self._poll_loop())
+        self._metrics_task = asyncio.create_task(self._metrics_loop())
         logger.info("[publish.scheduler] started, poll interval=%ds", _POLL_INTERVAL_SEC)
 
     async def stop(self) -> None:
@@ -229,6 +243,11 @@ class PublishScheduler:
             with contextlib.suppress(asyncio.CancelledError):
                 await self._poll_task
             self._poll_task = None
+        if self._metrics_task:
+            self._metrics_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._metrics_task
+            self._metrics_task = None
         # 等待所有运行中任务完成(最多 30s)
         if self._running:
             logger.info(
@@ -412,6 +431,103 @@ class PublishScheduler:
                 )
                 await asyncio.sleep(backoff)
                 backoff = min(backoff * 2, _DB_BACKOFF_MAX_SEC)
+
+    async def _metrics_loop(self) -> None:
+        """后台指标回收:每 30 分钟补一轮已发布内容的互动快照。"""
+        await asyncio.sleep(_METRICS_LOOP_WARMUP_SEC)
+        while self._started:
+            try:
+                await self._metrics_once()
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.warning(
+                    "[publish.metrics.auto] round failed: %s: %s",
+                    type(e).__name__, e,
+                )
+            await asyncio.sleep(_METRICS_LOOP_INTERVAL_SEC)
+
+    async def _metrics_once(self) -> None:
+        """补采一批最近成功、但 6 小时内没有快照的内容。
+
+        只挑 collector 明确支持的平台;每轮 3 篇,避免同时拉起多个浏览器。
+        采集失败不写入 0 快照,下一轮还会重试,不会把失败“洗白”。
+        """
+        await _ensure_metrics_table()
+        conn = await self._get_conn()
+        if conn is None:
+            return
+        try:
+            rows = await conn.fetch(
+                """
+                SELECT h.task_id, h.platform, h.platform_content_id,
+                       t.user_id, t.targets
+                FROM publish_history h
+                JOIN publish_tasks t ON t.task_id = h.task_id
+                WHERE h.success = true
+                  AND h.platform = ANY($1::text[])
+                  AND h.platform_content_id IS NOT NULL
+                  AND h.created_at >= NOW() - ($3 * INTERVAL '1 day')
+                  AND NOT EXISTS (
+                    SELECT 1 FROM publish_metrics m
+                    WHERE m.task_id = h.task_id
+                      AND m.platform = h.platform
+                      AND m.collected_at > NOW() - ($4 * INTERVAL '1 hour')
+                  )
+                ORDER BY h.created_at DESC
+                LIMIT $2
+                """,
+                list(_METRICS_PLATFORMS),
+                _METRICS_BATCH_SIZE,
+                _METRICS_LOOKBACK_DAYS,
+                _METRICS_MIN_GAP_HOURS,
+            )
+        finally:
+            await conn.close()
+
+        collected = 0
+        for row in rows:
+            platform = row["platform"]
+            targets = _decode_json_field(row["targets"], list, [])
+            raw_account_id = next(
+                (
+                    t.get("account_id")
+                    for t in targets
+                    if isinstance(t, dict) and t.get("platform") == platform
+                ),
+                None,
+            )
+            try:
+                account_id = int(raw_account_id)
+            except (TypeError, ValueError):
+                continue
+            credentials = await self._load_credentials(
+                account_id, platform, row["user_id"] or ""
+            )
+            if credentials is None:
+                logger.info(
+                    "[publish.metrics.auto] skip task=%s platform=%s: credentials missing",
+                    row["task_id"], platform,
+                )
+                continue
+            metrics = await collect_metrics(
+                row["task_id"],
+                platform,
+                str(row["platform_content_id"]),
+                credentials,
+                account_id,
+                write_zero_on_error=False,
+            )
+            source = metrics.get("source") or {}
+            if source.get("error"):
+                logger.warning(
+                    "[publish.metrics.auto] task=%s platform=%s failed: %s",
+                    row["task_id"], platform, source["error"],
+                )
+                continue
+            collected += 1
+        if collected:
+            logger.info("[publish.metrics.auto] collected %d snapshot(s)", collected)
 
     async def _poll_once(self) -> bool:
         """单次轮询:捞起到期任务并提交执行。返回 DB 是否可用(True=正常轮询)。"""

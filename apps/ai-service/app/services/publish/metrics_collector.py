@@ -60,6 +60,10 @@ async def _ensure_metrics_table() -> None:
         await conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_publish_metrics_task_id ON publish_metrics(task_id)"
         )
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_publish_metrics_task_platform_collected "
+            "ON publish_metrics(task_id, platform, collected_at DESC)"
+        )
     finally:
         await conn.close()
 
@@ -94,6 +98,8 @@ async def collect_metrics(
     content_id: str,
     credentials: dict[str, Any],
     db_account_id: int | str | None = None,
+    *,
+    write_zero_on_error: bool = True,
 ) -> dict[str, Any]:
     """采集某任务某平台内容的互动指标并写入快照。
 
@@ -150,6 +156,9 @@ async def collect_metrics(
             metrics["source"]["error"] = f"{type(e).__name__}: {e}"
     else:
         metrics["source"]["note"] = f"unsupported platform: {platform}"
+
+    if not write_zero_on_error and metrics["source"].get("error"):
+        return metrics
 
     # 写入快照
     try:
