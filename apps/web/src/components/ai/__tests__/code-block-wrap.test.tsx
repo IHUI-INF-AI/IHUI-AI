@@ -47,6 +47,16 @@ vi.mock('@/components/feedback', () => ({
   Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   TooltipProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
+vi.mock('react-syntax-highlighter/dist/esm/prism', () => ({
+  default: (props: Record<string, unknown>) => {
+    Object.assign(hlprProps, props)
+    return React.createElement(
+      'pre',
+      { 'data-testid': 'syntax-highlighter' },
+      props.children as string,
+    )
+  },
+}))
 vi.mock('react-syntax-highlighter', () => ({
   Prism: (props: Record<string, unknown>) => {
     Object.assign(hlprProps, props)

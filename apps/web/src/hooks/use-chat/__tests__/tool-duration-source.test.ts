@@ -31,7 +31,10 @@ vi.mock('@/stores/work-panel', () => ({
   useWorkPanelStore: { getState: () => ({ openPanel: vi.fn() }) },
 }))
 vi.mock('@/stores/agent-hooks', () => ({ emitAgentHook: vi.fn() }))
-vi.mock('@ihui/api-client', () => ({ PROVIDER_QUOTA_EXHAUSTED: 'PROVIDER_QUOTA_EXHAUSTED' }))
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@ihui/api-client')>()
+  return { ...actual, PROVIDER_QUOTA_EXHAUSTED: 'PROVIDER_QUOTA_EXHAUSTED' }
+})
 
 /** 取 updateToolCall 收到的 updates 载荷(第三参数) */
 function lastUpdates(): Record<string, unknown> {

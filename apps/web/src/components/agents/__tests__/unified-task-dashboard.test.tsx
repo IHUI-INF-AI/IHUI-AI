@@ -104,7 +104,7 @@ describe('D25 kanban api 层(改名 + 任务消息)', () => {
 })
 
 describe('unified tab 接线防回归(D25)', () => {
-  it('ai-side-panel-tools 已注册 unified tab 并挂载 UnifiedTaskDashboard', () => {
+  it('ai-side-panel-tools 已注册 unified tab 并挂载 TaskCenterPanel', () => {
     const src = fs.readFileSync(
       path.resolve(process.cwd(), 'src/components/ai/ai-side-panel-tools.tsx'),
       'utf-8',
@@ -112,7 +112,9 @@ describe('unified tab 接线防回归(D25)', () => {
     expect(src).toContain("| 'unified'")
     expect(src).toContain("'unified',")
     expect(src).toContain("case 'unified':")
-    expect(src).toContain('@/components/agents/UnifiedTaskDashboard')
+    // 2026-11 任务中心改挂 TaskCenterPanel(四源统一入口),UnifiedTaskDashboard 退为技术视图子件。
+    expect(src).toContain('@/components/agent-tasks/task-center-panel')
+    expect(src).toContain('<TaskCenterPanel')
   })
 
   it('UnifiedTaskDashboard 组件存在且为具名导出(含关键 testid)', () => {

@@ -174,6 +174,7 @@ describe('D60 发送可靠性状态族', () => {
       'user',
       { attachments },
       undefined,
+      undefined,
     )
   })
 

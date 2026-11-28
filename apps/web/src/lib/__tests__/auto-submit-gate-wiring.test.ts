@@ -53,11 +53,13 @@ describe('自动提交凭据这一径路必须过跨端判据', () => {
 
   it('组件的自动提交 effect 把判据排在最前(排在后面就还会提交一次)', () => {
     const src = read(form)
-    const effect = src.match(/React\.useEffect\(\(\) => \{[\s\S]*?\}, \[\]\)/)
-    expect(effect, '自动提交 effect 不得改名或删除').toBeTruthy()
-    const body = effect![0]
-    const gate = body.indexOf('canAutoSubmitCredentials()')
-    const persist = body.indexOf('enableCredentialPersistence')
+    // 2026-11-28:effect 依赖数组不再是空 `[]`(现在读 pathname/持久标志),
+    // 旧正则只认 `}, [])` 会整条漏掉;此处按"含判据调用"挑 effect,不锁依赖形态。
+    const effects = src.match(/React\.useEffect\(\(\) => \{[\s\S]*?\}, \[[\s\S]*?\]\)/g) ?? []
+    const body = effects.find((block) => block.includes('canAutoSubmitCredentials()'))
+    expect(body, '自动提交 effect 不得改名或删除').toBeTruthy()
+    const gate = body!.indexOf('canAutoSubmitCredentials()')
+    const persist = body!.indexOf('enableCredentialPersistence')
     expect(gate).toBeGreaterThan(-1)
     expect(persist).toBeGreaterThan(-1)
     expect(gate).toBeLessThan(persist)

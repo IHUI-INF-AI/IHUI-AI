@@ -61,7 +61,6 @@ async function mount() {
 
 describe('admin layout 守卫:角色未知 ≠ 角色不够', () => {
   beforeEach(async () => {
-    vi.useFakeTimers()
     replace.mockClear()
     gate.ready = true
     localStorage.clear()
@@ -69,16 +68,26 @@ describe('admin layout 守卫:角色未知 ≠ 角色不够', () => {
     __resetSessionEstablishedMirrorForTest()
     __resetSessionLoggedOutMirrorForTest()
     useAuthStore.setState({ isAuthenticated: false, user: null, token: null })
-    await vi.waitFor(() => useAuthStore.persist.hasHydrated())
-    vi.useRealTimers()
+    // hydration 用真时序跑完,再切 fake;否则 waitFor 自己也被冻住。
+    // 显式 rehydrate:vitest 4 的 vi.waitFor 在本文件里对 false 立即返回,
+    // 不能用来等 hydration;直接驱动 persist 落定,守卫的 hydrated 分支才有真值。
+    await useAuthStore.persist.rehydrate()
+    vi.useFakeTimers()
+    // 2026-11-28:新版 vitest 的 fake timers 默认不接管 jsdom 的 rAF,
+    // 守卫的跳转排在 requestAnimationFrame 里 ⇒ advanceTimersByTime 永远不执行回调。
+    // 把 rAF 桥到（同样被 fake 的）setTimeout 上,时序才可推进。
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) =>
+      setTimeout(() => cb(performance.now()), 16),
+    )
+    vi.stubGlobal('cancelAnimationFrame', (id: number) => clearTimeout(id))
   })
   afterEach(() => {
     cleanup()
     vi.useRealTimers()
+    vi.unstubAllGlobals()
   })
 
   it('A 资料晚于"那一帧"才到 ⇒ 不许弹(旧写法在这一格就会弹)', async () => {
-    vi.useFakeTimers()
     useAuthStore.setState({ isAuthenticated: true, token: 't', user: null })
     await mount()
     expect(screen.queryByText('受守卫的后台内容')).toBeNull() // 还没判完,挂在校验占位上
@@ -103,7 +112,6 @@ describe('admin layout 守卫:角色未知 ≠ 角色不够', () => {
   })
 
   it('B 资料始终不到 ⇒ 到点必须有终态(不许永远挂在"正在校验"上)', async () => {
-    vi.useFakeTimers()
     useAuthStore.setState({ isAuthenticated: true, token: 't', user: null })
     await mount()
     await act(async () => {
@@ -113,7 +121,6 @@ describe('admin layout 守卫:角色未知 ≠ 角色不够', () => {
   })
 
   it('C 真·非管理员(roleId=0)照旧弹,本修复没有把门放宽', async () => {
-    vi.useFakeTimers()
     useAuthStore.setState({ isAuthenticated: true, token: 't', user: { ...ADMIN, roleId: 0 } })
     await mount()
     await act(async () => {
@@ -123,7 +130,6 @@ describe('admin layout 守卫:角色未知 ≠ 角色不够', () => {
   })
 
   it('D 未登录且未显式登出 ⇒ 先宽限、到点仍弹登录页并带上 redirect', async () => {
-    vi.useFakeTimers()
     useAuthStore.setState({ isAuthenticated: false, token: null, user: null })
     await mount()
 
@@ -144,7 +150,6 @@ describe('admin layout 守卫:角色未知 ≠ 角色不够', () => {
   })
 
   it('E 宽限期内把登录态接回来 ⇒ 不弹,照常放行', async () => {
-    vi.useFakeTimers()
     useAuthStore.setState({ isAuthenticated: false, token: null, user: null })
     await mount()
 
@@ -164,7 +169,6 @@ describe('admin layout 守卫:角色未知 ≠ 角色不够', () => {
   })
 
   it('G 用户已显式登出 ⇒ 立即弹,不给宽限(不得把退出的人静默登回去)', async () => {
-    vi.useFakeTimers()
     markSessionLoggedOut()
     useAuthStore.setState({ isAuthenticated: false, token: null, user: null })
     await mount()
@@ -180,7 +184,6 @@ describe('admin layout 守卫:角色未知 ≠ 角色不够', () => {
     // 病灶:RECOVER_GRACE_MS(3s)/ ROLE_SETTLE_GRACE_MS(10s)都从挂载起算,而冷启动那次
     // 静默刷新实测 2–4s(生产日志里有单条 12.5s 的 refresh_token 查询,API 重启窗口只会更久)。
     // 原写法下"刷新还没回"会被读成"会话已死"⇒ 把凭据完好的人弹去登录页,并留下一轮无谓重登。
-    vi.useFakeTimers()
     gate.ready = false
     useAuthStore.setState({ isAuthenticated: false, token: null, user: null })
     const view = await mount()
@@ -211,7 +214,6 @@ describe('admin layout 守卫:角色未知 ≠ 角色不够', () => {
   })
 
   it('I ready 落地前角色还没查到 ⇒ 10s 等资料那一格同样不许提前弹 /forbidden', async () => {
-    vi.useFakeTimers()
     gate.ready = false
     useAuthStore.setState({ isAuthenticated: true, token: 't', user: null })
     await mount()
