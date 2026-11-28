@@ -24,7 +24,10 @@
 
 from __future__ import annotations
 
+import argparse
+import json
 from collections.abc import Iterable, Mapping, Sequence
+from pathlib import Path
 from typing import Any
 
 # 失败分类的闭集。新增分类必须同时改这里与 `classify_failure`，否则测试会红。
@@ -138,6 +141,7 @@ def summarize(results: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
         if float(r.get("tokens_used") or 0) > 0
     ]
     tool_calls = [float(r.get("tool_calls") or 0) for r in records]
+    tool_errors = [float(r.get("tool_errors") or 0) for r in records]
 
     taxonomy: dict[str, int] = dict.fromkeys(FAILURE_CLASSES, 0)
     failures: list[dict[str, str]] = []
@@ -184,6 +188,10 @@ def summarize(results: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
             **_distribution(tool_calls),
             "tasks_with_zero_calls": sum(1 for v in tool_calls if v == 0),
         },
+        "tool_errors": {
+            **_distribution(tool_errors),
+            "tasks_with_errors": sum(1 for v in tool_errors if v > 0),
+        },
         "failure_taxonomy": taxonomy,
         "failures": failures,
         "by_category": by_category,
@@ -200,6 +208,7 @@ def render_markdown(metrics: Mapping[str, Any]) -> list[str]:
         ("duration_ms", "耗时(ms)"),
         ("tokens", "token(估算)"),
         ("tool_calls", "工具调用数"),
+        ("tool_errors", "工具错误数"),
     ):
         dist = metrics.get(key) or {}
         lines.append(
@@ -220,6 +229,10 @@ def render_markdown(metrics: Mapping[str, Any]) -> list[str]:
     lines.append(
         f"- 零工具调用任务: {calls.get('tasks_with_zero_calls', 0)} / "
         f"{metrics.get('total', 0)}"
+    )
+    errors = metrics.get("tool_errors") or {}
+    lines.append(
+        f"- 带工具错误任务: {errors.get('tasks_with_errors', 0)} / {metrics.get('total', 0)}"
     )
     lines.append("")
     lines.append("### 失败分类")
@@ -251,4 +264,52 @@ def render_markdown(metrics: Mapping[str, Any]) -> list[str]:
             )
         lines.append("")
     return lines
+
+
+def _is_bench_metrics(value: Any) -> bool:
+    """报告里的 `metrics` 是不是本模块写的读数（而不是检索层的 recall@k 等同名键）。"""
+    return (
+        isinstance(value, Mapping)
+        and isinstance(value.get("failure_taxonomy"), Mapping)
+        and isinstance(value.get("iterations"), Mapping)
+    )
+
+
+def metrics_from_report(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """归档的报告 JSON → 读数。
+
+    优先用报告里已经写好的 `metrics`（生成时口径）；缺失或同名但不同义（检索报告的
+    `metrics` 是 recall@k 一族）时按 `tasks` 现场重算 —— 老报告也能补读，不改写原文件。
+    """
+    stored = payload.get("metrics")
+    if _is_bench_metrics(stored):
+        return dict(stored)
+    return summarize(payload.get("tasks") or [])
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """`python -m bench.metrics <report.json>`：只读重渲染，不跑任务、不写回。"""
+    parser = argparse.ArgumentParser(
+        description="把 bench 报告 JSON 重渲染成指标面（只读，不重跑任务）",
+    )
+    parser.add_argument("report", help="run_bench 产出的 .json 汇总路径")
+    parser.add_argument("--json", action="store_true", help="输出 metrics JSON 而非 markdown")
+    args = parser.parse_args(argv)
+    payload = json.loads(Path(args.report).read_text(encoding="utf-8"))
+    if not payload.get("tasks") and not _is_bench_metrics(payload.get("metrics")):
+        print(
+            f"❌ {args.report} 不含逐任务记录，也不是本模块写出的 metrics "
+            "（检索报告的 metrics 是另一套口径）—— 不猜、不重算成 0。",
+        )
+        return 2
+    metrics = metrics_from_report(payload)
+    if args.json:
+        print(json.dumps(metrics, ensure_ascii=False, indent=2))
+    else:
+        print("\n".join(render_markdown(metrics)))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
