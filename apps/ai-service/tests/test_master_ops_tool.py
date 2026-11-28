@@ -570,3 +570,95 @@ async def test_health_is_passthrough() -> None:
 
     assert envelope["ok"] is True
     assert envelope["data"] == {"ok": True}
+
+
+@pytest.mark.asyncio
+async def test_run_cancel_without_local_task_is_not_local() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/ops"):
+            return httpx.Response(
+                200,
+                json={
+                    "code": 0,
+                    "data": {
+                        "result": {
+                            "id": "run-remote",
+                            "status": "running",
+                            "sessionId": "session-remote",
+                            "mode": "single",
+                        }
+                    },
+                },
+            )
+        return httpx.Response(404, json={"code": 404, "message": "not found"})
+
+    envelope = await _tool(handler).handle(
+        {"action": "run_cancel", "runId": "run-remote"}, user_id="user-1"
+    )
+
+    assert envelope["ok"] is True
+    assert envelope["data"]["outcome"] == "not_local"
+    assert envelope["data"]["runStatus"] == "running"
+
+
+@pytest.mark.asyncio
+async def test_run_retry_replays_dispatch_snapshot(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.services.agent_orchestrator import AgentOrchestrator, AgentStepResult
+
+    definition = _raw_definition("11111111-1111-4111-8111-111111111111", "retry-agent")
+    calls: list[tuple[str, str, dict[str, Any]]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content) if request.content else {}
+        calls.append((request.method, request.url.path, payload))
+        if request.url.path.endswith("/ops"):
+            return httpx.Response(
+                200,
+                json={
+                    "code": 0,
+                    "data": {
+                        "result": {
+                            "id": "run-old",
+                            "definitionId": definition["id"],
+                            "definitionName": "retry-agent",
+                            "mode": "single",
+                            "goal": "重试任务",
+                            "status": "failed",
+                            "metadata": {
+                                "dispatchPayload": {
+                                    "mode": "single",
+                                    "definitionId": definition["id"],
+                                    "goal": "重试任务",
+                                }
+                            },
+                        }
+                    },
+                },
+            )
+        if request.url.path.endswith("/snapshot"):
+            return httpx.Response(
+                200, json={"code": 0, "data": {"items": [definition], "version": 3}}
+            )
+        if request.url.path.endswith("/runs") and request.method == "POST":
+            return httpx.Response(201, json={"code": 0, "data": {"created": True}})
+        if "/runs/" in request.url.path:
+            return httpx.Response(200, json={"code": 0, "data": {"ok": True}})
+        return httpx.Response(404, json={"code": 404, "message": "not found"})
+
+    async def fake_run(self, agent, user_input, *args, **kwargs):  # type: ignore[no-untyped-def]
+        return AgentStepResult(
+            agent_name=agent.name, input=user_input, output="重试完成", status="completed"
+        )
+
+    monkeypatch.setattr(AgentOrchestrator, "_run_agent", fake_run)
+    envelope = await _tool(handler).handle(
+        {"action": "run_retry", "runId": "run-old"}, user_id="user-1"
+    )
+
+    assert envelope["ok"] is True
+    assert envelope["data"]["retriedFrom"] == "run-old"
+    assert envelope["data"]["requestedMode"] == "single"
+    assert envelope["data"]["run"]["status"] == "completed"
+    assert envelope["data"]["run"]["runStatus"] == "succeeded"
+    create_call = next(c for c in calls if c[0] == "POST" and c[1].endswith("/runs"))
+    assert create_call[2]["sessionId"].endswith("-session")

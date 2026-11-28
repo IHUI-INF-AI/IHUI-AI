@@ -5,13 +5,14 @@
 
 已落地九种 dispatch：single / parallel / pipeline / debate / vote / critique /
 team / recursive / decomposed，全部创建父 run、真实执行并写步骤事件；
-另含运行只读面（run_list/get/logs/artifacts/stats）+ pause/resume/talk + health。
-stop/retry/cancel 未完成前明确返回 `AGENT_ACTION_NOT_IMPLEMENTED`，不伪造成功。
+另含运行只读面（run_list/get/logs/artifacts/stats）+ pause/resume/talk +
+run_cancel/run_stop（当前进程硬取消，跨进程明确 not_local）+ run_retry（按 dispatchPayload 重建）。
 """
 
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 import time
@@ -23,6 +24,13 @@ import httpx
 from ...core.internal_ticket import (
     InternalServiceCredentialError,
     internal_service_headers,
+)
+from ..agent_task_registry import (
+    cancel_tasks,
+    register_task,
+    run_task_key,
+    session_task_key,
+    unregister_task,
 )
 
 TOOL_NAME = "agent_ops"
@@ -54,6 +62,9 @@ _IMPLEMENTED = frozenset(
         "run_pause",
         "run_resume",
         "run_talk",
+        "run_stop",
+        "run_retry",
+        "run_cancel",
         "health",
     }
 )
@@ -155,12 +166,24 @@ INPUT_SCHEMA: dict[str, Any] = {
 DESCRIPTION = (
     "查看和控制智能体运行：dispatch 支持 single / parallel / pipeline / debate / vote / critique / team / recursive / decomposed，"
     "会创建父 run、真实执行并写步骤事件；run_list/run_get/run_logs/run_artifacts/run_stats 可查；"
-    "run_pause/run_resume/run_talk 可操作当前实例的在飞会话，health 查运行时；"
-    "stop/retry/cancel 尚未接线，会明确报未实现。"
+    "run_pause/run_resume/run_talk 可操作当前实例的在飞会话；"
+    "run_cancel/run_stop 硬取消当前进程登记的任务，跨进程返回 not_local；"
+    "run_retry 按创建 run 时保存的 dispatchPayload 重建新 run。"
+    "health 查运行时。"
 )
 
 _ALLOWED_ARGS = frozenset(INPUT_SCHEMA["properties"].keys())
-_LOCAL_ACTIONS = frozenset({"dispatch", "run_pause", "run_resume", "run_talk"})
+_LOCAL_ACTIONS = frozenset(
+    {
+        "dispatch",
+        "run_pause",
+        "run_resume",
+        "run_talk",
+        "run_stop",
+        "run_retry",
+        "run_cancel",
+    }
+)
 logger = logging.getLogger(__name__)
 
 
@@ -182,6 +205,15 @@ def _now_iso() -> str:
 
     # API 内部账本用 zod datetime 校验，只接受 Z 结尾；isoformat 的 +00:00 会被 400。
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _dispatch_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
+    """只留可重放输入，供 run_retry 原样重建；不把 action/runId 写进快照。"""
+    return {
+        key: value
+        for key, value in payload.items()
+        if key not in ("action", "runId") and value is not None
+    }
 
 
 def _resolve_dispatchable(provider: Any, ref: str) -> Any:
@@ -397,6 +429,12 @@ class AgentOpsTool:
             raise OpsToolError("AGENT_RUN_ID_REQUIRED", f"{payload['action']} 需要 runId")
         run = await self._post_ops({"action": "run_get", "runId": run_id}, user_id=user_id)
         session_id = str(run.get("sessionId") or "").strip() if isinstance(run, dict) else ""
+        action = payload["action"]
+        if action in ("run_cancel", "run_stop"):
+            return await self._cancel_run(run, run_id=run_id, user_id=user_id, action=action)
+        if action == "run_retry":
+            return await self._retry_run(run, run_id=run_id, user_id=user_id)
+
         if not session_id:
             raise OpsToolError(
                 "AGENT_RUN_SESSION_MISSING",
@@ -406,7 +444,6 @@ class AgentOpsTool:
 
         from ..agent_run_control import pause_session, resume_session, wake_session
 
-        action = payload["action"]
         if action == "run_pause":
             result = await pause_session(session_id, user_id)
             return {
@@ -431,9 +468,198 @@ class AgentOpsTool:
         woken = await wake_session(session_id, owner_user_id=user_id, text=message)
         return {"runId": run_id, "sessionId": session_id, **woken}
 
+    async def _cancel_run(
+        self,
+        run: Any,
+        *,
+        run_id: str,
+        user_id: str,
+        action: str,
+    ) -> dict[str, Any]:
+        """硬取消当前进程内登记的 run/session 任务。
+
+        没有登记任务时绝不改数据库冒充“已停”：返回 not_local，让调用方知道这个 run
+        不属于当前 AI 进程，需要跨实例控制面来收口。
+        """
+        status = str(run.get("status") or "") if isinstance(run, dict) else ""
+        terminal = {"succeeded", "failed", "canceled", "timeout"}
+        if status in terminal:
+            return {
+                "runId": run_id,
+                "outcome": "already_terminal",
+                "runStatus": status,
+                "cancelledTasks": 0,
+            }
+
+        session_id = str(run.get("sessionId") or "").strip() if isinstance(run, dict) else ""
+        keys = [run_task_key(run_id)]
+        if session_id:
+            keys.append(session_task_key(session_id))
+        result = await cancel_tasks(keys)
+        if result["matched"] == 0:
+            if status == "paused":
+                # paused 没有在飞任务，但“取消一个暂停中的 run”是明确的终态迁移；
+                # 这不是用状态冒充硬停，故单独标 reason=paused。
+                from ..run_ledger import RunLedgerClient
+
+                ledger = RunLedgerClient(
+                    user_id=user_id, base_url=self._base_url, transport=self._transport
+                )
+                await ledger.update_run(
+                    run_id,
+                    {
+                        "status": "canceled",
+                        "errorCode": "AGENT_RUN_CANCELED",
+                        "errorMessage": "用户取消暂停中的运行",
+                        "endedAt": _now_iso(),
+                    },
+                )
+                event_written = False
+                with contextlib.suppress(Exception):
+                    event_written = await self._append_cancel_event(
+                        run_id=run_id, user_id=user_id
+                    )
+                return {
+                    "runId": run_id,
+                    "outcome": "cancelled",
+                    "runStatus": "canceled",
+                    "cancelledTasks": 0,
+                    "cancelEventWritten": event_written,
+                    "reason": "paused",
+                }
+            return {
+                "runId": run_id,
+                "outcome": "not_local",
+                "runStatus": status,
+                "cancelledTasks": 0,
+                "reason": "该 run 不在当前 AI 进程，未改数据库冒充已停",
+            }
+        if result["pending"] > 0:
+            return {
+                "runId": run_id,
+                "outcome": "cancel_timeout",
+                "runStatus": status,
+                "cancelledTasks": result["done"],
+                "pendingTasks": result["pending"],
+            }
+
+        event_written = False
+        try:
+            event_written = await self._append_cancel_event(run_id=run_id, user_id=user_id)
+        except Exception:  # noqa: BLE001 -- 事件补写失败不能改变已取消的 run 行
+            logger.exception("[master-ops] cancel event append failed run=%s", run_id)
+        after = await self._post_ops({"action": "run_get", "runId": run_id}, user_id=user_id)
+        final_status = str(after.get("status") or "") if isinstance(after, dict) else ""
+        requested = "stopped" if action == "run_stop" else "cancelled"
+        return {
+            "runId": run_id,
+            "outcome": requested if final_status == "canceled" else "cancel_incomplete",
+            "runStatus": final_status or status,
+            "cancelledTasks": result["done"],
+            "cancelEventWritten": event_written,
+        }
+
+    async def _retry_run(self, run: Any, *, run_id: str, user_id: str) -> dict[str, Any]:
+        """按创建 run 时保存的 dispatch 快照重建一次新 run；旧 run 不改状态。"""
+        status = str(run.get("status") or "") if isinstance(run, dict) else ""
+        if status not in {"failed", "canceled", "timeout"}:
+            raise OpsToolError(
+                "AGENT_RUN_NOT_RETRYABLE",
+                "只有 failed / canceled / timeout 的 run 可以 retry；"
+                "running 请先 cancel，paused 请先 resume，succeeded 不应重跑",
+                details={"runId": run_id, "runStatus": status},
+            )
+        metadata = run.get("metadata") if isinstance(run, dict) else {}
+        snapshot = metadata.get("dispatchPayload") if isinstance(metadata, dict) else None
+        if not isinstance(snapshot, dict):
+            mode = str(run.get("mode") or "") if isinstance(run, dict) else ""
+            definition_id = str(run.get("definitionId") or "") if isinstance(run, dict) else ""
+            goal = str(run.get("goal") or "") if isinstance(run, dict) else ""
+            if mode == "single" and definition_id and goal:
+                snapshot = {"mode": "single", "definitionId": definition_id, "goal": goal}
+            else:
+                raise OpsToolError(
+                    "AGENT_RETRY_SNAPSHOT_MISSING",
+                    "该历史 run 没有 dispatchPayload 快照，无法原样重建多参与者/分片参数",
+                    details={"runId": run_id, "mode": mode},
+                )
+        retry_payload = {
+            key: value
+            for key, value in snapshot.items()
+            if key not in ("action", "runId") and value is not None
+        }
+        retry_payload["action"] = "dispatch"
+        retried = await self._dispatch(retry_payload, user_id=user_id)
+        return {
+            "retriedFrom": run_id,
+            "requestedMode": retry_payload.get("mode") or "single",
+            "run": retried,
+        }
+
+    async def _append_cancel_event(self, *, run_id: str, user_id: str) -> bool:
+        """确保 canceled 终态事件存在；由控制任务发，避免在已取消任务里再发网络请求。
+
+        返回 True 表示事件已在账本中（自己写入或执行侧已写），False 表示写失败。
+        """
+        logs = await self._post_ops(
+            {"action": "run_logs", "runId": run_id, "limit": 100}, user_id=user_id
+        )
+        items = logs.get("items") if isinstance(logs, dict) else None
+        all_items = list(items) if isinstance(items, list) else []
+        # 事件超过一页时继续按 afterSeq 翻，避免 next_seq 取到中间页最大值撞号。
+        after_seq = logs.get("nextSeq") if isinstance(logs, dict) else None
+        for _ in range(4):
+            if not after_seq:
+                break
+            logs = await self._post_ops(
+                {
+                    "action": "run_logs",
+                    "runId": run_id,
+                    "afterSeq": int(after_seq),
+                    "limit": 100,
+                },
+                user_id=user_id,
+            )
+            page = logs.get("items") if isinstance(logs, dict) else None
+            if not isinstance(page, list) or not page:
+                break
+            all_items.extend(page)
+            after_seq = logs.get("nextSeq") if isinstance(logs, dict) else None
+        if all_items:
+            for item in all_items:
+                payload = item.get("payload") if isinstance(item, dict) else None
+                if (
+                    isinstance(payload, dict)
+                    and item.get("type") == "status"
+                    and payload.get("status") == "canceled"
+                ):
+                    return True
+            next_seq = max(
+                [int(item.get("seq") or 0) for item in all_items if isinstance(item, dict)],
+                default=0,
+            ) + 1
+        else:
+            next_seq = 1
+        from ..run_ledger import RunLedgerClient
+
+        ledger = RunLedgerClient(
+            user_id=user_id, base_url=self._base_url, transport=self._transport
+        )
+        await ledger.append_event(
+            run_id,
+            next_seq,
+            "status",
+            {
+                "status": "canceled",
+                "errorCode": "AGENT_RUN_CANCELED",
+                "errorMessage": "用户取消执行",
+            },
+        )
+        return True
+
     async def _dispatch(self, payload: dict[str, Any], *, user_id: str) -> dict[str, Any]:
         from ..agent_definition_provider import AgentDefinitionProvider
-        from ..agent_orchestrator import AgentOrchestrator
+        from ..agent_orchestrator import AgentOrchestrator, to_run_registry_status
         from ..agent_registry_client import AgentRegistryClient
         from ..run_ledger import RunLedgerClient
 
@@ -472,6 +698,7 @@ class AgentOpsTool:
         definition = _resolve_dispatchable(provider, ref)
 
         run_id = str(uuid.uuid4())
+        session_id = f"{run_id}-session"
         trace_id = f"tr_{uuid.uuid4().hex}"
         ledger = RunLedgerClient(
             user_id=user_id, base_url=self._base_url, transport=self._transport
@@ -483,11 +710,15 @@ class AgentOpsTool:
                 "definitionVersion": definition.version,
                 "definitionName": definition.name,
                 "ownerUserId": user_id,
+                "sessionId": session_id,
                 "mode": "single",
                 "goal": goal,
                 "traceId": trace_id,
                 "status": "queued",
-                "metadata": {"source": "master_tools.agent_ops.dispatch"},
+                "metadata": {
+                    "source": "master_tools.agent_ops.dispatch",
+                    "dispatchPayload": _dispatch_snapshot(payload),
+                },
             }
         )
 
@@ -495,23 +726,47 @@ class AgentOpsTool:
             definition_provider=provider,
             run_ledger=ledger,
         )
+        task = asyncio.current_task()
+        register_task(run_task_key(run_id), task)
         try:
-            result = await orchestrator.invoke(definition.name, goal, run_id=run_id)
-        except Exception as error:  # noqa: BLE001 -- 运行失败也要把 run 收口
-            await ledger.update_run(
-                run_id,
-                {
-                    "status": "failed",
-                    "errorCode": "AGENT_DISPATCH_FAILED",
-                    "errorMessage": f"{type(error).__name__}: {error}"[:2000],
-                    "endedAt": _now_iso(),
-                },
-            )
-            raise OpsToolError(
-                "AGENT_DISPATCH_FAILED",
-                f"派发执行失败: {type(error).__name__}",
-                details={"runId": run_id},
-            ) from error
+            try:
+                result = await orchestrator.invoke(
+                    definition.name, goal, session_id=session_id, run_id=run_id
+                )
+            except asyncio.CancelledError:
+                # 硬取消走的是 task.cancel()，这条路径不能落成 failed；落 canceled。
+                # canceled 事件由控制任务在任务结束后补写，这里只保证 run 行收口。
+                with contextlib.suppress(Exception):
+                    await asyncio.shield(
+                        ledger.update_run(
+                            run_id,
+                            {
+                                "status": "canceled",
+                                "errorCode": "AGENT_RUN_CANCELED",
+                                "errorMessage": "用户取消执行",
+                                "endedAt": _now_iso(),
+                            },
+                        )
+                    )
+                raise
+            except Exception as error:  # noqa: BLE001 -- 运行失败也要把 run 收口
+                await ledger.update_run(
+                    run_id,
+                    {
+                        "status": "failed",
+                        "errorCode": "AGENT_DISPATCH_FAILED",
+                        "errorMessage": f"{type(error).__name__}: {error}"[:2000],
+                        "endedAt": _now_iso(),
+                    },
+                )
+                raise OpsToolError(
+                    "AGENT_DISPATCH_FAILED",
+                    f"派发执行失败: {type(error).__name__}",
+                    details={"runId": run_id},
+                ) from error
+        finally:
+            unregister_task(run_task_key(run_id), task)
+
 
         return {
             "runId": run_id,
@@ -520,6 +775,7 @@ class AgentOpsTool:
             "definitionVersion": definition.version,
             "agent": result.agent_name,
             "status": result.status,
+            "runStatus": to_run_registry_status(result.status),
             "output": result.output,
             "error": result.error,
             "errorCode": result.error_code,
@@ -669,6 +925,7 @@ class AgentOpsTool:
                 )
 
         run_id = str(uuid.uuid4())
+        session_id = f"{run_id}-session"
         trace_id = f"tr_{uuid.uuid4().hex}"
         ledger = RunLedgerClient(
             user_id=user_id, base_url=self._base_url, transport=self._transport
@@ -680,6 +937,7 @@ class AgentOpsTool:
                 "definitionVersion": parent.version,
                 "definitionName": parent.name,
                 "ownerUserId": user_id,
+                "sessionId": session_id,
                 "mode": mode,
                 "goal": goal,
                 "traceId": trace_id,
@@ -687,6 +945,7 @@ class AgentOpsTool:
                 "metadata": {
                     "source": "master_tools.agent_ops.dispatch",
                     "participants": [definition.id for definition in resolved],
+                    "dispatchPayload": _dispatch_snapshot(payload),
                 },
             }
         )
@@ -697,36 +956,38 @@ class AgentOpsTool:
             definition_provider=provider,
             run_ledger=ledger,
         )
+        task = asyncio.current_task()
+        register_task(run_task_key(run_id), task)
         try:
             if mode == "parallel":
                 result = await orchestrator.run_parallel(
-                    agent_inputs, session_id=f"{run_id}-session"
+                    agent_inputs, session_id=session_id
                 )
             elif mode == "pipeline":
                 result = await orchestrator.run_pipeline(
-                    steps, initial_input=goal, session_id=f"{run_id}-session"
+                    steps, initial_input=goal, session_id=session_id
                 )
             elif mode == "debate":
                 result = await orchestrator.run_debate(
                     agent_ids,
                     goal,
                     max_rounds=int(payload.get("maxRounds") or 3),
-                    session_id=f"{run_id}-session",
+                    session_id=session_id,
                 )
             elif mode == "vote":
-                result = await orchestrator.run_vote(agent_ids, goal, session_id=f"{run_id}-session")
+                result = await orchestrator.run_vote(agent_ids, goal, session_id=session_id)
             elif mode == "critique":
                 result = await orchestrator.run_critique(
                     agent_ids,
                     goal,
                     max_rounds=int(payload.get("maxRounds") or 2),
-                    session_id=f"{run_id}-session",
+                    session_id=session_id,
                 )
             elif mode == "decomposed":
                 result = await orchestrator.run_decomposed(
                     goal,
                     strategy=str(payload.get("decomposeStrategy") or "dag"),
-                    session_id=f"{run_id}-session",
+                    session_id=session_id,
                     agent_refs=agent_ids,
                 )
             elif mode == "recursive":
@@ -749,7 +1010,7 @@ class AgentOpsTool:
                                 sub = await orchestrator.invoke(
                                     definition.id,
                                     task_text,
-                                    session_id=f"{run_id}-session",
+                                    session_id=session_id,
                                 )
                             except Exception as error:  # noqa: BLE001 -- 单个分片失败不拖垮整层
                                 return TeamContributor(
@@ -809,6 +1070,29 @@ class AgentOpsTool:
                     max_concurrency=min(len(team_tasks), 5),
                 )
                 result = _team_round_to_orchestration(team)
+        except asyncio.CancelledError:
+            # 硬取消：先写终态事件和 run 行，再把取消向上抛；不能让父 run 停在 running。
+            with contextlib.suppress(Exception):
+                await asyncio.shield(
+                    session.status(
+                        "canceled",
+                        error_code="AGENT_RUN_CANCELED",
+                        error_message="用户取消执行",
+                    )
+                )
+            with contextlib.suppress(Exception):
+                await asyncio.shield(
+                    ledger.update_run(
+                        run_id,
+                        {
+                            "status": "canceled",
+                            "errorCode": "AGENT_RUN_CANCELED",
+                            "errorMessage": "用户取消执行",
+                            "endedAt": _now_iso(),
+                        },
+                    )
+                )
+            raise
         except OpsToolError as error:
             await ledger.update_run(
                 run_id,
@@ -836,6 +1120,8 @@ class AgentOpsTool:
                 f"{mode} 派发执行失败: {type(error).__name__}",
                 details={"runId": run_id},
             ) from error
+        finally:
+            unregister_task(run_task_key(run_id), task)
 
         registry_status = to_run_registry_status(result.status)
         first_error = next((step for step in result.steps if step.status == "failed"), None)

@@ -487,17 +487,25 @@ class AgentOrchestrator:
                     error_code="AGENT_NOT_FOUND",
                 )
             )
-        result = await self._run_agent(
-            agent,
-            user_input,
-            session_id,
-            model_override,
-            progress_callback,
-            chat_mode=chat_mode,
-            permission_mode=permission_mode,
-            tool_allow=tool_allow,
-            tool_deny=tool_deny,
-        )
+        from .agent_task_registry import register_task, run_task_key, unregister_task
+
+        run_key = run_task_key(run_id) if run_id else ""
+        task = asyncio.current_task()
+        register_task(run_key, task)
+        try:
+            result = await self._run_agent(
+                agent,
+                user_input,
+                session_id,
+                model_override,
+                progress_callback,
+                chat_mode=chat_mode,
+                permission_mode=permission_mode,
+                tool_allow=tool_allow,
+                tool_deny=tool_deny,
+            )
+        finally:
+            unregister_task(run_key, task)
         if runtime is not None:
             result.definition_id = runtime.id
             result.definition_version = runtime.version
@@ -1656,6 +1664,39 @@ class AgentOrchestrator:
     # =========================================================================
 
     async def _run_agent(
+        self,
+        agent: AgentDefinition,
+        user_input: str,
+        session_id: str | None,
+        model_override: str | None,
+        progress_callback: Callable[[dict[str, Any]], None] | None = None,
+        chat_mode: str | None = None,
+        permission_mode: str | None = None,
+        tool_allow: list[str] | None = None,
+        tool_deny: list[str] | None = None,
+    ) -> AgentStepResult:
+        """登记当前 asyncio 任务后执行单 agent；供进程内 cancel 按 session 查找。"""
+        from .agent_task_registry import register_task, session_task_key, unregister_task
+
+        key = session_task_key(session_id) if session_id else ""
+        task = asyncio.current_task()
+        register_task(key, task)
+        try:
+            return await self._run_agent_impl(
+                agent,
+                user_input,
+                session_id,
+                model_override,
+                progress_callback,
+                chat_mode=chat_mode,
+                permission_mode=permission_mode,
+                tool_allow=tool_allow,
+                tool_deny=tool_deny,
+            )
+        finally:
+            unregister_task(key, task)
+
+    async def _run_agent_impl(
         self,
         agent: AgentDefinition,
         user_input: str,
