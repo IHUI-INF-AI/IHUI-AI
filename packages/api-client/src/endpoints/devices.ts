@@ -7,6 +7,7 @@ import type {
   DeviceApprovalDecision,
   DeviceTaskApprovalRecord,
   DeviceTaskApprovalRequest,
+  DeviceTaskDiffSummary,
   DeviceTaskExecutionPayload,
   DeviceTaskProgress,
   RegisterDeviceTokenInput,
@@ -207,6 +208,7 @@ export async function delegateSession(
         ...(payload?.mode !== undefined ? { mode: payload.mode } : {}),
         ...(payload?.autoApprove !== undefined ? { auto_approve: payload.autoApprove } : {}),
         ...(payload?.model !== undefined ? { model: payload.model } : {}),
+        ...(payload?.reviewDiff !== undefined ? { review_diff: payload.reviewDiff } : {}),
       }),
     },
   )
@@ -391,6 +393,8 @@ export async function deviceTaskLease(
     lease_expires_at: string
     agent_session_id: string | null
     approval_decision: DeviceApprovalDecision | null
+    /** G4:kind='diff' 的逐文件裁决;缺省 = 全收下/全回退(按 decision 定) */
+    approval_accepted_paths: string[] | null
   }>
 > {
   return fetchDeviceApi<{
@@ -398,17 +402,24 @@ export async function deviceTaskLease(
     lease_expires_at: string
     agent_session_id: string | null
     approval_decision: DeviceApprovalDecision | null
+    approval_accepted_paths: string[] | null
   }>(deviceToken, `/api/devices/tasks/${encodeURIComponent(taskId)}/lease`, {
     method: 'POST',
     body: JSON.stringify({ ...(progress ? { progress } : {}) }),
   })
 }
 
-/** 设备交付 plan 档方案摘要(只许一次;人批完前执行端停在这里续租等) */
+/** 设备交付 plan/diff 审批(只许一次;人批完前执行端停在这里续租等) */
 export async function deviceTaskRequestApproval(
   deviceToken: string,
   taskId: string,
-  input: { preview: string; messageId?: string; iterations?: number },
+  input: {
+    preview: string
+    messageId?: string
+    iterations?: number
+    /** kind='diff' 时必传;服务端按 DEVICE_DIFF_* 预算校验 */
+    diff?: DeviceTaskDiffSummary
+  },
 ): Promise<ApiResult<{ task_id: string; stage: string }>> {
   return fetchDeviceApi<{ task_id: string; stage: string }>(
     deviceToken,
@@ -419,6 +430,7 @@ export async function deviceTaskRequestApproval(
         preview: input.preview,
         ...(input.messageId ? { message_id: input.messageId } : {}),
         ...(input.iterations !== undefined ? { iterations: input.iterations } : {}),
+        ...(input.diff ? { diff: input.diff } : {}),
       }),
     },
   )
@@ -439,14 +451,22 @@ export async function getDeviceTaskApproval(taskId: string): Promise<
   }>(`/api/devices/tasks/${encodeURIComponent(taskId)}/approval`, { method: 'GET' })
 }
 
-/** 用户批准/拒绝 plan 档方案(决策只写一次,执行端从租约读到后继续/收口) */
+/** 用户批准/拒绝审批(决策只写一次,执行端从租约读到后继续/收口) */
 export async function decideDeviceTaskApproval(
   taskId: string,
   decision: DeviceApprovalDecision,
+  /** kind='diff':逐文件收下的路径;缺省按 decision 定(approved=全收,rejected=全退) */
+  acceptedPaths?: string[],
 ): Promise<ApiResult<{ decision: DeviceApprovalDecision; status: string }>> {
   return fetchApi<{ decision: DeviceApprovalDecision; status: string }>(
     `/api/devices/tasks/${encodeURIComponent(taskId)}/approval/decision`,
-    { method: 'POST', body: JSON.stringify({ decision }) },
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        decision,
+        ...(acceptedPaths ? { accepted_paths: acceptedPaths } : {}),
+      }),
+    },
   )
 }
 

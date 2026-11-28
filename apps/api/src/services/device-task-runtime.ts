@@ -19,11 +19,13 @@ import { and, eq, isNull, sql } from 'drizzle-orm'
 import { chatConversations, chatMessages, deviceTasks, devices } from '@ihui/database'
 import type {
   DeviceApprovalDecision,
+  DeviceApprovalKind,
   DeviceTaskApprovalRecord,
   DeviceTaskApprovalRequest,
+  DeviceTaskDiffSummary,
   DeviceTaskProgress,
 } from '@ihui/types'
-import { isDeviceApprovalDecision } from '@ihui/types'
+import { isDeviceApprovalDecision, isDeviceTaskDiffSummary } from '@ihui/types'
 import { db } from '../db/index.js'
 import { createMessage } from '../db/chat-queries.js'
 import { AppError } from '../errors/AppError.js'
@@ -89,6 +91,18 @@ function readApprovalDecision(raw: unknown): DeviceApprovalDecision | null {
   if (typeof raw !== 'object' || raw === null) return null
   const value = (raw as Record<string, unknown>).decision
   return isDeviceApprovalDecision(value) ? value : null
+}
+
+/**
+ * 逐文件裁决读取。**空数组与 null 必须分开**:[] = 一个都不收(全回退),
+ * null = 没给逐文件裁决(按 decision 的全收/全退语义)—— 把 [] 折成 null
+ * 会让"全部不勾"变成"全部收下",方向正好相反。
+ */
+function readApprovalAcceptedPaths(raw: unknown): string[] | null {
+  if (typeof raw !== 'object' || raw === null) return null
+  const value = (raw as Record<string, unknown>).acceptedPaths
+  if (!Array.isArray(value)) return null
+  return value.filter((p): p is string => typeof p === 'string' && p.length > 0)
 }
 
 function assertRunning(task: TaskRow): void {
@@ -227,6 +241,8 @@ export async function extendTaskLease(
   agentSessionId: string | null
   /** G3:审批决策 —— 执行端在 plan 档停住后靠它继续/收口;null = 还没人批 */
   approvalDecision: DeviceApprovalDecision | null
+  /** G4:kind='diff' 的逐文件裁决;null = 未裁决或未给(按 decision 的全收/全退语义) */
+  approvalAcceptedPaths: string[] | null
 }> {
   const task = await loadTaskForDevice(deviceId, taskId)
   if (task.status !== 'running' && task.status !== 'claimed') {
@@ -251,6 +267,7 @@ export async function extendTaskLease(
     // 用自己的行读决策:update 的 returning 读的是更新后的行,但决策列由用户面写,
     // 这里合并两路来源不划算 —— 直接以 update 返回值里的为准(它就是库侧现值)。
     approvalDecision: readApprovalDecision(rows[0]?.approvalDecision),
+    approvalAcceptedPaths: readApprovalAcceptedPaths(rows[0]?.approvalDecision),
   }
 }
 
@@ -284,32 +301,45 @@ function progressBase(raw: unknown): DeviceTaskProgress {
 }
 
 /**
- * 设备交上来的 plan 档方案(G3,2026-11-26)。
- * 只允许一次:重复上报会把"人正在看的计划"换掉 —— 那意味着用户批准的那份正文
- * 与最终真正执行的不是同一份,审批就失去意义。要重出方案只能拒绝后重排任务。
+ * 设备交上来的审批请求:plan 档的方案摘要,或 execute 档的文件级改动(G4)。
+ * 只允许一次:重复上报会把"人正在看的方案/改动"换掉 —— 那意味着用户批准的那份
+ * 与最终真正执行的不是同一份,审批就失去意义。要重出只能拒绝后重排任务。
  */
 export async function requestTaskApproval(
   deviceId: string,
   taskId: string,
-  input: { preview: string; messageId?: string | null; iterations?: number },
+  input: {
+    preview: string
+    messageId?: string | null
+    iterations?: number
+    /** G4:存在即 kind='diff';形状按 DEVICE_DIFF_* 预算校验 */
+    diff?: DeviceTaskDiffSummary
+  },
 ): Promise<typeof deviceTasks.$inferSelect> {
   const task = await loadTaskForDevice(deviceId, taskId)
   assertRunning(task)
   if (task.approvalRequest !== null && task.approvalRequest !== undefined) {
-    throw new AppError('该任务已提交过计划,等待审批中', 409, 'TASK_APPROVAL_DUPLICATE')
+    throw new AppError('该任务已提交过审批,等待处理中', 409, 'TASK_APPROVAL_DUPLICATE')
   }
   if (task.approvalDecision !== null && task.approvalDecision !== undefined) {
-    throw new AppError('该任务已审批过,不能重交计划', 409, 'TASK_APPROVAL_DECIDED')
+    throw new AppError('该任务已审批过,不能重交', 409, 'TASK_APPROVAL_DECIDED')
   }
   const preview = input.preview.trim()
-  if (!preview) throw new AppError('计划摘要为空', 400, 'TASK_APPROVAL_EMPTY')
+  if (!preview) throw new AppError('审批摘要为空', 400, 'TASK_APPROVAL_EMPTY')
+
+  const kind: DeviceApprovalKind = input.diff ? 'diff' : 'plan'
+  if (input.diff && !isDeviceTaskDiffSummary(input.diff)) {
+    throw new AppError('改动载荷非法(超预算或形状不符)', 400, 'TASK_DIFF_INVALID')
+  }
 
   const approvalRequest: DeviceTaskApprovalRequest = {
+    kind,
     // 正文不落库:唯一真相源是执行端流进会话的那条消息(见 types 里的注释)。
     messageId: input.messageId ?? task.messageId ?? null,
     preview: preview.length > 240 ? `${preview.slice(0, 240)}…` : preview,
     requestedAt: new Date().toISOString(),
     ...(input.iterations !== undefined ? { iterations: input.iterations } : {}),
+    ...(input.diff ? { diff: input.diff } : {}),
   }
 
   // 进度同步一份"等待审批":列表页不读正文也知道这条任务卡在哪、在等谁。
@@ -317,7 +347,7 @@ export async function requestTaskApproval(
     ...progressBase(task.progress),
     stage: 'awaiting_approval',
     percent: 60,
-    lastEvent: '等待你批准计划',
+    lastEvent: kind === 'diff' ? '等待你审阅改动' : '等待你批准计划',
   }
   await db.update(deviceTasks).set({ approvalRequest, progress }).where(eq(deviceTasks.id, taskId))
   return loadTaskRow(taskId)
@@ -364,15 +394,18 @@ export async function getTaskApproval(
 }
 
 /**
- * 用户面:批准/拒绝(G3)。
+ * 用户面:批准/拒绝。
  * 决策只写一次(CAS:approvalDecision IS NULL),写后设备在下一次租约轮询读到:
- * approved → 以 acceptEdits 用同一会话续跑;rejected → 自行收口 failed。
+ *  - plan:approved → 以 acceptEdits 用同一会话续跑;rejected → 自行收口 failed;
+ *  - diff(G4):approved + acceptedPaths → 只收下这些文件、回退其余;approved 无
+ *    acceptedPaths = 全收;rejected = 全退。
  * 任务状态不在这里改 —— 执行端还活着,替它写终态会让后续上报全 409。
  */
 export async function decideTaskApproval(
   userId: string,
   taskId: string,
   decision: DeviceApprovalDecision,
+  acceptedPaths?: string[],
 ): Promise<typeof deviceTasks.$inferSelect> {
   const selected = await db
     .select({
@@ -394,21 +427,59 @@ export async function decideTaskApproval(
     throw new AppError(`任务已结束(${task.status})`, 409, 'TASK_ALREADY_FINISHED')
   }
   if (task.approvalRequest === null || task.approvalRequest === undefined) {
-    throw new AppError('该任务没有待审批的计划', 409, 'TASK_APPROVAL_NONE')
+    throw new AppError('该任务没有待审批的内容', 409, 'TASK_APPROVAL_NONE')
   }
   if (task.approvalDecision !== null && task.approvalDecision !== undefined) {
     throw new AppError('该任务已审批过', 409, 'TASK_APPROVAL_ALREADY_DECIDED')
+  }
+
+  const request = task.approvalRequest as DeviceTaskApprovalRequest
+  const kind: DeviceApprovalKind = request.kind === 'diff' ? 'diff' : 'plan'
+  let accepted: string[] | undefined
+  if (acceptedPaths !== undefined) {
+    if (kind !== 'diff') {
+      throw new AppError('该任务不是改动审查,不接受逐文件裁决', 400, 'TASK_DIFF_NOT_DIFF')
+    }
+    if (decision !== 'approved') {
+      throw new AppError(
+        '拒绝时不要逐文件裁决(拒绝即全部回退)',
+        400,
+        'TASK_DIFF_DECLINE_WITH_PATHS',
+      )
+    }
+    if (!Array.isArray(acceptedPaths) || acceptedPaths.length > (request.diff?.files.length ?? 0)) {
+      throw new AppError('逐文件裁决数量非法', 400, 'TASK_DIFF_PATHS_INVALID')
+    }
+    const known = new Set((request.diff?.files ?? []).map((f) => f.path))
+    const deduped: string[] = []
+    for (const p of acceptedPaths) {
+      if (typeof p !== 'string' || !known.has(p)) {
+        throw new AppError(`改动里没有这个文件:${String(p)}`, 400, 'TASK_DIFF_PATH_UNKNOWN')
+      }
+      if (!deduped.includes(p)) deduped.push(p)
+    }
+    accepted = deduped
   }
 
   const record: DeviceTaskApprovalRecord = {
     decision,
     at: new Date().toISOString(),
     by: userId,
+    ...(accepted !== undefined ? { acceptedPaths: accepted } : {}),
   }
   const progress: DeviceTaskProgress = {
     ...progressBase(task.progress),
     stage: decision === 'approved' ? 'thinking' : 'failed',
-    lastEvent: decision === 'approved' ? '已批准,执行端继续' : '已拒绝,执行端收口',
+    lastEvent:
+      kind === 'diff'
+        ? decision === 'approved'
+          ? accepted === undefined
+            ? '改动已全部收下,执行端收尾'
+            : `已收下 ${accepted.length} 个文件,执行端回退其余`
+          : '改动已退回,执行端回退'
+        : decision === 'approved'
+          ? '已批准,执行端继续'
+          : '已拒绝,执行端收口',
   }
   const updated = await db
     .update(deviceTasks)
@@ -541,6 +612,10 @@ export async function retryTask(
       cancelRequestedAt: null,
       messageId: null,
       agentSessionId: null,
+      // 重排 = 新一次执行:上一轮的审批请求/裁决不得跟着复用(否则新执行端一 attach
+      // 就看到"批过了",审批位也再交不上去)。
+      approvalRequest: null,
+      approvalDecision: null,
     })
     .where(and(eq(deviceTasks.id, taskId), eq(deviceTasks.status, task.status)))
     .returning()

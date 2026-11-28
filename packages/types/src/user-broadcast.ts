@@ -1232,22 +1232,122 @@ export function isDeviceApprovalDecision(v: unknown): v is DeviceApprovalDecisio
 }
 
 /**
+ * 改动审查(G4,2026-11-28):审批从"计划正文"扩到"文件级 diff"。
+ *
+ * 为什么 kind 必须显式:执行端有两条停住等人的理由 —— plan 档等你批方案、
+ * execute 档改完等你逐文件收下/回退。载荷形状不同(一个读会话正文,一个读 diff),
+ * 消费端若靠"有没有 diff 字段"猜,老执行端一升级就会把 plan 卡渲染成 diff 卡。
+ * 缺省(老执行端不传)= plan,与改前逐字节同形。
+ */
+export const DEVICE_APPROVAL_KINDS = ['plan', 'diff'] as const
+
+export type DeviceApprovalKind = (typeof DEVICE_APPROVAL_KINDS)[number]
+
+export function isDeviceApprovalKind(v: unknown): v is DeviceApprovalKind {
+  return typeof v === 'string' && (DEVICE_APPROVAL_KINDS as readonly string[]).includes(v)
+}
+
+/** 单文件 diff 状态封闭集。rename 走 --no-renames 拆成 delete+add,这里不设 renamed。 */
+export const DEVICE_DIFF_FILE_STATUSES = ['modified', 'added', 'deleted'] as const
+
+export type DeviceDiffFileStatus = (typeof DEVICE_DIFF_FILE_STATUSES)[number]
+
+export function isDeviceDiffFileStatus(v: unknown): v is DeviceDiffFileStatus {
+  return typeof v === 'string' && (DEVICE_DIFF_FILE_STATUSES as readonly string[]).includes(v)
+}
+
+/**
+ * 预算(执行端按此截断,服务端按此校验 —— 两处同数才不会被"设备说 100 文件"打爆内存)。
+ * 一份 diff 最多 80 个文件、单文件 16k 字符、合计 200k 字符;超出即截断并置 truncated。
+ */
+export const DEVICE_DIFF_MAX_FILES = 80
+export const DEVICE_DIFF_MAX_PATCH_CHARS = 16_000
+export const DEVICE_DIFF_MAX_TOTAL_CHARS = 200_000
+
+/**
+ * 单个文件的改动。
+ * `revertable` 是**设备端的执行事实**(执行前该路径干净且被 git 跟踪 / 新增文件执行前不存在),
+ * 不是服务端能推的:库不碰工作区。人只应对可回退的文件勾"不要",
+ * UI 若把 revertable=false 的文件也画成可选项,点了没有执行端能兑现。
+ */
+export interface DeviceTaskFileDiff {
+  /** 工作区相对路径(POSIX 分隔符,设备端统一转换) */
+  path: string
+  status: DeviceDiffFileStatus
+  additions: number
+  deletions: number
+  /** unified diff 正文(可截断);新增文件为全 `+` 行 */
+  patch?: string
+  /** patch 是否被截断(只影响展示,不影响回退判据) */
+  truncated?: boolean
+  revertable: boolean
+}
+
+export function isDeviceTaskFileDiff(v: unknown): v is DeviceTaskFileDiff {
+  if (typeof v !== 'object' || v === null) return false
+  const f = v as Record<string, unknown>
+  if (typeof f.path !== 'string' || f.path.length === 0 || f.path.length > 400) return false
+  if (!isDeviceDiffFileStatus(f.status)) return false
+  if (!Number.isInteger(f.additions) || (f.additions as number) < 0) return false
+  if (!Number.isInteger(f.deletions) || (f.deletions as number) < 0) return false
+  if (typeof f.revertable !== 'boolean') return false
+  if (f.patch !== undefined && typeof f.patch !== 'string') return false
+  if (typeof f.patch === 'string' && f.patch.length > DEVICE_DIFF_MAX_PATCH_CHARS) return false
+  if (f.truncated !== undefined && typeof f.truncated !== 'boolean') return false
+  return true
+}
+
+/** 一次执行的全部改动快照。baseRef 为 null = 工作区不是 git 仓库(diff 只能看,不能回退)。 */
+export interface DeviceTaskDiffSummary {
+  baseRef: string | null
+  files: DeviceTaskFileDiff[]
+  additions: number
+  deletions: number
+  /** 文件数超预算被截断(只影响展示范围) */
+  truncated: boolean
+  capturedAt: string
+}
+
+export function isDeviceTaskDiffSummary(v: unknown): v is DeviceTaskDiffSummary {
+  if (typeof v !== 'object' || v === null) return false
+  const d = v as Record<string, unknown>
+  if (d.baseRef !== null && typeof d.baseRef !== 'string') return false
+  if (!Array.isArray(d.files) || d.files.length > DEVICE_DIFF_MAX_FILES) return false
+  if (!d.files.every((f) => isDeviceTaskFileDiff(f))) return false
+  if (!Number.isInteger(d.additions) || (d.additions as number) < 0) return false
+  if (!Number.isInteger(d.deletions) || (d.deletions as number) < 0) return false
+  if (typeof d.truncated !== 'boolean') return false
+  if (typeof d.capturedAt !== 'string' || Number.isNaN(Date.parse(d.capturedAt))) return false
+  const total = d.files.reduce((sum, f) => sum + ((f as DeviceTaskFileDiff).patch?.length ?? 0), 0)
+  if (total > DEVICE_DIFF_MAX_TOTAL_CHARS) return false
+  return true
+}
+
+/**
  * plan 档任务交上来的审批请求。**不复制正文**:计划的唯一真相源是执行端
  * 边写边流进会话的那条 assistant 消息(人批准的就是他实际看到的那份),
  * 这里只留指针与摘要 —— 列表页零负担,也不会出现"库里存的计划与聊天里不一致"。
  */
 export interface DeviceTaskApprovalRequest {
+  /** 审批种类。缺省 = plan(2026-11-26 的老执行端与老库行) */
+  kind?: DeviceApprovalKind
   /** 计划正文所在的消息 id(attach 建的那条);缺省 = 老执行端,只能读 preview */
   messageId: string | null
   /** 前 240 字摘要,列表/推送一行可见 */
   preview: string
   requestedAt: string
   iterations?: number
+  /** kind='diff' 时必填:执行端抓到的文件级改动 */
+  diff?: DeviceTaskDiffSummary
 }
 
 export function isDeviceTaskApprovalRequest(v: unknown): v is DeviceTaskApprovalRequest {
   if (typeof v !== 'object' || v === null) return false
   const r = v as Record<string, unknown>
+  if (r.kind !== undefined && !isDeviceApprovalKind(r.kind)) return false
+  if (r.kind === 'diff' && !isDeviceTaskDiffSummary(r.diff)) return false
+  // 有 diff 却不声明 kind='diff' = 自相矛盾的载荷(消费端会按 plan 卡渲染它)
+  if (r.diff !== undefined && r.kind !== 'diff') return false
   if (r.messageId !== null && typeof r.messageId !== 'string') return false
   if (typeof r.preview !== 'string' || r.preview.length === 0) return false
   if (typeof r.requestedAt !== 'string' || Number.isNaN(Date.parse(r.requestedAt))) return false
@@ -1269,6 +1369,14 @@ export interface DeviceTaskApprovalRecord {
   decision: DeviceApprovalDecision
   at: string
   by: string
+  /**
+   * kind='diff' 的逐文件裁决:只对这里列出的路径"收下",其余可回退文件由执行端回退。
+   * 缺省语义分两档(与 decision 组合,不留第三态):
+   *  - approved 且缺省 → 全部收下(老行为:批准 = 全要)
+   *  - rejected 且缺省 → 全部回退
+   * 执行端只认出现在 approvalRequest.diff.files 里的路径,陌生路径一律忽略(不猜)。
+   */
+  acceptedPaths?: string[]
 }
 
 export interface DeviceTaskProgress {
@@ -1303,6 +1411,11 @@ export interface DeviceTaskExecutionPayload {
   autoApprove: boolean
   /** 指定模型(可选;缺省 = 设备端默认模型) */
   model?: string
+  /**
+   * 改动先审(G4,2026-11-28):execute 档跑完后把文件级 diff 交上来等人逐文件收下/回退。
+   * 只对 execute 有意义 —— plan 档的审批位已被"批方案"占用,同一任务不设两次审批。
+   */
+  reviewDiff?: boolean
   /** 该指令来自哪条消息(可追溯;缺省 = 会话最后一条 user 消息) */
   contextMessageId?: string
 }
