@@ -1,0 +1,29 @@
+{
+  "tool_count": 156,
+  "schema_chars": 115231,
+  "schema_tokens": 50063,
+  "tokenizer": "cl100k_base",
+  "strict_compatible": 12,
+  "strict_ratio": 0.0769,
+  "additional_properties_false": 89,
+  "all_properties_required": 22,
+  "zero_param_tools": 5,
+  "param_count": 672,
+  "param_description_coverage": 0.9003,
+  "description_median_chars": 132.0,
+  "description_max_chars": 2156,
+  "description_le_120": 73,
+  "tools_with_output_schema": 0,
+  "tools_with_examples": 0,
+  "duplicate_pairs": [
+    {
+      "kind": "name_order",
+      "tools": ["web_search", "search_web"],
+      "similarity": 1.0
+    }
+  ],
+  "full_tokens": 50063,
+  "deferral_tokens": 41248,
+  "truncated": 86,
+  "deferral_saved_ratio": 0.1761
+}
