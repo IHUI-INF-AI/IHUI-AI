@@ -12631,8 +12631,8 @@
     "reasoningEffortFallback": "推理強度已由後端調整為 {requested} → {effective}",
     "analysisOpen": "檢視場景分析",
     "terminal": {
-      "waitingInput": "等待輸入",
-      "promptLabel": "終端輸入",
+      "waitingInput": "等待你的輸入",
+      "promptLabel": "指令提示：{prompt}",
       "submit": "送出"
     },
     "titleAutoUpdate": {
@@ -12656,7 +12656,8 @@
     "reviewTargetBranchPlaceholder": "輸入分支名稱",
     "reviewTargetCommit": "指定 Commit",
     "reviewTargetCommitLabel": "Commit SHA",
-    "reviewTargetCommitPlaceholder": "輸入 Commit SHA"
+    "reviewTargetCommitPlaceholder": "輸入 Commit SHA",
+    "reasoningEffortDefault": "預設"
   },
   "chatHistory": {
     "moveToGroup": "移動到分組",

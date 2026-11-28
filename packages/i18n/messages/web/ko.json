@@ -12600,7 +12600,7 @@
     "reasoningEffortFallback": "추론 강도가 서버에서 조정되었습니다: {requested} → {effective}",
     "terminal": {
       "waitingInput": "입력 대기 중",
-      "promptLabel": "터미널 입력",
+      "promptLabel": "프롬프트: {prompt}",
       "submit": "전송"
     },
     "titleAutoUpdate": {
@@ -12722,7 +12722,8 @@
     "reviewTargetBranchPlaceholder": "브랜치 이름 입력",
     "reviewTargetCommit": "커밋 지정",
     "reviewTargetCommitLabel": "커밋 SHA",
-    "reviewTargetCommitPlaceholder": "커밋 SHA 입력"
+    "reviewTargetCommitPlaceholder": "커밋 SHA 입력",
+    "reasoningEffortDefault": "기본값"
   },
   "chatHistory": {
     "selectModeAriaLabel": "작업 다중 선택 모드 전환",

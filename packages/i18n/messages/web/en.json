@@ -12629,8 +12629,8 @@
     "reasoningEffortFallback": "Reasoning depth adjusted by the server: {requested} → {effective}",
     "analysisOpen": "View Scenario Analysis",
     "terminal": {
-      "waitingInput": "Waiting for input",
-      "promptLabel": "Terminal input",
+      "waitingInput": "Waiting for your input",
+      "promptLabel": "Prompt: {prompt}",
       "submit": "Send"
     },
     "titleAutoUpdate": {
@@ -12656,7 +12656,8 @@
     "reviewTargetBranchPlaceholder": "Enter a branch name",
     "reviewTargetCommit": "Specific commit",
     "reviewTargetCommitLabel": "Commit SHA",
-    "reviewTargetCommitPlaceholder": "Enter a commit SHA"
+    "reviewTargetCommitPlaceholder": "Enter a commit SHA",
+    "reasoningEffortDefault": "Default"
   },
   "chatHistory": {
     "moveToGroup": "Move to group",

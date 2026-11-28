@@ -12683,8 +12683,8 @@
     "reasoningEffortFallback": "推理强度已由后端调整为 {requested} → {effective}",
     "analysisOpen": "查看场景分析",
     "terminal": {
-      "waitingInput": "等待输入",
-      "promptLabel": "终端输入",
+      "waitingInput": "等待你的输入",
+      "promptLabel": "命令提示：{prompt}",
       "submit": "发送"
     },
     "titleAutoUpdate": {
@@ -12709,7 +12709,8 @@
     "reviewTargetBranchPlaceholder": "输入分支名",
     "reviewTargetCommit": "指定 Commit",
     "reviewTargetCommitLabel": "Commit SHA",
-    "reviewTargetCommitPlaceholder": "输入 Commit SHA"
+    "reviewTargetCommitPlaceholder": "输入 Commit SHA",
+    "reasoningEffortDefault": "默认"
   },
   "chatHistory": {
     "moveToGroup": "移动到分组",

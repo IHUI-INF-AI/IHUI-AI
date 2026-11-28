@@ -12600,7 +12600,7 @@
     "reasoningEffortFallback": "推論の深さはサーバー側で調整されました: {requested} → {effective}",
     "terminal": {
       "waitingInput": "入力待ち",
-      "promptLabel": "ターミナル入力",
+      "promptLabel": "プロンプト：{prompt}",
       "submit": "送信"
     },
     "titleAutoUpdate": {
@@ -12722,7 +12722,8 @@
     "reviewTargetBranchPlaceholder": "ブランチ名を入力",
     "reviewTargetCommit": "コミット指定",
     "reviewTargetCommitLabel": "コミット SHA",
-    "reviewTargetCommitPlaceholder": "コミット SHA を入力"
+    "reviewTargetCommitPlaceholder": "コミット SHA を入力",
+    "reasoningEffortDefault": "デフォルト"
   },
   "chatHistory": {
     "selectModeAriaLabel": "タスクの複数選択モードを切り替え",
