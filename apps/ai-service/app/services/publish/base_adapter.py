@@ -38,6 +38,9 @@ class PublishResult:
     error_message: str | None = None
     duration_ms: int = 0
     payload: dict[str, Any] = field(default_factory=dict)
+    # 结构化失败类型,供任务级 challenge/resume 使用;与 scheduler._classify_failure 对齐。
+    error_kind: str | None = None
+    challenge: dict[str, Any] | None = None
 
 
 @dataclass
