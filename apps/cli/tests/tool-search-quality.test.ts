@@ -168,6 +168,17 @@ describe('工具检索质量(中文查询命中率)', () => {
     expect(misses).toEqual([])
   })
 
+  it('hit@1 棘轮:动作词别名上线后不得回退(当前 41/49)', () => {
+    const tools = (() => {
+      registerTools(FAMILIES.flat())
+      return listTools()
+    })()
+    const hitAt1 = CASES.filter(([query, expected]) => searchTools(tools, [query], [], 5)[0]?.tool.name === expected).length
+    // 2026-11-28:补 `解决/进入/创建/打开/召回…` 动作词别名,36 → 41。留一例余量防抖动,
+    // 但不允许退回 36 以下 —— 那是这条链路的起点,退回去说明别名被谁删了。
+    expect(hitAt1).toBeGreaterThanOrEqual(40)
+  })
+
   it('中文整串不连续时也要命中(此前"合并分支"整条落空的回归点)', () => {
     const tools = (() => {
       registerTools(FAMILIES.flat())
