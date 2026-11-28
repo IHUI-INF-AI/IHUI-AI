@@ -15,7 +15,11 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
 
-const assets = [['src/services/crew-roles.json', 'dist/services/crew-roles.json']];
+const assets = [
+  ['src/services/crew-roles.json', 'dist/services/crew-roles.json'],
+  // 权威榜 Redis 不可用时的内置底稿；定时任务刷新成功后会写 Redis，不改这里。
+  ['src/data/authoritative-leaderboard-fallback.json', 'dist/data/authoritative-leaderboard-fallback.json'],
+];
 
 for (const [src, dest] of assets) {
   const srcPath = join(root, src);
