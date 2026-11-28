@@ -51,6 +51,7 @@ vi.mock('lucide-react', () => {
     CheckCircle2: Icon,
     XCircle: Icon,
     ExternalLink: Icon,
+    Import: Icon,
   }
 })
 
