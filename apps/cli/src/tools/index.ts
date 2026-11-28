@@ -1607,13 +1607,23 @@ async function executeToolCallInner(
   if (ctx.allowedToolNames) {
     const canonical = resolveRegisteredTool(call.name)?.tool.name ?? call.name;
     if (!ctx.allowedToolNames.has(canonical)) {
+      // 走统一拒绝出口:审计可见、结构化归因(code-mode / mode-deny)、出路文案唯一。
+      // 与 rule-deny 分开是刻意的 —— 改启动参数救不了它,只能换模式。
+      const denial = buildToolDenial({
+        gate: 'code-mode',
+        decider: 'mode-deny',
+        tool: canonical,
+        args: call.arguments,
+      });
+      auditToolDenial(denial);
       return {
         success: false,
         output: '',
         error:
           `工具 ${canonical} 在当前能力模式下不可用(可用工具 ${ctx.allowedToolNames.size} 枚)。` +
-          '如需该能力,请切换运行模式;本条没有执行任何动作。',
+          `本条没有执行任何动作。\n${denialErrorSuffix(denial)}`,
         errorType: 'permission_denied',
+        denial,
       };
     }
   }

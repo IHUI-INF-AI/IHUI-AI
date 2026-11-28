@@ -91,6 +91,10 @@ describe('setupAgentTools 真的按 codeMode 裁剪', () => {
     expect(write.success).toBe(false)
     expect(write.errorType).toBe('permission_denied')
     expect(write.error).toContain('当前能力模式')
+    // 结构化归因:与 rule-deny 分开,出路必须是"换模式"而不是改启动参数。
+    expect(write.denial?.gate).toBe('code-mode')
+    expect(write.denial?.decider).toBe('mode-deny')
+    expect(write.denial?.guidance).toContain('capability profile')
     // 包装名先归一成注册名,再被同一道闸挡下。
     const wrapped = await executeToolCall({ name: 'functions.write_file', arguments: { path: 'blocked.txt', content: 'x' } }, r.ctx)
     expect(wrapped.success).toBe(false)
