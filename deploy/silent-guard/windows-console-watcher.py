@@ -194,11 +194,18 @@ def why_target(pid):
         # 交互终端绝不能被吞。只有命令行确实指向本项目的批处理式 shell 才压制：
         # 用户手开的 pwsh / Windows Terminal，命令行里不会有 -File / -Command 指向 IHUI-AI。
         cmd = get_cmdline(pid).lower()
-        if cmd and 'ihui-ai' in cmd and (
+        # 本项目标识：仓库路径，或 monorepo 包作用域 @ihui/。
+        # 2026-11-28 实测补：某会话用 `pnpm --filter @ihui/api exec tsx src/index.ts` 起 api，
+        # 命令行里只有 @ihui/api 与沙箱路径、没有 ihui-ai 字样 ⇒ 旧判据漏掉，弹了一个 cmd 黑框。
+        is_ours = ('ihui-ai' in cmd) or ('@ihui/' in cmd)
+        # 只认"批处理式"调用；用户手开的交互终端（命令行无这些特征）永远不匹配。
+        batchy = (
             '-file' in cmd or '-command' in cmd or
             '\\deploy\\' in cmd or '/deploy/' in cmd or
-            '\\scripts\\' in cmd or '/scripts/' in cmd
-        ):
+            '\\scripts\\' in cmd or '/scripts/' in cmd or
+            ('--filter' in cmd and (' exec ' in cmd or ' dev' in cmd or ' start' in cmd))
+        )
+        if cmd and is_ours and batchy:
             why = 'shell=ihui-batch'
     elif exe and 'ihui-ai' in exe:
         why = 'exe=%s' % exe
