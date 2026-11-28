@@ -200,9 +200,9 @@ const WebWorkPanel = React.memo(
  */
 export function GlobalShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  // 2026-11-28 用户定档:总管不再是独立 `/master` 工作面,改为常驻 AI 面板的一种内容形态。
+  // 2026-11-28 用户定档:总管不再是独立整页,改为常驻 AI 面板 + 右侧工作区的一种内容形态。
   // 因此这里不再为 `/master` 隐藏 Sidebar / AISidePanel / GlobalTopBar ——
-  // 工作区里的智能体、待你确认,都用现有骨架展示。
+  // 工作台、智能体、待你确认,都用现有骨架展示。
   const [mobileOpen, setMobileOpen] = React.useState(false)
   const t = useTranslations('a11y')
   // 静态 ID(非 useId),避免 React 18 useId 在 SSR/CSR 之间偶尔漂移导致 hydration mismatch。
@@ -224,7 +224,7 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
   // 2026-08-17 工作展示区折叠:true 时隐藏 work-area,AI 面板占满右侧(用户需求)
   const workAreaCollapsed = useAiPanelStore((s) => s.workAreaCollapsed)
   const currentUserId = useAuthStore((s) => s.user?.id)
-  // 2026-11-28:总管工作区路由(智能体/待你确认)进入时,AI 面板自动切到总管形态。
+  // 2026-11-28:总管工作区路由(工作台/智能体/待你确认)进入时,AI 面板自动切到总管形态。
   // 放在 GlobalShell 而不是工作区组件里:GlobalShell 的 effect 一定晚于 store 水合,
   // 不会被 persist 的 merge 覆盖回 false。
   React.useEffect(() => {

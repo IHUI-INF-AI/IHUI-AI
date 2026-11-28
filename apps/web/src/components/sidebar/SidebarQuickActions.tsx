@@ -5,9 +5,9 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { Plus, Package, Clock, PackageOpen, Sparkles, Bot } from 'lucide-react'
+import { Plus, Package, Clock, PackageOpen, Bot } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BTN_NEW_CONVERSATION_CLASS } from '@/lib/nav-styles'
 import { Tooltip } from '@/components/feedback'
@@ -30,6 +30,7 @@ export function SidebarQuickActions({
   // 2026-10-30 G3 产物中心:入口文案放 artifacts.* 命名空间(与页面词同源,不动 nav)
   const tart = useTranslations('artifacts')
   const pathname = usePathname()
+  const router = useRouter()
   const aiPanelOpen = useAiPanelStore((s) => s.open)
   // 2026-11-28 用户定档:总管不再单独做页,作为 AI 面板的一种内容形态;
   // 侧边栏入口放在「新建任务」上方,点击 = 打开面板 + 切到总管。
@@ -48,48 +49,9 @@ export function SidebarQuickActions({
 
   return (
     <>
-      {/* 工作台入口(2026-11-27):/start 八卡是"一人公司操作系统"的每日入口。
-          没有这个侧边栏入口,八卡只是藏在 URL 里的页面;放在新建任务上方,
-          不改变新建任务的流式门控能力。 */}
-      <div className={cn('mb-1', collapsed && 'flex justify-center')}>
-        {collapsed ? (
-          <Tooltip content={t('workbench')} side="right">
-            <Link
-              href="/start"
-              onClick={onCloseMobile}
-              aria-label={t('workbench')}
-              aria-current={pathname.startsWith('/start') ? 'page' : undefined}
-              className={cn(
-                'flex h-9 w-9 items-center justify-center rounded-md transition-colors',
-                pathname.startsWith('/start')
-                  ? 'bg-cta text-cta-foreground'
-                  : 'text-muted-foreground hover:bg-sidebar-item-hover-bg hover:text-foreground',
-              )}
-            >
-              <Sparkles className="h-5 w-5" />
-            </Link>
-          </Tooltip>
-        ) : (
-          <Link
-            href="/start"
-            onClick={onCloseMobile}
-            aria-current={pathname.startsWith('/start') ? 'page' : undefined}
-            className={cn(
-              BTN_NEW_CONVERSATION_CLASS,
-              pathname.startsWith('/start')
-                ? 'bg-cta text-cta-foreground font-semibold'
-                : 'text-muted-foreground hover:bg-sidebar-item-hover-bg hover:text-foreground',
-            )}
-          >
-            <Sparkles className="h-5 w-5 shrink-0" />
-            <span className="min-w-0 whitespace-nowrap text-left">{t('workbench')}</span>
-          </Link>
-        )}
-      </div>
-
       {/* AI总管入口(2026-11-28 用户定档):
-          不新开页面,点击直接把现有 AI 面板切成总管形态。
-          位置在「新建任务」上方 —— 总管是"接活的人",新建任务只是开一张空白会话。 */}
+          不新开页面,点击把现有 AI 面板切成总管形态,并落到 `/master` 工作台;
+          工作台不再单独占侧栏入口,日常队列和八卡都收进总管工作展示区。 */}
       <div className={cn('mb-1', collapsed && 'flex justify-center')}>
         {collapsed ? (
           <Tooltip content="AI总管" side="right">
@@ -97,6 +59,7 @@ export function SidebarQuickActions({
               type="button"
               onClick={() => {
                 openMaster()
+                router.push('/master')
                 onCloseMobile()
               }}
               aria-label="AI总管"
@@ -117,6 +80,7 @@ export function SidebarQuickActions({
             type="button"
             onClick={() => {
               openMaster()
+              router.push('/master')
               onCloseMobile()
             }}
             aria-pressed={masterMode && aiPanelOpen}

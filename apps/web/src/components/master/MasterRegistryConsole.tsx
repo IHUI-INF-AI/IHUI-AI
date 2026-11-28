@@ -11,6 +11,7 @@ import {
   ChevronDown,
   FileText,
   Folder,
+  LayoutGrid,
   LayoutTemplate,
   Menu,
   MessageSquare,
@@ -25,6 +26,7 @@ import { MasterChatPanel } from './MasterChatPanel'
 import { MasterCreatedAgentsPanel } from './MasterCreatedAgentsPanel'
 import { MasterIdentityHeader } from './MasterIdentityHeader'
 import { MasterRunControlPanel } from './MasterRunControlPanel'
+import { MasterWorkbenchPanel } from './MasterWorkbenchPanel'
 
 interface DefinitionView {
   id: string
@@ -97,7 +99,7 @@ function formatWhen(value?: string) {
   return `${date.getMonth() + 1} 月 ${date.getDate()} 日 ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')} 前`
 }
 
-type ConsoleView = 'chat' | 'run' | 'registry' | 'approvals'
+type ConsoleView = 'workbench' | 'chat' | 'run' | 'registry' | 'approvals'
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -125,7 +127,7 @@ export function MasterRegistryConsole({
   /**
    * 2026-11-28 用户定档:总管不再单独做页。
    * embedded = true 时本组件只作为"右侧工作展示区"里的一块面板:
-   * 不画顶部菜单栏、不画左栏导航,只保留智能体卡片墙 / 待你确认 / 任务运行。
+   * 不画顶部菜单栏、不画左栏导航,只保留工作台 / 总管智能体 / 待你确认 / 任务运行。
    * 对话在 AI 面板里(`MasterAssistantPanel`),不在工作区。
    */
   embedded?: boolean
@@ -340,6 +342,7 @@ export function MasterRegistryConsole({
     count?: number
     attention?: boolean
   }> = [
+    { key: 'workbench', label: '工作台', icon: LayoutGrid },
     { key: 'chat', label: masterName, icon: MessageSquare },
     { key: 'registry', label: '模板库', icon: LayoutTemplate },
     { key: 'run', label: '任务运行', icon: Activity },
@@ -528,6 +531,7 @@ export function MasterRegistryConsole({
               <div className="flex h-14 shrink-0 items-center gap-1 border-b border-[#eee9e1] px-5 text-[13px]">
                 {(
                   [
+                    { key: 'workbench' as const, label: '工作台' },
                     { key: 'registry' as const, label: '总管创建的智能体' },
                     { key: 'approvals' as const, label: '待你确认' },
                     { key: 'run' as const, label: '任务运行' },
@@ -561,6 +565,8 @@ export function MasterRegistryConsole({
                 })}
               </div>
             )}
+            {view === 'workbench' && <MasterWorkbenchPanel />}
+
             {view === 'chat' && (
               <>
                 <MasterIdentityHeader

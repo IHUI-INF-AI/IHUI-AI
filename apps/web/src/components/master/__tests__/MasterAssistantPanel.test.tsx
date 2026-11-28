@@ -46,10 +46,11 @@ afterEach(() => {
 })
 
 describe('MasterAssistantPanel', () => {
-  it('总管就在 AI 面板里:身份胶囊 + 去工作区的两条入口', async () => {
+  it('总管就在 AI 面板里:身份胶囊 + 去工作区的三条入口', async () => {
     render(<MasterAssistantPanel />)
 
     await waitFor(() => expect(screen.getByRole('heading', { name: '总管' })).toBeTruthy())
+    expect(screen.getByTestId('master-open-workbench').textContent).toContain('工作台')
     expect(screen.getByTestId('master-open-agents').textContent).toContain('总管创建的智能体')
     expect(screen.getByTestId('master-open-approvals').textContent).toContain('待你确认')
     expect(screen.getByTestId('master-open-approvals').textContent).toContain('1')

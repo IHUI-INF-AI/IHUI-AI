@@ -5,11 +5,11 @@ import type { Metadata } from 'next'
 import { MasterRegistryConsole } from '@/components/master/MasterRegistryConsole'
 
 export const metadata: Metadata = {
-  title: '总管智能体 · 总管 | 智汇 AI',
-  description: '总管在对话中派出去、正在跑或已经跑完的智能体。',
+  title: '工作台 · 总管 | 智汇 AI',
+  description: '总管工作台：今日队列与八张能力入口，左边直接跟总管说。',
   robots: { index: false, follow: false },
 }
 
 export default function Page() {
-  return <MasterRegistryConsole embedded initialView="registry" />
+  return <MasterRegistryConsole embedded initialView="workbench" />
 }

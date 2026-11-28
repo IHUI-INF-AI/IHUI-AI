@@ -9,7 +9,7 @@ import { getCapability } from '@ihui/shared/capabilities'
 import { START_SERVICES, START_SERVICE_COUNT } from '../start-services'
 import { vueToNextRedirects } from '../redirects.config'
 
-describe('/start 八卡配置', () => {
+describe('总管工作台八卡配置', () => {
   it('恰好八张服务卡，导出的计数一致', () => {
     expect(START_SERVICES).toHaveLength(8)
     expect(START_SERVICE_COUNT).toBe(START_SERVICES.length)
@@ -36,7 +36,7 @@ describe('/start 八卡配置', () => {
     }
   })
 
-  it('/start 不再配置重定向，避免与真页冲突', () => {
+  it('/start 的跳转由页面自身负责，不写进 redirects 配置', () => {
     expect(vueToNextRedirects.some((r) => r.source === '/start')).toBe(false)
   })
 
