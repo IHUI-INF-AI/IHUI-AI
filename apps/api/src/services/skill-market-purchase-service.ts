@@ -14,11 +14,21 @@
  * - 购买账本先以唯一键 `(buyer_user_id, skill_name)` 抢占，重复购买不再扣款；
  * - 余额不足抛 `InsufficientSkillFundsError`，整个事务回滚（不会留下半笔账）。
  */
-import { and, eq, sql } from 'drizzle-orm'
+import { and, desc, eq, ilike, or, sql } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/pg-core'
 import { db } from '../db/index.js'
 import { createCommissionFlow } from '../db/commission-queries.js'
-import { commissionFlows, skillMarketPurchases, tokenFlows, userMargins } from '@ihui/database'
+import {
+  commissionFlows,
+  skillMarketPurchases,
+  tokenFlows,
+  userMargins,
+  users,
+} from '@ihui/database'
 import type { SkillMarketEntry } from '@ihui/shared/skills/market'
+
+const buyerUser = alias(users, 'skill_market_buyer')
+const sellerUser = alias(users, 'skill_market_seller')
 
 const DEFAULT_AUTHOR_SHARE_BPS = 7000
 
@@ -240,6 +250,93 @@ export class SkillPurchaseNotFoundError extends Error {
     super('skill purchase not found')
     this.name = 'SkillPurchaseNotFoundError'
   }
+}
+
+export interface AdminSkillMarketPurchaseRow {
+  id: string
+  skillName: string
+  skillVersion: string
+  buyerUserId: string
+  buyerNickname: string | null
+  sellerUserId: string | null
+  sellerNickname: string | null
+  priceCents: number
+  currency: string
+  revenueShareBps: number
+  authorShareCents: number
+  platformShareCents: number
+  status: string
+  createdAt: Date
+  refundedAt: Date | null
+  refundAmountCents: number
+  refundReason: string | null
+}
+
+/**
+ * 管理员交易列表：按状态/关键词筛选，按创建时间倒序分页。
+ *
+ * 关键词命中购买 ID、技能名、买家/卖家昵称；不把 UUID 精确匹配拆成单独的
+ * 查询分支，避免管理员复制购买 ID 时因大小写或前后空格查不到。
+ */
+export async function listSkillMarketPurchasesAdmin(input: {
+  status?: 'paid' | 'refunded'
+  keyword?: string
+  page: number
+  pageSize: number
+}): Promise<{ items: AdminSkillMarketPurchaseRow[]; total: number }> {
+  const conditions = []
+  if (input.status) conditions.push(eq(skillMarketPurchases.status, input.status))
+  const keyword = input.keyword?.trim()
+  if (keyword) {
+    const pattern = `%${keyword}%`
+    conditions.push(
+      or(
+        ilike(sql`${skillMarketPurchases.id}::text`, pattern),
+        ilike(skillMarketPurchases.skillName, pattern),
+        ilike(buyerUser.nickname, pattern),
+        ilike(sellerUser.nickname, pattern),
+      ),
+    )
+  }
+  const where = conditions.length > 0 ? and(...conditions) : undefined
+
+  const [rows, totalRows] = await Promise.all([
+    db
+      .select({
+        id: skillMarketPurchases.id,
+        skillName: skillMarketPurchases.skillName,
+        skillVersion: skillMarketPurchases.skillVersion,
+        buyerUserId: skillMarketPurchases.buyerUserId,
+        buyerNickname: buyerUser.nickname,
+        sellerUserId: skillMarketPurchases.sellerUserId,
+        sellerNickname: sellerUser.nickname,
+        priceCents: skillMarketPurchases.priceCents,
+        currency: skillMarketPurchases.currency,
+        revenueShareBps: skillMarketPurchases.revenueShareBps,
+        authorShareCents: skillMarketPurchases.authorShareCents,
+        platformShareCents: skillMarketPurchases.platformShareCents,
+        status: skillMarketPurchases.status,
+        createdAt: skillMarketPurchases.createdAt,
+        refundedAt: skillMarketPurchases.refundedAt,
+        refundAmountCents: skillMarketPurchases.refundAmountCents,
+        refundReason: skillMarketPurchases.refundReason,
+      })
+      .from(skillMarketPurchases)
+      .leftJoin(buyerUser, eq(skillMarketPurchases.buyerUserId, buyerUser.id))
+      .leftJoin(sellerUser, eq(skillMarketPurchases.sellerUserId, sellerUser.id))
+      .where(where)
+      .orderBy(desc(skillMarketPurchases.createdAt))
+      .limit(input.pageSize)
+      .offset((input.page - 1) * input.pageSize),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(skillMarketPurchases)
+      .leftJoin(buyerUser, eq(skillMarketPurchases.buyerUserId, buyerUser.id))
+      .leftJoin(sellerUser, eq(skillMarketPurchases.sellerUserId, sellerUser.id))
+      .where(where),
+  ])
+
+  return { items: rows, total: totalRows[0]?.count ?? 0 }
 }
 
 export class SkillPurchaseStateError extends Error {

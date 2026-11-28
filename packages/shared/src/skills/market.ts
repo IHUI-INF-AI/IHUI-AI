@@ -151,6 +151,36 @@ export interface SkillPurchaseRefundResponse {
   buyerBalanceAfter: number | null
 }
 
+/** 管理员购买账本列表项（GET /admin/skills-market/purchases）。 */
+export interface SkillMarketPurchaseAdminItem {
+  id: string
+  skillName: string
+  skillVersion: string
+  buyerUserId: string
+  buyerNickname: string | null
+  sellerUserId: string | null
+  sellerNickname: string | null
+  priceCents: number
+  currency: string
+  revenueShareBps: number
+  authorShareCents: number
+  platformShareCents: number
+  /** paid = 在购；refunded = 已退款。 */
+  status: 'paid' | 'refunded'
+  createdAt: string
+  refundedAt: string | null
+  refundAmountCents: number
+  refundReason: string | null
+}
+
+/** 管理员购买账本分页响应。 */
+export interface SkillMarketPurchaseAdminListResponse {
+  items: SkillMarketPurchaseAdminItem[]
+  total: number
+  page: number
+  pageSize: number
+}
+
 /** 作者收益汇总(GET /skills/market/earnings)。 */
 export interface SkillEarningsResponse {
   totalAuthorShareCents: number
