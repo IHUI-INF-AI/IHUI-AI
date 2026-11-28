@@ -45,9 +45,15 @@ function PublishUsageSummary({
   locale: string
 }): React.JSX.Element {
   const t = useTranslations('developer.capabilities')
+  const amount = new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: usage.currency || 'CNY',
+  }).format(usage.amountCents / 100)
   return (
     <div className="space-y-1 border-t border-border/60 pt-2">
-      <p className="text-[11px] font-semibold">Publish API</p>
+      <p className="text-[11px] font-semibold">
+        Publish API <span className="font-normal text-muted-foreground tabular-nums">{amount}</span>
+      </p>
       {usage.records > 0 ? (
         <>
           <p className="text-[11px] text-muted-foreground tabular-nums">

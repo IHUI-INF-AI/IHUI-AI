@@ -81,6 +81,9 @@ export interface DeveloperPublishUsageItem {
   taskId: string | null
   statusCode: number
   units: number
+  unitPriceCents: number
+  amountCents: number
+  currency: string
   createdAt: string
 }
 
@@ -88,6 +91,9 @@ export interface DeveloperPublishUsage {
   keyId: string
   capability: string
   units: number
+  unitPriceCents: number
+  amountCents: number
+  currency: string
   records: number
   lastUsedAt: string | null
   items: DeveloperPublishUsageItem[]
