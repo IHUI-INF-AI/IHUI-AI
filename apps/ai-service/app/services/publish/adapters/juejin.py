@@ -19,6 +19,8 @@ import re
 import time
 from typing import TYPE_CHECKING, Any
 
+import httpx
+
 from app.core.logging import get_logger
 
 from ..anti_risk import (
@@ -99,6 +101,10 @@ PUBLISHED_URL_MARKERS: tuple[str, ...] = ("/published",)
 
 #: 文章公开地址前缀（掘金公开文章是 /post/<id>；/spost 是旧审核中路径，不能当公开证据）。
 SPOST_URL_PREFIX = "https://juejin.cn/post/"
+
+#: 公开文章详情接口(无需登录);用于核对提交接口返回的 article_id 确属本次发布。
+ARTICLE_DETAIL_API = "https://api.juejin.cn/content_api/v1/article/detail"
+ARTICLE_DETAIL_PARAMS = {"aid": "2608", "uuid": "", "spider": "0"}
 
 #: 发布弹层容器候选。`publish-popup` = 2026-09-27 实测唯一可见容器;其余为改版回退
 #: (旧版只列后三族,实测面全部 0 可见 ⇒ 弹层检测恒超时、分类/标签步被静默跳过)。
@@ -189,6 +195,28 @@ def extract_article_id_from_submit(payload: object) -> str | None:
     if isinstance(data, (str, int)) and str(data).strip():
         return str(data).strip()
     return None
+
+
+def article_time_matches_publish(
+    info: object, started_at: float, tolerance_sec: int = 120
+) -> bool:
+    """文章时间是否像本次发布产生的。
+
+    掘金提交接口在部分时序下会回上一单的 article_id；若直接落库，阅读量会被记到
+    当前任务头上。公开详情里的 ``mtime/ctime`` 是权威时间：早于本次发布开始
+    ``tolerance_sec`` 秒以上即判为旧文章。没有时间字段时不做阻断(不因接口缺字段
+    丢掉真实文章)。
+    """
+    if not isinstance(info, dict):
+        return True
+    raw = info.get("mtime") or info.get("ctime")
+    if raw in (None, ""):
+        return True
+    try:
+        created = float(raw)
+    except (TypeError, ValueError):
+        return True
+    return created >= float(started_at) - tolerance_sec
 
 
 def is_published_redirect(url: str) -> bool:
@@ -413,6 +441,36 @@ class JuejinAdapter(BasePlatformAdapter):
             logger.warning("[juejin] 标签 %r 点选失败: %s", tag_s, e)
             return False
 
+    async def _verify_article_time(
+        self, article_id: str, started_at: float
+    ) -> tuple[bool, str]:
+        """用公开详情核对 article_id 的发布时间，挡住上一单文章的误回收。"""
+        try:
+            async with httpx.AsyncClient(timeout=12.0) as client:
+                resp = await client.post(
+                    ARTICLE_DETAIL_API,
+                    params=ARTICLE_DETAIL_PARAMS,
+                    json={
+                        "article_id": str(article_id),
+                        "req_from": 1,
+                        "client_type": 2608,
+                    },
+                )
+                resp.raise_for_status()
+                payload = resp.json()
+        except Exception as e:
+            return False, f"detail-api-error {type(e).__name__}: {e}"
+        if not isinstance(payload, dict) or payload.get("err_no") not in (0, None):
+            return False, f"detail-api-err_no={payload.get('err_no') if isinstance(payload, dict) else '?'}"
+        data = payload.get("data")
+        info = data.get("article_info") if isinstance(data, dict) else None
+        if not isinstance(info, dict):
+            return False, "detail-api-no-article-info"
+        if not article_time_matches_publish(info, started_at):
+            ts = info.get("mtime") or info.get("ctime")
+            return False, f"article-too-old article_id={article_id} ts={ts} started={int(started_at)}"
+        return True, ""
+
     async def _latest_article_url(
         self, page: Any, title: str, since_ts: float | None = None
     ) -> str:
@@ -545,6 +603,7 @@ class JuejinAdapter(BasePlatformAdapter):
         category = platform_config.get("category", "后端")  # 默认后端分类
         tags = platform_config.get("tags", [])[:3]
         cover = content.cover_path or platform_config.get("cover", "")
+        publish_started_at = time.time()
 
         try:
             async with async_playwright() as p:
@@ -769,8 +828,23 @@ class JuejinAdapter(BasePlatformAdapter):
 
                     article_id_raw = submit_state["article_id"]
                     article_id = str(article_id_raw) if article_id_raw is not None else ""
+                    article_verify_note = ""
+                    if article_id:
+                        verified, verify_detail = await self._verify_article_time(
+                            article_id, publish_started_at
+                        )
+                        if not verified:
+                            # 提交接口在部分时序会回上一单的 article_id；宁可不采集，
+                            # 也不能把阅读量记到别的任务头上。
+                            article_verify_note = verify_detail
+                            logger.warning(
+                                "[juejin] article_id rejected: %s", verify_detail
+                            )
+                            article_id = ""
+                        elif verify_detail:
+                            logger.info("[juejin] article_id verify: %s", verify_detail)
                     # `/published` 过渡页只能证明“点了提交并跳转”，不能当公开文章证据。
-                    # 提交响应没带 article_id 时，从创作者中心第一条同名文章回查公开地址。
+                    # 提交响应没带 article_id(或被时间校验拒绝)时，从创作者中心回查公开地址。
                     latest_url = ""
                     if published_landing and not article_id:
                         latest_url = await self._latest_article_url(page, title, submit_wall_ts)
@@ -819,6 +893,7 @@ class JuejinAdapter(BasePlatformAdapter):
                             "review_status": "checking",  # 审核中:站内搜索此期间 0 命中
                             "published_landing_seen": published_landing,
                             "latest_article_looked_up": bool(latest_url),
+                            "article_id_verify_note": article_verify_note,
                         },
                     )
                 finally:

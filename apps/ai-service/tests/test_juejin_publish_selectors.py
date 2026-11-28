@@ -38,6 +38,7 @@ from app.services.publish.adapters.juejin import (
     PUBLISH_OPEN_TEXTS,
     SPOST_URL_PREFIX,
     TAG_INPUT_SELECTOR,
+    article_time_matches_publish,
     describe_stuck_stage,
     extract_article_id_from_submit,
     find_option_in_list,
@@ -109,8 +110,8 @@ class TestSubmitApiMatching:
             {"err_no": 0, "data": {"article_id": "7555123456789012345"}}
         )
         assert aid == "7555123456789012345"
-        # 三种候选键
-        assert extract_article_id_from_submit({"err_no": 0, "data": {"id": 42}}) == "42"
+        # 只接受明确语义键；泛化的 id 不得猜成 article_id
+        assert extract_article_id_from_submit({"err_no": 0, "data": {"id": 42}}) is None
         assert (
             extract_article_id_from_submit(
                 {"err_no": 0, "data": {"articleId": "7555000000000000001"}}
@@ -141,9 +142,10 @@ class TestSuccessEvidence:
         assert is_published_redirect(fx["redirected_home_url"]) is False
 
     def test_under_review_url_is_spost_not_post(self, fx: dict[str, Any]) -> None:
-        """审核期地址是 /spost/<id>;旧代码等的 /post/ 此时结构上不存在。"""
+        """审核期地址仍是 /spost/<id>；公开地址才是 /post/<id>。"""
         under_review: str = fx["under_review_post_url"]
-        assert under_review.startswith(SPOST_URL_PREFIX)
+        assert under_review.startswith("https://juejin.cn/spost/")
+        assert SPOST_URL_PREFIX == "https://juejin.cn/post/"
         assert is_published_redirect(under_review) is False
 
     def test_source_no_longer_waits_for_post_redirect(self) -> None:
@@ -306,6 +308,22 @@ class TestLiveDomShapes:
         assert fx["_evidence_grade"] == "live-dom-observed-2026-09-27"
         popup_prov: str = fx["_provenance"]["popup_visible_button_texts"]
         assert "一手" in popup_prov or "当次实测" in popup_prov
+
+
+def test_article_time_rejects_previous_task_article() -> None:
+    # 本次发布 06:31:12；误抓的文章 mtime 06:27:19，早 4 分钟，必须拒绝
+    started_at = 1795674672
+    assert article_time_matches_publish({"mtime": 1795674439}, started_at) is False
+
+
+def test_article_time_accepts_article_published_during_this_task() -> None:
+    # 本次发布 06:35:02；文章 mtime 06:35:48，晚 46 秒，必须接受
+    started_at = 1795674902
+    assert article_time_matches_publish({"mtime": 1795674948}, started_at) is True
+
+
+def test_article_time_without_timestamp_does_not_block() -> None:
+    assert article_time_matches_publish({}, 1795674902) is True
 
 
 if __name__ == "__main__":
