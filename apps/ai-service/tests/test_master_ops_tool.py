@@ -208,6 +208,102 @@ async def test_dispatch_team_aggregates_contributors(monkeypatch: pytest.MonkeyP
 
 
 @pytest.mark.asyncio
+async def test_dispatch_recursive_maps_chunks_to_agents(monkeypatch: pytest.MonkeyPatch) -> None:
+    from types import SimpleNamespace
+
+    from app.services.agent_orchestrator import AgentOrchestrator
+    from app.services.agent_teams import TeamOrchestrator
+
+    definitions = [
+        _raw_definition("11111111-1111-4111-8111-111111111111", "rec-a"),
+        _raw_definition("22222222-2222-4222-8222-222222222222", "rec-b"),
+    ]
+    calls: list[tuple[str, str, str]] = []
+    invoke_calls: list[tuple[str, str, str]] = []
+    captured: dict[str, Any] = {}
+
+    async def fake_invoke(self, agent_id, input_text, **kwargs):  # type: ignore[no-untyped-def]
+        invoke_calls.append((agent_id, input_text, kwargs.get("session_id", "")))
+        return SimpleNamespace(
+            status="completed",
+            final_output=f"{agent_id}:{input_text}",
+            total_duration_ms=4.0,
+        )
+
+    async def fake_recursive(self, objective, chunks, **kwargs):  # type: ignore[no-untyped-def]
+        captured["objective"] = objective
+        captured["chunks"] = chunks
+        captured["depth"] = kwargs.get("depth")
+        captured["runner"] = kwargs.get("runner")
+        contributors = await kwargs["runner"](
+            [
+                {"name": f"part-{index}", "task": f"{objective}::{chunk}"}
+                for index, chunk in enumerate(chunks, start=1)
+            ],
+            2,
+        )
+        return {
+            "ok": True,
+            "objective": objective,
+            "depth": kwargs.get("depth"),
+            "levels": [
+                {
+                    "round_index": 0,
+                    "strategy": "merge",
+                    "succeeded": 2,
+                    "failed": 0,
+                    "contributors": [c.to_dict() for c in contributors],
+                }
+            ],
+            "merged_text": "两片结论合并",
+            "final_summary_context": "summary",
+        }
+
+    monkeypatch.setattr(AgentOrchestrator, "invoke", fake_invoke)
+    monkeypatch.setattr(TeamOrchestrator, "run_recursive", fake_recursive)
+    envelope = await _tool(_run_handler(definitions, calls)).handle(
+        {
+            "action": "dispatch",
+            "mode": "recursive",
+            "definitionId": definitions[0]["id"],
+            "goal": "读完整份材料",
+            "chunks": ["前半", "后半"],
+            "depth": 2,
+            "agents": [{"definitionId": d["id"]} for d in definitions],
+        },
+        user_id="user-1",
+    )
+
+    assert envelope["ok"] is True
+    assert envelope["data"]["runStatus"] == "succeeded"
+    assert captured["objective"] == "读完整份材料"
+    assert captured["chunks"] == ["前半", "后半"]
+    assert captured["depth"] == 2
+    assert len(invoke_calls) == 2
+    assert invoke_calls[0][0] == definitions[0]["id"] and "前半" in invoke_calls[0][1]
+    assert invoke_calls[1][0] == definitions[1]["id"] and "后半" in invoke_calls[1][1]
+    assert envelope["data"]["output"] == "两片结论合并"
+
+
+@pytest.mark.asyncio
+async def test_dispatch_recursive_requires_chunks() -> None:
+    definitions = [_raw_definition("11111111-1111-4111-8111-111111111111", "rec-a")]
+    envelope = await _tool(_run_handler(definitions, [])).handle(
+        {
+            "action": "dispatch",
+            "mode": "recursive",
+            "definitionId": definitions[0]["id"],
+            "goal": "读完整份材料",
+            "agents": [{"definitionId": definitions[0]["id"]}],
+        },
+        user_id="user-1",
+    )
+
+    assert envelope["ok"] is False
+    assert envelope["error"]["code"] == "AGENT_DISPATCH_INPUT_MISSING"
+
+
+@pytest.mark.asyncio
 async def test_parallel_requires_participants() -> None:
     envelope = await _tool(lambda _r: httpx.Response(200, json={"code": 0})).handle(
         {"action": "dispatch", "definitionId": "def-1", "goal": "做一件小事", "mode": "parallel"},

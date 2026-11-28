@@ -193,8 +193,8 @@
   `POST /api/v1/ai/master/chat` 固定人格/三工具；`conversation.chat` 可选 `system_prompt`；
   `apps/web` `/master` 页 + 侧栏入口 + 五语言 `masterConsole`；
   注册表失效订阅接 FastAPI lifespan；客户端进程代次 `invalidate_all`。
-- 没落: `agent_ops` 已支持 single / parallel / pipeline / debate / vote / critique / team；
-  decomposed/recursive 留后续；stop/retry/cancel 明确未实现；`master_memory` team/agent 作用域未开；
+- 没落: `agent_ops` 已支持 single / parallel / pipeline / debate / vote / critique / team / recursive；
+  decomposed 留后续；stop/retry/cancel 明确未实现；`master_memory` team/agent 作用域未开；
   `/master` 页已有对话面板，同源改写 `/api/master/chat` 走 cookie 鉴权。
 - 没落原因: 不把"能管"和"能跑九模式"混成一次交付；single 先打通真运行账本，其余模式在 P4 逐模式验收。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

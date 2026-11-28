@@ -3,14 +3,14 @@
 
 """总管智能体 · `agent_ops` 工具（P3-05）。
 
-已落地：single / parallel / pipeline 派发真执行；运行只读面
-（run_list/get/logs/artifacts/stats）+ pause/resume/talk + health。
-debate/vote/critique/decomposed/team/recursive 与 stop/retry/cancel 未完成前
-明确返回 `AGENT_ACTION_NOT_IMPLEMENTED`，不伪造成功。
+已落地：single / parallel / pipeline / debate / vote / critique / team / recursive 派发真执行；
+运行只读面（run_list/get/logs/artifacts/stats）+ pause/resume/talk + health。
+decomposed 与 stop/retry/cancel 未完成前明确返回 `AGENT_ACTION_NOT_IMPLEMENTED`，不伪造成功。
 """
 
 from __future__ import annotations
 
+import asyncio
 import os
 import time
 import uuid
@@ -85,6 +85,19 @@ INPUT_SCHEMA: dict[str, Any] = {
             "enum": ["merge", "best_of", "consensus"],
             "description": "team 模式的聚合策略，默认 merge",
         },
+        "chunks": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {"type": "string", "minLength": 1, "maxLength": 12000},
+            "description": "recursive 模式的原文分片；不传则拒绝执行",
+        },
+        "depth": {"type": "integer", "minimum": 1, "maximum": 3, "default": 1},
+        "maxCharsPerNode": {
+            "type": "integer",
+            "minimum": 1024,
+            "maximum": 32768,
+            "default": 8192,
+        },
         "constraints": {"type": "array", "items": {"type": "string"}, "maxItems": 16},
         "deliverables": {"type": "array", "items": {"type": "string"}, "maxItems": 16},
         "budget": {"type": "object"},
@@ -133,10 +146,10 @@ INPUT_SCHEMA: dict[str, Any] = {
 }
 
 DESCRIPTION = (
-    "查看和控制智能体运行：dispatch 支持 single / parallel / pipeline / debate / vote / critique / team，"
+    "查看和控制智能体运行：dispatch 支持 single / parallel / pipeline / debate / vote / critique / team / recursive，"
     "会创建父 run、真实执行并写步骤事件；run_list/run_get/run_logs/run_artifacts/run_stats 可查；"
     "run_pause/run_resume/run_talk 可操作当前实例的在飞会话，health 查运行时；"
-    "decomposed/recursive 与 stop/retry/cancel 尚未接线，会明确报未实现。"
+    "decomposed 与 stop/retry/cancel 尚未接线，会明确报未实现。"
 )
 
 _ALLOWED_ARGS = frozenset(INPUT_SCHEMA["properties"].keys())
@@ -186,6 +199,48 @@ def _resolve_dispatchable(provider: Any, ref: str) -> Any:
 
 def _truncate(text: str, limit: int = 4000) -> str:
     return text if len(text) <= limit else text[:limit] + f"\n…[截断 {len(text) - limit} 字符]"
+
+
+def _recursive_to_orchestration(rr: dict[str, Any]) -> Any:
+    """把 run_recursive 的分层 dict 归一成 OrchestrationResult，父 run 仍走同一套落账。"""
+    from ..agent_orchestrator import AgentStepResult, OrchestrationResult
+
+    steps: list[AgentStepResult] = []
+    levels = rr.get("levels") or []
+    for level in levels:
+        for contributor in level.get("contributors") or []:
+            status = str(contributor.get("status") or "failed")
+            steps.append(
+                AgentStepResult(
+                    agent_name=str(contributor.get("name") or "part"),
+                    input=str(contributor.get("task") or ""),
+                    output=str(contributor.get("output") or ""),
+                    status="completed" if status == "completed" else "failed",
+                    duration_ms=float(contributor.get("duration_ms") or 0.0),
+                    error=(
+                        None
+                        if status == "completed"
+                        else str(contributor.get("error") or "子任务未完成")
+                    ),
+                )
+            )
+    failed = sum(1 for step in steps if step.status != "completed")
+    return OrchestrationResult(
+        orchestration_id=f"recursive-{uuid.uuid4().hex[:8]}",
+        steps=steps,
+        final_output=str(rr.get("merged_text") or ""),
+        status="completed" if steps and failed == 0 else "failed",
+        total_duration_ms=round(sum(step.duration_ms for step in steps), 2),
+        trace=[
+            {
+                "depth": level.get("round_index"),
+                "nodes": len(level.get("contributors") or []),
+                "succeeded": level.get("succeeded"),
+                "failed": level.get("failed"),
+            }
+            for level in levels
+        ],
+    )
 
 
 def _team_round_to_orchestration(rr: Any) -> Any:
@@ -374,12 +429,12 @@ class AgentOpsTool:
         from ..run_ledger import RunLedgerClient
 
         mode = str(payload.get("mode") or "single")
-        if mode in ("parallel", "pipeline", "debate", "vote", "critique", "team"):
+        if mode in ("parallel", "pipeline", "debate", "vote", "critique", "team", "recursive"):
             return await self._dispatch_multi(payload, mode=mode, user_id=user_id)
         if mode != "single":
             raise OpsToolError(
                 "AGENT_MODE_NOT_IMPLEMENTED",
-                f"dispatch 当前支持 single / parallel / pipeline / debate / vote / critique / team，"
+                f"dispatch 当前支持 single / parallel / pipeline / debate / vote / critique / team / recursive，"
                 f"拒绝把 {mode} 当成已执行",
                 details={"mode": mode},
             )
@@ -548,6 +603,18 @@ class AgentOpsTool:
                 }
                 for item, definition in zip(items, resolved, strict=True)
             ]
+        elif mode == "recursive":
+            if not goal:
+                raise OpsToolError("AGENT_DISPATCH_INPUT_MISSING", "recursive 需要顶层 goal 作为递归目标")
+            raw_chunks = payload.get("chunks")
+            if not isinstance(raw_chunks, list) or not raw_chunks:
+                raise OpsToolError("AGENT_DISPATCH_INPUT_MISSING", "recursive 需要非空 chunks")
+            if len(raw_chunks) > 20:
+                raise OpsToolError("AGENT_DISPATCH_INPUT_INVALID", "recursive 一次最多 20 个分片")
+            chunks = [str(chunk).strip() for chunk in raw_chunks if str(chunk).strip()]
+            if not chunks:
+                raise OpsToolError("AGENT_DISPATCH_INPUT_MISSING", "recursive 的 chunks 不能全是空串")
+            agent_ids = [definition.id for definition in resolved]
         else:
             if not goal:
                 raise OpsToolError(
@@ -625,6 +692,67 @@ class AgentOpsTool:
                     max_rounds=int(payload.get("maxRounds") or 2),
                     session_id=f"{run_id}-session",
                 )
+            elif mode == "recursive":
+                from ..agent_teams import TeamContributor, TeamOrchestrator
+
+                async def chunk_runner(
+                    tasks: list[dict[str, Any]], max_concurrency: int
+                ) -> list[TeamContributor]:
+                    semaphore = asyncio.Semaphore(max(1, min(max_concurrency, 5)))
+                    async def run_one(task: dict[str, Any]) -> TeamContributor:
+                        part = str(task.get("name") or "part-0")
+                        try:
+                            index = int(part.rsplit("-", 1)[1]) - 1
+                        except (IndexError, ValueError):
+                            index = 0
+                        definition = resolved[index % len(resolved)]
+                        task_text = str(task.get("task") or goal)
+                        async with semaphore:
+                            try:
+                                sub = await orchestrator.invoke(
+                                    definition.id,
+                                    task_text,
+                                    session_id=f"{run_id}-session",
+                                )
+                            except Exception as error:  # noqa: BLE001 -- 单个分片失败不拖垮整层
+                                return TeamContributor(
+                                    name=f"{definition.name}#{part}",
+                                    task=task_text,
+                                    status="failed",
+                                    error=f"{type(error).__name__}: {error}"[:300],
+                                )
+                        return TeamContributor(
+                            name=f"{definition.name}#{part}",
+                            task=task_text,
+                            status="completed" if sub.status == "completed" else "failed",
+                            output=sub.final_output,
+                            error=None if sub.status == "completed" else "子任务未完成",
+                            duration_ms=sub.total_duration_ms,
+                            conclusion=sub.final_output[:120],
+                        )
+
+                    return list(
+                        await asyncio.gather(*(run_one(task) for task in tasks))
+                    )
+
+                recursive = await TeamOrchestrator(orchestrator=orchestrator).run_recursive(
+                    goal,
+                    chunks,
+                    runner=chunk_runner,
+                    merge_strategy="merge",
+                    max_concurrency=min(len(chunks), 5),
+                    depth=max(1, min(3, int(payload.get("depth") or 1))),
+                    max_chars_per_node=max(
+                        1024, min(32768, int(payload.get("maxCharsPerNode") or 8192))
+                    ),
+                )
+                if recursive.get("ok") is False:
+                    raise OpsToolError(
+                        str(recursive.get("errorCode") or "AGENT_DISPATCH_FAILED"),
+                        str(recursive.get("error") or "recursive 执行被拒绝"),
+                        details={"runId": run_id},
+                    )
+                result = _recursive_to_orchestration(recursive)
             else:
                 from ..agent_teams import TeamOrchestrator
 
@@ -635,6 +763,17 @@ class AgentOpsTool:
                     max_concurrency=min(len(team_tasks), 5),
                 )
                 result = _team_round_to_orchestration(team)
+        except OpsToolError as error:
+            await ledger.update_run(
+                run_id,
+                {
+                    "status": "failed",
+                    "errorCode": error.code,
+                    "errorMessage": error.message[:2000],
+                    "endedAt": _now_iso(),
+                },
+            )
+            raise
         except Exception as error:  # noqa: BLE001 -- 失败也要把父 run 收口
             await ledger.update_run(
                 run_id,
