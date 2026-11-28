@@ -111,9 +111,9 @@ function fmtDuration(ms?: number): string {
 export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps) {
   const t = useTranslations('publish')
   const toast = useToast()
-  const [acting, setActing] = React.useState<
-    'cancel' | 'retry' | 'confirm' | 'reschedule' | null
-  >(null)
+  const [acting, setActing] = React.useState<'cancel' | 'retry' | 'confirm' | 'reschedule' | null>(
+    null,
+  )
   const [confirmMode, setConfirmMode] = React.useState<'now' | 'later'>('now')
   const [confirmAt, setConfirmAt] = React.useState('')
   const [confirmError, setConfirmError] = React.useState<string | null>(null)
@@ -244,7 +244,9 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
   }
 
   function openReschedule() {
-    const base = task.scheduledAt ? new Date(task.scheduledAt) : new Date(Date.now() + 60 * 60 * 1000)
+    const base = task.scheduledAt
+      ? new Date(task.scheduledAt)
+      : new Date(Date.now() + 60 * 60 * 1000)
     setRescheduleAt(toLocalDateTimeInputValue(base))
     setRescheduleError(null)
     setRescheduling(true)
@@ -531,8 +533,13 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
             )}
             {canReschedule && rescheduling && (
               <div className="space-y-2 rounded-md border border-input bg-background p-3">
-                <label className="flex flex-wrap items-center gap-2" htmlFor={`reschedule-${task.id}`}>
-                  <span className="text-label text-muted-foreground">{t('history.rescheduleAt')}</span>
+                <label
+                  className="flex flex-wrap items-center gap-2"
+                  htmlFor={`reschedule-${task.id}`}
+                >
+                  <span className="text-label text-muted-foreground">
+                    {t('history.rescheduleAt')}
+                  </span>
                   <input
                     id={`reschedule-${task.id}`}
                     type="datetime-local"
@@ -557,9 +564,7 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
                     disabled={!task.taskId || acting !== null}
                     onClick={() => void handleReschedule()}
                   >
-                    {acting === 'reschedule' ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : null}
+                    {acting === 'reschedule' ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
                     {t('history.rescheduleSave')}
                   </Button>
                   <Button
@@ -589,7 +594,7 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
                     }}
                     className={
                       confirmMode === 'now'
-                        ? 'rounded-md border border-primary bg-primary/10 px-2 py-1 text-primary'
+                        ? 'rounded-md border border-stroke-selected bg-primary/10 px-2 py-1 text-primary'
                         : 'rounded-md border px-2 py-1 text-muted-foreground hover:bg-muted/40'
                     }
                   >
@@ -604,7 +609,7 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
                     }}
                     className={
                       confirmMode === 'later'
-                        ? 'rounded-md border border-primary bg-primary/10 px-2 py-1 text-primary'
+                        ? 'rounded-md border border-stroke-selected bg-primary/10 px-2 py-1 text-primary'
                         : 'rounded-md border px-2 py-1 text-muted-foreground hover:bg-muted/40'
                     }
                   >

@@ -15,7 +15,7 @@
  * - updateKey:带归属权校验,permissions 用 isValidApiKeyPermission 过滤(防御性)
  * - deleteKey:带归属权校验
  * - rotateSecret:生成新 secret + 哈希,返回 { apiKey, secret }
- * - getUsage:从 llmCallLogs(按 apiKeyId)统计 + 读 apiKeyQuotas
+ * - getUsage:从 llmCallLogs(按 apiKeyId) + auditLogs(开放能力调用)统计,再读 apiKeyQuotas
  *
  * 读写分离:写用 db,读用 dbRead(参照 developer.ts 现有模式)。
  */
@@ -412,6 +412,26 @@ export async function getUsage(
     .orderBy(desc(llmCallLogs.createdAt))
     .limit(1)
 
+  // 非 model 调用（如 publish:submit）不会写 llm_call_logs，只落 audit_logs。
+  // 之前 callCount 只数 llm_call_logs，发布 Key 在用量面板永远显示 0 次；
+  // 这里把审计流水也纳入总量，两口径取较大值，避免历史 Key 因审计未落而回退成 0。
+  const [auditAgg] = await dbRead
+    .select({
+      callCount: sql<number>`count(*)::int`,
+      lastUsedAt: sql<Date | null>`max(${auditLogs.createdAt})`,
+    })
+    .from(auditLogs)
+    .where(sql`${auditLogs.details}->>'apiKeyId' = ${id}`)
+
+  const auditLastUsedAt = auditAgg?.lastUsedAt ?? null
+  const llmLastUsedAt = lastRow?.lastUsedAt ?? null
+  const lastUsedAt =
+    auditLastUsedAt && llmLastUsedAt
+      ? auditLastUsedAt > llmLastUsedAt
+        ? auditLastUsedAt
+        : llmLastUsedAt
+      : auditLastUsedAt ?? llmLastUsedAt ?? existing.lastUsedAt
+
   // 端点维度保持 HTTP 口径(path/method):llm_call_logs 只有 model、无端点列,
   // 而 audit_logs.details 是仓库既有的「Key → 端点」归因面(见 plugins/audit.ts:37-42),
   // 按 details->>'apiKeyId' 过滤即可在不改语义的前提下拿到该 Key 的 Top 端点。
@@ -442,8 +462,8 @@ export async function getUsage(
     .limit(1)
 
   return {
-    callCount: countRow?.callCount ?? 0,
-    lastUsedAt: lastRow?.lastUsedAt ?? existing.lastUsedAt,
+    callCount: Math.max(countRow?.callCount ?? 0, auditAgg?.callCount ?? 0),
+    lastUsedAt,
     topEndpoints,
     quota: quotaRow ?? null,
   }

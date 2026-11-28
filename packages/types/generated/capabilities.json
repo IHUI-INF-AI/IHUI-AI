@@ -1,6 +1,6 @@
 {
   "version": "0.0.0",
-  "generatedAt": "2026-11-28T01:54:30.321Z",
+  "generatedAt": "2026-11-28T02:44:30.465Z",
   "dataClasses": [
     "compute",
     "scoped-read",
@@ -1511,10 +1511,10 @@
       "domain": "platform",
       "dataClass": "scoped-write",
       "risk": "high",
-      "billable": false,
+      "billable": true,
       "thirdPartyEligible": true,
       "idempotencyRequired": true,
-      "description": "以 API Key 归属人的自有账号提交发布任务;只返回任务状态,不暴露账号凭据",
+      "description": "以 API Key 归属人的自有账号提交发布任务;只返回任务状态,不暴露账号凭据;按任务创建次数计量",
       "routes": [
         "POST /api/publish/tasks",
         "GET /api/publish/tasks/:taskId"

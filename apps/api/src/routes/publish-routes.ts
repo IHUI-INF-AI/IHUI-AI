@@ -47,6 +47,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { config } from '../config/index.js'
 import { FILE_UPLOAD_BODY_LIMIT } from '../config/body-limits.js'
 import { authenticate } from '../plugins/auth.js'
+import { mintInternalJwt } from '../utils/internal-jwt.js'
 import { error, success } from '../utils/response.js'
 
 // =============================================================================
@@ -301,7 +302,12 @@ async function proxyToAiService(
     'Content-Type': 'application/json',
   }
   // 转发 JWT(让 ai-service 共享鉴权上下文;cookie 认证场景下从 auth_token cookie 提取)
-  const authHeader = resolveAuthHeader(request)
+  let authHeader = resolveAuthHeader(request)
+  // API Key 机器通道没有浏览器 JWT/cookie;用 Key 归属人身份签短期内部 JWT,
+  // 否则 ai-service 收到 X-Api-Key 会按未登录 401,开放通道只能停在 API 层。
+  if (!authHeader && request.userId) {
+    authHeader = `Bearer ${await mintInternalJwt(request.userId)}`
+  }
   if (authHeader) headers.authorization = authHeader
 
   let body: string | undefined

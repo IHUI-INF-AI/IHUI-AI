@@ -9,7 +9,17 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Bot, ChevronRight, Clock3, ImageIcon, Loader2, Mic, Plus, Search } from 'lucide-react'
+import {
+  Bot,
+  ChevronRight,
+  Clock3,
+  ImageIcon,
+  Loader2,
+  Mic,
+  Plus,
+  Search,
+  Sparkle,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { COMMUNITY_BANNER_FALLBACK_TONES } from '@ihui/shared/ui/community-banner-spec'
 
@@ -108,12 +118,12 @@ function CommunityBannerCard({
             aria-hidden
             className="pointer-events-none absolute right-9 top-7 h-12 w-12 rounded-full border border-white/10"
           />
-          <span
+          <Sparkle
             aria-hidden
-            className="pointer-events-none absolute right-3 top-1 z-10 select-none text-4xl font-semibold text-white/15"
-          >
-            ✦
-          </span>
+            fill="currentColor"
+            strokeWidth={0}
+            className="pointer-events-none absolute right-3 top-1 z-10 h-9 w-9 text-white/15"
+          />
         </>
       ) : null}
       {/* 只有真的解码成功才走「图 + 白字 + 底部压暗」;代理 502 / CSP 拦截时
@@ -296,8 +306,8 @@ export default function CommunityPageClient() {
                   className={cn(
                     'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-body transition-colors',
                     active
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-border bg-card text-foreground hover:bg-secondary/60',
+                      ? 'border-stroke-selected bg-primary text-primary-foreground'
+                      : 'border-stroke-default bg-card text-foreground hover:bg-secondary/60',
                   )}
                 >
                   {/* 分类接口的 icon 是语义名(code/edit/...),不是图片 URL;

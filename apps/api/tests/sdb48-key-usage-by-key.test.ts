@@ -69,6 +69,16 @@ vi.mock('../src/db/index.js', async () => {
       return []
     }
     if (table === 'audit_logs') {
+      if (fields && 'callCount' in fields) {
+        const row = state.usage[keyId]
+        if (!row) return []
+        return [
+          {
+            callCount: row.endpoints.reduce((sum, endpoint) => sum + endpoint.count, 0),
+            lastUsedAt: row.lastUsedAt,
+          },
+        ]
+      }
       return state.usage[keyId]?.endpoints ?? []
     }
     if (table === 'api_key_quotas') {
@@ -150,11 +160,11 @@ describe('SDB-48 Key 用量按 apiKeyId 聚合', () => {
   it('计量查询的 WHERE 带 api_key_id 且绑定 Key id,不再按 userId / api_logs 统计', async () => {
     await getUsage(KEY_A, USER_ID)
 
-    // 归属校验一条 + callCount / lastUsedAt / topEndpoints 各一条
+    // 归属校验一条 + callCount / lastUsedAt / 审计聚合 / topEndpoints 各一条
     const usageQueries = state.queries.filter(
       (q) => q.table === 'llm_call_logs' || q.table === 'audit_logs',
     )
-    expect(usageQueries).toHaveLength(3)
+    expect(usageQueries).toHaveLength(4)
 
     for (const q of usageQueries) {
       expect(q.sql).not.toContain('user_id')
@@ -163,6 +173,24 @@ describe('SDB-48 Key 用量按 apiKeyId 聚合', () => {
       else expect(q.sql).toContain("->>'apikeyid'")
     }
     expect(state.queries.some((q) => q.table === 'api_logs')).toBe(false)
+  })
+
+  it('只走开放能力（无 llm_call_logs）时按审计流水计入 callCount', async () => {
+    state.usage = {
+      [KEY_A]: {
+        callCount: 0,
+        lastUsedAt: LAST_A,
+        endpoints: [{ path: '/api/publish/tasks', method: 'POST', count: 2 }],
+      },
+    }
+
+    const usage = await getUsage(KEY_A, USER_ID)
+
+    expect(usage!.callCount).toBe(2)
+    expect(usage!.lastUsedAt).toEqual(LAST_A)
+    expect(usage!.topEndpoints).toEqual([
+      { path: '/api/publish/tasks', method: 'POST', count: 2 },
+    ])
   })
 
   it('无调用记录时 callCount 为 0、lastUsedAt 回退 Key 行、topEndpoints 为空', async () => {

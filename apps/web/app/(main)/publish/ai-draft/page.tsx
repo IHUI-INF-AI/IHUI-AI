@@ -217,7 +217,7 @@ export default function AiDraftPage() {
                       onClick={() => togglePlatform(platform)}
                       className={
                         active
-                          ? 'rounded-md border border-primary bg-primary/10 px-3 py-1.5 text-caption font-medium text-primary'
+                          ? 'rounded-md border border-stroke-selected bg-primary/10 px-3 py-1.5 text-caption font-medium text-primary'
                           : 'rounded-md border px-3 py-1.5 text-caption text-muted-foreground hover:bg-muted/40'
                       }
                     >

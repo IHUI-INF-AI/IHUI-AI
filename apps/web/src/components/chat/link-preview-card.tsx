@@ -107,9 +107,9 @@ export function LinkPreviewCard({
 
   const tileTone =
     preview.status === 'ok'
-      ? 'border-border/70 bg-gradient-to-br from-muted to-muted/40 text-foreground/70'
+      ? 'border-stroke-default bg-gradient-to-br from-muted to-muted/40 text-foreground/70'
       : preview.status === 'loading'
-        ? 'border-border/50 bg-muted/50 text-muted-foreground'
+        ? 'border-stroke-default bg-muted/50 text-muted-foreground'
         : preview.status === 'undetermined'
           ? 'border-amber-500/25 bg-amber-500/10 text-amber-600 dark:text-amber-400'
           : 'border-destructive/25 bg-destructive/10 text-destructive'
@@ -163,7 +163,7 @@ export function LinkPreviewCard({
       role="status"
       title={preview.status === 'ok' ? preview.url : undefined}
       className={cn(
-        'mx-1 mb-1.5 flex items-center gap-2.5 rounded-lg border border-border/60 bg-card/85 px-2 py-1.5 text-label shadow-sm backdrop-blur-sm transition-colors hover:border-border',
+        'mx-1 mb-1.5 flex items-center gap-2.5 rounded-lg border border-stroke-default bg-card/85 px-2 py-1.5 text-label shadow-elevation-sm backdrop-blur-sm transition-colors hover:border-stroke-strong',
         className,
       )}
     >

@@ -100,9 +100,9 @@ export function StartCommandBar() {
           icon={Sparkles}
           autoComplete="off"
           enterKeyHint="send"
-          className="h-12 text-body"
+          className="h-10 text-body"
         />
-        <Button type="submit" size="lg" className="h-12 shrink-0 gap-2">
+        <Button type="submit" size="lg" className="shrink-0 gap-2">
           开始
           <ArrowRight className="h-4 w-4" aria-hidden />
         </Button>
@@ -114,7 +114,7 @@ export function StartCommandBar() {
           <button
             key={example}
             type="button"
-            className="rounded-full border border-border px-3 py-1 text-caption text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="rounded-md border border-stroke-default px-3 py-1 text-caption text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             onClick={() => {
               setValue(example)
               setResolution(null)

@@ -13,7 +13,7 @@ RN/小程序提现接卡链路已通过 **H5 验收**：Taro H5 产物成功构�
 ## H5 构建
 
 - 命令：`IHUI_MINIAPP_OUTPUT_ROOT=.tmp-h5 pnpm run build:h5`
-- 结果：`EXIT=0`，webpack 5.91.0 编译成功；首轮 7 warnings，补 Modal 宽度后 13 warnings（均为体积/兼容非阻断项），最终耗时约 69s。
+- 结果：`EXIT=0`，webpack 5.91.0 编译成功；首轮 7 warnings，补 Modal 宽度与 H5 深链引导器后 13 warnings（均为体积/兼容非阻断项），最终耗时 **1.76m**（webpack 105.88s）。
 - 产物：`apps/miniapp-taro/.tmp-h5`
 - 本次为构建 H5 补齐了两处 workspace TS 编译面：
   1. `h5.webpackChain` 显式给 `@ihui/*` / `apps/mobile-rn/src` / 本机 `.tmp` 镜像源挂 `babel-loader`；
@@ -48,6 +48,7 @@ RN/小程序提现接卡链路已通过 **H5 验收**：Taro H5 产物成功构�
 
 结果：
 
+- 直接打开 `http://127.0.0.1:8931/#/pages/distribution/withdraw`，由 `app.tsx` 的 `H5DeepLinkBootHandler` 先挂首页再切回子包页；4s 内提现页可交互，无空白首帧。
 - `ASSERT_DEFAULT_CARD_AND_READONLY_FILTER=PASS`
 - `CONFIRM_VISIBLE=true`（标题 box `x=20,y=694.5,w=318,h=21`；确认按钮 box `y≈792.8`）
 - `WITHDRAW_BODY={"amount":2000,"accountType":"bank","bankCardId":"bc_h5_second"}`
@@ -58,13 +59,14 @@ RN/小程序提现接卡链路已通过 **H5 验收**：Taro H5 产物成功构�
 - H5 的 API 用 Playwright route mock 固定为真实信封 `{code:0,message:'success',data}`；后端真实链路已在 `wallet-bank-cards.spec.ts` E2E 4/4 与 API real 25/25 覆盖，本次 H5 验收聚焦前端壳的取数、选卡、确认弹层、提交体与成功态。
 - 提现确认弹层由 `AppConfirmHost` 承载；此前小程序/H5 未挂该宿主，`appAlert` 只改模块变量、页面无反应，提现永远发不出去。本次已把宿主挂到提现页，并在 `gen-miniapp-mirror.mjs` 的 `WithdrawScreen` 分支固化，避免下次重生成丢失。
 - 确认弹层此前还有 H5 布局塌 0 宽的问题，不是 `AppConfirmHost` 挂载问题；本轮已在 rn-compat Modal 与 BottomPops 根层同时修掉，实拍见上。
+- H5 子包深链此前首帧空白：页面 chunk 已 200 加载，但 Taro 4.2 H5 路由层不挂载；已在 `app.tsx` 加 H5-only 引导器（目标存 sessionStorage → `history.replaceState` 到首页 → `.taro_page` 挂载后切回目标），主包 6 页不受影响，sessionStorage 不可用时静默跳过。
 
 ## 小程序产物回归
 
-- `IHUI_MINIAPP_OUTPUT_ROOT=.tmp-weapp pnpm run build:weapp`：**Compiled successfully in 3.12m**
-- 主包 `1,924,811 B / 2,097,152 B`，余量 `172,341 B`（按 app.json 21 个唯一分包根剔除后实测 `.tmp-weapp`，非旧 `dist` 的门禁读数）
-- `.tmp-weapp` 内 `pages/distribution/withdraw.js` 及其 sub-common 命中 `bankCardId` / `AppConfirmHost`；成功分支已不再清空 `bankCardId`
-- 注意：`check-miniapp-css-landing` 在私有输出根下读的是旧 `dist`，本次以 `exit 2` 报「未判定（C0 产物新鲜度）」，**不是构建失败**；构建本身成功。生产 `build:weapp` 走默认 `dist` 时该门才会对齐。
+- `pnpm run build:weapp`（默认 `dist`）：**Compiled successfully in 4.87m**
+- 主包 `1,931,705 B / 2,097,152 B`，余量 `165,447 B`（门禁 C3 按 app.json 21 个分包根剔除）
+- `.tmp-weapp` / `dist` 内 `pages/distribution/withdraw.js` 及其 sub-common 命中 `bankCardId` / `AppConfirmHost`；成功分支已不再清空 `bankCardId`
+- 注意：`check-miniapp-css-landing` 本次 C0 产物新鲜度已判定「新鲜」，但 C1 覆盖层因本机解析不到 Tailwind v4 参考层无法判定，连带 C5/C6/C7/C8 未判定，门以 `exit 2` 收口；C2 同名双义 0 条、C3 主包尺寸已实测。**这不是构建失败**。
 
 ## 其他回归
 
@@ -72,12 +74,15 @@ RN/小程序提现接卡链路已通过 **H5 验收**：Taro H5 产物成功构�
 - `apps/miniapp-taro typecheck`：仅剩 `packages/app/src/features/agent-create/AgentCreateScreen.tsx` 的 `variant` 既有类型错（本次未触碰）；本次新增的 `@rn-components` 引用已通过。
 - RN typecheck 仍受本机 `react-native` 类型缺失与同一 AgentCreate 既有错影响，非本次改动引入。
 
-## H5 路由注意
+## H5 子包深链
 
-Taro H5 首帧直接打开子包深链 `#/pages/distribution/withdraw` 时页面不挂载（标题已变但 body 为空）；验收采用「先打开 `#/pages/index/index`，再切 hash 到提现页」的等价路径。若要让用户直接打开提现深链，需要单独补 Taro H5 子包首帧路由初始化，不在本次 H5 验收范围内。
+已修复。直接打开 `#/pages/distribution/withdraw` 时，`app.tsx` 的 `H5DeepLinkBootHandler` 先 `history.replaceState` 到首页，轮询到 `.taro_page` 挂载后再切回原 hash；本次实拍在 4s 内进入提现页，卡片/余额/手续费均正常，后续选卡、确认、提交全链路通过。
+
+代价是冷启动会短暂经过首页再落到目标页（视设备约 1–4s），不是原生级定向启动；但不再出现「导航栏标题已变、body 空白、永远不挂载」。sessionStorage 不可用时静默退回原行为。
 
 ## 提交
 
 - `e684f740ac`：H5 构建编译面、`@rn-components` alias、提现页 `AppConfirmHost`、`feeHint` 插值与首版验收文档。
 - `bf15f38a38`：rn-compat Modal / BottomPops 宽度修复、真实指针确认、成功态保留选卡、确认态截图与文档终版。
+- `b410e589f6`：H5 子包深链首帧修复（`H5DeepLinkBootHandler`）、深链直达交互验收与终版截图。
 - production 代码 HEAD 仍为 `f03d92b6cb`；本轮只涉及小程序 H5 / weapp / RN 壳层，不触发生产 Web/API 部署。
