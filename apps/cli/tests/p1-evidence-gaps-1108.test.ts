@@ -206,6 +206,8 @@ describe('F-097 中央 preToolCall 闸:任意注册工具都过一遍,不靠工�
       F097_SCHEMA.name,
       { success: true, output: 'fixture-ran', error: undefined },
       undefined,
+      // 2026-11-28 起 postToolCall 载荷带 workspacePath(编辑类工具安全扫描腿定位文件用)
+      process.cwd(),
     ]);
   });
 });
