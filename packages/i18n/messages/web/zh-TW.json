@@ -29025,6 +29025,7 @@
     "diffApply": "補丁落盤",
     "sandboxRun": "沙箱命令執行",
     "browserOperate": "瀏覽器自動化",
+    "publishSubmit": "提交發佈任務",
     "computerOperate": "本機 GUI 控制",
     "webFetch": "URL 抓取",
     "searchWeb": "網頁搜索/爬取",

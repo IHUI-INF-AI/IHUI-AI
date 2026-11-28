@@ -92,6 +92,20 @@ interface AiServiceMetricsSummary {
   }>
 }
 
+interface AiServiceTopContentResponse {
+  items?: Array<{
+    taskId: string
+    title: string
+    platform: string
+    views: number
+    likes: number
+    comments: number
+    shares: number
+    publishedAt: string | null
+    publishedUrl: string | null
+  }>
+}
+
 /**
  * 解析转发给 ai-service 的鉴权头。
  * 2026-08-17 P0 修复:浏览器同源请求靠 auth_token cookie 认证(无 Authorization header),
@@ -293,10 +307,14 @@ export const publishAnalyticsRoutes: FastifyPluginAsync = async (server) => {
     const period = parsePeriod(request.query)
     const authHeader = resolveAuthHeader(request)
     const days = Number(period.replace('d', ''))
-    const [statsRes, histRes, metricsRes] = await Promise.all([
+    const [statsRes, histRes, metricsRes, topContentRes] = await Promise.all([
       fetchAiService<AiServiceStats>('/stats', authHeader),
       fetchAiService<AiServiceHistoryResponse>('/tasks?limit=200', authHeader),
       fetchAiService<AiServiceMetricsSummary>(`/monitor/metrics-summary?days=${days}`, authHeader),
+      fetchAiService<AiServiceTopContentResponse>(
+        `/analytics/top-content?days=${days}&limit=5`,
+        authHeader,
+      ),
     ])
     if (!histRes) {
       return reply.send(
@@ -309,6 +327,7 @@ export const publishAnalyticsRoutes: FastifyPluginAsync = async (server) => {
           platformDistribution: [],
           failureReasons: [],
           metrics: metricsRes ?? null,
+          topContent: topContentRes?.items ?? [],
         }),
       )
     }
@@ -335,6 +354,7 @@ export const publishAnalyticsRoutes: FastifyPluginAsync = async (server) => {
         platformDistribution: buildPlatformDistribution(tasks),
         failureReasons: buildFailureReasons(tasks),
         metrics: metricsRes ?? null,
+        topContent: topContentRes?.items ?? [],
       }),
     )
   })

@@ -29161,6 +29161,7 @@
     "diffApply": "패치 디스크 반영",
     "sandboxRun": "샌드박스 명령 실행",
     "browserOperate": "브라우저 자동화",
+    "publishSubmit": "게시 작업 제출",
     "computerOperate": "로컬 GUI 제어",
     "webFetch": "URL 가져오기",
     "searchWeb": "웹 검색/크롤링",
