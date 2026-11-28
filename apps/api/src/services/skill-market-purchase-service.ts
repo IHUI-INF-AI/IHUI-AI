@@ -26,6 +26,7 @@ import {
   users,
 } from '@ihui/database'
 import type {
+  SkillEarningsResponse,
   SkillMarketEntry,
   SkillMarketSettlementPeriod,
   SkillMarketSettlementResponse,
@@ -659,70 +660,66 @@ export async function refundSkillPurchase(input: {
 
 interface EarningsSummaryRow {
   total: string | number
-  records: string | number
+  sellerClawback: string | number
+  paidCount: string | number
+  refundedCount: string | number
   lastEarnedAt: Date | string | null
 }
 
-/** 作者收益汇总 + 最近 20 笔。金额单位为分，直接来自购买账本。 */
-export async function getSkillEarnings(sellerUserId: string): Promise<{
-  totalAuthorShareCents: number
-  currency: string
-  records: number
-  lastEarnedAt: string | null
-  items: Array<{
-    id: string
-    skillName: string
-    buyerUserId: string
-    priceCents: number
-    authorShareCents: number
-    revenueShareBps: number
-    createdAt: string
-  }>
-}> {
+/**
+ * 作者收益汇总 + 最近 50 笔流水。金额单位为分，直接来自购买账本。
+ *
+ * 净值口径 = 全部销售作者分成毛额 - 退款实际扣回；退款笔数单独展示，
+ * 退款后不再把整笔销售从收益里抹掉，避免“卖过又退了”在作者端无记录。
+ * 不返回买家 ID/昵称：作者只需要看到成交与退款，不需要买家身份。
+ */
+export async function getSkillEarnings(sellerUserId: string): Promise<SkillEarningsResponse> {
   const [summary] = await db
     .select({
       total: sql<string>`COALESCE(SUM(${skillMarketPurchases.authorShareCents}), 0)`,
-      records: sql<string>`COUNT(*)`,
+      sellerClawback: sql<string>`COALESCE(SUM(COALESCE(${skillMarketPurchases.sellerClawbackCents}, 0)) FILTER (WHERE ${skillMarketPurchases.status} = 'refunded'), 0)`,
+      paidCount: sql<number>`COUNT(*) FILTER (WHERE ${skillMarketPurchases.status} = 'paid')::int`,
+      refundedCount: sql<number>`COUNT(*) FILTER (WHERE ${skillMarketPurchases.status} = 'refunded')::int`,
       lastEarnedAt: sql<Date | string | null>`MAX(${skillMarketPurchases.createdAt})`,
     })
     .from(skillMarketPurchases)
-    .where(
-      and(
-        eq(skillMarketPurchases.sellerUserId, sellerUserId),
-        eq(skillMarketPurchases.status, 'paid'),
-      ),
-    )
+    .where(eq(skillMarketPurchases.sellerUserId, sellerUserId))
     .limit(1)
 
   const rows = await db
     .select({
       id: skillMarketPurchases.id,
       skillName: skillMarketPurchases.skillName,
-      buyerUserId: skillMarketPurchases.buyerUserId,
       priceCents: skillMarketPurchases.priceCents,
       authorShareCents: skillMarketPurchases.authorShareCents,
+      sellerClawbackCents: skillMarketPurchases.sellerClawbackCents,
       revenueShareBps: skillMarketPurchases.revenueShareBps,
+      status: skillMarketPurchases.status,
       createdAt: skillMarketPurchases.createdAt,
+      refundedAt: skillMarketPurchases.refundedAt,
     })
     .from(skillMarketPurchases)
-    .where(
-      and(
-        eq(skillMarketPurchases.sellerUserId, sellerUserId),
-        eq(skillMarketPurchases.status, 'paid'),
-      ),
-    )
-    .orderBy(sql`${skillMarketPurchases.createdAt} DESC`)
-    .limit(20)
+    .where(eq(skillMarketPurchases.sellerUserId, sellerUserId))
+    .orderBy(desc(skillMarketPurchases.createdAt))
+    .limit(50)
 
   const row = summary as EarningsSummaryRow | undefined
+  const totalAuthorShareCents = Number(row?.total ?? 0)
+  const sellerClawbackCents = Number(row?.sellerClawback ?? 0)
   return {
-    totalAuthorShareCents: Number(row?.total ?? 0),
+    totalAuthorShareCents,
+    sellerClawbackCents,
+    netAuthorShareCents: totalAuthorShareCents - sellerClawbackCents,
+    paidCount: Number(row?.paidCount ?? 0),
+    refundedCount: Number(row?.refundedCount ?? 0),
     currency: 'CNY',
-    records: Number(row?.records ?? 0),
     lastEarnedAt: row?.lastEarnedAt ? new Date(row.lastEarnedAt).toISOString() : null,
     items: rows.map((item) => ({
       ...item,
+      status: item.status as 'paid' | 'refunded',
+      netAuthorShareCents: item.authorShareCents - (item.sellerClawbackCents ?? 0),
       createdAt: new Date(item.createdAt).toISOString(),
+      refundedAt: item.refundedAt ? new Date(item.refundedAt).toISOString() : null,
     })),
   }
 }

@@ -23,6 +23,7 @@ import {
   User,
   Eye,
   EyeOff,
+  TrendingUp,
 } from 'lucide-react'
 
 import {
@@ -277,6 +278,13 @@ export default function SkillsMarketPageClient({ deepLinkName }: { deepLinkName?
           {!isLoading && !error && <Badge variant="primary">{t('count', { count: total })}</Badge>}
         </div>
         <p className="text-label text-muted-foreground">{t('subtitle')}</p>
+        <Link
+          href="/skills-market/earnings"
+          className="inline-flex items-center gap-1 text-label font-medium text-primary hover:underline"
+        >
+          <TrendingUp className="h-3.5 w-3.5" />
+          {t('earnings')}
+        </Link>
       </header>
 
       {/* 过滤栏:关键词 + 标签 */}

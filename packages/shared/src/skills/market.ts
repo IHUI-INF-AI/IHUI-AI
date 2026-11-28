@@ -243,21 +243,35 @@ export interface SkillMarketSettlementResponse {
   period: SkillMarketSettlementPeriod
 }
 
+/** 作者收益明细单条（不暴露买家身份；退款按实际扣回冲减）。 */
+export interface SkillEarningsItem {
+  id: string
+  skillName: string
+  priceCents: number
+  authorShareCents: number
+  /** 退款时实际从作者余额扣回的分成；在购/历史未知退款为 null。 */
+  sellerClawbackCents: number | null
+  /** 作者实际留存 = authorShareCents - (sellerClawbackCents ?? 0)。 */
+  netAuthorShareCents: number
+  revenueShareBps: number
+  status: 'paid' | 'refunded'
+  createdAt: string
+  refundedAt: string | null
+}
+
 /** 作者收益汇总(GET /skills/market/earnings)。 */
 export interface SkillEarningsResponse {
+  /** 全部销售（含后来退款）的作者分成毛额。 */
   totalAuthorShareCents: number
+  /** 退款实际扣回的分成。 */
+  sellerClawbackCents: number
+  /** 作者实际留存 = totalAuthorShareCents - sellerClawbackCents。 */
+  netAuthorShareCents: number
+  paidCount: number
+  refundedCount: number
   currency: string
-  records: number
   lastEarnedAt: string | null
-  items: Array<{
-    id: string
-    skillName: string
-    buyerUserId: string
-    priceCents: number
-    authorShareCents: number
-    revenueShareBps: number
-    createdAt: string
-  }>
+  items: SkillEarningsItem[]
 }
 
 /** 订阅状态查询响应 */
