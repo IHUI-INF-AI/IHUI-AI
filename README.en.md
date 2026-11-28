@@ -99,6 +99,7 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-28**
+- 🔧 Chore/Other:删除旧平台面板残留文件 (a71db13516)
 - 🔧 Chore/Other:移除旧智能体平台专属页面与组件，统一归并到智能体体系 (837b1a4318)
 - 🚀 Feature/Improvement:作者月度结算参考与无成交展示 (b9b7b9e407)
 - 🚀 Feature/Improvement:桌面任务推理与计划步骤端到端上屏 (0d4bc7bf2c)

@@ -127,13 +127,20 @@ export function registerDeviceCommand(program: Command): void {
       [] as string[],
     )
     .option('--model <model>', '默认模型(可被任务载荷覆盖)')
-    .action(async (code: string, opts: { name: string; apiUrl?: string; dir: string[]; model?: string }) => {
+    .action(async (code: string, opts: { name: string; apiUrl?: string; dir: string[]; model?: string }, command: Command) => {
       if (!/^\d{8}$/.test(code.trim())) {
         console.error(chalk.red('配对码是 8 位数字(手机/网页「设置-设备」里的那串)'))
         process.exitCode = 1
         return
       }
-      const cfg = resolveEffectiveConfig({ cliApiUrl: opts.apiUrl, cliModel: opts.model })
+      // 根命令也有 --api-url(全局默认),Commander 会在根层吃掉同名选项,
+      // 子命令拿不到它。这里合并 optsWithGlobals,避免 `ihui device pair <code> --api-url`
+      // 静默回落到 localhost(实测踩过:配对成功后设备却写向 localhost)。
+      const globalApiUrl = (command.optsWithGlobals() as { apiUrl?: string }).apiUrl
+      const cfg = resolveEffectiveConfig({
+        cliApiUrl: opts.apiUrl || globalApiUrl || undefined,
+        cliModel: opts.model,
+      })
       setBaseUrl(cfg.apiUrl)
       const fingerprint = (await cliDeviceFingerprintCollector.get()).fingerprint
       const workspaces = buildWorkspaceMap(
