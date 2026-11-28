@@ -84,6 +84,18 @@ divergence that is not registered in `scripts/data/cross-end-allowed-diffs.json`
 ## Recent updates (auto-maintained)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-28**
+- ♻️ 重构:彻底清除旧平台残留命名，头像与协议前缀统一归并 (e6ef2b9c28)
+- 🚀 新功能/改进:22 枚存量工具补齐显示名 + 五语言 Activity 词条 (5dcc1f48df)
+- ♻️ 重构:撤掉 J6 并集取巧,委托集回归职责单一 (72dfbd20bf)
+- 🐞 修复:J6 第三面正式化 —— 免工作区委托入判据,并新增 J17 双豁免互斥 (9b3d74d27b)
+- 🐞 修复:补齐运营内容工具执行器，修复 web 构建类型引用 (9441864d56)
+- 🐞 修复:补齐 executeAdminContentTool/toolAdminContent，修复 web 构建导出缺失 (47d66ee8f6)
+- 🔧 工程/其他:工具别名把检索 Top-5 从 83% 拉到 100%（Top-1 73%） (9e950a7220)
+- 🔧 工程/其他:BM25 工具检索基线（100 条金标 Recall@5 83%） (65f27f0a98)
+- 🔧 工程/其他:工具调用评测基线（156 工具审计 + 100 条金标 + 打分器） (a2338482b5)
+- 📚 文档:更新最近变更记录 (ff2a1fe549)
+- 🐞 修复:恢复被误删的 Coze 面板组件，修复 Turbopack 缺模块 (1ec6db670b)
+- 🚀 新功能/改进:权威榜主榜按覆盖阈值排序，全榜厂商真实 logo (22f5262d7f)
 - 🐞 修复:device pair 合并全局 --api-url;chore(desktop): 0.1.97 版本对齐 (2696f32e8a)
 - 🔧 工程/其他:删除旧平台面板残留文件 (a71db13516)
 - 🔧 工程/其他:移除旧智能体平台专属页面与组件，统一归并到智能体体系 (837b1a4318)

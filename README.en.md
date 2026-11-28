@@ -99,6 +99,18 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-28**
+- ♻️ Refactor:彻底清除旧平台残留命名，头像与协议前缀统一归并 (e6ef2b9c28)
+- 🚀 Feature/Improvement:22 枚存量工具补齐显示名 + 五语言 Activity 词条 (5dcc1f48df)
+- ♻️ Refactor:撤掉 J6 并集取巧,委托集回归职责单一 (72dfbd20bf)
+- 🐞 Fix:J6 第三面正式化 —— 免工作区委托入判据,并新增 J17 双豁免互斥 (9b3d74d27b)
+- 🐞 Fix:补齐运营内容工具执行器，修复 web 构建类型引用 (9441864d56)
+- 🐞 Fix:补齐 executeAdminContentTool/toolAdminContent，修复 web 构建导出缺失 (47d66ee8f6)
+- 🔧 Chore/Other:工具别名把检索 Top-5 从 83% 拉到 100%（Top-1 73%） (9e950a7220)
+- 🔧 Chore/Other:BM25 工具检索基线（100 条金标 Recall@5 83%） (65f27f0a98)
+- 🔧 Chore/Other:工具调用评测基线（156 工具审计 + 100 条金标 + 打分器） (a2338482b5)
+- 📚 Docs:更新最近变更记录 (ff2a1fe549)
+- 🐞 Fix:恢复被误删的 Coze 面板组件，修复 Turbopack 缺模块 (1ec6db670b)
+- 🚀 Feature/Improvement:权威榜主榜按覆盖阈值排序，全榜厂商真实 logo (22f5262d7f)
 - 🐞 Fix:device pair 合并全局 --api-url;chore(desktop): 0.1.97 版本对齐 (2696f32e8a)
 - 🔧 Chore/Other:删除旧平台面板残留文件 (a71db13516)
 - 🔧 Chore/Other:移除旧智能体平台专属页面与组件，统一归并到智能体体系 (837b1a4318)

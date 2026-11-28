@@ -40,16 +40,8 @@
  *       同一个别名在 A 内核被归一、经 call_tool 不被归一,「未知工具」随机出现。
  *   J5 `_DELEGATE_ONLY_TOOLS` ⊆ `_FS_DEPENDENT_TOOLS`、⊆ 前端 case、且 ∩ 本地注册表 = ∅
  *      —— 这三条一起定义什么叫「委托专有」,任一破都说明常量已与实际脱节。
- *   J6 前端实现了的工具必须 ∈ `_FS_DEPENDENT_TOOLS` ∪ 本地注册表 ∪ `_ADMIN_DELEGATE_TOOLS` ——
- *      否则前端那支实现永远不会被调到,是死代码。
- *      (2026-11-28 补第三面:运营内容族(G-17)走 `register_external_tool` 注册,**不在**
- *       `_TOOL_HANDLERS`;又因其执行只认用户本人 JWT 的 admin 面,必须**免 workspace_context**
- *       委托 —— 于是既不在 `_FS_DEPENDENT_TOOLS`(那是"必带工作区会话"的语义)、也不在本地
- *       注册表。第三面不是放宽,是把"可达"的定义补全:三面任一处命中即算可达。)
- *   J17 `_ADMIN_DELEGATE_TOOLS` 的每个成员必须在委托面上有实现,且不得与 `_DELEGATE_ONLY_TOOLS`
- *      重叠(2026-11-28,与 J6 第三面同批):该集合的语义是"无论有无 workspace_context 都发
- *      tool-delegate 帧",委托面没有 case ⇒ 纯聊天场景必拿到「浏览器端不支持」;两个集合
- *      都标 = 同一名字两套豁免理由,日后没人能判断哪条生效。
+ *   J6 前端实现了的工具必须 ∈ `_FS_DEPENDENT_TOOLS` ∪ 本地注册表 —— 否则前端那支实现
+ *      永远不会被调到,是死代码。
  *   J16 旧 web 路径只允许是**转发薄壳**(2026-09-28,委托面搬家逼出的判据):该文件在被审面
  *      上存在时 —— ① 不得自带任何 `case '<name>':`(第二份委托实现回潮 = 两处算同一件事必
  *      漂移,本仓记过最多次的失败型);② 必须有一条 import/export … from 指向唯一实现
@@ -714,18 +706,10 @@ function collect(texts) {
     if (lit === null) throw new Error(`${PY_LLM}: 未找到 ${name} 的字面量赋值`)
     return lit
   }
-  // 可选集合:缺席 = 空集,不是错误。用于「某些分支还没有这一面」的新判据
-  // (_ADMIN_DELEGATE_TOOLS 于 2026-11-28 引入;老分支/回滚面不该因它缺席而判红)。
-  const takeOptional = (name) => {
-    const lit = pyCollection(llm, name)
-    return lit === null ? new Set() : setMembers(lit)
-  }
   const builtins = engineBuiltins(texts)
   return {
     fs: setMembers(take('_FS_DEPENDENT_TOOLS')),
     delegateOnly: setMembers(take('_DELEGATE_ONLY_TOOLS')),
-    // J6 第三面 / J17 的取材面:免工作区委托集(G-17,2026-11-28)。
-    adminDelegate: takeOptional('_ADMIN_DELEGATE_TOOLS'),
     hints: dictKeySet(PY_LLM, llm, '_DELEGATE_ONLY_HINTS'),
     // V3 #47 第三格(2026-09-26):别名表已合成全仓唯一一份,住在 mcp_server.py;
     // J2/J3/J4 的取材面随之从 PY_LLM 改到 PY_MCP(判据本体一字未动)。
@@ -807,25 +791,10 @@ function check(d, aliasDefs) {
   }
 
   // J6 —— 委托面实现了却没人会调到 = 死代码
-  // 可达三面:fs 委托(带工作区)/ 免工作区委托 / 本地注册。任一面命中即活。
   for (const name of sorted(d.frontend)) {
-    if (!d.fs.has(name) && !d.adminDelegate.has(name) && !d.local.has(name)) {
+    if (!d.fs.has(name) && !d.local.has(name)) {
       failures.push(
         `J6 ${TS_EXEC_SHARED} 实现了 '${name}',但它既不可委托也不在本地注册 —— 该实现永远执行不到`,
-      )
-    }
-  }
-
-  // J17 —— 免工作区委托集(2026-11-28,G-17 运营内容族)的两条自洽
-  for (const name of sorted(d.adminDelegate)) {
-    if (!d.frontend.has(name)) {
-      failures.push(
-        `J17 免工作区委托 '${name}' 在 ${TS_EXEC_SHARED} 没有 case —— 纯聊天场景委托过去只会得到「浏览器端不支持」`,
-      )
-    }
-    if (d.delegateOnly.has(name)) {
-      failures.push(
-        `J17 '${name}' 同时在 _ADMIN_DELEGATE_TOOLS 与 _DELEGATE_ONLY_TOOLS —— 同一名字挂了两套豁免理由,豁免语义失效`,
       )
     }
   }
@@ -1128,7 +1097,7 @@ function buildFixture(files) {
 // 所以夹具把它放进 fixHandlers(PY_MCP)而不是 fixPy(PY_LLM)—— 判据住哪侧,
 // 夹具就必须长哪侧,否则自检测的是已经不存在的旧形态。
 const CLEAN_ALIAS_BODY = '    "execute_command": "run_command",'
-const fixPy = (fsBody, doBody, hintBody, adminBody = null) => `# -*- coding: utf-8 -*-
+const fixPy = (fsBody, doBody, hintBody) => `# -*- coding: utf-8 -*-
 _FS_DEPENDENT_TOOLS = {
 ${fsBody}
 }
@@ -1138,7 +1107,7 @@ ${doBody}
 _DELEGATE_ONLY_HINTS = {
 ${hintBody}
 }
-${adminBody === null ? '' : '_ADMIN_DELEGATE_TOOLS = {\n' + adminBody + '\n}\n'}`
+`
 // V3 #47 第二格(2026-09-26):夹具必须与真仓同形 —— 桥表现在是三元组(带处置结论),
 // 而 call_tool 必须真的 import + 调用 resolve_engine_tool。夹具若是旧二项形态,
 // J13/J14 就只在真仓上判、自检里从未跑过,而"基线干净"那例会假绿。
@@ -1298,47 +1267,6 @@ function runSelfTest() {
         [TS_EXEC_SHARED]: fixTs(['read_file', 'write_file', 'apply_patch', 'never_called']),
       },
       'J6',
-    ],
-    // ── J6 第三面 + J17(2026-11-28,G-17 运营内容族:register_external_tool + 免工作区委托) ──
-    [
-      'J6 第三面:免工作区委托集里的实现不判红(三面任一命中即可达)',
-      {
-        ...cleanFiles,
-        [PY_LLM]: fixPy(
-          '    "read_file",\n    "apply_patch",',
-          '    "apply_patch",',
-          '    "apply_patch": "用 file_edit",',
-          '    "announce_list",',
-        ),
-        [TS_EXEC_SHARED]: fixTs(['read_file', 'write_file', 'apply_patch', 'announce_list']),
-      },
-      null,
-    ],
-    [
-      'J17 免工作区委托却没有委托面实现必红',
-      {
-        ...cleanFiles,
-        [PY_LLM]: fixPy(
-          '    "read_file",\n    "apply_patch",',
-          '    "apply_patch",',
-          '    "apply_patch": "用 file_edit",',
-          '    "announce_list",',
-        ),
-      },
-      'J17',
-    ],
-    [
-      'J17 同一名字挂两套豁免(admin ∪ delegate-only)必红',
-      {
-        ...cleanFiles,
-        [PY_LLM]: fixPy(
-          '    "read_file",\n    "apply_patch",',
-          '    "apply_patch",',
-          '    "apply_patch": "用 file_edit",',
-          '    "apply_patch",',
-        ),
-      },
-      'J17',
     ],
     // ── J16(2026-09-28 委托面搬家):旧 web 壳只许转发 ─────────────────────
     [
@@ -1811,7 +1739,7 @@ if (failures.length === 0) {
       (s) => s.nameLit !== null,
     ).length
     console.log(
-      `${C.green}✅ 工具注册表完整性通过${C.reset} — 判定面 ${FACE_TXT[FACE_SEL.face]} / fs 委托集 ${d.fs.size} / 免工作区委托 ${d.adminDelegate.size} / 委托专有 ${d.delegateOnly.size} / 别名 ${Object.keys(d.aliases).length} 条 / 本地注册 ${d.local.size} / 前端实现 ${d.frontend.size} / RPC 面定义构造 ${j15literal} 处(应 = 内置名数 − port 数)/ 宿主适配构造 ${j15n - j15literal} 处(只报数不计红)`,
+      `${C.green}✅ 工具注册表完整性通过${C.reset} — 判定面 ${FACE_TXT[FACE_SEL.face]} / fs 委托集 ${d.fs.size} / 委托专有 ${d.delegateOnly.size} / 别名 ${Object.keys(d.aliases).length} 条 / 本地注册 ${d.local.size} / 前端实现 ${d.frontend.size} / RPC 面定义构造 ${j15literal} 处(应 = 内置名数 − port 数)/ 宿主适配构造 ${j15n - j15literal} 处(只报数不计红)`,
     )
   }
   process.exit(0)

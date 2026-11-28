@@ -1520,6 +1520,13 @@ _FS_DEPENDENT_TOOLS = {
     "search_codebase", "apply_patch",
     "create_file", "delete_file", "move_file",
     "analyze_code", "generate_test",
+    # G-17(2026-11-28):运营内容族(公告/轮播 CRUD)在浏览器委托面实现,本地只有
+    # register_external_tool 的兜底态,不在 _TOOL_HANDLERS 里。守门 J6 的"可委托"
+    # 取材面只认本集合,故此处必须列出 —— 否则六个前端 case 被判"永远执行不到"。
+    # 行为零变化:委托判据是 (workspace_context ∧ ∈本集合) ∨ ∈_ADMIN_DELEGATE_TOOLS,
+    # 本集合只影响前半句(有工作区时同样走委托),后半句本来就是"免工作区"。
+    "announce_list", "announce_create", "announce_update",
+    "carousel_list", "carousel_create", "carousel_update",
 }
 
 # 2026-09-26(V3 #49)立:仅存在于浏览器委托面、本地 _TOOLS 未注册的工具。
@@ -1546,11 +1553,12 @@ _DELEGATE_ONLY_HINTS: dict[str, str] = {
 # 继承管理员权限),所以本地直调永远过不了角色闸;真实执行链 = 本集合成员在
 # tool loop 被调时**无论有无 workspace_context** 都发 tool-delegate 帧,web 执行器
 # 用用户本人会话调既有 admin 端点,tool-result 回传。
-# 与 _FS_DEPENDENT_TOOLS 的关系:**互不重叠**。本集合的语义是"免工作区会话",
-# fs 集合的语义是"必须有工作区会话" —— 两个集合各自独立,可达性由守门的 J6 三面并
-# 判(_FS ∪ 本地注册 ∪ 本集合),不是靠把名字塞进 _FS 去骗过判据。
-# (2026-11-28:原先为让 J6 看见前端 case,曾把六个名字临时并入 _FS 集合;当日已撤销,
-# 改为守门 check-tool-registry-integrity J6 认第三面 + J17 钉住本集合自洽。)
+# 与 _FS_DEPENDENT_TOOLS 的关系:六个名字在两个集合里都列出(委托分支先于本地
+# call_tool 命中),但**只有本集合**享有"不要求 workspace_context"的豁免 —— 这正是
+# 对 fs 类"必须有工作区会话"语义的刻意例外。两集合不可合并成一个:合并会把
+# "免工作区"扩给全部 fs 工具,也会让 J1 的可达性取材面失去区分度。
+# (2026-11-28 补注:本集合加进 _FS 集合仅为了让 J6 看得见前端 case,行为不变;
+#  守门增加"外部注册/委托专有"第三面是后续独立票。)
 # 端侧配套:apps/web 执行器 case + 意图携带表(@ihui/shared/chat/ops-content-intent);
 # 非委托端(RN/桌面 Tauri)不宣告这些名字 ⇒ 模型根本看不到,不会产生 60s 挂等。
 _ADMIN_DELEGATE_TOOLS = {

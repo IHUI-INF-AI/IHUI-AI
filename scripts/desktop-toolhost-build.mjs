@@ -55,30 +55,54 @@ if (metadata.status !== 0) throw new Error(`cargo metadata exited ${metadata.sta
 const targetDirectory = JSON.parse(metadata.stdout).target_directory;
 
 const triple = targetTriple();
+// macOS Universal 不是真实 rustc target:tauri 传下来的是伪三元组
+// universal-apple-darwin,直接交给 cargo 会报 "could not find specification"(实测
+// 2026-11-28 CI:Build Desktop(macos-universal) 因此连续失败)。这里拆成两枚真实
+// 架构分别编译,再用 lipo 合成一份 Universal 二进制,供 Tauri resources 使用。
+const triples =
+  triple === "universal-apple-darwin"
+    ? ["aarch64-apple-darwin", "x86_64-apple-darwin"]
+    : [triple];
 const exe = process.platform === "win32" ? "ihui-tool-host.exe" : "ihui-tool-host";
 const outFile = path.join(outDir, exe);
 fs.mkdirSync(outDir, { recursive: true });
-// tauri-build 在编译本 crate 的 build script 阶段会读 `bundle.resources`；宿主本身
+// tauri-build 在编译本 crate 的 build script 阶段会读 `bundle.resources`;宿主本身
 // 还没编译出来时先放 0 字节占位，真正的产物在 cargo build 之后立刻覆盖。
 // 占位文件不会被发布，因为本脚本失败会直接抛错。
 if (!fs.existsSync(outFile) || fs.statSync(outFile).size === 0) {
   fs.writeFileSync(outFile, "");
 }
 
-run(["build", "--release", "--bin", "ihui-tool-host", "--target", triple], crateDir);
-const artifact = path.join(targetDirectory, triple, "release", exe);
-if (!fs.existsSync(artifact)) throw new Error(`tool-host artifact missing: ${artifact}`);
+const artifacts = triples.map((t) => {
+  run(["build", "--release", "--bin", "ihui-tool-host", "--target", t], crateDir);
+  const artifact = path.join(targetDirectory, t, "release", exe);
+  if (!fs.existsSync(artifact)) throw new Error(`tool-host artifact missing: ${artifact}`);
+  return artifact;
+});
 
-fs.copyFileSync(artifact, outFile);
+if (triples.length > 1) {
+  const lipo = process.env.LIPO || "lipo";
+  const lipoResult = spawnSync(lipo, ["-create", ...artifacts, "-output", outFile], {
+    stdio: "inherit",
+    shell: false,
+    windowsHide: true,
+  });
+  if (lipoResult.error) throw lipoResult.error;
+  if (lipoResult.status !== 0) {
+    throw new Error(`lipo universal tool-host exited ${lipoResult.status}`);
+  }
+} else {
+  fs.copyFileSync(artifacts[0], outFile);
+}
 // Tauri 的 NSIS 安装脚本从 `target/release/ihui-tool-host.exe` 取根副本；这里保证
 // 它和 resources 里是同一份本次编译产物，避免拿上一次 cargo 产物打包。
 const rootArtifact = path.join(targetDirectory, "release", exe);
-if (path.resolve(rootArtifact) !== path.resolve(artifact)) {
-  fs.copyFileSync(artifact, rootArtifact);
+if (path.resolve(rootArtifact) !== path.resolve(outFile)) {
+  fs.copyFileSync(outFile, rootArtifact);
 }
 const size = fs.statSync(outFile).size;
 if (size > 32 * 1024 * 1024) {
   throw new Error(`tool-host too large: ${size} bytes (expected <= 32MB)`);
 }
-console.log(`[tool-host] ${outFile} (${(size / 1024).toFixed(1)} KiB), triple=${triple}`);
+console.log(`[tool-host] ${outFile} (${(size / 1024).toFixed(1)} KiB), triple=${triples.join("+")}`);
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
