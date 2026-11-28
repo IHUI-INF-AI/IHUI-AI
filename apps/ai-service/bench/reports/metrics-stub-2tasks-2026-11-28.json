@@ -1,0 +1,128 @@
+{
+  "total": 2,
+  "passed": 0,
+  "pass_rate": 0.0,
+  "metrics": {
+    "total": 2,
+    "passed": 0,
+    "pass_rate": 0.0,
+    "iterations": {
+      "p50": 2.0,
+      "p90": 2.0,
+      "p99": 2.0,
+      "mean": 2.0,
+      "max": 2.0,
+      "total": 4.0
+    },
+    "duration_ms": {
+      "p50": 83.35,
+      "p90": 120.99,
+      "p99": 129.46,
+      "mean": 83.35,
+      "max": 130.4,
+      "total": 166.7
+    },
+    "tokens": {
+      "p50": 107.0,
+      "p90": 107.0,
+      "p99": 107.0,
+      "mean": 107.0,
+      "max": 107.0,
+      "total": 214.0,
+      "samples": 2,
+      "tasks_with_zero_tokens": 0
+    },
+    "tool_calls": {
+      "p50": 1.0,
+      "p90": 1.0,
+      "p99": 1.0,
+      "mean": 1.0,
+      "max": 1.0,
+      "total": 2.0,
+      "tasks_with_zero_calls": 0
+    },
+    "failure_taxonomy": {
+      "pass": 0,
+      "execution_error": 0,
+      "timeout": 0,
+      "cancelled": 0,
+      "budget_exceeded": 0,
+      "iteration_exhausted": 0,
+      "no_tool_calls": 0,
+      "no_checks": 0,
+      "checks_failed": 2
+    },
+    "failures": [
+      {
+        "id": "fix-calc-divzero",
+        "category": "fix",
+        "class": "checks_failed",
+        "detail": "失败检查: pytest_pass"
+      },
+      {
+        "id": "fix-calc-percent",
+        "category": "fix",
+        "class": "checks_failed",
+        "detail": "失败检查: pytest_pass"
+      }
+    ],
+    "by_category": {
+      "fix": {
+        "total": 2,
+        "passed": 0,
+        "pass_rate": 0.0,
+        "iterations_p50": 2.0
+      }
+    }
+  },
+  "tasks": [
+    {
+      "id": "fix-calc-divzero",
+      "title": "修复计算器除零崩溃",
+      "category": "fix",
+      "fixture": "fixture_calculator",
+      "iterations": 2,
+      "duration_ms": 36.3,
+      "tokens_used": 107,
+      "tool_calls": 1,
+      "tool_errors": 0,
+      "stop_reason": "completed",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=1 (1 failed in 0.09s)"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 1,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_vfep7t05\\task_fix-calc-divzero"
+    },
+    {
+      "id": "fix-calc-percent",
+      "title": "修复百分比计算放大 100 倍",
+      "category": "fix",
+      "fixture": "fixture_calculator",
+      "iterations": 2,
+      "duration_ms": 130.4,
+      "tokens_used": 107,
+      "tool_calls": 1,
+      "tool_errors": 0,
+      "stop_reason": "completed",
+      "self_heal_runs": 0,
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=1 (1 failed in 0.08s)"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 1,
+      "pass": false,
+      "workdir": "C:\\caches\\temp\\ihui_bench_vfep7t05\\task_fix-calc-percent"
+    }
+  ]
+}

@@ -41,6 +41,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
+try:  # 常规入口 `python -m bench.run_bench`(README 口径)
+    from bench.metrics import render_markdown as render_metrics_markdown
+    from bench.metrics import summarize as summarize_metrics
+except ImportError:  # 兜底:直接 `python bench/run_bench.py` 时 sys.path[0] 是 bench/
+    from metrics import render_markdown as render_metrics_markdown
+    from metrics import summarize as summarize_metrics
+
 BENCH_ROOT = Path(__file__).resolve().parent
 FIXTURES_ROOT = BENCH_ROOT / "fixtures"
 GOLDEN_FIXTURES_ROOT = BENCH_ROOT / "fixtures_golden"
@@ -386,6 +393,9 @@ def _score_golden_task(task: dict[str, Any], base_workdir: Path) -> dict[str, An
         "fixture": task.get("fixture", ""),
         "iterations": 0,
         "duration_ms": 0.0,
+        "tokens_used": 0,
+        "tool_calls": 0,
+        "tool_errors": 0,
         "stop_reason": "golden",
         "self_heal_runs": 0,
         "checks": checks,
@@ -452,6 +462,12 @@ async def _run_task(
         iterations = len(result.iterations)
         stop_reason = result.stop_reason
         heal_runs = int(getattr(loop, "_self_heal_runs", 0) or 0)
+        # 指标面（P1）：token 自报值 + 工具调用/工具错误计数，供 bench/metrics.py 聚合。
+        tokens_used = int(getattr(result, "total_tokens_used", 0) or 0)
+        tool_calls = sum(len(it.tool_calls) for it in result.iterations)
+        tool_errors = sum(
+            1 for it in result.iterations for tr in it.tool_results if tr.error
+        )
         # IHUI_BENCH_DEBUG=1 时输出每轮 tool_calls / tool_results 全量 trace,
         # 用于定位「agent 迭代了却不改文件」等行为问题(如工具未调、参数错、路径越权)。
         if os.environ.get("IHUI_BENCH_DEBUG"):
@@ -506,6 +522,9 @@ async def _run_task(
         "fixture": task.get("fixture", ""),
         "iterations": iterations,
         "duration_ms": round(duration_ms, 1),
+        "tokens_used": tokens_used,
+        "tool_calls": tool_calls,
+        "tool_errors": tool_errors,
         "stop_reason": stop_reason,
         "self_heal_runs": heal_runs,
         "checks": checks,
@@ -551,6 +570,9 @@ def _run_all_golden_parallel(
                     "fixture": task.get("fixture", ""),
                     "iterations": 0,
                     "duration_ms": 0.0,
+                    "tokens_used": 0,
+                    "tool_calls": 0,
+                    "tool_errors": 0,
                     "stop_reason": "error",
                     "self_heal_runs": 0,
                     "checks": [],
@@ -608,6 +630,9 @@ async def _run_all(
                 "fixture": task.get("fixture", ""),
                 "iterations": 0,
                 "duration_ms": 0.0,
+                "tokens_used": 0,
+                "tool_calls": 0,
+                "tool_errors": 0,
                 "stop_reason": "error",
                 "self_heal_runs": 0,
                 "checks": [],
@@ -681,10 +706,12 @@ def _write_reports(
     total = len(results)
     passed = sum(1 for r in results if r.get("pass"))
     pass_rate = (passed / total) if total else 0.0
+    metrics = summarize_metrics(results)
     summary: dict[str, Any] = {
         "total": total,
         "passed": passed,
         "pass_rate": round(pass_rate, 4),
+        "metrics": metrics,
         "tasks": results,
     }
     if comparison is not None:
@@ -721,6 +748,7 @@ def _write_reports(
         if not comparison["comparison_valid"]:
             lines.append("- ⚠ off/on 任务数不一致,对比无效")
         lines.append("")
+    lines.extend(render_metrics_markdown(metrics))
     lines.append("| 任务ID | 类别 | 夹具 | 迭代 | 耗时(ms) | 检查 | 结果 |")
     lines.append("|---|---|---|---|---|---|---|")
     for r in results:
