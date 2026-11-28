@@ -56,6 +56,8 @@ ihui mcp discover https://example.com/.well-known/ai-catalog.json --json --max-c
 - `mcp__<server>__skill_list`：只返回技能名称/描述/URI/manifest 数量；`directory` 参数仅在 server 声明 `directoryRead: true` 时可用，否则客户端直接拒绝，不把“不支持”折成空目录。
 - `mcp__<server>__skill_load`：读取 `SKILL.md`，可选读取 `files[]` 里显式列出的支持文件。注册为 `approval: 'ask'` —— 读 SKILL.md 不等于激活技能，必须经过宿主批准闸。
 
+两枚工具都带 `contract`：`effectScope: delegate-to-caller`、`riskLevel: read`，权限键 `skill.invoke`。`skill_list` 不要求批准；`skill_load` 声明 `alwaysAsk` + `interactive` 确认，保证每次激活都问人，而不是只靠注册时的一次性批准。
+
 文件内容按 manifest 的 `sha256:<64 位小写 hex>` 与字节数验真；不在 manifest 内的文件、digest 不符、大小不符一律拒绝。`resources` 为 `"dynamic"` 的技能没有内容绑定，工具会返回 `verified: false` 并明确标注。相对引用按 SKILL.md 所在目录解析，`..` 越出技能根目录或绝对 URI 指向根外都拒绝。
 
 ## 当前边界

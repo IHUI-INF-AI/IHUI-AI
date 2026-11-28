@@ -499,6 +499,35 @@ export function createMcpSkillTools(host: McpSkillToolHost): Tool[] {
     name: mcpSkillToolName(host.serverName, 'list'),
     nameAliases: ['mcp_skill_list'],
     registrationOwner: `mcp:${host.serverName}`,
+    // 技能目录只暴露元数据；真正读文件的 load 才需要逐次批准。
+    contract: {
+      shape: {
+        visibleToProvider: true,
+        input: {
+          type: 'object',
+          properties: {
+            directory: {
+              type: 'string',
+              description: '可选。要列出的技能目录 URI（相对或绝对）；仅 directoryRead server 支持。',
+            },
+          },
+          required: [],
+        },
+      },
+      permission: {
+        permissionKey: 'skill.invoke',
+        reason: '只读取 MCP server 的技能目录元数据，不读取文件内容、不落盘',
+        riskLevel: 'read',
+        effectScope: 'delegate-to-caller',
+        requiresApproval: false,
+      },
+      resultBudget: {
+        inlineLimitBytes: 16 * 1024,
+        providerVisibleLimitBytes: 8 * 1024,
+        policy: 'truncate',
+        preview: { bytes: 2048, lines: 40, from: 'head' },
+      },
+    },
     dangerLevel: 'read',
     description:
       `列出 MCP server "${host.serverName}" 发布的技能元数据（名称/描述/URI/文件清单）。` +
@@ -537,6 +566,42 @@ export function createMcpSkillTools(host: McpSkillToolHost): Tool[] {
     name: mcpSkillToolName(host.serverName, 'load'),
     nameAliases: ['mcp_skill_load'],
     registrationOwner: `mcp:${host.serverName}`,
+    // 读回来的 SKILL.md 是模型上下文里的可执行指令面，激活必须每次问人。
+    contract: {
+      shape: {
+        visibleToProvider: true,
+        input: {
+          type: 'object',
+          properties: {
+            skill: {
+              type: 'string',
+              description: '技能的 SKILL.md URI，或 frontmatter.name。',
+            },
+            files: {
+              type: 'array',
+              description: '可选。要一并读取的支持文件，相对技能根目录或绝对 URI；不传只读 SKILL.md。',
+              items: { type: 'string', description: '支持文件的相对路径或绝对 URI。' },
+            },
+          },
+          required: ['skill'],
+        },
+      },
+      permission: {
+        permissionKey: 'skill.invoke',
+        reason: '加载并读取 MCP 技能文件；内容可能包含提示词，激活前必须由用户确认',
+        riskLevel: 'read',
+        effectScope: 'delegate-to-caller',
+        requiresApproval: true,
+        alwaysAsk: true,
+        confirmation: { mode: 'interactive' },
+      },
+      resultBudget: {
+        inlineLimitBytes: 32 * 1024,
+        providerVisibleLimitBytes: 16 * 1024,
+        policy: 'truncate',
+        preview: { bytes: 4096, lines: 80, from: 'head' },
+      },
+    },
     dangerLevel: 'read',
     // 规范要求激活走宿主的技能加载路径并取得用户批准；这是结构位置，不是文案提示。
     registration: { approval: 'ask' },
