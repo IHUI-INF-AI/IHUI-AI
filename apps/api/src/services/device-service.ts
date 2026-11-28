@@ -312,13 +312,17 @@ export async function heartbeat(
 
 /** 惰性过期:把该设备 queued 超 24h 的任务置为 expired */
 async function sweepExpiredQueued(deviceId: string): Promise<void> {
-  const cutoff = new Date(Date.now() - TASK_QUEUE_TTL_MS)
+  // 2026-11-28 生产实跑:raw `db.execute(sql`...`)` 不像 Drizzle 的 `.set()` 那样
+  // 按列类型把 Date 序列化成 ISO,HTTP 驱动会在绑定参数时抛
+  // `The "string" argument must be of type string ... Received an instance of Date`
+  // ⇒ claim 直接 500。这里显式转 ISO 字符串并加 timestamptz 转换。
+  const cutoffIso = new Date(Date.now() - TASK_QUEUE_TTL_MS).toISOString()
   await db.execute(sql`
     UPDATE device_tasks
     SET status = 'expired', finished_at = now()
     WHERE target_device_id = ${deviceId}::uuid
       AND status = 'queued'
-      AND created_at < ${cutoff}
+      AND created_at < ${cutoffIso}::timestamptz
   `)
 }
 

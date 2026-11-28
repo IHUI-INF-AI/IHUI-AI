@@ -26,6 +26,7 @@ import {
   deviceTaskLease,
   deviceTaskRequestApproval,
   deviceTaskStream,
+  setDeviceClientFingerprint,
   type DeviceTaskRow,
 } from '@ihui/api-client'
 import type { DeviceTaskExecutionPayload, DeviceTaskProgress } from '@ihui/types'
@@ -586,6 +587,9 @@ async function executeTask(
  * 而"并发省下的那点时间"远小于用户看到两份交叉 diff 的困惑。
  */
 export function startDeviceRunner(cfg: DeviceRunnerConfig): DeviceRunnerHandle {
+  // 服务端 G1b 要求每次设备请求带同一指纹;放在入口设置一次,避免 claim/stream/
+  // heartbeat 等十几个调用点漏带(漏一处就是一次 403,且现象是"偶发认领失败")。
+  setDeviceClientFingerprint(cfg.fingerprint)
   const log = cfg.log ?? defaultLog
   const pollMs = cfg.pollIntervalMs ?? 3000
   const heartbeatMs = cfg.heartbeatIntervalMs ?? 30_000

@@ -298,6 +298,34 @@ describe('csrf — 双提交 Cookie 模式', () => {
       expect(res.statusCode).toBe(403)
     })
 
+    it('设备执行器: Bearer + X-Device-Fingerprint 双头在场才豁免(2026-11-28)', async () => {
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/protected',
+        headers: {
+          authorization: 'Bearer device-opaque-token',
+          'x-device-fingerprint': 'a'.repeat(32),
+        },
+      })
+      expect(res.statusCode).toBe(200)
+    })
+
+    it('设备豁免不得只凭指纹头成立(无 Bearer 仍 403)', async () => {
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/protected',
+        headers: { 'x-device-fingerprint': 'a'.repeat(32) },
+      })
+      expect(res.statusCode).toBe(403)
+      expect(res.json().message).toContain('CSRF')
+    })
+
+    it('公开白名单 /api/devices/pair-exchange 豁免(一次性配对码自证)', async () => {
+      const res = await server.inject({ method: 'POST', url: '/api/devices/pair-exchange' })
+      // 测试 harness 没挂真实兑换路由,但必须越过 CSRF(403);404 说明已进入路由查找。
+      expect(res.statusCode).not.toBe(403)
+    })
+
     it('公开白名单 /api/auth/ 豁免', async () => {
       const res = await server.inject({ method: 'POST', url: '/api/auth/login' })
       expect(res.statusCode).toBe(200)

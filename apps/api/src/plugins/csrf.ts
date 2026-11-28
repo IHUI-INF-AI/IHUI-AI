@@ -230,6 +230,11 @@ const PUBLIC_PREFIXES = [
   '/api/play-testers/register',
   '/api/newsletter/subscribe',
   '/api/service-inquiry',
+  // 设备配对兑换(2026-11-28):8 位一次性配对码本身就是凭据,调用方是 CLI/桌面端,
+  // 不带浏览器 cookie,也没有 CSRF token;防线是码的 TTL/单次消费/每小时次数上限。
+  // 精确整路径,只放这一条兑换入口,不放整个 /api/devices 族(用户面写端点仍走
+  // Bearer JWT / auth_token cookie 的 CSRF 校验)。
+  '/api/devices/pair-exchange',
 ]
 
 function secret(): string {
@@ -328,6 +333,18 @@ const csrfPlugin: FastifyPluginAsync<CsrfPluginOptions> = async (
     // `Bearer aaa.bbb.ccc` 任何人都会拼。豁免的判据改为**该凭据自证通过**
     // (JWT 验签 / API Key 查库),见 hasVerifiedBearerCredential。
     const auth = request.headers.authorization ?? ''
+    // 设备执行器机器调用(2026-11-28):Bearer 是设备令牌(非浏览器 cookie),
+    // X-Device-Fingerprint 是配对时绑定的执行体指纹;两者都由 /api/devices/* 的
+    // requireDevice 校验,CSRF 在这里没有防护对象。只在**两个头同时在场**时豁免,
+    // 且不放宽用户面 /api/devices 写端点(它们不带这个机器指纹头)。
+    const deviceFingerprint = request.headers['x-device-fingerprint']
+    if (
+      typeof deviceFingerprint === 'string' &&
+      deviceFingerprint.trim().length > 0 &&
+      auth.startsWith('Bearer ')
+    ) {
+      return
+    }
     if (await hasVerifiedBearerCredential(auth)) return
 
     // auth_token cookie 鉴权豁免（与 auth 插件一致）

@@ -235,6 +235,17 @@ interface Envelope<T> {
 }
 
 /** 设备面统一请求:Bearer deviceToken,解析 {code:0,data} 信封;204 → data=null */
+/**
+ * 设备请求绑定指纹:服务端 G1b 起对每个设备请求校验 `X-Device-Fingerprint`
+ * 与配对时落库的指纹一致。CLI 在执行器启动时设置一次,所有 device API 自动携带;
+ * 不放进函数参数是为了不把指纹透传到十几个调用点(漏一处就是一次 403)。
+ */
+let deviceRequestFingerprint: string | null = null
+
+export function setDeviceClientFingerprint(fingerprint: string | null): void {
+  deviceRequestFingerprint = fingerprint && fingerprint.trim() ? fingerprint.trim() : null
+}
+
 async function fetchDeviceApi<T>(
   deviceToken: string,
   path: string,
@@ -245,6 +256,7 @@ async function fetchDeviceApi<T>(
     Authorization: `Bearer ${deviceToken}`,
     'X-Requested-With': 'XMLHttpRequest',
   }
+  if (deviceRequestFingerprint) headers['X-Device-Fingerprint'] = deviceRequestFingerprint
   if (init.body !== undefined) headers['Content-Type'] = 'application/json'
   const response = await getTransport()(url, { method: init.method, headers, body: init.body })
   const text = await response.text().catch(() => '')
