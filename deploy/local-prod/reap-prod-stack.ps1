@@ -12,7 +12,8 @@
 #   3. 只有「父进程已不存在」且「存活超过 300 秒」的才进候选；
 #      一次性命令（git / ssh / pytest / 同步脚本）跑完会自行退出，超时才说明真卡住了。
 #   4. 同签名多实例只保留最新的一个，旧的关掉（现在 traywatch 就是这样堆了两份）。
-#   5. 端口出现多个监听者（SO_REUSEADDR 双绑）只写日志报警、不处置 —— 谁该活是人来定的。
+#   5. 端口出现多个监听者：8802/8803 是专属端口，收敛为一个（保留契约形态，其次最新）；
+#      8801 分属 dev 会话与生产回源，谁该活由持锁方决定，只记账不处置。
 #   6. -DryRun 只打印计划，不动手。
 
 param([switch]$DryRun)
@@ -112,6 +113,46 @@ foreach ($p in $byPort) {
       '{0}={1}(pid {2})' -f $_.LocalAddress, $who, $_.OwningProcess
     })
   Note ('INFO 端口 {0} 由两个进程分别占用不同协议族：{1}，不是真双绑' -f $p.Name, ($addrs -join ' / '))
+}
+
+# --- 2b. 专属端口去重：8802 / 8803 只许一个实例 ---
+# 真实事故形态：旧实例绑 127.0.0.1、新实例绑 0.0.0.0，两者互不冲突，于是都"活着"，
+# 一个占一半流量、一个占另一半，Test-Port 又只看"有没有人监听"，从此再也不会自愈 ——
+# 这就是「进程一直堆着、端口一直收不回来」的根。收敛规则：契约形态优先，其次留最新。
+$exclusivePorts = @(
+  @{ Port = 8802; Contract = '*src/index.ts*';       What = 'api' },
+  @{ Port = 8803; Contract = '*--host 127.0.0.1*';   What = 'ai-service' }
+)
+foreach ($ex in $exclusivePorts) {
+  $owners = @($listen | Where-Object { [int]$_.LocalPort -eq $ex.Port } |
+    Select-Object -ExpandProperty OwningProcess -Unique | Where-Object { $_ -gt 0 })
+  if ($owners.Count -eq 0) { continue }
+  # 单实例也可能是野形态：ai-service 的契约是 --host 127.0.0.1，而 .env / package.json 的 dev
+  # 参数是 0.0.0.0 —— 任何绕过 run-ai-prod 的启动都会把网关暴露到局域网，且会占住端口
+  # 让契约实例永远起不来。这种一律收敛，下一轮 ensure 会按契约补起。
+  if ($owners.Count -eq 1 -and $ex.What -eq 'ai-service') {
+    $cl = (Get-CimInstance Win32_Process -Filter ("ProcessId=" + $owners[0]) -ErrorAction SilentlyContinue).CommandLine
+    if ($cl -and $cl -like '*--host 0.0.0.0*') {
+      Note ('REAP 非契约 {0} 端口 {1} pid={2}（0.0.0.0 形态，收敛后由 ensure 按契约重起）' -f $ex.What, $ex.Port, $owners[0])
+      if (-not $script:Dry) { Stop-Process -Id $owners[0] -Force -ErrorAction SilentlyContinue }
+      continue
+    }
+    continue
+  }
+  if ($owners.Count -le 1) { continue }
+  $matched = @($owners | Where-Object {
+      $cl = (Get-CimInstance Win32_Process -Filter ("ProcessId=" + $_) -ErrorAction SilentlyContinue).CommandLine
+      $cl -and $cl -like $ex.Contract
+    })
+  if ($matched.Count -ge 1) {
+    $keep = @($matched | Sort-Object { (Get-Process -Id $_ -ErrorAction SilentlyContinue).StartTime } -Descending)[0]
+  } else {
+    $keep = @($owners | Sort-Object { (Get-Process -Id $_ -ErrorAction SilentlyContinue).StartTime } -Descending)[0]
+  }
+  foreach ($o in @($owners | Where-Object { $_ -ne $keep })) {
+    Note ('REAP 双起 {0} 端口 {1} pid={2}（保留 pid={3}）' -f $ex.What, $ex.Port, $o, $keep)
+    if (-not $script:Dry) { Stop-Process -Id $o -Force -ErrorAction SilentlyContinue }
+  }
 }
 
 # --- 3. 受保护集合：生产端口（8801/8802/8803）的监听者 + 其祖先链 + 本脚本祖先链 ---

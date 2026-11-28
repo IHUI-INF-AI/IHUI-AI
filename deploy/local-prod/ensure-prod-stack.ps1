@@ -62,6 +62,32 @@ try {
     [void][System.Diagnostics.Process]::Start($psi)
   }
 
+  # 专属端口只许一个本服务实例。跨地址族各绑一份（旧实例 127.0.0.1 + 新实例 0.0.0.0）看着都"在跑"，
+  # 实际是两个进程分走一半流量：旧的不死、新的照起，进程和端口只会越堆越多，Test-Port 又是
+  # 任意地址族命中即算"已起"，所以永远不会自愈。这里在拉起前先收敛：保留契约形态的那个
+  # （ai-service: --host 127.0.0.1；api: src/index.ts），契约形态不在时才退化为保留最新。
+  function Stop-DuplicateListeners([int]$port, [string]$contractLike) {
+    $owners = @(Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
+      Select-Object -ExpandProperty OwningProcess -Unique | Where-Object { $_ -gt 0 })
+    if ($owners.Count -le 1) { return }
+    $matched = @($owners | Where-Object {
+        $cl = (Get-CimInstance Win32_Process -Filter "ProcessId=$_" -ErrorAction SilentlyContinue).CommandLine
+        $cl -and $cl -like $contractLike
+      })
+    if ($matched.Count -ge 1) {
+      $keep = @($matched | Sort-Object { (Get-Process -Id $_ -ErrorAction SilentlyContinue).StartTime } -Descending)[0]
+    } else {
+      $keep = @($owners | Sort-Object { (Get-Process -Id $_ -ErrorAction SilentlyContinue).StartTime } -Descending)[0]
+    }
+    foreach ($o in @($owners | Where-Object { $_ -ne $keep })) {
+      $nm = (Get-CimInstance Win32_Process -Filter "ProcessId=$o" -ErrorAction SilentlyContinue).Name
+      Add-Content -Path (Join-Path $LogDir 'prod-stack.log') -Value ("{0:o} dedupe port {1}: kept pid={2}, killed pid={3}({4})" -f (Get-Date), $port, $keep, $o, $nm)
+      Stop-Process -Id $o -Force -ErrorAction SilentlyContinue
+    }
+  }
+
+  Stop-DuplicateListeners 8802 '*src/index.ts*'
+
   if (-not (Test-Port 8802)) {
     $apiOut = Join-Path $LogDir 'api-prod.out.log'
     $apiErr = Join-Path $LogDir 'api-prod.err.log'
@@ -94,6 +120,23 @@ try {
 
   # ai-service（8803）：LLM 单点。缺了它问数/对话不会报错，只会静默回落成关键词检索，
   # 所以把它也纳入自愈，别让「功能好像做了但没效果」这种状态长期存在。
+  Stop-DuplicateListeners 8803 '*--host 127.0.0.1*'
+
+  # 契约校验：8803 只认 --host 127.0.0.1（只监听环回，.env 里的 HOST 和 package.json 的 dev
+  # 参数都是 0.0.0.0，任何绕过 run-ai-prod 的启动都会把网关暴露到局域网）。更麻烦的是它和
+  # 契约实例抢同一端口：先绑上的赢，而 Test-Port 命中即算「已起」，于是野形态一旦占了端口，
+  # 契约实例就永远起不来。这里先收敛掉非契约形态，再按契约拉起。
+  $aiOwners = @(Get-NetTCPConnection -LocalPort 8803 -State Listen -ErrorAction SilentlyContinue |
+    Select-Object -ExpandProperty OwningProcess -Unique | Where-Object { $_ -gt 0 })
+  foreach ($o in $aiOwners) {
+    $cl = (Get-CimInstance Win32_Process -Filter "ProcessId=$o" -ErrorAction SilentlyContinue).CommandLine
+    if ($cl -and $cl -notlike '*--host 127.0.0.1*') {
+      Add-Content -Path (Join-Path $LogDir 'prod-stack.log') -Value ("{0:o} dedupe port 8803: killed pid={1} (非契约 host 形态)" -f (Get-Date), $o)
+      Stop-Process -Id $o -Force -ErrorAction SilentlyContinue
+      Start-Sleep -Milliseconds 400
+    }
+  }
+
   if (-not (Test-Port 8803)) {
     Rotate-LogPair 'ai'
     # 这里不要再给 launcher 加 -RedirectStandardOutput/-RedirectStandardError：
