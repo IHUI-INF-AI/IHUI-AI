@@ -24,7 +24,7 @@ import json
 import re
 from collections.abc import Coroutine
 from dataclasses import replace as _dc_replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import asyncpg
@@ -164,6 +164,9 @@ _METRICS_PLATFORMS = (
 _METRICS_LOOP_INTERVAL_SEC = 30 * 60
 _METRICS_LOOP_WARMUP_SEC = 90
 _METRICS_BATCH_SIZE = 3
+# 每轮最多扫描 20 条候选,给失败冷却留出后继任务,避免失败任务一直占住队首。
+_METRICS_SCAN_SIZE = 20
+_METRICS_FAILURE_COOLDOWN_MINUTES = 60
 _METRICS_MIN_GAP_HOURS = 6
 _METRICS_LOOKBACK_DAYS = 14
 # 历史保留上限(内存 LRU)
@@ -190,6 +193,8 @@ class PublishScheduler:
         self._last_poll_at: datetime | None = None
         self._last_poll_ok: bool | None = None
         self._last_due_count = 0
+        # 指标回收失败冷却:避免同一个失败任务每轮都占住 LIMIT 队首,饿死后面的任务。
+        self._metrics_failed_until: dict[tuple[str, str], datetime] = {}
         # 持有 spawn 出的 task 引用,避免 CPython GC 回收未完成的 task
         self._pending_tasks: set[asyncio.Task[None]] = set()
 
@@ -479,16 +484,33 @@ class PublishScheduler:
                 LIMIT $2
                 """,
                 list(_METRICS_PLATFORMS),
-                _METRICS_BATCH_SIZE,
+                _METRICS_SCAN_SIZE,
                 _METRICS_LOOKBACK_DAYS,
                 _METRICS_MIN_GAP_HOURS,
             )
         finally:
             await conn.close()
 
+        started_at = datetime.now(UTC)
+        # 过期的失败冷却先清掉，内存只保留仍在冷却中的键。
+        self._metrics_failed_until = {
+            key: until
+            for key, until in self._metrics_failed_until.items()
+            if until > started_at
+        }
+
         collected = 0
+        attempted = 0
+        failed = 0
         for row in rows:
+            if collected >= _METRICS_BATCH_SIZE:
+                break
             platform = row["platform"]
+            task_id = str(row["task_id"])
+            key = (task_id, platform)
+            cooldown_until = self._metrics_failed_until.get(key)
+            if cooldown_until is not None and cooldown_until > datetime.now(UTC):
+                continue
             targets = _decode_json_field(row["targets"], list, [])
             raw_account_id = next(
                 (
@@ -502,17 +524,22 @@ class PublishScheduler:
                 account_id = int(raw_account_id)
             except (TypeError, ValueError):
                 continue
+            attempted += 1
             credentials = await self._load_credentials(
                 account_id, platform, row["user_id"] or ""
             )
             if credentials is None:
+                failed += 1
+                self._metrics_failed_until[key] = (
+                    datetime.now(UTC) + timedelta(minutes=_METRICS_FAILURE_COOLDOWN_MINUTES)
+                )
                 logger.info(
                     "[publish.metrics.auto] skip task=%s platform=%s: credentials missing",
-                    row["task_id"], platform,
+                    task_id, platform,
                 )
                 continue
             metrics = await collect_metrics(
-                row["task_id"],
+                task_id,
                 platform,
                 str(row["platform_content_id"]),
                 credentials,
@@ -521,14 +548,23 @@ class PublishScheduler:
             )
             source = metrics.get("source") or {}
             if source.get("error"):
+                failed += 1
+                self._metrics_failed_until[key] = (
+                    datetime.now(UTC) + timedelta(minutes=_METRICS_FAILURE_COOLDOWN_MINUTES)
+                )
                 logger.warning(
                     "[publish.metrics.auto] task=%s platform=%s failed: %s",
-                    row["task_id"], platform, source["error"],
+                    task_id, platform, source["error"],
                 )
                 continue
+            self._metrics_failed_until.pop(key, None)
             collected += 1
-        if collected:
-            logger.info("[publish.metrics.auto] collected %d snapshot(s)", collected)
+        duration_ms = int((datetime.now(UTC) - started_at).total_seconds() * 1000)
+        if rows:
+            logger.info(
+                "[publish.metrics.auto] scanned=%d attempted=%d collected=%d failed=%d duration_ms=%d",
+                len(rows), attempted, collected, failed, duration_ms,
+            )
 
     async def _poll_once(self) -> bool:
         """单次轮询:捞起到期任务并提交执行。返回 DB 是否可用(True=正常轮询)。"""

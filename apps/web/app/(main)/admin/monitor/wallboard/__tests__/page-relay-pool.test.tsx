@@ -9,8 +9,8 @@
  * 钉的是**数据绑定 + 口径**,不是像素:
  * 1. 「可调度」与调度侧同一把尺子 —— health=down 的号不算可调度(即使还没被 temp 摘除);
  * 2. 分母只算健康态可判定的行,脏值行单独一格;
- * 3. 最短令牌临期只读**可调度账号** —— 停用/摘除的死号过期不再把面板钉成常红;
- * 4. 最久未刷新按空闲保活窗口判色(旧版写死 1 小时阈值,把正常闲置读成故障)。
+ * 3. 最早Token过期只读**可调度账户** —— 停用/摘除的死号过期不再把面板钉成常红;
+ * 4. 账号刷新时长按空闲保活窗口判色(旧版写死 1 小时阈值,把正常闲置读成故障)。
  *
  * 只 mock 网络与图表画布:ECharts 走 canvas,jsdom 里没有绘图上下文。
  */
@@ -69,7 +69,7 @@ vi.mock('@/lib/api', () => ({ fetchApi: vi.fn() }))
 import { fetchApi } from '@/lib/api'
 import { WallboardView } from '../page'
 
-/** 生产 2026-10-30 读数(截屏同源):14 key / 2 异常 / 13 可调度账号 / 1 摘除号且其票已过期。 */
+/** 生产 2026-10-30 读数(截屏同源):14 key / 2 异常 / 13 可调度账户 / 1 摘除号且其票已过期。 */
 const liveRelayPool = {
   keyTotal: 14,
   keyClassified: 14,
@@ -160,7 +160,7 @@ async function renderWith(relayPool: unknown) {
   // 面板标题与"— / —"占位都是静态的(占位里也有斜杠,不能用它当"数据到了"的判据);
   // 等到密钥池的占位符消失 = 数据真的绑上屏
   await waitFor(() => {
-    expect(within(cellOf(view.container, '可调度 Key')).queryByText('— / —')).toBeNull()
+    expect(within(cellOf(view.container, '可调度密钥')).queryByText('— / —')).toBeNull()
   })
   return view
 }
@@ -174,60 +174,60 @@ describe('大屏「AI 号池」读数口径', () => {
     const view = await renderWith(liveRelayPool)
     const at = (label: string) => cellOf(view.container, label)
 
-    // 密钥池:分母是"健康态可判定行数",不是总行数
-    expect(within(at('可调度 Key')).getByText('14 / 14')).toBeTruthy()
+    //密钥池:分母是"健康态可判定行数",不是总行数
+    expect(within(at('可调度密钥')).getByText('14 / 14')).toBeTruthy()
     // 可调度 ≠ 健康:两条 degraded 仍未停用,选路照样能选中它们
-    expect(within(at('异常 Key')).getByText('2')).toBeTruthy()
-    expect(within(at('异常 Key')).getByText('其中 2 条仍可选中')).toBeTruthy()
+    expect(within(at('异常密钥')).getByText('2')).toBeTruthy()
+    expect(within(at('异常密钥')).getByText('2 个可恢复')).toBeTruthy()
     // 余额不足是硬故障信号:14 条可调度 key 里有 2 条余额 < 5 元
-    expect(within(at('余额不足 Key')).getByText('2')).toBeTruthy()
-    expect(within(at('未归类健康态(两池)')).getByText('0')).toBeTruthy()
+    expect(within(at('低余额')).getByText('2')).toBeTruthy()
+    expect(within(at('未分类记录')).getByText('0')).toBeTruthy()
 
     // 账号池:13/14 可调度,剩下 1 条是被摘除的死号
-    expect(within(at('可调度账号')).getByText('13 / 14')).toBeTruthy()
+    expect(within(at('可调度账户')).getByText('13 / 14')).toBeTruthy()
     // 临期只读可调度号(68,400s = 19 小时);死号的"已过期"不再冒充池子最短临期
-    expect(within(at('最短令牌临期')).getByText('19小时')).toBeTruthy()
+    expect(within(at('最早Token过期')).getByText('19小时')).toBeTruthy()
     expect(within(view.container).queryByText('已过期')).toBeNull()
-    // 死号仍然可见,但归到"停用·摘除号"这一格
-    expect(within(at('停用·摘除号')).getByText('1')).toBeTruthy()
-    expect(within(at('停用·摘除号')).getByText('其中已过期 1 条')).toBeTruthy()
-    // 最久未刷新 + 最近一次刷新 + 保活窗口上限
-    expect(within(at('最久未刷新')).getByText('2天17小时')).toBeTruthy()
-    expect(within(at('最久未刷新')).getByText('最近一次 5小时46分前 · 保活上限 7天')).toBeTruthy()
+    // 死号仍然可见,但归到"池内拉黑账号"这一格
+    expect(within(at('池内拉黑账号')).getByText('1')).toBeTruthy()
+    expect(within(at('池内拉黑账号')).getByText('1 个拉黑账号已过期')).toBeTruthy()
+    // 账号刷新时长 + 最近一次刷新 + 保活窗口上限
+    expect(within(at('账号刷新时长')).getByText('2天17小时')).toBeTruthy()
+    expect(within(at('账号刷新时长')).getByText('最近刷新于 5小时46分 前 · 刷新周期：7 天')).toBeTruthy()
 
     // 汇总格只说"异常 2",答不出是降级还是宕机 —— 四态计数与「异常」同源折叠
     // 四态 chip 的数字单独着色(两层元素),按 RTL 口径取标签元素再读整行文本
     const chip = (label: string) => within(view.container).getAllByText(label)[0]?.textContent
     expect(chip('健康')).toBe('健康 12')
     expect(chip('降级')).toBe('降级 2')
-    expect(chip('宕机')).toBe('宕机 0')
+    expect(chip('离线')).toBe('离线 0')
     expect(chip('未知')).toBe('未知 0')
     // 脏值行分池点名(合计格只给一个数,查不到是哪张表)
-    expect(within(at('未归类健康态(两池)')).getByText('密钥池 0 · 账号池 0')).toBeTruthy()
-    // 24h 内临期的可调度账号数,挂在「最短令牌临期」同一格读
-    expect(within(at('最短令牌临期')).getByText('仅可调度号 · 24h内临期 1')).toBeTruthy()
+    expect(within(at('未分类记录')).getByText('密钥 0 · 账户 0')).toBeTruthy()
+    // 24h 内临期的可调度账户数,挂在「最早Token过期」同一格读
+    expect(within(at('最早Token过期')).getByText('最早过期 · 24h内过期 1')).toBeTruthy()
     // 按供应商:一家全灭在汇总面上只掉一个数,这里必须逐家看得见
     // 断言取**展示名**(页面已统一走 resolveVendorDisplayName;内部 code 不得漏给用户):
     // stepfun → chat.vendor.stepfun「阶跃星辰」;codearts 在 VENDOR_LABEL 里直接是「CodeArts」
     const stepfun = within(view.container).getAllByText('阶跃星辰')[0]?.parentElement
     expect(stepfun?.textContent).toContain('1 / 1')
-    expect(stepfun?.textContent).toContain('异常 Key 1')
+    expect(stepfun?.textContent).toContain('异常密钥 1')
     const codearts = within(view.container).getAllByText('CodeArts')[0]?.parentElement
     expect(codearts?.textContent).toContain('0 / 1')
 
     view.unmount()
   })
 
-  it('最久未刷新越过保活窗口才染 warn;窗口内保持正常色', async () => {
+  it('账号刷新时长越过保活窗口才染 warn;窗口内保持正常色', async () => {
     const inWindow = await renderWith(liveRelayPool)
     expect(
-      within(cellOf(inWindow.container, '最久未刷新')).getByText('2天17小时').className,
+      within(cellOf(inWindow.container, '账号刷新时长')).getByText('2天17小时').className,
     ).not.toContain('text-warning-text')
     inWindow.unmount()
 
     // 8 天 > 7 天窗口 ⇒ 必须有人看
     const overdue = await renderWith({ ...liveRelayPool, accountRefreshAgeSec: 8 * 86_400 })
-    expect(within(cellOf(overdue.container, '最久未刷新')).getByText('8天').className).toContain(
+    expect(within(cellOf(overdue.container, '账号刷新时长')).getByText('8天').className).toContain(
       'text-warning-text',
     )
     overdue.unmount()
@@ -247,13 +247,13 @@ describe('大屏「AI 号池」读数口径', () => {
     })
     const at = (label: string) => cellOf(view.container, label)
 
-    expect(within(at('可调度 Key')).getByText('3 / 5')).toBeTruthy()
-    expect(within(at('可调度账号')).getByText('1 / 2')).toBeTruthy()
-    expect(within(at('未归类健康态(两池)')).getByText('1')).toBeTruthy()
+    expect(within(at('可调度密钥')).getByText('3 / 5')).toBeTruthy()
+    expect(within(at('可调度账户')).getByText('1 / 2')).toBeTruthy()
+    expect(within(at('未分类记录')).getByText('1')).toBeTruthy()
     // 老后端给的是全池最短临期(含死号)⇒ 这里如实显示「已过期」
-    expect(within(at('最短令牌临期')).getByText('已过期')).toBeTruthy()
+    expect(within(at('最早Token过期')).getByText('已过期')).toBeTruthy()
     // 新字段取不到 ⇒ 未判定灰,不是 0
-    expect(within(at('余额不足 Key')).getByText('—')).toBeTruthy()
+    expect(within(at('低余额')).getByText('—')).toBeTruthy()
 
     view.unmount()
   })
