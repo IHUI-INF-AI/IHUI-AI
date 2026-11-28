@@ -33,6 +33,7 @@ import type {
   SkillPurchaseRefundResponse,
   SkillMarketPurchaseAdminListResponse,
   SkillMarketSettlementResponse,
+  SkillSellerAccountsResponse,
 } from '@ihui/shared/skills/market'
 import {
   InsufficientSkillFundsError,
@@ -40,6 +41,7 @@ import {
   SkillPurchaseStateError,
   getSkillEarnings,
   getSkillMarketSettlement,
+  getSkillMarketSellerAccounts,
   hasPurchasedSkill,
   listSkillMarketPurchasesAdmin,
   purchasePaidSkill,
@@ -1037,6 +1039,30 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const result: SkillMarketSettlementResponse = await getSkillMarketSettlement({
+        month: parsed.data.month,
+      })
+      return reply.send(success(result))
+    },
+  )
+
+  // GET /admin/skills-market/seller-accounts — 卖家账户对账。
+  // 交易口径按账期；余额/佣金/提现为当前快照。只读，不自动改账。
+  server.get(
+    '/admin/skills-market/seller-accounts',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const parsed = z
+        .object({
+          month: z
+            .string()
+            .regex(/^\d{4}-(0[1-9]|1[0-2])$/, '账期格式必须为 YYYY-MM')
+            .optional(),
+        })
+        .safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const result: SkillSellerAccountsResponse = await getSkillMarketSellerAccounts({
         month: parsed.data.month,
       })
       return reply.send(success(result))

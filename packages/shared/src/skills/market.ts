@@ -243,6 +243,68 @@ export interface SkillMarketSettlementResponse {
   period: SkillMarketSettlementPeriod
 }
 
+/** 卖家账户对账标记（只提示，不自动改账）。 */
+export type SkillSellerAccountFlag =
+  | 'platform_borne'
+  | 'clawback_missing'
+  | 'negative_wallet'
+  | 'commission_mismatch'
+
+/**
+ * 技能市场卖家账户对账行（GET /admin/skills-market/seller-accounts）。
+ *
+ * 交易口径按账期从购买账本聚合；余额/提现/佣金是**当前**账户快照，不按账期回放。
+ * `commissionGapCents = skillActiveCommissionCents - authorShareActiveCents`，
+ * 正常应为 0；非 0 说明有效作者分成与有效技能佣金流水对不上，需要人工核查。
+ */
+export interface SkillSellerAccountRow {
+  sellerUserId: string
+  sellerNickname: string | null
+  paidCount: number
+  refundedCount: number
+  grossSalesCents: number
+  refundedGrossCents: number
+  netGmvCents: number
+  authorShareEarnedCents: number
+  authorShareActiveCents: number
+  authorShareOnRefundedCents: number
+  sellerClawbackCents: number
+  platformBorneCents: number
+  authorNetCents: number
+  /** 当前仍有效的技能作者分成佣金流水（type=3, status=1），全生命周期。 */
+  skillActiveCommissionCents: number
+  /** 当前已冲正的技能作者分成佣金流水（type=3, status=0），全生命周期。 */
+  skillInvalidCommissionCents: number
+  /** 当前账户全部有效佣金（含技能与其他类型）。 */
+  activeCommissionCents: number
+  /** 当前钱包可用余额（user_margins.token_quantity）。 */
+  walletBalanceCents: number
+  /** 在途/已完成提现按毛额占用；与可提现口径一致。 */
+  withdrawalOccupiedCents: number
+  pendingWithdrawalCents: number
+  completedWithdrawalCents: number
+  /** max(0, 全部有效佣金 - 提现占用)，与 /finance/withdrawal/available 同口径。 */
+  withdrawableCents: number
+  /** 有效技能佣金 - 有效作者分成；正常为 0。 */
+  commissionGapCents: number
+  flags: SkillSellerAccountFlag[]
+}
+
+export interface SkillSellerAccountsSummary {
+  sellers: number
+  platformBorneCents: number
+  walletBalanceCents: number
+  withdrawableCents: number
+  mismatchCount: number
+}
+
+export interface SkillSellerAccountsResponse {
+  items: SkillSellerAccountRow[]
+  summary: SkillSellerAccountsSummary
+  currency: 'CNY'
+  period: SkillMarketSettlementPeriod
+}
+
 /** 作者收益明细单条（不暴露买家身份；退款按实际扣回冲减）。 */
 export interface SkillEarningsItem {
   id: string
