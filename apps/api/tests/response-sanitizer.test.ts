@@ -13,6 +13,7 @@ import {
   MaskStrategy,
   DataMaskingPipeline,
   DEFAULT_SENSITIVE_KEYS,
+  isNoMaskPath,
 } from '../src/plugins/response-sanitizer.js'
 
 describe('response-sanitizer — buildSensitiveKeySet', () => {
@@ -82,6 +83,22 @@ describe('response-sanitizer — isSensitiveKey', () => {
     expect(isSensitiveKey('refreshExpiresAt', keys)).toBe(false)
     expect(isSensitiveKey('hasRefreshToken', keys)).toBe(false)
     expect(sanitizeData(row, keys)).toEqual(row)
+  })
+})
+
+describe('response-sanitizer — 公开榜单路径豁免', () => {
+  // 2026-11-28:权威榜的 OpenRouter `tokens` 被 "token" 子串规则打成 ***,
+  // 页面的真实用量卡片和综合榜整列看起来像数据缺失。公开榜单只含公开计量,
+  // 按路径整体豁免,不能让凭据规则误伤业务数据。
+  it('权威榜与状态接口不脱敏', () => {
+    expect(isNoMaskPath('/api/ai-world/authoritative-leaderboard?x=1')).toBe(true)
+    expect(isNoMaskPath('/api/ai-world/authoritative-leaderboard/status')).toBe(true)
+  })
+
+  it('其他接口仍按原规则脱敏', () => {
+    expect(isNoMaskPath('/api/auth/token')).toBe(false)
+    expect(isNoMaskPath('/oauth/token')).toBe(true)
+    expect(isNoMaskPath('/.well-known/openid-configuration')).toBe(true)
   })
 })
 
