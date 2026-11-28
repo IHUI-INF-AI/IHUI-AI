@@ -12,10 +12,25 @@
 #   3. 只有「父进程已不存在」且「存活超过 300 秒」的才进候选；
 #      一次性命令（git / ssh / pytest / 同步脚本）跑完会自行退出，超时才说明真卡住了。
 #   4. 同签名多实例只保留最新的一个，旧的关掉（现在 traywatch 就是这样堆了两份）。
-#   5. 端口出现多个监听者（SO_REUSEADDR 双绑）只写日志报警、不处置 —— 谁该活是人来定的。
+#   5. 端口出现多个监听者：8802/8803 是专属端口，收敛为一个（保留契约形态，其次最新）；
+#      8801 分属 dev 会话与生产回源，谁该活由持锁方决定，只记账不处置。
 #   6. -DryRun 只打印计划，不动手。
 
 param([switch]$DryRun)
+
+# 自隐藏兜底：本脚本常由 ensure 在无控制台链里调用（那时 GetConsoleWindow=0，直接跳过）；
+# 一旦被可见方式拉起（手工排查 / 老式任务直启 / 异常调用方），先把自己的黑框藏掉，
+# 不给"回收器自己变成一个新的可见窗口"留口子。
+try {
+  if (-not ('IHUI.ConsoleHide' -as [type])) {
+    Add-Type -Namespace IHUI -Name ConsoleHide -MemberDefinition @'
+[DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
+[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+'@
+  }
+  $h = [IHUI.ConsoleHide]::GetConsoleWindow()
+  if ($h -ne [IntPtr]::Zero) { [void][IHUI.ConsoleHide]::ShowWindow($h, 0) }
+} catch { }
 
 $Root = 'C:\IHUI-AI'
 $LogDir = Join-Path $Root 'logs'
@@ -98,6 +113,46 @@ foreach ($p in $byPort) {
       '{0}={1}(pid {2})' -f $_.LocalAddress, $who, $_.OwningProcess
     })
   Note ('INFO 端口 {0} 由两个进程分别占用不同协议族：{1}，不是真双绑' -f $p.Name, ($addrs -join ' / '))
+}
+
+# --- 2b. 专属端口去重：8802 / 8803 只许一个实例 ---
+# 真实事故形态：旧实例绑 127.0.0.1、新实例绑 0.0.0.0，两者互不冲突，于是都"活着"，
+# 一个占一半流量、一个占另一半，Test-Port 又只看"有没有人监听"，从此再也不会自愈 ——
+# 这就是「进程一直堆着、端口一直收不回来」的根。收敛规则：契约形态优先，其次留最新。
+$exclusivePorts = @(
+  @{ Port = 8802; Contract = '*src/index.ts*';       What = 'api' },
+  @{ Port = 8803; Contract = '*--host 127.0.0.1*';   What = 'ai-service' }
+)
+foreach ($ex in $exclusivePorts) {
+  $owners = @($listen | Where-Object { [int]$_.LocalPort -eq $ex.Port } |
+    Select-Object -ExpandProperty OwningProcess -Unique | Where-Object { $_ -gt 0 })
+  if ($owners.Count -eq 0) { continue }
+  # 单实例也可能是野形态：ai-service 的契约是 --host 127.0.0.1，而 .env / package.json 的 dev
+  # 参数是 0.0.0.0 —— 任何绕过 run-ai-prod 的启动都会把网关暴露到局域网，且会占住端口
+  # 让契约实例永远起不来。这种一律收敛，下一轮 ensure 会按契约补起。
+  if ($owners.Count -eq 1 -and $ex.What -eq 'ai-service') {
+    $cl = (Get-CimInstance Win32_Process -Filter ("ProcessId=" + $owners[0]) -ErrorAction SilentlyContinue).CommandLine
+    if ($cl -and $cl -like '*--host 0.0.0.0*') {
+      Note ('REAP 非契约 {0} 端口 {1} pid={2}（0.0.0.0 形态，收敛后由 ensure 按契约重起）' -f $ex.What, $ex.Port, $owners[0])
+      if (-not $script:Dry) { Stop-Process -Id $owners[0] -Force -ErrorAction SilentlyContinue }
+      continue
+    }
+    continue
+  }
+  if ($owners.Count -le 1) { continue }
+  $matched = @($owners | Where-Object {
+      $cl = (Get-CimInstance Win32_Process -Filter ("ProcessId=" + $_) -ErrorAction SilentlyContinue).CommandLine
+      $cl -and $cl -like $ex.Contract
+    })
+  if ($matched.Count -ge 1) {
+    $keep = @($matched | Sort-Object { (Get-Process -Id $_ -ErrorAction SilentlyContinue).StartTime } -Descending)[0]
+  } else {
+    $keep = @($owners | Sort-Object { (Get-Process -Id $_ -ErrorAction SilentlyContinue).StartTime } -Descending)[0]
+  }
+  foreach ($o in @($owners | Where-Object { $_ -ne $keep })) {
+    Note ('REAP 双起 {0} 端口 {1} pid={2}（保留 pid={3}）' -f $ex.What, $ex.Port, $o, $keep)
+    if (-not $script:Dry) { Stop-Process -Id $o -Force -ErrorAction SilentlyContinue }
+  }
 }
 
 # --- 3. 受保护集合：生产端口（8801/8802/8803）的监听者 + 其祖先链 + 本脚本祖先链 ---
@@ -241,6 +296,49 @@ foreach ($o in @($nonProdOwners)) {
   $ports = @($listen | Where-Object { $_.OwningProcess -eq $o } | Select-Object -ExpandProperty LocalPort -Unique)
   Note ('REAP 闲置临时服务 {0} pid={1}（已 {2:N0}s 无连接，端口 {3}）' -f $proc.Name, $o, $age, ($ports -join ','))
   if (-not $script:Dry) { Stop-Process -Id $o -Force -ErrorAction SilentlyContinue }
+}
+
+# --- 8b. 僵尸临时服务：uvicorn 起过却没占住端口的孤儿 ---
+# 验收桩常拿 88xx 临时端口另起一份 ai-service；绑定失败、端口被抢、或起完忘了关，
+# 都会剩一个「不监听任何端口、父进程已死」的 python —— 它不再提供任何服务，只是占内存。
+# 判据只认 -m uvicorn 这一类，且必须无监听、无子、无连接、父死、超 30 分钟；
+# pytest / vitest 一律不碰（那是别人会话的结果，杀了就是丢结果）。
+foreach ($p in $all) {
+  if (-not ($p.CommandLine -and $p.CommandLine -like '*-m uvicorn*')) { continue }
+  if ($protected.Contains([int]$p.ProcessId)) { continue }
+  if (@($listen | Where-Object { [int]$_.OwningProcess -eq [int]$p.ProcessId }).Count -gt 0) { continue }
+  if (@($all | Where-Object { $_.ParentProcessId -eq $p.ProcessId }).Count -gt 0) { continue }
+  if (@(Get-NetTCPConnection -OwningProcess $p.ProcessId -State Established -ErrorAction SilentlyContinue).Count -gt 0) { continue }
+  $ageSec = ($now - $p.CreationDate).TotalSeconds
+  # pythonw 没有有效的 stderr，uvicorn 绑端口失败（端口被契约实例占了）时异常无处可写，
+  # 进程会被静默挂住：既不监听也不退出，父进程还活着就一直挂着。所以父活也不能一律豁免 ——
+  # 十分钟还没占住端口，说明它永远起不来了；父已死的仍按三十分钟的宽限走。
+  if ($live.ContainsKey([int]$p.ParentProcessId)) {
+    if ($ageSec -lt 600) { continue }
+  } elseif ($ageSec -lt 1800) { continue }
+  Note ('REAP 僵尸服务 {0} pid={1}（uvicorn 未占端口、已 {2:N0}s）' -f $p.Name, $p.ProcessId, $ageSec)
+  if (-not $script:Dry) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue }
+}
+
+# --- 9. 卡死的 pytest 僵尸 ---
+# 父会话退出后 pytest 卡在等锁 / 等网络：CPU 恒为 0、没有任何输出、junit 文件也不产出。
+# 它不是「在跑」，只是占着内存和句柄。判据要求 CPU 在 1.2 秒窗口内增量 ≤ 0.1s ——
+# 真在跑的测试一定会有计算量，绝不会中招；父进程还活着的也一律跳过。
+foreach ($p in $all) {
+  if (-not ($p.CommandLine -and $p.CommandLine -like '*-m pytest*')) { continue }
+  if ($protected.Contains([int]$p.ProcessId)) { continue }
+  if ($live.ContainsKey([int]$p.ParentProcessId)) { continue }
+  if (($now - $p.CreationDate).TotalSeconds -lt 1800) { continue }
+  if (@($listen | Where-Object { [int]$_.OwningProcess -eq [int]$p.ProcessId }).Count -gt 0) { continue }
+  if (@($all | Where-Object { $_.ParentProcessId -eq $p.ProcessId }).Count -gt 0) { continue }
+  $c1 = (Get-Process -Id $p.ProcessId -ErrorAction SilentlyContinue).CPU
+  if ($null -eq $c1) { continue }
+  Start-Sleep -Milliseconds 1200
+  $c2 = (Get-Process -Id $p.ProcessId -ErrorAction SilentlyContinue).CPU
+  if ($null -eq $c2) { continue }
+  if (($c2 - $c1) -gt 0.1) { continue }
+  Note ('REAP 卡死测试 {0} pid={1}（pytest 零 CPU、父已死，已 {2:N0}s）' -f $p.Name, $p.ProcessId, ($now - $p.CreationDate).TotalSeconds)
+  if (-not $script:Dry) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue }
 }
 
 Note ('DONE 回收结束（候选 {0}，隐藏窗口 {1}，模式 {2}）' -f $cands.Count, $script:HidCount, $(if ($script:Dry) { 'dry-run' } else { 'apply' }))

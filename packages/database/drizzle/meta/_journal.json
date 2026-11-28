@@ -3397,6 +3397,20 @@
       "when": 1795837200000,
       "tag": "20261128120000_publish_api_usage_pricing",
       "breakpoints": true
+    },
+    {
+      "idx": 495,
+      "version": "7",
+      "when": 1795840800000,
+      "tag": "20261128140000_skill_market_purchases",
+      "breakpoints": true
+    },
+    {
+      "idx": 496,
+      "version": "7",
+      "when": 1795845600000,
+      "tag": "20261128160000_skill_market_refund",
+      "breakpoints": true
     }
   ]
 }

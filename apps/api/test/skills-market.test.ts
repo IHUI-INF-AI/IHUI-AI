@@ -330,6 +330,9 @@ describe('Skills Market API', () => {
         installCount: 0,
         rating: 0,
         ratingCount: 0,
+        // 2026-11-28 技能市场定价:新上架条目默认免费,分成比例按平台策略快照(70%)。
+        priceCents: 0,
+        revenueShareBps: 7000,
         createdAt: expect.any(String),
         updatedAt: expect.any(String),
         // P2-14(2026-09-25)起的 listing 契约字段:归属由服务端按调用身份推导,

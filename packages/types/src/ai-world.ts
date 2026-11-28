@@ -38,4 +38,113 @@ export interface AiWorldCategory {
   icon: string | null
   sort: number
 }
+
+/** 权威榜单榜来源 ID。 */
+export type AiWorldLeaderboardSourceId = 'aa' | 'lmarena' | 'openrouter'
+
+/** 权威榜数据来源卡片。 */
+export interface AiWorldLeaderboardSource {
+  id: AiWorldLeaderboardSourceId
+  name: string
+  metric: string
+  url: string
+  dataset?: string
+  asOf: string
+  boardSize: number
+  note: string
+}
+
+/** 综合位次里某一家榜单的坐标。 */
+export interface AiWorldLeaderboardCrossSource {
+  rank: number
+  score?: number
+  tokens?: number
+  share?: number
+}
+
+/** 综合位次行：模型家族级，按覆盖榜数与百分位均值排序。 */
+export interface AiWorldLeaderboardCrossRow {
+  rank: number
+  key: string
+  model: string
+  vendor: string
+  cn: boolean
+  openWeights: boolean
+  coverage: number
+  aa: AiWorldLeaderboardCrossSource | null
+  lm: AiWorldLeaderboardCrossSource | null
+  or: AiWorldLeaderboardCrossSource | null
+}
+
+/** Artificial Analysis 单榜行。 */
+export interface AiWorldLeaderboardAaRow {
+  rank: number
+  model: string
+  vendor: string
+  score: number
+  openWeights: boolean
+  cn: boolean
+}
+
+/** LMArena 单榜行。 */
+export interface AiWorldLeaderboardLmRow {
+  rank: number
+  model: string
+  vendor: string
+  score: number
+  ci: number
+  votes: number
+  license: string
+  open: boolean
+}
+
+/** OpenRouter 真实用量单榜行。 */
+export interface AiWorldLeaderboardOrRow {
+  rank: number
+  model: string
+  vendor: string
+  tokens: number
+  share: number
+  slug: string
+  build: string | null
+  free: boolean
+}
+
+/** 自动刷新元信息；fallback 表示 Redis 无快照、页面用内置静态底稿。 */
+export interface AiWorldLeaderboardRefresh {
+  mode: 'auto' | 'fallback'
+  schedule: string
+  timezone: string
+  lastSuccessAt: string
+  lastAttemptAt?: string
+  lastError?: string | null
+  stale: boolean
+}
+
+/**
+ * `/api/ai-world/authoritative-leaderboard` 的完整响应体。
+ *
+ * 单一契约：服务端定时刷新写 Redis，Web 每次打开读最新快照；
+ * 构建期的 `authoritative-leaderboard.json` 只作为 Redis 不可用时的兜底。
+ */
+export interface AiWorldAuthoritativeLeaderboard {
+  schemaVersion: number
+  generatedAt: string
+  title: string
+  subtitle: string
+  sources: AiWorldLeaderboardSource[]
+  methodology: string
+  cross: AiWorldLeaderboardCrossRow[]
+  aa: AiWorldLeaderboardAaRow[]
+  lmarena: {
+    overall: AiWorldLeaderboardLmRow[]
+    chinese: AiWorldLeaderboardLmRow[]
+    overallVotes: number
+    chineseVotes: number
+    overallCount: number
+    chineseCount: number
+  }
+  openrouter: AiWorldLeaderboardOrRow[]
+  refresh: AiWorldLeaderboardRefresh
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

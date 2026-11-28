@@ -194,8 +194,10 @@ function buildPlatformDistribution(
 ): Array<{ platform: string; count: number; color: string }> {
   const byPlatform = new Map<string, number>()
   // 2026-08-17:改用 platforms(真实执行结果)统计,原 targets 无 status 恒空
+  // 2026-11-28:主阵地只算成功发布，失败重试不再把平台计数抬高
   for (const t of tasks) {
     for (const p of t.platforms ?? []) {
+      if (!p.success) continue
       byPlatform.set(p.platform, (byPlatform.get(p.platform) ?? 0) + 1)
     }
   }

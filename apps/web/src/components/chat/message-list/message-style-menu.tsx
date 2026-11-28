@@ -58,13 +58,15 @@ export function MessageStyleMenu({ messageId }: { messageId: string }) {
     <details className="relative" data-testid={`message-style-${messageId}`}>
       <summary
         aria-label={t('messageStyleTitle')}
-        title={t('messageStyleTitle')}
+        // 2026-11-28:去掉原生 title(§4 禁原生提示窗)。此处不能用 Tooltip 包裹——
+        // Tooltip 的 wrapper 会插入 details 与 summary 之间,破坏「details 首子元素必须是 summary」
+        // 的 HTML 结构约定导致点击展开失效;可访问名称由 aria-label 承担。
         className="inline-flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground [&::-webkit-details-marker]:hidden"
       >
         <Palette className="h-4 w-4" aria-hidden="true" />
       </summary>
 
-      <div className="absolute right-0 top-9 z-50 w-64 space-y-2 rounded-md border border-stroke-strong bg-popover p-2.5 text-popover-foreground shadow-elevation-md">
+      <div className="absolute right-0 top-9 z-50 w-64 space-y-2 rounded-md border border-stroke-strong bg-popover p-3 text-popover-foreground shadow-elevation-md">
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-medium">{t('messageStyleTitle')}</span>
           <button

@@ -43,6 +43,10 @@ import {
   stopTrendingScheduler,
 } from './jobs/ai-world-sync.js'
 import { startHotWordsScheduler, stopHotWordsScheduler } from './jobs/hot-words-sync.js'
+import {
+  startAuthoritativeLeaderboardScheduler,
+  stopAuthoritativeLeaderboardScheduler,
+} from './jobs/authoritative-leaderboard.js'
 import { startSourceProbeScheduler, stopSourceProbeScheduler } from './jobs/portal-source-probe.js'
 import {
   startPiiRetentionScheduler,
@@ -316,6 +320,10 @@ function startBackgroundSchedulers(server: Awaited<ReturnType<typeof buildServer
     startAiWorldSyncScheduler()
   }
 
+  // 权威榜单(LMArena / AA / OpenRouter)每 6 小时自动刷新,写 Redis 快照;
+  // 页面读快照,不依赖重新构建。ENABLE_AUTHORITATIVE_LEADERBOARD=false 可禁用。
+  startAuthoritativeLeaderboardScheduler(server.redis, server.log)
+
   // 启动热搜词采集定时任务(每 3 小时一次,默认开启,ENABLE_HOT_WORDS_SYNC=false 禁用)
   if (process.env.ENABLE_HOT_WORDS_SYNC !== 'false') {
     startHotWordsScheduler()
@@ -494,6 +502,7 @@ async function start() {
         run: () => stopMcpLoopbackBootstrap(mcpLoopback),
       },
       syncStopPhase('stopAiWorldSyncScheduler', stopAiWorldSyncScheduler),
+      syncStopPhase('stopAuthoritativeLeaderboardScheduler', stopAuthoritativeLeaderboardScheduler),
       syncStopPhase('stopRankingScheduler', stopRankingScheduler),
       syncStopPhase('stopTrendingScheduler', stopTrendingScheduler),
       syncStopPhase('stopSourceProbeScheduler', stopSourceProbeScheduler),

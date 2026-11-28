@@ -34,6 +34,19 @@ export interface SkillMarketEntry {
    */
   source?: 'builtin' | 'user' | 'hub'
   /**
+   * 单次购买价格(人民币分,0 = 免费)。
+   * 缺省按 0 解释,兼容价格字段落地前写入的历史条目。
+   * 金额单位与钱包 `user_margins.token_quantity` 一致(1 分 = 1 余额单位),
+   * 购买时按此价从买家钱包扣款,不做 VIP 折扣。
+   */
+  priceCents?: number
+  /**
+   * 作者分成比例(basis points,7000 = 70%)。
+   * 由服务端按平台策略在发布时快照,后续调策略不改历史条目的分成口径;
+   * 内置/无归属条目按 0 处理(全部归平台)。
+   */
+  revenueShareBps?: number
+  /**
    * 上架者的用户 ID,owner 判定的唯一依据(服务端按 request.userId 比对此列)。
    * 内置种子与内部同步条目没有归属者 ⇒ 留空,任何人都不算 owner。
    *
@@ -87,9 +100,10 @@ export interface SkillRateRequest {
   comment?: string
 }
 
-/**
- * 发布 skill 到市场的请求体。
+/** 发布 skill 到市场的请求体。
  * content 为 skill 正文(供安装时复制到用户私有库),市场条目本身只存元数据。
+ * priceCents 可选:0/缺省 = 免费;>0 表示单次买断价(人民币分)。
+ * 作者分成比例不接受请求体自报,由服务端按平台策略快照。
  */
 export interface SkillPublishRequest {
   name: string
@@ -99,10 +113,90 @@ export interface SkillPublishRequest {
   version: string
   license: string
   content: string
+  priceCents?: number
 }
 
 /** 发布端点响应(返回新建的市场条目) */
 export type SkillPublishResponse = SkillMarketEntry
+
+/** 购买并安装一个市场 Skill 的响应。 */
+export interface SkillPurchaseResponse {
+  name: string
+  /** true = 已写入用户库并启用 */
+  installed: boolean
+  /** true = 这次调用实际发生了扣款(免费/已购/作者本人均为 false) */
+  charged: boolean
+  /** true = 本次之前已买过;不重复扣款 */
+  alreadyPurchased: boolean
+  /** true = 免费技能,未产生购买账本 */
+  free: boolean
+  priceCents: number
+  authorShareCents: number
+  platformShareCents: number
+  currency: string
+  /** 扣款后的钱包余额(未扣款时为 null) */
+  balanceAfter: number | null
+  installCount: number
+}
+
+/** 管理员退款购买记录后的响应。 */
+export interface SkillPurchaseRefundResponse {
+  purchaseId: string
+  skillName: string
+  buyerUserId: string
+  alreadyRefunded: boolean
+  refundedAmountCents: number
+  /** 从卖家余额实际扣回的分成；余额不足时小于原分成，差额由平台承担。 */
+  sellerClawbackCents: number
+  buyerBalanceAfter: number | null
+}
+
+/** 管理员购买账本列表项（GET /admin/skills-market/purchases）。 */
+export interface SkillMarketPurchaseAdminItem {
+  id: string
+  skillName: string
+  skillVersion: string
+  buyerUserId: string
+  buyerNickname: string | null
+  sellerUserId: string | null
+  sellerNickname: string | null
+  priceCents: number
+  currency: string
+  revenueShareBps: number
+  authorShareCents: number
+  platformShareCents: number
+  /** paid = 在购；refunded = 已退款。 */
+  status: 'paid' | 'refunded'
+  createdAt: string
+  refundedAt: string | null
+  refundAmountCents: number
+  refundReason: string | null
+}
+
+/** 管理员购买账本分页响应。 */
+export interface SkillMarketPurchaseAdminListResponse {
+  items: SkillMarketPurchaseAdminItem[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+/** 作者收益汇总(GET /skills/market/earnings)。 */
+export interface SkillEarningsResponse {
+  totalAuthorShareCents: number
+  currency: string
+  records: number
+  lastEarnedAt: string | null
+  items: Array<{
+    id: string
+    skillName: string
+    buyerUserId: string
+    priceCents: number
+    authorShareCents: number
+    revenueShareBps: number
+    createdAt: string
+  }>
+}
 
 /** 订阅状态查询响应 */
 export interface SkillSubscriptionResponse {

@@ -2606,7 +2606,9 @@ const styles = StyleSheet.create({
   },
   previewOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.92)',
+    // 2026-11-28:写死 rgba(0,0,0,0.92) 换 tokens.surface.dark 档(参照 ChatScreen.imagePreviewOverlay
+    // 同型先例——全屏预览是"深色画布"而非"模态遮罩",不写死字面量当第二份真相)
+    backgroundColor: tokens.surface.dark,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -2656,7 +2658,8 @@ const styles = StyleSheet.create({
   },
   videoModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.92)',
+    // 同上:tokens.surface.dark 取代写死的 rgba(0,0,0,0.92)(ChatScreen 同型先例)
+    backgroundColor: tokens.surface.dark,
     justifyContent: 'center',
     alignItems: 'center',
   },

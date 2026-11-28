@@ -10,13 +10,15 @@
  * 任何登录用户都能拿到 200 + completed + 「Agent 第 N 轮思考」,实际零执行。
  *
  * 本夹具钉住:
- *   ① 路由面:POST /api/workspace/agent/run 不再返回 200 + completed,而是显式 501;
+ *   ① 路由面:POST /api/workspace/agent/run 缺 `workspacePath` 直接 400,不再无边界执行
+ *      或返回 200 + completed;工作区执行边界必须显式给出。
  *   ② 服务面:失败时调用真实端点 `/api/llm/complete`(带 /api 前缀),且 404 一律 failed,
  *      不再伪造「第 N 轮思考」;
  *   ③ 正向对照:真实 200 响应下的内容原样落到 task.result,证明不是一刀切禁用。
  *
  * 改前读数:① 200(completed);② 请求打到 /llm/chat、404 后 completed + 伪思考。
- * 改后读数:① 501;② 打到 /api/llm/complete、404 后 failed;③ 200 成功内容原样。
+ * 改后读数:① 400(缺 workspacePath,拒绝执行);② 打到 /api/llm/complete、404 后 failed;
+ *   ③ 200 成功内容原样。
  */
 import Fastify, { type FastifyInstance } from 'fastify'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -65,7 +67,7 @@ describe('F-306 Workspace agent/run 不再伪成功', () => {
     await app.close()
   })
 
-  it('路由面:POST /agent/run 显式 501,不再 200 + completed', async () => {
+  it('路由面:缺 workspacePath 显式 400,拒绝无边界执行', async () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/workspace/agent/run',
@@ -73,10 +75,10 @@ describe('F-306 Workspace agent/run 不再伪成功', () => {
       payload: { goal: '修复登录页', tools: ['read_file'] },
     })
 
-    expect(res.statusCode).toBe(501)
+    expect(res.statusCode).toBe(400)
     const body = res.json() as { code?: number; message?: string }
-    expect(body.code).toBe(501)
-    expect(body.message).toContain('未接入')
+    expect(body.code).toBe(400)
+    expect(body.message).toBeTruthy()
     expect(res.body).not.toContain('completed')
   })
 

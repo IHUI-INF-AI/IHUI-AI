@@ -379,7 +379,8 @@ function createStyles(tk: AppThemeTokens) {
     },
     chip: {
       paddingHorizontal: rnSpacing.md,
-      paddingVertical: rnSpacing.xs,
+      // 2026-11-28:paddingVertical xs(4)实高≈24dp 低于 36dp 可点下限 → 提到 sm 补足触达
+      paddingVertical: rnSpacing.sm,
       borderRadius: rnRadiusFor.chip,
       borderWidth: 1,
       borderColor: tk.border.light,

@@ -28,11 +28,67 @@ const TOOL_SEARCH_TOOL_NAME = 'tool_search';
 const DEFAULT_TOP_K = 5;
 const MAX_TOP_K = 20;
 
+/**
+ * 揭示预算(字节,2026-11-28 立)。
+ *
+ * 立因:`revealed` 只增不减 —— 实测 15 次检索揭示 63 枚后，默认面从 15,475B 涨到 25,378B
+ * (+64%)，延迟装载的收益被"越检索越常驻"吃掉一半。长会话里这条曲线没有上限。
+ *
+ * 口径:只对**本来就会被延迟**的工具计费(`deferLoading`/dangerous 决定);常驻工具被命中
+ * 不占额度、留着也不花钱。预算满时按**最久未命中**回收，当前这次命中的一律不动。
+ * 被回收的工具**仍可按名直接调用**(注册表里没删)，只是参数 schema 不再占前缀。
+ */
+export const REVEAL_BUDGET_BYTES = 6000;
+
+/**
+ * 按字节预算回收最久未命中的揭示项。
+ *
+ * @param revealed 会话级已揭示集合(原地修改)
+ * @param keep     本次刚命中的名字:无论如何不许回收 —— 回收刚给出去的 schema 等于白检索
+ * @param budget   预算字节数(缺省即 `REVEAL_BUDGET_BYTES`)
+ * @returns 被回收的工具名(供回给模型一句可核对的说明)
+ */
+function pruneRevealed(
+  revealed: Set<string>,
+  tools: readonly Tool[],
+  keep: ReadonlySet<string>,
+  budget: number,
+): string[] {
+  const byName = new Map(tools.map((tool) => [tool.name, tool] as const));
+  const costOf = (name: string): number => {
+    const tool = byName.get(name);
+    return tool === undefined ? 0 : renderToolSchema(tool).length;
+  };
+  const isDeferred = (name: string): boolean => {
+    const tool = byName.get(name);
+    return tool === undefined ? false : shouldDeferTool(tool.name, tool);
+  };
+  let total = 0;
+  for (const name of revealed) total += isDeferred(name) ? costOf(name) : 0;
+  const evicted: string[] = [];
+  if (total <= budget) return evicted;
+  for (const name of [...revealed]) {
+    if (total <= budget) break;
+    if (keep.has(name)) continue;
+    if (!isDeferred(name)) {
+      // 常驻工具本来就不花钱:顺手清掉，避免集合无限长。
+      revealed.delete(name);
+      continue;
+    }
+    revealed.delete(name);
+    total -= costOf(name);
+    evicted.push(name);
+  }
+  return evicted;
+}
+
 export interface ToolSearchOptions {
   /** 会话级已揭示集合(命中后写入) */
   revealed: Set<string>;
   /** 工具来源(测试注入用;缺省取全局注册表 `listTools()`) */
   tools?: () => readonly Tool[];
+  /** 揭示预算(字节);缺省 `REVEAL_BUDGET_BYTES`。测试用注入，生产不传。 */
+  revealBudgetBytes?: number;
 }
 
 export interface ToolSearchHit {
@@ -353,10 +409,22 @@ export function createToolSearchTool(opts: ToolSearchOptions): Tool {
           output: `未命中任何工具。可检索的延迟工具:\n${availableDeferredNames(tools, opts.revealed).join('\n') || '(当前没有可检索的延迟工具)'}`,
         };
       }
-      for (const hit of hits) opts.revealed.add(hit.tool.name);
+      // 命中即揭示,并把"最久未命中"的顺序刷新到队尾(Set 的插入顺序就是回收顺序)。
+      const hitNames = new Set(hits.map((hit) => hit.tool.name));
+      for (const hit of hits) {
+        opts.revealed.delete(hit.tool.name);
+        opts.revealed.add(hit.tool.name);
+      }
+      const budgetUsed = opts.revealBudgetBytes ?? REVEAL_BUDGET_BYTES;
+      const evicted = pruneRevealed(opts.revealed, tools, hitNames, budgetUsed);
+      const budgetNote =
+        evicted.length === 0
+          ? ''
+          : `\n\n(揭示预算 ${budgetUsed}B 已满,回收最早揭示的 ${evicted.length} 个:${evicted.join(', ')};` +
+            '它们仍可按名直接调用,需要参数细节时再检索)';
       return {
         success: true,
-        output: `已揭示 ${hits.length} 个工具,本轮起参数 schema 常驻:\n\n${hits.map((hit) => renderToolSchema(hit.tool)).join('\n\n')}`,
+        output: `已揭示 ${hits.length} 个工具,本轮起参数 schema 常驻:\n\n${hits.map((hit) => renderToolSchema(hit.tool)).join('\n\n')}${budgetNote}`,
       };
     },
   };

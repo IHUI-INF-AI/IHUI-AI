@@ -39,6 +39,7 @@ import {
   fetchSkillsMarket,
   fetchSkillRatings,
   installSkill,
+  purchaseSkill,
   rateSkill,
   publishSkill,
   subscribeSkill,
@@ -88,13 +89,16 @@ export default function SkillsMarketPage() {
   })
 
   const installMut = useMutation({
-    mutationFn: installSkill,
-    onSuccess: (_r, name) => {
-      setInstalled((s) => new Set(s).add(name))
+    mutationFn: async (skill: SkillMarketEntry) => {
+      if ((skill.priceCents ?? 0) > 0) return purchaseSkill(skill.name)
+      return installSkill(skill.name)
+    },
+    onSuccess: (_r, skill) => {
+      setInstalled((s) => new Set(s).add(skill.name))
       toast.success(t('installSuccess'))
       qc.invalidateQueries({ queryKey: ['skills', 'market'] })
     },
-    onError: () => toast.error(t('installFailed')),
+    onError: (e: Error) => toast.error(t('installFailed'), { description: e.message }),
   })
 
   const items = data?.items ?? []
@@ -182,8 +186,22 @@ export default function SkillsMarketPage() {
               key={s.name}
               skill={s}
               installed={installed.has(s.name)}
-              installing={installMut.isPending && installMut.variables === s.name}
-              onInstall={() => installMut.mutate(s.name)}
+              installing={installMut.isPending && installMut.variables?.name === s.name}
+              onInstall={() => {
+                const priceCents = s.priceCents ?? 0
+                if (
+                  priceCents > 0 &&
+                  !window.confirm(
+                    t('purchaseConfirm', {
+                      name: s.name,
+                      price: (priceCents / 100).toFixed(2),
+                    }),
+                  )
+                ) {
+                  return
+                }
+                installMut.mutate(s)
+              }}
               onRate={() => setRatingFor(s)}
             />
           ))}
@@ -306,9 +324,16 @@ function SkillCard({
       <CardContent className="min-[640px]:p-3 flex flex-1 flex-col gap-2.5 p-3">
         <div className="flex items-start justify-between gap-2">
           <h3 className="font-medium leading-tight">{skill.name}</h3>
-          <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
-            v{skill.version}
-          </span>
+          <div className="flex shrink-0 items-center gap-1">
+            <span className="rounded-md bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
+              v{skill.version}
+            </span>
+            <span className="rounded-md bg-amber-500/10 px-1.5 py-0.5 text-label font-semibold text-amber-600">
+              {(skill.priceCents ?? 0) > 0
+                ? `¥${((skill.priceCents ?? 0) / 100).toFixed(2)}`
+                : t('free')}
+            </span>
+          </div>
         </div>
         <p className="flex-1 text-body text-muted-foreground">{skill.description || '—'}</p>
         {skill.tags.length > 0 && (
@@ -347,7 +372,13 @@ function SkillCard({
             ) : (
               <Download className="h-4 w-4" />
             )}
-            <span>{installed ? t('installed') : t('install')}</span>
+            <span>
+              {installed
+                ? t('installed')
+                : (skill.priceCents ?? 0) > 0
+                  ? t('buy', { price: ((skill.priceCents ?? 0) / 100).toFixed(2) })
+                  : t('install')}
+            </span>
           </Button>
           <Button variant="outline" size="sm" onClick={onRate}>
             <Star className="h-4 w-4" />
@@ -474,6 +505,7 @@ function PublishDialog({ open, onClose }: { open: boolean; onClose: () => void }
   const [version, setVersion] = React.useState('1.0.0')
   const [license, setLicense] = React.useState('MIT')
   const [content, setContent] = React.useState('')
+  const [priceYuan, setPriceYuan] = React.useState('0')
 
   React.useEffect(() => {
     if (open) {
@@ -484,8 +516,11 @@ function PublishDialog({ open, onClose }: { open: boolean; onClose: () => void }
       setVersion('1.0.0')
       setLicense('MIT')
       setContent('')
+      setPriceYuan('0')
     }
   }, [open])
+
+  const priceCents = Math.max(0, Math.round((Number(priceYuan) || 0) * 100))
 
   const publishMut = useMutation({
     mutationFn: () =>
@@ -500,6 +535,7 @@ function PublishDialog({ open, onClose }: { open: boolean; onClose: () => void }
         version: version.trim() || '1.0.0',
         license: license.trim() || 'MIT',
         content: content.trim(),
+        priceCents,
       }),
     onSuccess: () => {
       toast.success(t('publishSuccess'))
@@ -565,6 +601,18 @@ function PublishDialog({ open, onClose }: { open: boolean; onClose: () => void }
                 placeholder="MIT"
               />
             </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-body font-medium">{t('publishPrice')}</label>
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              value={priceYuan}
+              onChange={(e) => setPriceYuan(e.target.value)}
+              placeholder="0"
+            />
+            <p className="text-label text-muted-foreground">{t('publishPriceHint')}</p>
           </div>
           <div className="space-y-1">
             <label className="text-body font-medium">{t('publishContent')}</label>

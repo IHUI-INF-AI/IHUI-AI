@@ -9,6 +9,21 @@
 # 这里用它与 apps/ai-service 自己的 .env 启动，只监听环回地址。
 
 $ErrorActionPreference = 'Stop'
+
+# 自隐藏兜底：不管调用方用什么方式拉起（Start-Process 只要带 -RedirectStandard* 就会强制新建
+# 控制台），先把自己已经拿到的那个控制台窗口藏掉，桌面上不再留下 pwsh 黑框。
+# GetConsoleWindow 为 0 表示本就没有控制台（CreateNoWindow），直接跳过。
+try {
+  if (-not ('IHUI.ConsoleHide' -as [type])) {
+    Add-Type -Namespace IHUI -Name ConsoleHide -MemberDefinition @'
+[DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
+[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+'@
+  }
+  $h = [IHUI.ConsoleHide]::GetConsoleWindow()
+  if ($h -ne [IntPtr]::Zero) { [void][IHUI.ConsoleHide]::ShowWindow($h, 0) }
+} catch { }
+
 $Root = 'C:\IHUI-AI'
 $AiDir = Join-Path $Root 'apps\ai-service'
 $Python = Join-Path $AiDir '.venv\Scripts\python.exe'
@@ -25,8 +40,24 @@ if (-not (Test-Path -LiteralPath (Join-Path $AiDir 'app\main.py'))) {
 }
 
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
-if (Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue) {
-    exit 0
+
+# 端口被占时先看是谁占的，别一律让位：
+#   契约形态（--host 127.0.0.1）说明已经有正常实例在役 → 让位退出；
+#   野形态（0.0.0.0，.env / package.json 的 dev 参数）会永久占住端口让契约实例永远起不来 → 收敛掉再起。
+# 这里是独立入口（有人直接调本脚本就绕过了 ensure），所以判定必须和 ensure / reap 同口径。
+$owners = @(Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue |
+  Select-Object -ExpandProperty OwningProcess -Unique | Where-Object { $_ -gt 0 })
+if ($owners.Count -gt 0) {
+    $wild = @($owners | Where-Object {
+        $cl = (Get-CimInstance Win32_Process -Filter "ProcessId=$_" -ErrorAction SilentlyContinue).CommandLine
+        $cl -and $cl -notlike '*--host 127.0.0.1*'
+    })
+    if ($wild.Count -eq 0) { exit 0 }
+    foreach ($o in $wild) {
+        Add-Content -Path (Join-Path $LogDir 'prod-stack.log') -Value ("{0:o} run-ai dedupe port {1}: killed pid={2} (非契约 host 形态)" -f (Get-Date), $Port, $o)
+        Stop-Process -Id $o -Force -ErrorAction SilentlyContinue
+    }
+    Start-Sleep -Milliseconds 500
 }
 
 $out = Join-Path $LogDir 'ai-prod.out.log'

@@ -19,6 +19,7 @@ import { Button, Card, CardContent, Input } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { useConfirm } from '@/hooks/use-confirm'
 import { PLATFORM_KEY } from '../helpers'
 import { TaskProgressBar } from '@/components/publish/TaskProgressBar'
 import { buildConfirmBody, toLocalDateTimeInputValue } from './confirm-helpers'
@@ -111,6 +112,8 @@ function fmtDuration(ms?: number): string {
 export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps) {
   const t = useTranslations('publish')
   const toast = useToast()
+  // 2026-11-28:window.confirm → 项目标准 useConfirm(§4 禁原生提示窗;scope-card 同型)
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const [acting, setActing] = React.useState<'cancel' | 'retry' | 'confirm' | 'reschedule' | null>(
     null,
   )
@@ -182,7 +185,14 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
 
   async function handleAction(action: 'cancel' | 'retry') {
     if (!task.taskId) return
-    if (action === 'cancel' && !window.confirm(t('history.cancelPrompt'))) return
+    if (action === 'cancel') {
+      const ok = await confirm({
+        title: t('history.cancel'),
+        description: t('history.cancelPrompt'),
+        variant: 'destructive',
+      })
+      if (!ok) return
+    }
     setActing(action)
     const label = action === 'cancel' ? t('history.cancel') : t('history.retry')
     try {
@@ -220,7 +230,11 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
       confirmMode === 'later'
         ? t('history.confirmLaterPrompt', { time: confirmAt.replace('T', ' ') })
         : t('history.confirmPrompt')
-    if (!window.confirm(prompt)) return
+    const ok = await confirm({
+      title: t('history.confirm'),
+      description: prompt,
+    })
+    if (!ok) return
 
     setActing('confirm')
     try {
@@ -712,6 +726,7 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
           </div>
         )}
       </CardContent>
+      <ConfirmDialogRenderer />
     </Card>
   )
 }
