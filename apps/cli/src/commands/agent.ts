@@ -68,7 +68,7 @@ import { createToolSearchTool, noteRevealedToolUsage } from '../tools/tool-searc
 import { composeSystemPrompt } from '../prompts/compose.js';
 import { parseWelcomeMode, parseInteractionMode } from '../prompts/mode-matrix.js';
 import { BUILTIN_TOOLS } from '../tools/builtins.js';
-import { PTC_TOOL_ENV, createPtcReadOnlyExecutor, createRunCodeTool } from '../tools/ptc-tool.js';
+import { PTC_TOOL_ENV, PTC_DEFAULT_BINDING_TOOL_NAMES, createPtcReadOnlyExecutor, createRunCodeTool } from '../tools/ptc-tool.js';
 import { PTC_RUN_CODE_TOOL_NAME, createPtcTurnBudget, createPtcTurnConcurrency } from '../tools/ptc-executor.js';
 import type { PtcBindingApprover, PtcBindingCallQuota, PtcBindingConcurrencyQuota } from '../tools/ptc-executor.js';
 import { renderPtcSdk, selectPtcBindingTools } from '../tools/ptc-sdk.js';
@@ -255,7 +255,23 @@ export type { ToolContext } from '../tools/index.js';
 // 与 @ihui/types ChatRole 对齐(含 'tool'):repl state.history(session 持久化)与压缩
 // 结果(CompressionResult)均可能携带 tool role,窄版类型会在 decideCompaction 接线处不兼容
 type ChatRole = 'system' | 'user' | 'assistant' | 'tool';
-type ChatMessage = { role: ChatRole; content: string };
+/** 原生 function calling 的助手侧调用条目；正则旧路径没有 id，所以整体可选。 */
+type ChatMessageToolCall = {
+  id: string;
+  type?: string;
+  function?: { name?: string; arguments?: string };
+};
+/**
+ * 本地历史消息的**最小原生形状**：只补 `tool_calls` / `tool_call_id` 两格。
+ * 不把 `@ihui/types` 的整型搬进来 —— 这里要的是能把原生闭环写回历史，
+ * 不是再养一份会与共享层分叉的 ChatMessage 定义。
+ */
+type ChatMessage = {
+  role: ChatRole;
+  content: string;
+  tool_calls?: ChatMessageToolCall[];
+  tool_call_id?: string;
+};
 
 export interface AgentOptions {
   prompt: string;
@@ -978,6 +994,11 @@ export interface RunToolLoopOptions {
    * 只在携带 tools 时才生效(prompt 降级模式下无意义)。
    */
   toolChoice?: ToolChoice;
+  /**
+   * 原生请求体的 `parallel_tool_calls`。缺省不写（provider 默认值接管）；
+   * 显式 false = 逼模型一次只发一枚调用，true = 明确允许并行。
+   */
+  parallelToolCalls?: boolean;
   /** 单程序绑定调用总上限;缺省 1000，超限 abort。 */
   maxPtcToolCalls?: number;
   /** 一个 agent 回合内多个 run_code 共享的绑定调用总上限;缺省不设回合闸。 */
@@ -1749,7 +1770,12 @@ const SAMPLER_RETRYABLE_SEVERITIES: ReadonlySet<string> = new Set(['ratelimit', 
 interface SampleWithRetryOptions {
   modelId: string;
   // role 含 'tool':与 @ihui/context-compaction 的 ChatMessage 及 OpenAI 兼容协议对齐
-  messages: Array<{ role: 'user' | 'assistant' | 'system' | 'tool'; content: string }>;
+  messages: Array<{
+    role: 'user' | 'assistant' | 'system' | 'tool';
+    content: string;
+    tool_calls?: ChatMessageToolCall[];
+    tool_call_id?: string;
+  }>;
   signal?: AbortSignal;
   onDelta: (delta: string) => void;
   /**
@@ -2368,6 +2394,8 @@ async function runToolLoopInner(
     (opts.toolExecutorKind === 'ptc'
       ? createPtcReadOnlyExecutor({
           runner: executeToolCall,
+          bindingTools: PTC_DEFAULT_BINDING_TOOL_NAMES,
+          ...(opts.approvePtcBinding === undefined ? {} : { approveBinding: opts.approvePtcBinding }),
           maxBindingCalls: opts.maxPtcToolCalls,
           maxConcurrentBindingCalls: opts.maxPtcConcurrentCalls,
           maxBindingCallsByScope: opts.maxPtcScopeCalls,
@@ -2519,7 +2547,12 @@ async function runToolLoopInner(
 
   /** 把内部消息列表映射为 OpenAI 兼容消息(role 'tool' 补 tool_call_id) */
   function toOpenAiMessages(
-    msgs: Array<{ role: string; content: string }>,
+    msgs: Array<{
+      role: string;
+      content: string;
+      tool_calls?: ChatMessageToolCall[];
+      tool_call_id?: string;
+    }>,
   ): ChatCompletionMessage[] {
     return msgs.map((m) => {
       const role = m.role as ChatCompletionMessage['role'];
@@ -2527,7 +2560,16 @@ async function runToolLoopInner(
         return {
           role,
           content: m.content,
-          tool_call_id: pendingToolCallIds.shift() ?? '',
+          // 原生闭环优先用消息自带的 id；旧文本回灌路径没有 id，才按队列兜底。
+          tool_call_id: m.tool_call_id ?? pendingToolCallIds.shift() ?? '',
+        };
+      }
+      // assistant 的原生 tool_calls 必须原样回传，否则下一轮 provider 看不到调用与结果的配对。
+      if (role === 'assistant' && Array.isArray(m.tool_calls) && m.tool_calls.length > 0) {
+        return {
+          role,
+          content: m.content,
+          tool_calls: m.tool_calls as ChatCompletionMessage['tool_calls'],
         };
       }
       return { role, content: m.content };
@@ -2792,7 +2834,7 @@ async function runToolLoopInner(
       const useNativeTools = nativeToolsEnabled && advertisedTools.length > 0;
       // P0 tool_choice:缺省不写字段(逐字节兼容);buildNativeToolsBody 空 tools 返回 undefined
       const nativeExtraBody = useNativeTools
-        ? buildNativeToolsBody(toolsToProviderSchema(advertisedTools), opts.toolChoice)
+        ? buildNativeToolsBody(toolsToProviderSchema(advertisedTools), opts.toolChoice, opts.parallelToolCalls)
         : undefined;
 
       // 每轮一条流:换册前先收尾旧册(finalizeLedger 幂等 —— 上一轮尾已收尾则此处为 no-op;
@@ -2867,7 +2909,7 @@ async function runToolLoopInner(
                   onToolCallEvent: (event: { type: string; toolCallId: string; toolName: string; args?: Record<string, unknown> }) => {
                     if (event.type === 'tool-call-start') {
                       const args = event.args ?? {};
-                      nativeToolEvents.push({ name: event.toolName, arguments: args });
+                      nativeToolEvents.push({ name: event.toolName, arguments: args, id: event.toolCallId });
                       // 流内即时登记:满足准入线的只读调用当场开跑,不等整条流读完
                       ledger.register(
                         { toolCallId: event.toolCallId, toolName: event.toolName, args },
@@ -2943,7 +2985,7 @@ async function runToolLoopInner(
           process.stderr.write(chalk.yellow(`[truncated] ${t('cli.truncatedByLength')}\n`));
         }
         for (const tc of result.toolCalls) {
-          nativeToolEvents.push({ name: tc.name, arguments: tc.arguments });
+          nativeToolEvents.push({ name: tc.name, arguments: tc.arguments, id: tc.id });
           pendingToolCallIds.push(tc.id);
           // 本地 provider 的 tool_calls 在流读完才拿到:登记仍要做(账本是对账依据),
           // 但提前执行没有意义,所以不传 run。
@@ -3123,6 +3165,27 @@ async function runToolLoopInner(
         nativeToolEvents.length > 0 ? { tool_calls: nativeToolEvents } : undefined,
         iterationText,
       );
+
+      /**
+       * 原生闭环的第一半：助手消息必须带着 `tool_calls` 落历史，下一轮 `role:'tool'`
+       * 才有可配对的 `tool_call_id`。只在**所有调用都有 id** 时开启 —— 正则解析的
+       * 旧式调用没有 id，硬造 id 会让 provider 侧出现"调用/结果对不上"的假协议。
+       */
+      const nativeToolProtocol =
+        useNativeTools &&
+        nativeToolEvents.length > 0 &&
+        toolCalls.length > 0 &&
+        toolCalls.every((c) => typeof c.id === 'string' && c.id.length > 0);
+      if (nativeToolProtocol) {
+        const lastAssistant = opts.messages[opts.messages.length - 1];
+        if (lastAssistant?.role === 'assistant') {
+          lastAssistant.tool_calls = toolCalls.map((c) => ({
+            id: c.id as string,
+            type: 'function' as const,
+            function: { name: c.name, arguments: JSON.stringify(c.arguments) },
+          }));
+        }
+      }
 
       if (toolCalls.length > 0) {
         // G-425:模型给出工具调用 ⇒ turn 正常推进,截断恢复段自然结束,续写预算归零
@@ -3399,7 +3462,9 @@ async function runToolLoopInner(
         if (doomPlan.actions.includes('skip_tool_execution')) continue;
       }
 
-      const resultParts: string[] = [];
+      const promptParts: string[] = [];
+      const metaParts: string[] = [];
+      const nativeToolMessages: ChatMessage[] = [];
       // P0-1 Tool parallelism:先按顺序触发 onToolCall,再按**有上限的批次**执行,最后按顺序处理结果。
       // 上限默认 10(1=串行),每批开始前从 env/显式选项重读;批次内 Promise.all,批次间串行。
       for (const call of toolCalls) {
@@ -3556,15 +3621,17 @@ async function runToolLoopInner(
         } else {
           const outcome = failureStreak.record(call.name, false);
           if (outcome.changeStrategy) {
-            resultParts.push(
-              injectReminderSection(
-                'reminder_tool_failure',
-                frameSystemReminder(
-                  'tool_failure_reflection',
-                  `工具 ${call.name} 已连续失败 ${outcome.streak} 次。请反思:参数是否正确?是否应该换一种工具或方案?当前失败原因:${result.error ?? '未知'}`,
-                ),
+            const failureReminder = injectReminderSection(
+              'reminder_tool_failure',
+              frameSystemReminder(
+                'tool_failure_reflection',
+                `工具 ${call.name} 已连续失败 ${outcome.streak} 次。请反思:参数是否正确?是否应该换一种工具或方案?当前失败原因:${result.error ?? '未知'}`,
               ),
             );
+            // prompt 模式保持原顺序：失败提醒紧跟在该工具结果之前。
+            promptParts.push(failureReminder);
+            // 原生模式的工具正文必须独占 role:'tool'，提醒只能后置成一条 user 消息。
+            if (nativeToolProtocol) metaParts.push(failureReminder);
           }
         }
         await opts.onToolResult?.(
@@ -3603,9 +3670,21 @@ async function runToolLoopInner(
           spillTtlMs: DEFAULT_SPILL_TTL_MS,
           resultBudget: getTool(call.name)?.contract?.resultBudget,
         });
-        resultParts.push(
-          formatToolResult(call, { ...result, output: neutralizeBoundaries(budgeted.output) }),
-        );
+        const formattedToolResult = formatToolResult(call, {
+          ...result,
+          output: neutralizeBoundaries(budgeted.output),
+        });
+        promptParts.push(formattedToolResult);
+        nativeToolMessages.push({
+          role: 'tool',
+          // 原生 tool 消息只放工具正文/错误，不套 `[工具结果]` 包装；包装是 prompt 模式的产物。
+          content: neutralizeBoundaries(
+            result.success
+              ? budgeted.output || '(no output)'
+              : result.error ?? (budgeted.output || 'tool failed'),
+          ),
+          tool_call_id: call.id,
+        });
       }
 
       // P1-2 Reminders:工具结果后自动注入系统提醒(context budget / iteration progress)
@@ -3620,7 +3699,7 @@ async function runToolLoopInner(
         injected: reminderInjected,
       });
       for (const r of reminders) {
-        resultParts.push(r);
+        metaParts.push(r);
       }
 
       // P2-1 fsnotify:把最近 60s 文件变更事件注入 user 消息(让 LLM 感知外部编辑)
@@ -3629,11 +3708,23 @@ async function runToolLoopInner(
           formatFsEventsForPrompt(opts.fsEventSource.getRecentEvents(60_000)),
         );
         if (fsContext) {
-          resultParts.push(fsContext);
+          metaParts.push(fsContext);
         }
       }
 
-      opts.messages.push({ role: 'user', content: resultParts.join('\n\n') });
+      if (nativeToolProtocol) {
+        // 原生闭环的第二半：先落 role:'tool' 结果（与 assistant.tool_calls 的顺序一一对应），
+        // 提醒/文件事件等非工具正文才合并成一条 user 消息跟在后面。
+        for (const msg of nativeToolMessages) opts.messages.push(msg);
+        if (metaParts.length > 0) {
+          opts.messages.push({ role: 'user', content: metaParts.join('\n\n') });
+        }
+      } else {
+        opts.messages.push({
+          role: 'user',
+          content: [...promptParts, ...metaParts].join('\n\n'),
+        });
+      }
       // 本轮有真实产出(工具结果已进历史)→ 重置空闲计时。reclaim 的空闲触发以此为准,
       // 不接这一步就等于永远没有 lastActivityAtMs 可传(守卫二/回收触发都会失真)。
       contextGuards.touchActivity();

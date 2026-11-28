@@ -240,6 +240,7 @@ export function createWriteFileTool(ctx: EditToolContext): Tool {
       content: { type: 'string', description: '文件完整内容' },
     },
     required: ['path', 'content'],
+    strictSchema: true,
     contract: {
       shape: { visibleToProvider: true, input: { type: 'object' } },
       permission: {

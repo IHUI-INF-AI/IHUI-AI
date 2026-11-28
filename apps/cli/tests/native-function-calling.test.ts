@@ -301,8 +301,8 @@ describe('parseNativeToolCalls', () => {
       ],
     }
     expect(parseNativeToolCalls(content)).toEqual([
-      { name: 'read_file', arguments: { path: 'src/index.ts' } },
-      { name: 'list_dir', arguments: { path: '.' } },
+      { name: 'read_file', arguments: { path: 'src/index.ts' }, id: 'call_1' },
+      { name: 'list_dir', arguments: { path: '.' }, id: 'call_2' },
     ])
   })
 
@@ -406,8 +406,23 @@ describe('runToolLoop + 原生 function calling 集成', () => {
     expect(result.stopReason).toBe('end_turn')
     // 原生 tool_calls 被解析并执行(参数来自 SSE tool-call 事件)
     expect(lastToolArgs).toEqual({ x: 'hello' })
-    // 工具结果以 user 消息回传(prompt 模式协议不变)
-    expect(messages.some((m) => m.role === 'user' && m.content.includes('mock-ok'))).toBe(true)
+    // 原生闭环:assistant 带 tool_calls,结果以 role:'tool' + 同一 id 回传;
+    // 不再把结果包装成 user 文本(prompt 模式那套形状)。
+    const history = messages as Array<Record<string, unknown>>
+    const assistantWithCalls = history.find(
+      (m) => m.role === 'assistant' && Array.isArray(m.tool_calls),
+    )
+    expect(assistantWithCalls?.tool_calls).toEqual([
+      expect.objectContaining({
+        id: 'call_1',
+        type: 'function',
+        function: expect.objectContaining({ name: 'mock' }),
+      }),
+    ])
+    expect(
+      history.some((m) => m.role === 'tool' && m.tool_call_id === 'call_1' && String(m.content).includes('mock-ok')),
+    ).toBe(true)
+    expect(messages.some((m) => m.role === 'user' && m.content.includes('mock-ok'))).toBe(false)
   })
 
   it('纯文本响应(无原生 tool_calls、无正则块)→ 不执行工具,end_turn', async () => {

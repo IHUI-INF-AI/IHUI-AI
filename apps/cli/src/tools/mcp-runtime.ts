@@ -30,7 +30,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { buildFilteredEnv, DEFAULT_BLOCKED_ENV_VARS } from '../sandbox/index.js';
 // MCP 协议版本单一真源(packages/shared 镜像 ai-service tunables.py;
 // GAP-PLAN P0-1 收敛:此前此处二次写死旧版 '2024-11-05' 造成跨端漂移)
-import { DEFAULT_PROTOCOL_VERSION } from '@ihui/shared';
+import { DEFAULT_PROTOCOL_VERSION, MCP_STATELESS_PROTOCOL_VERSION } from '@ihui/shared';
 import { assertSafeFetchUrl, formatSsrfRejection, type SelfHostedTrust } from '@ihui/shared/utils/ssrf-guard';
 // G-689:脱敏走共享层的**唯一出口**(票面点名)。不另写一套正则 ——
 // 对端 stderr 是任意内容,原样拼进 error.message 就等于把它泄进日志/上报链路。
@@ -70,8 +70,16 @@ export interface McpToolDef {
    * `tools/index.ts` 的 `requiresUserConfirmation()`。
    */
   annotations?: {
+    /** 只读轴：显式 true 才免批。 */
     readOnlyHint?: boolean;
+    /** 外部世界轴：显式 false 才免批（规范缺省为 true）。 */
     openWorldHint?: boolean;
+    /** 破坏性轴：显式 true 一律按 dangerous 处置，不再看另两轴。 */
+    destructiveHint?: boolean;
+    /** 幂等轴：仅作事实保留，供审计/诊断读取，不参与批准判定。 */
+    idempotentHint?: boolean;
+    /** 人类可读标题，原样保留。 */
+    title?: string;
   };
 }
 
@@ -119,6 +127,13 @@ export interface McpConnection {
    * 否则合规 server 会对无会话的请求直接回 400。
    */
   sessionId?: string;
+  /**
+   * 本次连接实际使用的协议版本。http 2026-07-28 走无状态核心:不建会话、
+   * 不发 initialize/Mcp-Session-Id,每个请求自带 `_meta` 与路由头。
+   */
+  protocolVersion?: string;
+  /** 无状态请求的 `_meta.io.modelcontextprotocol/clientCapabilities`。 */
+  clientCapabilities?: Record<string, unknown>;
   /** sse 专用:长连接 abort 控制器 */
   sseAbortController?: AbortController;
   /** sse 专用:POST 目标 URL(endpoint 事件推送) */
@@ -563,6 +578,44 @@ async function assertMcpUrlOutbound(url: string, trust?: SelfHostedTrust): Promi
   if (!verdict.safe) throw new Error(formatSsrfRejection(verdict));
 }
 
+/**
+ * 2026-07-28 无状态 HTTP 请求的自描述面：协议版本/客户端身份/能力放进 `_meta`，
+ * 方法名与工具名放进网关可路由的 `Mcp-Method` / `Mcp-Name` 头。
+ *
+ * 这是纯函数，便于测试；真正发请求的 `sendHttpRpc` 只在
+ * `protocolVersion === MCP_STATELESS_PROTOCOL_VERSION` 时调用它。
+ */
+export function buildStatelessMcpHttpRequest(
+  method: string,
+  params: Record<string, unknown>,
+  protocolVersion: string,
+  clientInfo: { name: string; version: string },
+  clientCapabilities: Record<string, unknown>,
+): { headers: Record<string, string>; params: Record<string, unknown> } {
+  const existingMeta =
+    params._meta !== null && typeof params._meta === 'object' && !Array.isArray(params._meta)
+      ? (params._meta as Record<string, unknown>)
+      : {}
+  const toolName = method === 'tools/call' && typeof params.name === 'string' ? params.name : undefined
+  return {
+    headers: {
+      'MCP-Protocol-Version': protocolVersion,
+      'Mcp-Method': method,
+      // 头值必须能安全穿过代理；不合法工具名不写头（body 仍带 name，语义不变）。
+      ...(toolName !== undefined && /^[A-Za-z0-9._-]+$/.test(toolName) ? { 'Mcp-Name': toolName } : {}),
+    },
+    params: {
+      ...params,
+      _meta: {
+        ...existingMeta,
+        'io.modelcontextprotocol/protocolVersion': protocolVersion,
+        'io.modelcontextprotocol/clientInfo': clientInfo,
+        'io.modelcontextprotocol/clientCapabilities': clientCapabilities,
+      },
+    },
+  }
+}
+
 async function sendHttpRpc(
   url: string,
   method: string,
@@ -570,14 +623,29 @@ async function sendHttpRpc(
   headers: Record<string, string> = {},
   timeoutMs = 10_000,
   trust?: SelfHostedTrust,
-  /** 会话载体:initialize 回包的 Mcp-Session-Id 写回这里,后续请求从这里取回传 */
-  session?: { sessionId?: string },
+  /** 会话载体:initialize 回包的 Mcp-Session-Id 写回这里;2026 无状态档不读写它。 */
+  session?: {
+    sessionId?: string;
+    protocolVersion?: string;
+    clientCapabilities?: Record<string, unknown>;
+  },
 ): Promise<unknown> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     await assertMcpUrlOutbound(url, trust);
     const id = nextId();
+    const stateless =
+      session?.protocolVersion === MCP_STATELESS_PROTOCOL_VERSION;
+    const { headers: statelessHeaders, params: statelessParams } = stateless
+      ? buildStatelessMcpHttpRequest(
+          method,
+          params,
+          MCP_STATELESS_PROTOCOL_VERSION,
+          cliClientInfo(),
+          session?.clientCapabilities ?? {},
+        )
+      : { headers: {}, params };
     const resp = await fetch(url, {
       method: 'POST',
       headers: {
@@ -585,15 +653,16 @@ async function sendHttpRpc(
         // Streamable HTTP 允许 server 以 JSON 或 SSE 回包,两种都要声明可接受
         Accept: 'application/json, text/event-stream',
         ...headers,
+        ...statelessHeaders,
         // 会话头放最后:server 下发的 id 优先于调用方自带的同名头
-        ...(session?.sessionId ? { 'Mcp-Session-Id': session.sessionId } : {}),
+        ...(!stateless && session?.sessionId ? { 'Mcp-Session-Id': session.sessionId } : {}),
       },
-      body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
+      body: JSON.stringify({ jsonrpc: '2.0', id, method, params: statelessParams }),
       signal: controller.signal,
     });
     // 会话头:initialize 回包带回的 id 必须留存,否则后续请求 400
     const sessionId = resp.headers.get('mcp-session-id');
-    if (sessionId && session) session.sessionId = sessionId;
+    if (sessionId && session && !stateless) session.sessionId = sessionId;
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const contentType = resp.headers.get('content-type') ?? '';
     if (contentType.includes('text/event-stream')) {
@@ -1034,10 +1103,15 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
     transport,
     ssePending: new Map(),
     sseNextId: 1,
+    protocolVersion: DEFAULT_PROTOCOL_VERSION,
+    clientCapabilities: {},
   };
 
   try {
     if (transport === 'stdio') {
+      if (server.protocolVersion === MCP_STATELESS_PROTOCOL_VERSION) {
+        throw new Error('当前实现只接 MCP 2026-07-28 的 http 无状态路径；stdio 请去掉 protocolVersion 走 2025 握手');
+      }
       if (!server.command) throw new Error('stdio transport 需要 command');
       const viaToolHost = shouldUseToolHostForMcp();
       const stdioEnv = buildMcpChildEnv(server.env);
@@ -1096,12 +1170,22 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
       const headers: Record<string, string> = { ...(server.headers ?? {}), ...authHeaders };
       conn.headers = headers;
 
-      await sendHttpRpc(server.url, 'initialize', {
-        protocolVersion: DEFAULT_PROTOCOL_VERSION,
-        clientInfo: cliClientInfo(),
-        capabilities: {},
-      }, headers, server.requestTimeoutMs ?? 10_000, mcpConfigTrust(server), conn);
+      if (server.protocolVersion === MCP_STATELESS_PROTOCOL_VERSION) {
+        // 2026-07-28:无握手、无会话。先声明版本，后续 tools/list 与 tools/call
+        // 每个请求都由 sendHttpRpc 补 `_meta` + Mcp-Method/Mcp-Name。
+        conn.protocolVersion = MCP_STATELESS_PROTOCOL_VERSION;
+        conn.clientCapabilities = {};
+      } else {
+        await sendHttpRpc(server.url, 'initialize', {
+          protocolVersion: DEFAULT_PROTOCOL_VERSION,
+          clientInfo: cliClientInfo(),
+          capabilities: {},
+        }, headers, server.requestTimeoutMs ?? 10_000, mcpConfigTrust(server), conn);
+      }
     } else if (transport === 'sse') {
+      if (server.protocolVersion === MCP_STATELESS_PROTOCOL_VERSION) {
+        throw new Error('MCP 2026-07-28 无状态核心只支持 http transport；sse 请去掉 protocolVersion 或改用 http');
+      }
       if (!server.url) throw new Error('sse transport 需要 url');
       // 认证 headers 由 resolveMcpAuthHeaders 解析(支持静态 token / OAuth / 无认证三条路径)
       const authHeaders = await resolveMcpAuthHeaders(server);
@@ -1511,6 +1595,8 @@ export function mcpToolToTool(conn: McpConnection, mcpTool: McpToolDef): Tool {
     description: mcpTool.description ?? `MCP 工具 (${serverName})`,
     parameters: params,
     required,
+    // 破坏性注解是**硬否决**：即使服务端同时自报 readOnlyHint=true，也按 dangerous 走确认。
+    ...(mcpTool.annotations?.destructiveHint === true ? { dangerLevel: 'dangerous' as const } : {}),
     // 免批**两轴的声明**(不是判定):只有服务端**显式**自报 readOnlyHint=true 才算只读、
     // 显式自报 openWorldHint=false 才算不碰外部世界(MCP 规范里 openWorldHint 缺省视为 true,
     // 即"没自报 = 没证明 = 不许免批")。两轴各自为假是两回事,合取判定住在

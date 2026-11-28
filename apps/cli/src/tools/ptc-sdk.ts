@@ -1,5 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * W4-14:run_code 的程序面 SDK 渲染(净室实现,不复制上游声明文本)。
@@ -18,9 +19,9 @@ import {
   PTC_DEFAULT_MAX_CONCURRENT_BINDING_CALLS,
 } from './ptc-executor.js'
 import type { PtcBindingCallQuota, PtcBindingConcurrencyQuota } from './ptc-executor.js'
-import { PTC_READ_ONLY_TOOL_NAMES } from './ptc-tool.js'
+import { PTC_DEFAULT_BINDING_TOOL_NAMES } from './ptc-tool.js'
 
-const BINDING_NAMES: ReadonlySet<string> = new Set<string>(PTC_READ_ONLY_TOOL_NAMES)
+const BINDING_NAMES: ReadonlySet<string> = new Set<string>(PTC_DEFAULT_BINDING_TOOL_NAMES)
 
 const IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/
 
@@ -80,13 +81,16 @@ export function renderPtcSdk(
       ]
     : ['// 本次没有 read_file 绑定;按上面的 SDK 调用可用绑定。']
   const retained = options.retained === true
+  const hasWritableBindings = bindings.some((tool) => tool.dangerLevel !== 'read')
   const lines = [
     '## 在 run_code 里写程序',
     '',
     retained
       ? '`run_code` 的参数 `code` 是一段 REPL/Script 语句:支持顶层声明、`await` 和最终表达式,不支持顶层 `return`。同一 agent 内顶层 `let`/`const`/函数/对象身份会跨 `run_code` 调用保留。只支持可擦除语法:类型标注、`interface`、`type`、`as`/`satisfies` 会被擦除,`enum`、`namespace`、参数属性等需要生成运行时代码的语法会被拒绝。纯 JavaScript 也接受。'
       : '`run_code` 的参数 `code` 是一段 TypeScript `async` 函数体;只支持可擦除语法:类型标注、`interface`、`type`、`as`/`satisfies` 会被擦除,`enum`、`namespace`、参数属性等需要生成运行时代码的语法会被拒绝。纯 JavaScript 也接受。',
-    '只有 `run_code` 是可直接调用的工具;下面这些 `tools.*` 是程序内绑定,不能在工具调用层直接调用。绑定是只读的,每次调用仍走宿主的权限/hook/审计。',
+    hasWritableBindings
+      ? '只有 `run_code` 是可直接调用的工具;下面这些 `tools.*` 是程序内绑定,不能在工具调用层直接调用。只读绑定直接放行;可写绑定每次调用前必须过宿主审批,没人批就不执行。'
+      : '只有 `run_code` 是可直接调用的工具;下面这些 `tools.*` 是程序内绑定,不能在工具调用层直接调用。绑定是只读的,每次调用仍走宿主的权限/hook/审计。',
     ...(options.permissionModel === false
       ? []
       : ['程序自身跑在 Node permission-model 沙箱里:默认不能直接读写文件、创建子进程或工作线程;文件访问要走 `tools` 绑定。']),
@@ -108,6 +112,9 @@ export function renderPtcSdk(
     ...(options.priorityAging === undefined || options.priorityAging <= 0
       ? []
       : [`范围优先级老化:每个空槽分配轮给仍在排队的调用 +1 级有效优先级,最多加 ${options.priorityAging} 级;等待越久越不容易被持续高优先级饿死。`]),
+    ...(hasWritableBindings
+      ? ['可写绑定没有"默认放行"档:宿主审批器缺省时一律拒绝,只有显式注入审批器并逐次返回 true 才会执行。']
+      : []),
     ...(options.approveBindings === true
       ? ['每次绑定调用前会先等待宿主审批;审批被拒绝只影响该次绑定,程序可以 `catch` 后走别的路径,不会 abort 整个 `run_code`。']
       : []),
@@ -122,7 +129,7 @@ export function renderPtcSdk(
     '',
     '```ts',
     'declare const tools: {',
-    declarations || '  // 本次没有可用的只读绑定',
+    declarations || '  // 本次没有可用的绑定',
     '};',
     '```',
     '',
@@ -229,3 +236,4 @@ function normalizeDescription(description: string): string {
     .replace(/\s+/g, ' ')
     .trim()
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

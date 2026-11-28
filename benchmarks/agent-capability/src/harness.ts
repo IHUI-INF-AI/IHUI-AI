@@ -40,6 +40,14 @@ export const EVAL_BASE_SETTINGS: Record<string, unknown> = {
 export interface EvalMessage {
   role: 'system' | 'user' | 'assistant' | 'tool'
   content: string
+  /** 原生 function calling 的助手侧调用；回放/续跑用例需要按 id 配对结果。 */
+  tool_calls?: Array<{
+    id?: string
+    type?: string
+    function?: { name?: string; arguments?: string }
+  }>
+  /** 原生工具结果消息对应的调用 id。 */
+  tool_call_id?: string
 }
 
 export interface TurnSpec {

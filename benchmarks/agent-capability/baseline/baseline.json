@@ -246,16 +246,16 @@
       "evidence": {
         "fingerprints": {
           "baseline": [
-            "a2d943b9cbe12cb9beafa0911241afb54fe34325bdff364dd5bca52e58e825a5",
-            "e0a81216dda5f75e95b92dc2686b576cd5cd0989fdfd708daac03769a6fe8fa9",
-            "77ce295909876caf7230948e0adb9da7e8717eccbee7573c4f74bca0d2ba17a4"
+            "a20202be2a10a22ac75a3996db1c7406146caacf0ce65ab4ce9c8b805a74b958",
+            "4686ecc423b6d3e9c010f68de5631c71358e77edf972e7ed60a37889c1d3c555",
+            "306703bad9d4ad8fb189d5e400a19b93d7abfa26b96ca8c5755d668f29b80900"
           ],
           "consistent_turns": 3,
           "final_match": true,
           "interrupted": [
-            "a2d943b9cbe12cb9beafa0911241afb54fe34325bdff364dd5bca52e58e825a5",
-            "e0a81216dda5f75e95b92dc2686b576cd5cd0989fdfd708daac03769a6fe8fa9",
-            "77ce295909876caf7230948e0adb9da7e8717eccbee7573c4f74bca0d2ba17a4"
+            "a20202be2a10a22ac75a3996db1c7406146caacf0ce65ab4ce9c8b805a74b958",
+            "4686ecc423b6d3e9c010f68de5631c71358e77edf972e7ed60a37889c1d3c555",
+            "306703bad9d4ad8fb189d5e400a19b93d7abfa26b96ca8c5755d668f29b80900"
           ]
         },
         "resumed_turn": {
@@ -289,7 +289,7 @@
               "seq": "call-04"
             }
           ],
-          "persisted_messages": 7,
+          "persisted_messages": 9,
           "persisted_shape": [
             {
               "body_sha256": "e05d0db54f9d78b327955490fe9608b9abc702a704db100aa7b0772850714515",
@@ -302,32 +302,42 @@
               "seq": "msg-002"
             },
             {
-              "body_sha256": "85f7cd255aecf524e325687811bcc271afafa5ff3906ab95c692293aa3d08517",
-              "role": "user",
+              "body_sha256": "8ffc021c54ebbefdb1ab1738299ba6946fcc93290cd99dfe345fe1e953db9a4c",
+              "role": "tool",
               "seq": "msg-003"
+            },
+            {
+              "body_sha256": "f496c711587671f1ce335b5e2faeeb652001445f3e47ca409a0f047574bbf7b8",
+              "role": "tool",
+              "seq": "msg-004"
             },
             {
               "body_sha256": "ee848b92a5e968ede19095a34305bf3c0594297891a36831a59b12634e0e779d",
               "role": "assistant",
-              "seq": "msg-004"
+              "seq": "msg-005"
             },
             {
               "body_sha256": "c4a8a0c27c2bdb826a1f9292ea77341412153abb26e9fa4aed43b04adba00aea",
               "role": "user",
-              "seq": "msg-005"
+              "seq": "msg-006"
             },
             {
               "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
               "role": "assistant",
-              "seq": "msg-006"
+              "seq": "msg-007"
             },
             {
-              "body_sha256": "319b22811c76862bc384444cbcab6c78e2e46d954fcf612ab629273037c09898",
-              "role": "user",
-              "seq": "msg-007"
+              "body_sha256": "112d2e556c7d3576ffd341c09e3260a115b7aae6a2111a12dc71776de0a6eb03",
+              "role": "tool",
+              "seq": "msg-008"
+            },
+            {
+              "body_sha256": "5915b38a01f29456b8203be5a270d6db470deb91205f68b4cfc06150f8bfc4ad",
+              "role": "tool",
+              "seq": "msg-009"
             }
           ],
-          "restored_messages": 7,
+          "restored_messages": 9,
           "restored_shape": [
             {
               "body_sha256": "e05d0db54f9d78b327955490fe9608b9abc702a704db100aa7b0772850714515",
@@ -340,29 +350,39 @@
               "seq": "msg-002"
             },
             {
-              "body_sha256": "85f7cd255aecf524e325687811bcc271afafa5ff3906ab95c692293aa3d08517",
-              "role": "user",
+              "body_sha256": "8ffc021c54ebbefdb1ab1738299ba6946fcc93290cd99dfe345fe1e953db9a4c",
+              "role": "tool",
               "seq": "msg-003"
+            },
+            {
+              "body_sha256": "f496c711587671f1ce335b5e2faeeb652001445f3e47ca409a0f047574bbf7b8",
+              "role": "tool",
+              "seq": "msg-004"
             },
             {
               "body_sha256": "ee848b92a5e968ede19095a34305bf3c0594297891a36831a59b12634e0e779d",
               "role": "assistant",
-              "seq": "msg-004"
+              "seq": "msg-005"
             },
             {
               "body_sha256": "c4a8a0c27c2bdb826a1f9292ea77341412153abb26e9fa4aed43b04adba00aea",
               "role": "user",
-              "seq": "msg-005"
+              "seq": "msg-006"
             },
             {
               "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
               "role": "assistant",
-              "seq": "msg-006"
+              "seq": "msg-007"
             },
             {
-              "body_sha256": "319b22811c76862bc384444cbcab6c78e2e46d954fcf612ab629273037c09898",
-              "role": "user",
-              "seq": "msg-007"
+              "body_sha256": "112d2e556c7d3576ffd341c09e3260a115b7aae6a2111a12dc71776de0a6eb03",
+              "role": "tool",
+              "seq": "msg-008"
+            },
+            {
+              "body_sha256": "5915b38a01f29456b8203be5a270d6db470deb91205f68b4cfc06150f8bfc4ad",
+              "role": "tool",
+              "seq": "msg-009"
             }
           ],
           "restored_tool_result_names": [
@@ -374,13 +394,14 @@
         },
         "turns": [
           {
-            "fingerprint": "a2d943b9cbe12cb9beafa0911241afb54fe34325bdff364dd5bca52e58e825a5",
-            "message_count": 5,
+            "fingerprint": "a20202be2a10a22ac75a3996db1c7406146caacf0ce65ab4ce9c8b805a74b958",
+            "message_count": 6,
             "roles": [
               "system",
               "user",
               "assistant",
-              "user",
+              "tool",
+              "tool",
               "assistant"
             ],
             "tool_calls": [
@@ -398,17 +419,19 @@
             "turn": 1
           },
           {
-            "fingerprint": "e0a81216dda5f75e95b92dc2686b576cd5cd0989fdfd708daac03769a6fe8fa9",
-            "message_count": 8,
+            "fingerprint": "4686ecc423b6d3e9c010f68de5631c71358e77edf972e7ed60a37889c1d3c555",
+            "message_count": 10,
             "roles": [
               "system",
               "user",
               "assistant",
-              "user",
+              "tool",
+              "tool",
               "assistant",
               "user",
               "assistant",
-              "user"
+              "tool",
+              "tool"
             ],
             "tool_calls": [
               {
@@ -425,20 +448,22 @@
             "turn": 2
           },
           {
-            "fingerprint": "77ce295909876caf7230948e0adb9da7e8717eccbee7573c4f74bca0d2ba17a4",
-            "message_count": 12,
+            "fingerprint": "306703bad9d4ad8fb189d5e400a19b93d7abfa26b96ca8c5755d668f29b80900",
+            "message_count": 14,
             "roles": [
               "system",
               "user",
               "assistant",
-              "user",
+              "tool",
+              "tool",
               "assistant",
               "user",
               "assistant",
-              "user",
+              "tool",
+              "tool",
               "user",
               "assistant",
-              "user",
+              "tool",
               "assistant"
             ],
             "tool_calls": [
@@ -463,7 +488,7 @@
       "metrics": {
         "resume.consistent_turns": 3,
         "resume.duplicate_side_effects": 0,
-        "resume.restored_messages": 7,
+        "resume.restored_messages": 9,
         "resume.resumed_tool_calls": 1,
         "resume.transcript_hash_match": true
       },
@@ -474,16 +499,16 @@
       "evidence": {
         "fingerprints": {
           "baseline": [
-            "0b489305aaf26cebe40f5042225a74114f20189b3d1e684b6b7336884e3a1ecf",
-            "eb6d37293ea604e2b61db1df93a1fc112e830382e41bb324c4cb4023e7dcc379",
-            "7b9a4f1862fd1dd1a3bbd1ebbbf35ec84dd45a5f707cfb488adba3ced0402f49"
+            "e4f236bca47e333672718f78456b3e2a7f790e12a7e141b538fe4796746a9fb9",
+            "53a570c9bee7386701319156575ec5200e5fd0607495a0ae958e4e1a545ee20b",
+            "889072f5859a8a647cf6ccf144d878c9f698cbea9fb9bec8663b73cc8d8d6068"
           ],
           "consistent_turns": 3,
           "final_match": true,
           "interrupted": [
-            "0b489305aaf26cebe40f5042225a74114f20189b3d1e684b6b7336884e3a1ecf",
-            "eb6d37293ea604e2b61db1df93a1fc112e830382e41bb324c4cb4023e7dcc379",
-            "7b9a4f1862fd1dd1a3bbd1ebbbf35ec84dd45a5f707cfb488adba3ced0402f49"
+            "e4f236bca47e333672718f78456b3e2a7f790e12a7e141b538fe4796746a9fb9",
+            "53a570c9bee7386701319156575ec5200e5fd0607495a0ae958e4e1a545ee20b",
+            "889072f5859a8a647cf6ccf144d878c9f698cbea9fb9bec8663b73cc8d8d6068"
           ]
         },
         "resumed_turn": {
@@ -522,8 +547,8 @@
               "seq": "msg-002"
             },
             {
-              "body_sha256": "315861de2015eef97bd6c756ec5d8d0ade594a9ed8b91adf0d3bea25e739680f",
-              "role": "user",
+              "body_sha256": "72b8dff1eda0518be74d7b4ba4de29bd77ac80b562f737a9ce1334b076f26df3",
+              "role": "tool",
               "seq": "msg-003"
             },
             {
@@ -542,8 +567,8 @@
               "seq": "msg-006"
             },
             {
-              "body_sha256": "bef485bb301a2bc59994569480b663621cc7d3cdbe7e220cb1493f28862a7f7c",
-              "role": "user",
+              "body_sha256": "0929c001d921fe80801f498d02b776b33feb70bc7c70c21eebefc800e6d3a7fa",
+              "role": "tool",
               "seq": "msg-007"
             },
             {
@@ -565,8 +590,8 @@
               "seq": "msg-002"
             },
             {
-              "body_sha256": "315861de2015eef97bd6c756ec5d8d0ade594a9ed8b91adf0d3bea25e739680f",
-              "role": "user",
+              "body_sha256": "72b8dff1eda0518be74d7b4ba4de29bd77ac80b562f737a9ce1334b076f26df3",
+              "role": "tool",
               "seq": "msg-003"
             },
             {
@@ -585,8 +610,8 @@
               "seq": "msg-006"
             },
             {
-              "body_sha256": "bef485bb301a2bc59994569480b663621cc7d3cdbe7e220cb1493f28862a7f7c",
-              "role": "user",
+              "body_sha256": "0929c001d921fe80801f498d02b776b33feb70bc7c70c21eebefc800e6d3a7fa",
+              "role": "tool",
               "seq": "msg-007"
             },
             {
@@ -602,13 +627,13 @@
         },
         "turns": [
           {
-            "fingerprint": "0b489305aaf26cebe40f5042225a74114f20189b3d1e684b6b7336884e3a1ecf",
+            "fingerprint": "e4f236bca47e333672718f78456b3e2a7f790e12a7e141b538fe4796746a9fb9",
             "message_count": 5,
             "roles": [
               "system",
               "user",
               "assistant",
-              "user",
+              "tool",
               "assistant"
             ],
             "tool_calls": [
@@ -621,17 +646,17 @@
             "turn": 1
           },
           {
-            "fingerprint": "eb6d37293ea604e2b61db1df93a1fc112e830382e41bb324c4cb4023e7dcc379",
+            "fingerprint": "53a570c9bee7386701319156575ec5200e5fd0607495a0ae958e4e1a545ee20b",
             "message_count": 9,
             "roles": [
               "system",
               "user",
               "assistant",
-              "user",
+              "tool",
               "assistant",
               "user",
               "assistant",
-              "user",
+              "tool",
               "assistant"
             ],
             "tool_calls": [
@@ -644,21 +669,21 @@
             "turn": 2
           },
           {
-            "fingerprint": "7b9a4f1862fd1dd1a3bbd1ebbbf35ec84dd45a5f707cfb488adba3ced0402f49",
+            "fingerprint": "889072f5859a8a647cf6ccf144d878c9f698cbea9fb9bec8663b73cc8d8d6068",
             "message_count": 13,
             "roles": [
               "system",
               "user",
               "assistant",
-              "user",
+              "tool",
               "assistant",
               "user",
               "assistant",
-              "user",
+              "tool",
               "assistant",
               "user",
               "assistant",
-              "user",
+              "tool",
               "assistant"
             ],
             "tool_calls": [
@@ -712,6 +737,7 @@
       "failures": [],
       "id": "tool-call.direct-read",
       "metrics": {
+        "protocol.native_tool_result_pairing": true,
         "tool-call.correct_selections": 1,
         "tool-call.executed_calls": 1,
         "tool-call.invalid_argument_calls": 0,
@@ -786,7 +812,7 @@
       "passed": true
     }
   ],
-  "commit": "f779dca91c5c5d6dbba54c159fa9542c7083243e",
+  "commit": "unknown",
   "fixtureHash": "f7450dddd300c825a686b9651a025b294adeb3440ce97cc7181071902e85ffb2",
   "schemaVersion": 1
 }
