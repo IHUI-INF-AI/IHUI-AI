@@ -335,6 +335,82 @@ function UserBroadcastHandler() {
   return null
 }
 
+/**
+ * H5 子包深链首帧兜底(2026-11-28)。
+ *
+ * 现象:直接打开 `#/pages/distribution/withdraw` 时导航栏标题已变、`.taro_page` 数为 0,
+ * 页面 chunk 也 200 加载了,但路由层不挂载;先打开首页再切同一 hash 则正常。
+ * Taro 4.2 H5 的 subPackages 会在编译期合入 pages,但首帧对子包路径仍存在这个初始化缺口。
+ *
+ * 处理:模块求值阶段先把目标 hash 存进 sessionStorage,并把当前历史项 replace 成首页;
+ * App `useLaunch` 后再轮询到首页 page 节点出现,最后切回目标 hash。
+ * 只对非主包路径生效,主包 6 页保持原样;sessionStorage 取不到(隐私模式)时静默跳过。
+ */
+const H5_BOOT_TARGET_KEY = 'ihui_h5_boot_target'
+const H5_MAIN_PACKAGE_ROUTES = new Set([
+  'pages/index/index',
+  'pages/community/index',
+  'pages/user/index',
+  'pages/plaza/index/index',
+  'pages/agent-market/index',
+  'pages/news/index',
+])
+
+function isH5SubPackageDeepLink(hash: string): boolean {
+  if (!hash.startsWith('#/pages/')) return false
+  const route = (hash.slice(2).split('?')[0] ?? '').replace(/\/$/, '')
+  return route.length > 0 && !H5_MAIN_PACKAGE_ROUTES.has(route)
+}
+
+function stashH5DeepLinkTarget(): void {
+  if (process.env.TARO_ENV !== 'h5' || typeof window === 'undefined') return
+  try {
+    const hash = window.location.hash
+    if (!isH5SubPackageDeepLink(hash)) return
+    if (window.sessionStorage.getItem(H5_BOOT_TARGET_KEY)) return
+    window.sessionStorage.setItem(H5_BOOT_TARGET_KEY, hash)
+    window.history.replaceState(
+      null,
+      '',
+      `${window.location.pathname}${window.location.search}#/pages/index/index`,
+    )
+  } catch {
+    // sessionStorage / history 不可用时保持原行为
+  }
+}
+
+stashH5DeepLinkTarget()
+
+function H5DeepLinkBootHandler() {
+  useLaunch(() => {
+    if (process.env.TARO_ENV !== 'h5' || typeof window === 'undefined') return
+    let target: string | null = null
+    try {
+      target = window.sessionStorage.getItem(H5_BOOT_TARGET_KEY)
+    } catch {
+      return
+    }
+    if (!target) return
+
+    let attempts = 0
+    const timer = window.setInterval(() => {
+      attempts += 1
+      // Taro H5 的页面根是普通 div.taro_page(不是 taro-page-core 自定义元素);
+      // 之前按错的选择器等不到首屏,白等到 5s 上限才切目标。
+      const pageMounted = document.querySelector('.taro_page') !== null
+      if (!pageMounted && attempts < 50) return
+      window.clearInterval(timer)
+      try {
+        window.sessionStorage.removeItem(H5_BOOT_TARGET_KEY)
+      } catch {
+        // ignore
+      }
+      if (window.location.hash !== target) window.location.hash = target
+    }, 100)
+  })
+  return null
+}
+
 function App({ children }: PropsWithChildren<unknown>) {
   installNavigationGuard()
   installTaroSilentFailureGuard()
@@ -346,6 +422,7 @@ function App({ children }: PropsWithChildren<unknown>) {
       <SsoLaunchHandler />
       <UiControlBridgeHandler />
       <UserBroadcastHandler />
+      <H5DeepLinkBootHandler />
       <HostToastLayer />
       <AppUpdateRoot />
       {children}
