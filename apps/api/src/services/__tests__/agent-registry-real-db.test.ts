@@ -323,6 +323,48 @@ describe.skipIf(!enabled)('agent-registry real db', () => {
     expect(auditId).toBeTruthy()
   })
 
+  it('canceled / timeout 终态事件保留 errorCode 与 errorMessage', async () => {
+    const definition = await createAgentDefinition(admin, {
+      scope: 'personal',
+      name: `r1-canceled-${suffix}`,
+      displayName: '取消原因用例',
+    })
+    createdIds.push(definition.id)
+
+    for (const status of ['canceled', 'timeout']) {
+      const runId = randomUUID()
+      await createOrUpdateRun(admin, {
+        runId,
+        definitionId: definition.id,
+        definitionVersion: definition.version,
+        definitionName: definition.name,
+        mode: 'single',
+        goal: `终态原因 ${status}`,
+        traceId: `real-canceled-${status}-${suffix}`,
+      })
+      await appendRunEvent(admin, runId, {
+        seq: 1,
+        type: 'status',
+        payload: { status: 'running' },
+      })
+      const terminal = await appendRunEvent(admin, runId, {
+        seq: 2,
+        type: 'status',
+        payload: {
+          status,
+          errorCode: status === 'canceled' ? 'AGENT_RUN_STOPPED' : 'AGENT_RUN_TIMEOUT',
+          errorMessage: status === 'canceled' ? '用户停止执行' : '执行超时',
+        },
+      })
+      expect(terminal.run.status).toBe(status)
+      expect(terminal.run.errorCode).toBe(
+        status === 'canceled' ? 'AGENT_RUN_STOPPED' : 'AGENT_RUN_TIMEOUT',
+      )
+      expect(terminal.run.errorMessage).toBe(status === 'canceled' ? '用户停止执行' : '执行超时')
+      expect(terminal.run.endedAt).toBeTruthy()
+    }
+  })
+
   it('彻底清除保留审批与归档，版本行级联消失', async () => {
     const created = await createAgentDefinition(admin, {
       scope: 'personal',

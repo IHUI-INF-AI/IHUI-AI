@@ -659,6 +659,120 @@ async def test_run_cancel_remote_waits_for_ledger_terminal(
 
 
 @pytest.mark.asyncio
+async def test_run_stop_requests_local_graceful_stop_without_hard_cancel(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services.agent_task_registry import (
+        register_run_control,
+        unregister_run_control,
+    )
+
+    class Control:
+        def __init__(self) -> None:
+            self.stop_requested = False
+
+        def request_stop(self) -> None:
+            self.stop_requested = True
+
+    control = Control()
+    register_run_control("run-stop", control)
+    calls = {"run_get": 0}
+
+    async def append_event(**_kwargs: Any) -> bool:
+        return True
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content) if request.content else {}
+        if request.url.path.endswith("/ops") and payload.get("action") == "run_get":
+            calls["run_get"] += 1
+            status = "running" if calls["run_get"] == 1 else "canceled"
+            return httpx.Response(
+                200,
+                json={
+                    "code": 0,
+                    "data": {
+                        "result": {
+                            "id": "run-stop",
+                            "status": status,
+                            "sessionId": "session-stop",
+                        }
+                    },
+                },
+            )
+        return httpx.Response(404, json={"code": 404, "message": "not found"})
+
+    monkeypatch.setattr(ops_module, "_GRACEFUL_STOP_TIMEOUT_SECONDS", 1.0)
+    monkeypatch.setattr(ops_module, "_REMOTE_CANCEL_POLL_SECONDS", 0.01)
+    tool = _tool(handler)
+    tool._append_cancel_event = AsyncMock(side_effect=append_event)  # type: ignore[method-assign]
+
+    try:
+        envelope = await tool.handle(
+            {"action": "run_stop", "runId": "run-stop"}, user_id="user-1"
+        )
+    finally:
+        unregister_run_control("run-stop", control)
+
+    assert envelope["ok"] is True
+    assert control.stop_requested is True
+    assert envelope["data"]["outcome"] == "stopped"
+    assert envelope["data"]["stopRequested"] is True
+    assert envelope["data"]["remoteRequested"] is False
+    assert envelope["data"]["cancelEventWritten"] is True
+    assert tool._append_cancel_event.await_args.kwargs["error_code"] == "AGENT_RUN_STOPPED"
+
+
+@pytest.mark.asyncio
+async def test_run_stop_remote_waits_for_ledger_terminal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requests: list[dict[str, Any]] = []
+    calls = {"run_get": 0}
+
+    async def remote_task(*_args: Any, **kwargs: Any) -> bool:
+        requests.append(kwargs)
+        return True
+
+    async def append_event(**_kwargs: Any) -> bool:
+        return True
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content) if request.content else {}
+        if request.url.path.endswith("/ops") and payload.get("action") == "run_get":
+            calls["run_get"] += 1
+            status = "running" if calls["run_get"] == 1 else "canceled"
+            return httpx.Response(
+                200,
+                json={
+                    "code": 0,
+                    "data": {
+                        "result": {
+                            "id": "run-remote-stop",
+                            "status": status,
+                            "sessionId": "session-remote-stop",
+                        }
+                    },
+                },
+            )
+        return httpx.Response(404, json={"code": 404, "message": "not found"})
+
+    monkeypatch.setattr(ops_module, "request_remote_cancel", remote_task)
+    monkeypatch.setattr(ops_module, "_GRACEFUL_STOP_TIMEOUT_SECONDS", 1.0)
+    monkeypatch.setattr(ops_module, "_REMOTE_CANCEL_POLL_SECONDS", 0.01)
+    tool = _tool(handler)
+    tool._append_cancel_event = AsyncMock(side_effect=append_event)  # type: ignore[method-assign]
+
+    envelope = await tool.handle(
+        {"action": "run_stop", "runId": "run-remote-stop"}, user_id="user-1"
+    )
+
+    assert envelope["ok"] is True
+    assert requests and requests[0]["action"] == "run_stop"
+    assert envelope["data"]["outcome"] == "stopped"
+    assert envelope["data"]["remoteRequested"] is True
+
+
+@pytest.mark.asyncio
 async def test_run_retry_replays_dispatch_snapshot(monkeypatch: pytest.MonkeyPatch) -> None:
     from app.services.agent_orchestrator import AgentOrchestrator, AgentStepResult
 

@@ -32,9 +32,12 @@ from ..agent_run_cancel_bus import (
 )
 from ..agent_task_registry import (
     cancel_tasks,
+    register_run_control,
     register_task,
+    request_local_stop,
     run_task_key,
     session_task_key,
+    unregister_run_control,
     unregister_task,
 )
 
@@ -43,6 +46,8 @@ TOOL_NAME = "agent_ops"
 # 跨实例取消发出后等待执行实例收口的时间；超时如实返回 remote_requested，不冒充已停。
 _REMOTE_CANCEL_TIMEOUT_SECONDS = 10.0
 _REMOTE_CANCEL_POLL_SECONDS = 0.5
+# 优雅停止要等当前步骤收口，给足时间；超时只报 stop_requested，不硬砍。
+_GRACEFUL_STOP_TIMEOUT_SECONDS = 30.0
 
 ACTION_VALUES = [
     "dispatch",
@@ -501,6 +506,34 @@ class AgentOpsTool:
             }
 
         session_id = str(run.get("sessionId") or "").strip() if isinstance(run, dict) else ""
+        if action == "run_stop" and status != "paused":
+            if request_local_stop(run_id):
+                return await self._await_graceful_stop(
+                    run_id=run_id,
+                    user_id=user_id,
+                    initial_status=status,
+                    remote=False,
+                )
+            remote_requested = await request_remote_cancel(
+                run_id,
+                session_id=session_id,
+                action="run_stop",
+            )
+            if not remote_requested:
+                return {
+                    "runId": run_id,
+                    "outcome": "not_local",
+                    "runStatus": status,
+                    "cancelledTasks": 0,
+                    "reason": "该 run 既无本地停止句柄，跨实例取消位也不可用",
+                }
+            return await self._await_graceful_stop(
+                run_id=run_id,
+                user_id=user_id,
+                initial_status=status,
+                remote=True,
+            )
+
         keys = [run_task_key(run_id)]
         if session_id:
             keys.append(session_task_key(session_id))
@@ -518,22 +551,40 @@ class AgentOpsTool:
                     run_id,
                     {
                         "status": "canceled",
-                        "errorCode": "AGENT_RUN_CANCELED",
-                        "errorMessage": "用户取消暂停中的运行",
+                        "errorCode": (
+                            "AGENT_RUN_STOPPED"
+                            if action == "run_stop"
+                            else "AGENT_RUN_CANCELED"
+                        ),
+                        "errorMessage": (
+                            "用户停止暂停中的运行"
+                            if action == "run_stop"
+                            else "用户取消暂停中的运行"
+                        ),
                         "endedAt": _now_iso(),
                     },
                 )
                 event_written = False
                 with contextlib.suppress(Exception):
                     event_written = await self._append_cancel_event(
-                        run_id=run_id, user_id=user_id
+                        run_id=run_id,
+                        user_id=user_id,
+                        error_code=(
+                            "AGENT_RUN_STOPPED"
+                            if action == "run_stop"
+                            else "AGENT_RUN_CANCELED"
+                        ),
+                        error_message=(
+                            "用户停止执行" if action == "run_stop" else "用户取消执行"
+                        ),
                     )
                 return {
                     "runId": run_id,
-                    "outcome": "cancelled",
+                    "outcome": "stopped" if action == "run_stop" else "cancelled",
                     "runStatus": "canceled",
                     "cancelledTasks": 0,
                     "cancelEventWritten": event_written,
+                    "stopRequested": action == "run_stop",
                     "reason": "paused",
                 }
             remote_requested = await request_remote_cancel(
@@ -579,6 +630,78 @@ class AgentOpsTool:
             "cancelledTasks": result["done"],
             "cancelEventWritten": event_written,
         }
+
+    async def _await_graceful_stop(
+        self,
+        *,
+        run_id: str,
+        user_id: str,
+        initial_status: str,
+        remote: bool,
+    ) -> dict[str, Any]:
+        """等待优雅停止收口；轮次边界停下才返回 stopped，超时只报 stop_requested。"""
+        deadline = time.monotonic() + _GRACEFUL_STOP_TIMEOUT_SECONDS
+        status = initial_status
+        while True:
+            try:
+                after = await self._post_ops(
+                    {"action": "run_get", "runId": run_id}, user_id=user_id
+                )
+                status = str(after.get("status") or "") if isinstance(after, dict) else status
+            except Exception as error:  # noqa: BLE001 -- 停止已发出，查询失败不能反过来说没发
+                logger.warning(
+                    "[master-ops] graceful stop poll failed run=%s: %s", run_id, error
+                )
+                return {
+                    "runId": run_id,
+                    "outcome": "stop_requested",
+                    "runStatus": status,
+                    "cancelledTasks": 0,
+                    "stopRequested": True,
+                    "remoteRequested": remote,
+                    "reason": "停止请求已发出，但运行账本暂时不可查",
+                }
+
+            if status == "canceled":
+                event_written = False
+                with contextlib.suppress(Exception):
+                    event_written = await self._append_cancel_event(
+                        run_id=run_id,
+                        user_id=user_id,
+                        error_code="AGENT_RUN_STOPPED",
+                        error_message="用户停止执行",
+                    )
+                return {
+                    "runId": run_id,
+                    "outcome": "stopped",
+                    "runStatus": "canceled",
+                    "cancelledTasks": 0,
+                    "cancelEventWritten": event_written,
+                    "stopRequested": True,
+                    "remoteRequested": remote,
+                    "reason": "remote_stop" if remote else "local_stop",
+                }
+            if status in {"succeeded", "failed", "timeout"}:
+                return {
+                    "runId": run_id,
+                    "outcome": "stop_incomplete",
+                    "runStatus": status,
+                    "cancelledTasks": 0,
+                    "stopRequested": True,
+                    "remoteRequested": remote,
+                    "reason": "停止请求到达前 run 已进入其它终态",
+                }
+            if time.monotonic() >= deadline:
+                return {
+                    "runId": run_id,
+                    "outcome": "stop_requested",
+                    "runStatus": status,
+                    "cancelledTasks": 0,
+                    "stopRequested": True,
+                    "remoteRequested": remote,
+                    "reason": "已在当前轮次边界请求停止，等待收口超时",
+                }
+            await asyncio.sleep(_REMOTE_CANCEL_POLL_SECONDS)
 
     async def _await_remote_cancel(
         self,
@@ -683,7 +806,14 @@ class AgentOpsTool:
             "run": retried,
         }
 
-    async def _append_cancel_event(self, *, run_id: str, user_id: str) -> bool:
+    async def _append_cancel_event(
+        self,
+        *,
+        run_id: str,
+        user_id: str,
+        error_code: str = "AGENT_RUN_CANCELED",
+        error_message: str = "用户取消执行",
+    ) -> bool:
         """确保 canceled 终态事件存在；由控制任务发，避免在已取消任务里再发网络请求。
 
         返回 True 表示事件已在账本中（自己写入或执行侧已写），False 表示写失败。
@@ -738,8 +868,8 @@ class AgentOpsTool:
             "status",
             {
                 "status": "canceled",
-                "errorCode": "AGENT_RUN_CANCELED",
-                "errorMessage": "用户取消执行",
+                "errorCode": error_code,
+                "errorMessage": error_message,
             },
         )
         return True
@@ -813,6 +943,7 @@ class AgentOpsTool:
             definition_provider=provider,
             run_ledger=ledger,
         )
+        register_run_control(run_id, orchestrator)
         task = asyncio.current_task()
         register_task(run_task_key(run_id), task)
         watcher = start_remote_cancel_watch(run_id, session_id)
@@ -853,6 +984,7 @@ class AgentOpsTool:
                     details={"runId": run_id},
                 ) from error
         finally:
+            unregister_run_control(run_id, orchestrator)
             unregister_task(run_task_key(run_id), task)
             await stop_remote_cancel_watch(watcher)
 
@@ -1045,6 +1177,7 @@ class AgentOpsTool:
             definition_provider=provider,
             run_ledger=ledger,
         )
+        register_run_control(run_id, orchestrator)
         task = asyncio.current_task()
         register_task(run_task_key(run_id), task)
         watcher = start_remote_cancel_watch(run_id, session_id)
@@ -1211,9 +1344,14 @@ class AgentOpsTool:
                 details={"runId": run_id},
             ) from error
         finally:
+            unregister_run_control(run_id, orchestrator)
             unregister_task(run_task_key(run_id), task)
             await stop_remote_cancel_watch(watcher)
 
+        stopped_steps = [step for step in result.steps if step.status == "canceled"]
+        if stopped_steps:
+            # 多模式里任一参与者被优雅停止，父 run 必须落 canceled，不能把部分结果报成 succeeded。
+            result.status = "canceled"
         registry_status = to_run_registry_status(result.status)
         first_error = next((step for step in result.steps if step.status == "failed"), None)
         for index, step in enumerate(result.steps, start=1):
@@ -1232,11 +1370,19 @@ class AgentOpsTool:
         await session.status(
             registry_status,
             error_code=(
-                "AGENT_STUB_RESULT"
-                if result.status == "stub"
-                else (first_error.error_code if first_error else None)
+                "AGENT_RUN_STOPPED"
+                if stopped_steps
+                else (
+                    "AGENT_STUB_RESULT"
+                    if result.status == "stub"
+                    else (first_error.error_code if first_error else None)
+                )
             ),
-            error_message=(first_error.error if first_error else None),
+            error_message=(
+                stopped_steps[0].error
+                if stopped_steps
+                else (first_error.error if first_error else None)
+            ),
         )
 
         return {

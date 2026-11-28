@@ -13,8 +13,10 @@ import pytest
 
 from app.services import agent_run_cancel_bus as bus
 from app.services.agent_task_registry import (
+    register_run_control,
     register_task,
     run_task_key,
+    unregister_run_control,
     unregister_task,
 )
 
@@ -69,3 +71,47 @@ async def test_watcher_cancels_registered_task_and_removes_key(
             with pytest.raises(asyncio.CancelledError):
                 await task
         unregister_task(run_task_key("run-2"), task)
+
+
+@pytest.mark.asyncio
+async def test_watcher_run_stop_requests_control_without_cancelling_task(
+    fake_redis: fakeredis.aioredis.FakeRedis,
+) -> None:
+    started = asyncio.Event()
+
+    async def sleeper() -> None:
+        started.set()
+        await asyncio.Event().wait()
+
+    class Control:
+        def __init__(self) -> None:
+            self.stop_requested = False
+
+        def request_stop(self) -> None:
+            self.stop_requested = True
+
+    control = Control()
+    register_run_control("run-stop", control)
+    task = asyncio.create_task(sleeper())
+    await started.wait()
+    register_task(run_task_key("run-stop"), task)
+    watcher = asyncio.create_task(
+        bus.watch_remote_cancel("run-stop", "session-stop", interval=0.01)
+    )
+    try:
+        await fake_redis.set(
+            bus.cancel_key("run-stop"),
+            json.dumps({"runId": "run-stop", "action": "run_stop"}),
+        )
+        await asyncio.wait_for(watcher, timeout=1.5)
+        assert control.stop_requested is True
+        assert not task.cancelled()
+        assert await fake_redis.get(bus.cancel_key("run-stop")) is None
+    finally:
+        await bus.stop_remote_cancel_watch(watcher)
+        if not task.done():
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+        unregister_run_control("run-stop", control)
+        unregister_task(run_task_key("run-stop"), task)

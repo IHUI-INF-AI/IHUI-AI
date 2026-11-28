@@ -140,6 +140,60 @@ class TestInvoke:
         assert result.duration_ms >= 0
 
     @pytest.mark.asyncio
+    async def test_request_stop_returns_canceled_without_tool_calls(self):
+        """优雅停止：在轮次边界返回 canceled，保留已完成输出，错误码可区分硬取消。"""
+        orchestrator = AgentOrchestrator()
+        orchestrator.request_stop()
+        result = await orchestrator.invoke(
+            agent_name="researcher",
+            user_input="停止前不应继续调用模型",
+            session_id="test-orch-stop",
+        )
+        assert result.status == "canceled"
+        assert result.error_code == "AGENT_RUN_STOPPED"
+        assert result.iterations == 0
+        assert result.tool_calls == []
+
+    @pytest.mark.asyncio
+    async def test_terminal_status_event_lands_after_step_events(self):
+        """终态事件必须在 step 之后；否则时间线会变成“已结束又执行了一步”。"""
+        calls: list[tuple[str, dict]] = []
+
+        class FakeSession:
+            async def status(self, status: str, **kwargs):
+                calls.append(("status", {"status": status, **kwargs}))
+
+            async def append(self, event_type: str, payload: dict):
+                calls.append(("append", {"type": event_type, "payload": payload}))
+
+        class FakeLedger:
+            def session(self, _run_id: str) -> FakeSession:
+                return FakeSession()
+
+        orchestrator = AgentOrchestrator(run_ledger=FakeLedger())
+
+        async def fake_run_agent(*_args, **_kwargs):
+            return AgentStepResult(
+                agent_name="researcher",
+                input="x",
+                output="done",
+                status="completed",
+                iterations=1,
+                tool_calls=[{"tool": "search_web", "arguments": {}, "ok": True}],
+            )
+
+        orchestrator._run_agent = fake_run_agent  # type: ignore[method-assign]
+        result = await orchestrator.invoke(
+            "researcher", "整理时间线", session_id="test-event-order", run_id="run-order"
+        )
+
+        assert result.status == "completed"
+        assert [kind for kind, _ in calls] == ["status", "append", "status"]
+        assert calls[0][1]["status"] == "running"
+        assert calls[1][1]["type"] == "step"
+        assert calls[2][1]["status"] == "succeeded"
+
+    @pytest.mark.asyncio
     async def test_invoke_nonexistent_agent_fails(self):
         result = await agent_orchestrator.invoke(
             agent_name="nonexistent_xyz",

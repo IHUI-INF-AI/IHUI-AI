@@ -25,7 +25,12 @@ import logging
 from typing import Any
 
 from ..core.config import settings
-from .agent_task_registry import cancel_tasks, run_task_key, session_task_key
+from .agent_task_registry import (
+    cancel_tasks,
+    request_local_stop,
+    run_task_key,
+    session_task_key,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -122,6 +127,22 @@ async def watch_remote_cancel(
         if value:
             with contextlib.suppress(Exception):
                 await client.delete(key)
+            action = "run_cancel"
+            with contextlib.suppress(Exception):
+                payload = json.loads(value)
+                if isinstance(payload, dict):
+                    action = str(payload.get("action") or "run_cancel")
+            if action == "run_stop":
+                if request_local_stop(run_id):
+                    logger.info(
+                        "[run-cancel-bus] remote graceful stop applied run=%s", run_id
+                    )
+                else:
+                    # 没有本地停止句柄时不降级成硬取消；让控制侧如实看到 stop_requested。
+                    logger.warning(
+                        "[run-cancel-bus] remote stop has no local control run=%s", run_id
+                    )
+                return
             keys = [run_task_key(run_id)]
             if session_id:
                 keys.append(session_task_key(session_id))

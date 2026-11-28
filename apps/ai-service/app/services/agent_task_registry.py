@@ -20,14 +20,19 @@ from typing import Any
 
 __all__ = [
     "cancel_tasks",
+    "register_run_control",
     "register_task",
+    "request_local_stop",
     "run_task_key",
     "session_task_key",
     "task_count",
+    "unregister_run_control",
     "unregister_task",
 ]
 
 _tasks: dict[str, set[asyncio.Task[Any]]] = {}
+# run_id → 可请求“优雅停止”的本地执行器（当前是 AgentOrchestrator）。
+_controls: dict[str, Any] = {}
 
 
 def run_task_key(run_id: str) -> str:
@@ -62,6 +67,34 @@ def unregister_task(key: str, task: asyncio.Task[Any] | None = None) -> None:
 
 def task_count(key: str) -> int:
     return len(_tasks.get(key, ()))
+
+
+def register_run_control(run_id: str, control: Any) -> None:
+    """登记 run 的本地优雅停止句柄；空 run/无 request_stop 的对象不登记。"""
+    if not run_id or not callable(getattr(control, "request_stop", None)):
+        return
+    _controls[run_id] = control
+
+
+def unregister_run_control(run_id: str, control: Any = None) -> None:
+    if not run_id:
+        return
+    current = _controls.get(run_id)
+    if current is None:
+        return
+    if control is not None and current is not control:
+        return
+    _controls.pop(run_id, None)
+
+
+def request_local_stop(run_id: str) -> bool:
+    """向本进程的 run 控制句柄发优雅停止请求；没有句柄返回 False。"""
+    control = _controls.get(run_id)
+    request_stop = getattr(control, "request_stop", None) if control is not None else None
+    if not callable(request_stop):
+        return False
+    request_stop()
+    return True
 
 
 async def cancel_tasks(

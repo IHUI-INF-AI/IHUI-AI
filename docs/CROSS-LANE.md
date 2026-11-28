@@ -193,9 +193,11 @@
   `POST /api/v1/ai/master/chat` 固定人格/三工具；`conversation.chat` 可选 `system_prompt`；
   `apps/web` `/master` 页 + 侧栏入口 + 五语言 `masterConsole`；
   注册表失效订阅接 FastAPI lifespan；客户端进程代次 `invalidate_all`。
-- 已落: `agent_ops` 九模式 + 真实父账本；`run_cancel/run_stop` 本进程直接 `task.cancel()`，
+- 已落: `agent_ops` 九模式 + 真实父账本；`run_cancel` 本进程直接 `task.cancel()`，
   跨进程用 Redis 取消位通知执行实例，执行侧 watcher 取消本地任务后由 `CancelledError` 路径收口；
-  `run_retry` 按创建 run 时的 `dispatchPayload` 重建；`master_memory` 开 user/team 双作用域，agent 明确拒绝。
+  `run_stop` 走本地 `AgentOrchestrator.request_stop()` 的轮次边界优雅停止，跨实例由 watcher 把
+  `run_stop` 位翻译成同一个 `request_stop()`，不硬砍任务；`run_retry` 按创建 run 时的
+  `dispatchPayload` 重建；`master_memory` 开 user/team 双作用域，agent 明确拒绝。
 - 已落（2026-11-28）: `/master` 浏览器 E2E 用独立 C 盘同盘副本跑通：真实 Edge 打开 `/master`，
   带测试库 admin 登录态，页面显示 11 个注册表定义（含 `frontend-dev`）、`coder` 的 24 次运行/54% 成功率，
   `GET /api/agent-registry/definitions` 返回 200；截图落 `ma-api-e2e/master-authenticated.png`。
@@ -214,6 +216,14 @@
   路径把 run 写成 `canceled`，B 等到终态并补写 `status/canceled` 事件。实测 run
   `275c8e6e-89ae-4f72-8465-0ef64b570146`，结果 `outcome=cancelled / remoteRequested=true /
   cancelEventWritten=true`。
+- 已落（2026-11-28）: `run_stop` 优雅停止真跑通过：执行进程 A 用真实 `agent_ops.dispatch` 跑多轮
+  工具循环（只 mock LLM/工具调用，保留真实 `AgentOrchestrator` 与 watcher），控制进程 B 调 `run_stop`
+  写 Redis 停止位；A 的 watcher 命中后调用 `request_stop()`，A 在下一轮次边界返回 `canceled`，
+  保留已完成步骤的 `tool_calls` 与输出。实测 run `4ee9d733-0ab1-499b-baa1-bb1ac5dd1b30`：
+  `agent_runs` 为 `canceled / AGENT_RUN_STOPPED / 用户请求停止执行`；事件顺序
+  `running → step ×3 → canceled`，终态落在步骤之后。同轮修复终态事件先于 step 的顺序问题，
+  并让 API 在 canceled/timeout 终态也持久化 `errorCode/errorMessage`。
 - 没落: `master_memory` 的 agent 作用域仍明确拒绝（`agent_memory.py` 只是进程内缓存，不是长期 DB 权威）；
-  `run_stop` 目前与 `run_cancel` 共用硬取消语义，尚无“优雅停止/保留当前步骤产物”的独立流程。
+  `run_stop` 已与 `run_cancel` 分离，但只到“轮次边界”粒度，工具批中途不硬砍；`master` 自己派发的
+  run 的 pause/resume 仍走 `AgentLoopV2` 会话控制面，未接 master dispatch 的 checkpoint。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

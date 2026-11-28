@@ -435,7 +435,9 @@ export async function appendRunEvent(
       }
       if (TERMINAL_STATUSES.includes(next)) {
         set.endedAt = existingRun.endedAt ?? now
-        if (next === 'failed') {
+        // canceled / timeout 也需要保留原因（如用户取消、优雅停止、超时爆炸），
+        // 否则 run 行只剩状态，控制台和排障都读不到 errorCode。
+        if (next === 'failed' || next === 'canceled' || next === 'timeout') {
           if (typeof payload.errorCode === 'string') set.errorCode = payload.errorCode.slice(0, 64)
           if (typeof payload.errorMessage === 'string') {
             set.errorMessage = payload.errorMessage.slice(0, 2000)

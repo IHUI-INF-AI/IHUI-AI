@@ -343,6 +343,12 @@ class AgentOrchestrator:
         self._run_ledger = run_ledger
         self._available_tool_names = available_tool_names
         self._tool_names_loaded = available_tool_names is not None
+        # `agent_ops.run_stop` 的优雅停止信号：只在轮次边界生效，不中途 task.cancel()。
+        self._stop_requested = False
+
+    def request_stop(self) -> None:
+        """请求在当前轮次结束后停止；幂等，不改变已完成的输出。"""
+        self._stop_requested = True
 
     @property
     def registry(self) -> AgentRegistry:
@@ -437,14 +443,10 @@ class AgentOrchestrator:
             if ledger_session is not None:
                 registry_status = to_run_registry_status(result.status)
                 error_code = result.error_code
-                error_message = result.error if result.status in ("failed", "stub") else None
+                error_message = result.error if result.status in ("failed", "stub", "canceled") else None
                 if result.status == "stub":
                     error_code = error_code or "AGENT_STUB_RESULT"
-                await ledger_session.status(
-                    registry_status,
-                    error_code=error_code,
-                    error_message=error_message,
-                )
+                # 终态必须落在步骤事件之后；否则时间线会变成“已结束又执行了一步”。
                 for index, call in enumerate(result.tool_calls, start=1):
                     await ledger_session.append(
                         "step",
@@ -455,6 +457,11 @@ class AgentOrchestrator:
                             "blocked": bool(call.get("blocked")),
                         },
                     )
+                await ledger_session.status(
+                    registry_status,
+                    error_code=error_code,
+                    error_message=error_message,
+                )
             return result
 
         runtime: RuntimeAgentDefinition | None
@@ -1719,6 +1726,17 @@ class AgentOrchestrator:
                 - {"phase": "output_ready", "output_preview": str} — 最终输出就绪
             chat_mode / permission_mode: G2 权限并轨(2026-09-27)的两轴输入。见 invoke。
         """
+        if self._stop_requested:
+            return AgentStepResult(
+                agent_name=agent.name,
+                input=user_input,
+                output="",
+                status="canceled",
+                duration_ms=0.0,
+                iterations=0,
+                error="用户请求停止执行",
+                error_code="AGENT_RUN_STOPPED",
+            )
         # D6①/G1 收敛开关接线点(2026-09-27 由"裸守卫"改为"消费 handoff"):
         #   默认档(ORCHESTRATION_CONVERGENCE_EXECUTOR 未设 = legacy)⇒
         #     take_loop_v2_handoff 第一行就 return None,紧接着的 guard 也是空操作,
@@ -1802,6 +1820,19 @@ class AgentOrchestrator:
             output = ""
             for it in range(agent.max_iterations):
                 iterations = it + 1
+                if self._stop_requested:
+                    # 优雅停止：上一轮已完成的输出保留，不在工具批中途硬砍。
+                    return AgentStepResult(
+                        agent_name=agent.name,
+                        input=user_input,
+                        output=output,
+                        status="canceled",
+                        duration_ms=round((time.monotonic() - start) * 1000, 2),
+                        iterations=it,
+                        tool_calls=tool_calls,
+                        error="用户请求停止执行",
+                        error_code="AGENT_RUN_STOPPED",
+                    )
                 _emit({"phase": "thinking", "iteration": iterations})
                 # 子代理 context 预算隔离(Codex subagent_default_context_limits 对位):
                 # 每轮进 LLM 前把 messages 裁到 token 预算内(保 system + 末轮 user,
@@ -1823,6 +1854,18 @@ class AgentOrchestrator:
                 tc_raw = result.get("tool_calls") or []
                 if not tc_raw:
                     output = content
+                    if self._stop_requested:
+                        return AgentStepResult(
+                            agent_name=agent.name,
+                            input=user_input,
+                            output=output,
+                            status="canceled",
+                            duration_ms=round((time.monotonic() - start) * 1000, 2),
+                            iterations=iterations,
+                            tool_calls=tool_calls,
+                            error="用户请求停止执行",
+                            error_code="AGENT_RUN_STOPPED",
+                        )
                     # 工具能力不成立(2026-11-08):网已判该端点只会把工具调用写成文本。
                     # 此时禁止"不带 tools 再总结一次"的退路 —— 那只会再造一次
                     # 「零工具执行但 completed」的假成功;直接按失败上报。
@@ -1909,11 +1952,36 @@ class AgentOrchestrator:
                             str(exec_result)[:4000], tool_name=tool_name
                         ),
                     })
+                if self._stop_requested:
+                    # 工具批已经跑完，保留本批 side effect；下一轮不再进入。
+                    return AgentStepResult(
+                        agent_name=agent.name,
+                        input=user_input,
+                        output=content or output,
+                        status="canceled",
+                        duration_ms=round((time.monotonic() - start) * 1000, 2),
+                        iterations=iterations,
+                        tool_calls=tool_calls,
+                        error="用户请求停止执行",
+                        error_code="AGENT_RUN_STOPPED",
+                    )
                 if it == agent.max_iterations - 1:
                     # 最后一轮:让 LLM 总结
                     summary = await llm_gateway.complete(messages, model=used_model)
                     output = str(summary.get("content", "") or "")
                     stub = stub or bool(summary.get("stub", False))
+                    if self._stop_requested:
+                        return AgentStepResult(
+                            agent_name=agent.name,
+                            input=user_input,
+                            output=output,
+                            status="canceled",
+                            duration_ms=round((time.monotonic() - start) * 1000, 2),
+                            iterations=iterations,
+                            tool_calls=tool_calls,
+                            error="用户请求停止执行",
+                            error_code="AGENT_RUN_STOPPED",
+                        )
                     _emit({"phase": "output_ready", "output_preview": output[:200]})
                     break
             else:
