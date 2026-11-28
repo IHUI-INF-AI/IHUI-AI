@@ -84,6 +84,10 @@ jobs:
         run: |
           # pipefail:否则管道退出码取 tee 的 0 ⇒ 判红被吞成假绿。
           set -o pipefail
+          # ITCP 一致性读数(2026-11-28 补):conformance 只有 ok 才算绿,not-ok/unknown 都非零。
+          # 为什么放 CI 而不是 pre-commit 门:门体改动自己会造成"两代不一致"⇒ 那道门恒红;
+          # 干净 checkout 只有一个修订,不存在跨代,读数才是发布结论(见 protocol/README.md)。
+          node scripts/tool-contract-conformance.mjs
           # 干净 checkout 没有 .ihui-agent/tmp;不建目录,exit 钩子的 timing JSON 会静默落不了盘。
           mkdir -p .ihui-agent/tmp
           node scripts/guardian-runner.mjs --full-face --timing 2>&1 | tee .ihui-agent/tmp/gates-full.log

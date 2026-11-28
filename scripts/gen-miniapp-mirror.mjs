@@ -54,7 +54,7 @@
  *   (--repo= 仅供夹具仓端到端取证;--root=<别名可选>)
  */
 
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { execFileSync } from 'node:child_process'
@@ -654,6 +654,7 @@ export function buildShellPage({
   navTitleHook = 'useDidShow',
   navTitleDeps = null,
   authGate = false,
+  customNav = false,
 }) {
   // shellName 允许与被承载的共享屏**不同名**(2026-10-27):平台侧薄壳常叫 PlanScreen /
   // NewsScreen,而它渲染的共享屏是 PlanListScreen / SquareScreen —— 承载体是那个壳文件,
@@ -700,8 +701,14 @@ export function buildShellPage({
     L.push(' *   收藏字段口径:经本壳透传 resourceType / resourceId(取消收藏与跳详情靠它;契约见 packages/api-client/tests/favorites-field-contract.test.ts)。')
   }
   L.push(' */')
-  L.push("import ThemeRoot from '@/components/ThemeRoot'")
+  const rootSymbol = customNav ? 'RnShellPage' : 'ThemeRoot'
+  L.push(`import ${rootSymbol} from '@/components/${rootSymbol}'`)
   if (authGate) L.push("import AuthReadyGate from '@/components/AuthReadyGate'")
+  if (shellSymbol === 'WithdrawScreen') {
+    // 2026-11-28 H5/小程序验收:RN 壳 appAlert 的宿主必须挂在本页,否则「确认提现」
+    // 只改模块变量、页面不弹层,提现永远发不出去。
+    L.push("import { AppConfirmHost } from '@rn-components/BottomPops'")
+  }
   L.push(binding)
   // 只设导航标题的生命周期钩子由调用方以 navTitle 传入时原样保留(标题是端内事实,
   // 壳里的共享屏不管小程序导航栏;不保留就等于把原页的标题弄丢)。
@@ -767,7 +774,7 @@ export function buildShellPage({
     L.push('  useDidShow(() => showShareMenu())')
   }
   L.push('  return (')
-  L.push('    <ThemeRoot>')
+  L.push(`    <${rootSymbol}>`)
   // 宿主把自己的分享槽包在屏外面:屏的 usePublishShareIntent 才落得到这一页
   const wrapOpen = withShare ? ['ShareWrap'] : []
   if (authGate) wrapOpen.push('AuthReadyGate')
@@ -777,11 +784,14 @@ export function buildShellPage({
     depth += 1
   }
   L.push(`${'  '.repeat(depth)}<${jsxTag} />`)
+  if (shellSymbol === 'WithdrawScreen') {
+    L.push(`${'  '.repeat(depth)}<AppConfirmHost />`)
+  }
   for (let i = wrapOpen.length - 1; i >= 0; i -= 1) {
     depth -= 1
     L.push(`${'  '.repeat(depth)}</${wrapOpen[i]}>`)
   }
-  L.push('    </ThemeRoot>')
+  L.push(`    </${rootSymbol}>`)
   L.push('  )')
   L.push('}')
   return `${L.join('\n')}\n`
@@ -1418,6 +1428,11 @@ export function planGeneration(rootDir, opts, ctx = null) {
           base: shape.base,
           shellText: rnMap.get(shellRel) ?? '',
           shellName,
+          customNav:
+            existsSync(pageRel.replace(/\.tsx$/, '.config.ts')) &&
+            readFileSync(pageRel.replace(/\.tsx$/, '.config.ts'), 'utf8').includes(
+              "navigationStyle: 'custom'",
+            ),
         })
       : null
   if (shellPage?.error) return { kind: 'refuse', why: `${shape.spec}:${shellPage.error}` }
