@@ -443,8 +443,12 @@ class JuejinAdapter(BasePlatformAdapter):
 
     async def _verify_article_time(
         self, article_id: str, started_at: float
-    ) -> tuple[bool, str]:
-        """用公开详情核对 article_id 的发布时间，挡住上一单文章的误回收。"""
+    ) -> tuple[bool | None, str]:
+        """用公开详情核对 article_id 的发布时间，挡住上一单文章的误回收。
+
+        返回 ``(None, note)`` 表示详情接口暂时不可用：只记录、不否定，
+        避免新文章尚未被详情接口收录时把真实 ID 清掉。
+        """
         try:
             async with httpx.AsyncClient(timeout=12.0) as client:
                 resp = await client.post(
@@ -459,13 +463,14 @@ class JuejinAdapter(BasePlatformAdapter):
                 resp.raise_for_status()
                 payload = resp.json()
         except Exception as e:
-            return False, f"detail-api-error {type(e).__name__}: {e}"
+            return None, f"detail-api-unavailable {type(e).__name__}: {e}"
         if not isinstance(payload, dict) or payload.get("err_no") not in (0, None):
-            return False, f"detail-api-err_no={payload.get('err_no') if isinstance(payload, dict) else '?'}"
+            err = payload.get("err_no") if isinstance(payload, dict) else "?"
+            return None, f"detail-api-unavailable err_no={err}"
         data = payload.get("data")
         info = data.get("article_info") if isinstance(data, dict) else None
         if not isinstance(info, dict):
-            return False, "detail-api-no-article-info"
+            return None, "detail-api-unavailable no-article-info"
         if not article_time_matches_publish(info, started_at):
             ts = info.get("mtime") or info.get("ctime")
             return False, f"article-too-old article_id={article_id} ts={ts} started={int(started_at)}"
@@ -833,7 +838,7 @@ class JuejinAdapter(BasePlatformAdapter):
                         verified, verify_detail = await self._verify_article_time(
                             article_id, publish_started_at
                         )
-                        if not verified:
+                        if verified is False:
                             # 提交接口在部分时序会回上一单的 article_id；宁可不采集，
                             # 也不能把阅读量记到别的任务头上。
                             article_verify_note = verify_detail
@@ -841,6 +846,11 @@ class JuejinAdapter(BasePlatformAdapter):
                                 "[juejin] article_id rejected: %s", verify_detail
                             )
                             article_id = ""
+                        elif verified is None:
+                            article_verify_note = verify_detail
+                            logger.warning(
+                                "[juejin] article_id verify skipped: %s", verify_detail
+                            )
                         elif verify_detail:
                             logger.info("[juejin] article_id verify: %s", verify_detail)
                     # `/published` 过渡页只能证明“点了提交并跳转”，不能当公开文章证据。
